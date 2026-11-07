@@ -10,6 +10,8 @@ Every release, with its installers, is on the
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-11-07
+
 ### Added
 
 - **A new workspace starts with its orchestrator.** Creating a workspace now gives one Claude Code pane that is the orchestrator, ready to plan and hand work to workers; the layouts of several panes and shells are under More options. In a folder without git it still orchestrates, its workers sharing the folder (git init gives them worktrees).
@@ -752,6 +754,7 @@ statistics, workspace sleep and per-workspace MCP servers.
 - Automatic updates from signed GitHub releases.
 - An interface in English and French (0.1.1).
 
+[2.2.0]: https://github.com/simnJS/hangar-ai/releases/tag/v2.2.0
 [2.1.0]: https://github.com/simnJS/hangar-ai/releases/tag/v2.1.0
 [2.0.0]: https://github.com/simnJS/hangar-ai/releases/tag/v2.0.0
 [1.0.1]: https://github.com/simnJS/hangar-ai/releases/tag/v1.0.1
