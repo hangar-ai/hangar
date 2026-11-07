@@ -56,13 +56,12 @@ Grab the file for your system from the
 | System | File |
 |---|---|
 | Windows (x64) | `Hangar.AI_<version>_x64-setup.exe` — per-user, no admin rights |
-| macOS (Apple Silicon + Intel) | `Hangar.AI_<version>_universal.dmg` — macOS 10.15+ |
+| macOS (Apple Silicon + Intel) | `Hangar.AI_2.2.0_universal.dmg` (2.2.0, the last one built for you); later versions: [build it on your Mac](#build-on-macos) |
 | Linux (x86_64) | `.AppImage` (glibc 2.35+, `chmod +x` it), `.deb` or `.rpm` |
 
 You also need [Claude Code](https://code.claude.com/docs/en/overview) installed and signed
-in. Then create a workspace (`Ctrl`/`Cmd`+`Shift`+`N`), connect it to Hangar from the MCP
-panel (`Ctrl`/`Cmd`+`Alt`+`M` → **Configure**), and run **New orchestrator** from the
-command palette.
+in. Then create a workspace (`Ctrl`/`Cmd`+`Shift`+`N`): it starts with one Claude Code
+pane, its orchestrator. Tell it what you want built.
 
 SmartScreen, Gatekeeper, WebKitGTK, upgrading from 1.x, first steps:
 [install guide](docs/guide/install.md). Phone setup (about a minute):
@@ -78,6 +77,27 @@ cargo test --workspace
 
 Requirements (Rust, cmake, clang, per-OS packages) and the repository layout:
 [build guide](docs/guide/building.md).
+
+### Build on macOS
+
+Releases after 2.2.0 ship Windows and Linux only. On a Mac (Apple Silicon or Intel, macOS 10.15+), build Hangar yourself:
+
+```bash
+xcode-select --install                 # clang and the SDK
+brew install cmake node pnpm           # cmake for dictation; node + pnpm for Hangar Mobile
+curl https://sh.rustup.rs -sSf | sh    # Rust
+
+git clone https://github.com/hangar-ai/hangar && cd hangar
+pnpm install && pnpm mobile:build      # optional: the phone app Hangar serves
+cargo build --profile dist --locked -p hangar-app
+cargo build --profile dist --locked -p hangar-webview --features engine
+./target/dist/hangar-ai
+```
+
+`--release` instead of `--profile dist` builds several times faster (a bigger, slightly
+slower app). To make a `Hangar.AI.app` and a `.dmg`: `crates/hangar-app/packaging/macos/build.sh`
+([packaging guide](docs/native/PACKAGING.md)). A build of your own does not update itself:
+pull and build again for a new version.
 
 ## Experiments
 

@@ -194,11 +194,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # One universal app rather than two downloads: an Apple Silicon user
-          # picking the Intel build gets a working app either way, and nobody
-          # has to know which one they are on.
-          - platform: macos-latest
-            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
+          # No macOS job: its runners cost ten times a Linux one, so releases
+          # ship Windows and Linux, and the README says how to build the app on
+          # a Mac (crates/hangar-app/packaging/macos/build.sh still works there).
           - platform: windows-latest
             rust-targets: ""
           # Not `ubuntu-latest`: an AppImage links against the glibc of the

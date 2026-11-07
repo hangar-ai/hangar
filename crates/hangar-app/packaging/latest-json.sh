@@ -65,7 +65,8 @@ done
 # A feed missing a platform is exactly the silent failure this exists to
 # prevent, and one missing all of them means the signing key never got here.
 # Neither is written.
-for required in darwin-aarch64 linux-x86_64 windows-x86_64; do
+# macOS is built by hand on a Mac, not by the release: not required.
+for required in linux-x86_64 windows-x86_64; do
   if [ "$(jq --arg k "$required" 'has($k)' <<< "$platforms")" != "true" ]; then
     echo "latest.json would ship without $required (found $count signed artifact(s) in $dir)" >&2
     exit 1

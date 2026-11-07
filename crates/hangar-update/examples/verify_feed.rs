@@ -166,7 +166,17 @@ fn run() -> Result<(), Vec<String>> {
     }
 
     // Every kind of install finds a build, with the rules the updater itself uses.
+    // macOS is built by hand on a Mac, not by the release: a feed without any
+    // darwin entry is checked for the other systems only.
+    let has_mac = manifest
+        .platform_keys()
+        .into_iter()
+        .any(|key| key.starts_with("darwin"));
     for (what, target, install, ending) in requests() {
+        if what.starts_with("macOS") && !has_mac {
+            println!("skipped: {what} (no macOS build in this release)");
+            continue;
+        }
         let keys = target.keys(install.as_ref());
         match manifest.platform(&keys) {
             Ok((key, platform)) if platform.url.ends_with(ending) => {
