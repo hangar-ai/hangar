@@ -24,18 +24,23 @@ static PENDING: AtomicBool = AtomicBool::new(false);
 
 /// Trims the heap [`AFTER`] from now, unless a trim is already waiting.
 pub fn give_back_soon() {
-    if PENDING.swap(true, Ordering::SeqCst) {
+    schedule(&PENDING, AFTER);
+}
+
+/// A trim `after` from now, unless `pending` says one is waiting already.
+fn schedule(pending: &'static AtomicBool, after: Duration) {
+    if pending.swap(true, Ordering::SeqCst) {
         return;
     }
     let spawned = std::thread::Builder::new()
         .name("hangar-heap-trim".into())
-        .spawn(|| {
-            std::thread::sleep(AFTER);
-            PENDING.store(false, Ordering::SeqCst);
+        .spawn(move || {
+            std::thread::sleep(after);
+            pending.store(false, Ordering::SeqCst);
             trim();
         });
     if spawned.is_err() {
-        PENDING.store(false, Ordering::SeqCst);
+        pending.store(false, Ordering::SeqCst);
     }
 }
 
@@ -62,13 +67,18 @@ fn trim() {}
 mod tests {
     use super::*;
 
+    // A flag of its own: the app's PENDING is shared with every preview test
+    // that closes a viewer, and one of them may ask for a trim meanwhile.
+    static TEST_PENDING: AtomicBool = AtomicBool::new(false);
+
     #[test]
     fn a_trim_asked_while_one_waits_is_the_same_trim() {
-        give_back_soon();
-        assert!(PENDING.load(Ordering::SeqCst));
+        let after = Duration::from_millis(200);
+        schedule(&TEST_PENDING, after);
+        assert!(TEST_PENDING.load(Ordering::SeqCst));
         // Asked again meanwhile: no second thread, the first one covers it.
-        give_back_soon();
-        std::thread::sleep(AFTER + Duration::from_millis(500));
-        assert!(!PENDING.load(Ordering::SeqCst));
+        schedule(&TEST_PENDING, after);
+        std::thread::sleep(after + Duration::from_millis(800));
+        assert!(!TEST_PENDING.load(Ordering::SeqCst));
     }
 }
