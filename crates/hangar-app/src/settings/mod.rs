@@ -42,6 +42,8 @@ mod search;
 mod shortcuts;
 mod voice_card;
 
+pub use change::{set_shells_only, shells_only};
+
 use std::path::PathBuf;
 use std::time::Duration;
 

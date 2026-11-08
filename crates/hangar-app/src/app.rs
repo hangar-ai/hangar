@@ -83,6 +83,9 @@ macro_rules! define_packages {
         #[derive(Debug, Default)]
         pub struct Packages {
             $(pub $field: crate::$field::State,)*
+            /// The Claude Code setup's, a sheet of the shell's own
+            /// (shell/setup).
+            pub setup: crate::shell::setup::State,
         }
 
         impl App {
@@ -325,9 +328,13 @@ impl App {
             Message::Detected(claude, shells) => {
                 self.model.ui.claude_installed = claude;
                 self.model.ui.shells = shells;
+                self.pkg.setup.detected = true;
                 // The panes' shells start only now: one started before
                 // would run the first shell found instead of its own.
-                Task::done(Message::Panes(crate::panes::Msg::ShellsDetected))
+                Task::batch([
+                    Task::done(Message::Panes(crate::panes::Msg::ShellsDetected)),
+                    self.offer_setup(),
+                ])
             }
             Message::SaveDue(revision) => self.save_if_due(revision),
             Message::Saved(revision, result) => match result {
@@ -439,7 +446,17 @@ impl App {
             let notice = load_notice(Translator::new(self.model.locale()), &error);
             tasks.push(crate::shell::notice::show(&mut self.model, notice));
         }
+        tasks.push(self.offer_setup());
         Task::batch(tasks)
+    }
+
+    /// The Claude Code setup, at start, once the state and the detection are
+    /// both in and only when Claude Code is missing (shell/setup).
+    fn offer_setup(&mut self) -> Task<Message> {
+        match crate::shell::setup::offer_at_start(&self.pkg.setup, &self.model) {
+            Some(intent) => self.intent(intent),
+            None => Task::none(),
+        }
     }
 
     /// After every message: what follows a change (App.tsx's effects), the
@@ -544,6 +561,8 @@ impl App {
 
     /// The intent's shell part, then every package's.
     fn intent(&mut self, intent: Intent) -> Task<Message> {
+        // A new workspace while Claude Code is missing is the setup first.
+        let intent = crate::shell::setup::redirect(&mut self.pkg.setup, &self.model, intent);
         let own = self.own_intent(&intent);
         let mut tasks = self.offer_intent(&intent);
         tasks.push(own);
@@ -696,6 +715,10 @@ impl App {
             return Task::none();
         };
         if !self.model.is_focused_window(window) {
+            return Task::none();
+        }
+        // The Claude Code setup has no Escape: it is installed or set aside.
+        if crate::shell::setup::is_open(&self.model) {
             return Task::none();
         }
         if !self.model.ui.overlays.is_empty() {

@@ -800,6 +800,22 @@ fn general(ctx: &Context, locale: Locale) -> Category {
                 ],
             )
             .hint(tx(Key::SettingsAgentCommandsHint)),
+            section(
+                "claudeSetup",
+                AgentId::Claude.info().label.to_string(),
+                vec![
+                    toggle(
+                        "shellsOnly",
+                        tx(Key::SettingsShellsOnly),
+                        super::change::shells_only(settings),
+                        Target::ShellsOnly,
+                    )
+                    .hint(tx(Key::SettingsShellsOnlyHint))
+                    .keywords(
+                        "shells only uniquement install installer setup claude code without sans",
+                    ),
+                ],
+            ),
         ],
     }
 }

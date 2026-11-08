@@ -180,6 +180,8 @@ fn general_has_every_row_of_the_old_schema_with_its_default() {
             r#"hibernateAfter: select HibernateAfterMin = "10""#,
             "agentPaneControl: toggle AgentPaneControl = true",
             r#"agentCommand.claude: input ClaudeCommand = "" ("claude")"#,
+            // The Claude Code setup's way out (shell/setup).
+            "shellsOnly: toggle ShellsOnly = false",
         ]
     );
 }

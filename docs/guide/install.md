@@ -23,8 +23,8 @@ installs it in one click. A Hangar 1.x install offers 2.0 the same way.
 > and choose **Open**. On macOS 15 and later, go to **System Settings → Privacy &
 > Security** and click **Open Anyway**.
 
-You also need [Claude Code](https://code.claude.com/docs/en/overview) installed and
-signed in. Hangar launches it; it does not install it.
+Hangar runs [Claude Code](https://code.claude.com/docs/en/overview) in its panes. If it is
+not installed, Hangar offers to install it the first time it opens (see below).
 
 **Coming from 1.x.** Accept the update, or install 2.0 over 1.x: it uses the same folders
 and the same `state.json`, so your workspaces, boards, memory, settings, shortcuts, kits and
@@ -35,12 +35,24 @@ have been tested by CI but not yet used by a person.
 
 ## Getting started
 
+0. **Claude Code.** When Hangar cannot find Claude Code on this machine, it opens a
+   **Set up Claude Code** sheet at start, and again before a new workspace is made.
+   **Install Claude Code** runs Anthropic's official installer, exactly as
+   [Claude Code's docs](https://code.claude.com/docs/en/setup) give it —
+   `curl -fsSL https://claude.ai/install.sh | bash` on macOS and Linux,
+   `irm https://claude.ai/install.ps1 | iex` in PowerShell on Windows — for your user only,
+   with no administrator password, and shows what it prints as it runs. If it fails, the
+   sheet says why, shows the installer's output, and links to the install guide. Once
+   Claude Code is found, **Sign in** opens it in a pane, where it asks for your Claude
+   account the first time; the sheet notices when you are signed in. **Use Hangar with
+   shells only** sets Claude Code aside: Hangar stops asking, and new workspaces start with
+   a shell. Turn it back off in **Settings → General → Shells only, without Claude Code**.
 1. **Create a workspace** with `Ctrl`/`Cmd`+`Shift`+`N` and pick a project folder. The
    workspace starts with one Claude Code pane, its orchestrator: tell it what you want.
    Outside a git repository its workers share the folder (`git init` gives each one a
    worktree). **More options** has the other setups: several panes, a layout, shells and
-   agents of your choice. If Claude Code is not installed, the dialog says so and the
-   workspace starts with a shell.
+   agents of your choice. With **shells only** chosen, the dialog says Claude Code is not
+   installed and the workspace starts with a shell.
 2. **Connect Claude Code to Hangar.** Open the MCP panel (`Ctrl`/`Cmd`+`Alt`+`M`; `Alt` is
    `Option` on a Mac) and click
    **Configure**. The panel can also write a short playbook into the project's `CLAUDE.md`,

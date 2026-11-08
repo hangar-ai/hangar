@@ -13,6 +13,7 @@ pub mod notice;
 pub mod overlay;
 pub mod placeholder;
 pub mod regions;
+pub mod setup;
 pub mod side_panels;
 pub mod title_bar;
 pub mod ui;
@@ -79,4 +80,6 @@ pub enum Action {
     /// Whether this window is maximised or full screen, asked after it
     /// changed size.
     Maximized(iced::window::Id, bool),
+    /// The Claude Code setup's own (setup/).
+    Setup(setup::Msg),
 }

@@ -2956,6 +2956,10 @@ pub enum Key {
     SettingsShellWorkspace,
     /// `settings.shellWorkspaceHint`
     SettingsShellWorkspaceHint,
+    /// `settings.shellsOnly`
+    SettingsShellsOnly,
+    /// `settings.shellsOnlyHint`
+    SettingsShellsOnlyHint,
     /// `settings.shortcutsAll`
     SettingsShortcutsAll,
     /// `settings.shortcutsHint`
@@ -3090,6 +3094,48 @@ pub enum Key {
     SettingsVoiceVocabularyHint,
     /// `settings.voiceVocabularyPlaceholder`
     SettingsVoiceVocabularyPlaceholder,
+    /// `setup.docs`
+    SetupDocs,
+    /// `setup.done`
+    SetupDone,
+    /// `setup.failedExit`
+    SetupFailedExit,
+    /// `setup.failedHint`
+    SetupFailedHint,
+    /// `setup.failedSignal`
+    SetupFailedSignal,
+    /// `setup.failedStart`
+    SetupFailedStart,
+    /// `setup.how`
+    SetupHow,
+    /// `setup.install`
+    SetupInstall,
+    /// `setup.installed`
+    SetupInstalled,
+    /// `setup.installing`
+    SetupInstalling,
+    /// `setup.installingHint`
+    SetupInstallingHint,
+    /// `setup.lead`
+    SetupLead,
+    /// `setup.noOutput`
+    SetupNoOutput,
+    /// `setup.notFound`
+    SetupNotFound,
+    /// `setup.retry`
+    SetupRetry,
+    /// `setup.shellsOnly`
+    SetupShellsOnly,
+    /// `setup.shellsOnlyHint`
+    SetupShellsOnlyHint,
+    /// `setup.signIn`
+    SetupSignIn,
+    /// `setup.signInLead`
+    SetupSignInLead,
+    /// `setup.signedIn`
+    SetupSignedIn,
+    /// `setup.title`
+    SetupTitle,
     /// `sidebar.activityWaiting`
     SidebarActivityWaiting,
     /// `sidebar.activityWorking`
@@ -3877,7 +3923,7 @@ pub enum Key {
 }
 
 /// How many keys there are.
-pub const KEY_COUNT: usize = 1930;
+pub const KEY_COUNT: usize = 1953;
 
 impl Key {
     /// Every key, in the order of their ids.
@@ -5353,6 +5399,8 @@ impl Key {
         Key::SettingsShellFollow,
         Key::SettingsShellWorkspace,
         Key::SettingsShellWorkspaceHint,
+        Key::SettingsShellsOnly,
+        Key::SettingsShellsOnlyHint,
         Key::SettingsShortcutsAll,
         Key::SettingsShortcutsHint,
         Key::SettingsShowInspector,
@@ -5420,6 +5468,27 @@ impl Key {
         Key::SettingsVoiceVocabulary,
         Key::SettingsVoiceVocabularyHint,
         Key::SettingsVoiceVocabularyPlaceholder,
+        Key::SetupDocs,
+        Key::SetupDone,
+        Key::SetupFailedExit,
+        Key::SetupFailedHint,
+        Key::SetupFailedSignal,
+        Key::SetupFailedStart,
+        Key::SetupHow,
+        Key::SetupInstall,
+        Key::SetupInstalled,
+        Key::SetupInstalling,
+        Key::SetupInstallingHint,
+        Key::SetupLead,
+        Key::SetupNoOutput,
+        Key::SetupNotFound,
+        Key::SetupRetry,
+        Key::SetupShellsOnly,
+        Key::SetupShellsOnlyHint,
+        Key::SetupSignIn,
+        Key::SetupSignInLead,
+        Key::SetupSignedIn,
+        Key::SetupTitle,
         Key::SidebarActivityWaiting,
         Key::SidebarActivityWorking,
         Key::SidebarActivityYours,
@@ -7288,6 +7357,8 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "settings.shellFollow", en: Text::plain("Follow the default"), fr: Text::plain("Suivre le défaut") },
     Message { id: "settings.shellWorkspace", en: Text::plain("This workspace"), fr: Text::plain("Ce workspace") },
     Message { id: "settings.shellWorkspaceHint", en: Text::plain("Overrides the default shell"), fr: Text::plain("Prioritaire sur le shell par défaut") },
+    Message { id: "settings.shellsOnly", en: Text::plain("Shells only, without Claude Code"), fr: Text::plain("Shells uniquement, sans Claude Code") },
+    Message { id: "settings.shellsOnlyHint", en: Text::plain("Hangar no longer asks to install Claude Code, and new workspaces start with a shell. Turn this off to install it."), fr: Text::plain("Hangar ne propose plus d'installer Claude Code, et les nouveaux workspaces démarrent avec un shell. Désactive cette option pour l'installer.") },
     Message { id: "settings.shortcutsAll", en: Text::plain("All commands"), fr: Text::plain("Toutes les commandes") },
     Message { id: "settings.shortcutsHint", en: Text::plain("Click + on a command to record its keys. A shortcut can be a sequence: type {mod}+K, then {mod}+S."), fr: Text::plain("Clique sur + à côté d'une commande pour enregistrer ses touches. Un raccourci peut être une séquence\u{202f}: tape {mod}+K, puis {mod}+S.") },
     Message { id: "settings.showInspector", en: Text::plain("Show the inspector"), fr: Text::plain("Afficher l'inspecteur") },
@@ -7355,6 +7426,27 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "settings.voiceVocabulary", en: Text::plain("Project vocabulary"), fr: Text::plain("Vocabulaire du projet") },
     Message { id: "settings.voiceVocabularyHint", en: Text::plain("Names and spellings the cleanup should keep — one per line"), fr: Text::plain("Les noms et orthographes que la relecture doit respecter — un par ligne") },
     Message { id: "settings.voiceVocabularyPlaceholder", en: Text::plain("Hangar.AI, pnpm, Tauri, simnJS"), fr: Text::plain("Hangar.AI, pnpm, Tauri, simnJS") },
+    Message { id: "setup.docs", en: Text::plain("Open the install guide"), fr: Text::plain("Ouvrir le guide d'installation") },
+    Message { id: "setup.done", en: Text::plain("Done"), fr: Text::plain("Terminé") },
+    Message { id: "setup.failedExit", en: Text::plain("The installation failed (exit code {code})."), fr: Text::plain("L'installation a échoué (code de sortie {code}).") },
+    Message { id: "setup.failedHint", en: Text::plain("What the installer printed is below. The install guide matches each error to its fix."), fr: Text::plain("Ce que l'installeur a affiché est ci-dessous. Le guide d'installation donne la solution de chaque erreur.") },
+    Message { id: "setup.failedSignal", en: Text::plain("The installation was stopped before it finished."), fr: Text::plain("L'installation a été interrompue avant la fin.") },
+    Message { id: "setup.failedStart", en: Text::plain("The installer could not be started: {error}"), fr: Text::plain("L'installeur n'a pas pu être lancé\u{202f}: {error}") },
+    Message { id: "setup.how", en: Text::plain("One click installs it with Anthropic's official installer, for your user only, without an administrator password:"), fr: Text::plain("Un clic l'installe avec l'installeur officiel d'Anthropic, pour ton utilisateur seulement, sans mot de passe administrateur\u{202f}:") },
+    Message { id: "setup.install", en: Text::plain("Install Claude Code"), fr: Text::plain("Installer Claude Code") },
+    Message { id: "setup.installed", en: Text::plain("Claude Code is installed."), fr: Text::plain("Claude Code est installé.") },
+    Message { id: "setup.installing", en: Text::plain("Installing Claude Code…"), fr: Text::plain("Installation de Claude Code…") },
+    Message { id: "setup.installingHint", en: Text::plain("The installer shows no progress while it downloads Claude Code: this can take a minute."), fr: Text::plain("L'installeur n'affiche rien pendant qu'il télécharge Claude Code\u{202f}: ça peut prendre une minute.") },
+    Message { id: "setup.lead", en: Text::plain("Hangar runs Claude Code, Anthropic's coding agent, in its panes, and it is not installed on this machine yet."), fr: Text::plain("Hangar fait tourner Claude Code, l'agent de code d'Anthropic, dans ses panneaux, et il n'est pas encore installé sur cette machine.") },
+    Message { id: "setup.noOutput", en: Text::plain("(the installer printed nothing)"), fr: Text::plain("(l'installeur n'a rien affiché)") },
+    Message { id: "setup.notFound", en: Text::plain("The installer finished, but Hangar still cannot find claude on this machine."), fr: Text::plain("L'installeur a terminé, mais Hangar ne trouve toujours pas claude sur cette machine.") },
+    Message { id: "setup.retry", en: Text::plain("Try again"), fr: Text::plain("Réessayer") },
+    Message { id: "setup.shellsOnly", en: Text::plain("Use Hangar with shells only"), fr: Text::plain("Utiliser Hangar avec des shells uniquement") },
+    Message { id: "setup.shellsOnlyHint", en: Text::plain("You can change this later in Settings."), fr: Text::plain("Tu pourras changer d'avis dans les Réglages.") },
+    Message { id: "setup.signIn", en: Text::plain("Sign in"), fr: Text::plain("Se connecter") },
+    Message { id: "setup.signInLead", en: Text::plain("Last step: sign in with your Claude account. Claude Code asks for it in a pane the first time it starts."), fr: Text::plain("Dernière étape\u{202f}: connecte-toi avec ton compte Claude. Claude Code le demande dans un panneau la première fois qu'il démarre.") },
+    Message { id: "setup.signedIn", en: Text::plain("Signed in: Claude Code is ready."), fr: Text::plain("Connecté\u{202f}: Claude Code est prêt.") },
+    Message { id: "setup.title", en: Text::plain("Set up Claude Code"), fr: Text::plain("Installer Claude Code") },
     Message { id: "sidebar.activityWaiting", en: Text::plural("{n} agent waits for your answer", "{n} agents wait for your answer"), fr: Text::plural("{n} agent attend ta réponse", "{n} agents attendent ta réponse") },
     Message { id: "sidebar.activityWorking", en: Text::plural("{n} agent working", "{n} agents working"), fr: Text::plural("{n} agent travaille", "{n} agents travaillent") },
     Message { id: "sidebar.activityYours", en: Text::plural("{n} agent finished, your turn", "{n} agents finished, your turn"), fr: Text::plural("{n} agent a terminé, à toi", "{n} agents ont terminé, à toi") },

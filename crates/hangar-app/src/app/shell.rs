@@ -159,6 +159,9 @@ impl App {
                 }
             }
             Action::OpenNeedsYou => self.model.ui.needs_you_open = true,
+            Action::Setup(msg) => {
+                return crate::shell::setup::update(&mut self.pkg.setup, &mut self.model, msg);
+            }
             Action::CloseSettings => return self.close_settings(),
             Action::ToggleFullscreen(w) => {
                 return window::mode(w).then(move |mode| {

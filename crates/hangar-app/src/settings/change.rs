@@ -17,6 +17,32 @@ use super::experiments::with_experiment;
 use crate::state::types::{CursorStyle, Settings, VoiceEngine, Workspace};
 use crate::state::{Patch, StoreAction};
 
+/// Where the « shells only » choice is kept in the settings file: a key of
+/// its own, written only while it is on, so a file from before it existed is
+/// written back the same, and an older version keeps it untouched.
+pub const SHELLS_ONLY: &str = "shellsOnly";
+
+/// Whether the person chose to use Hangar with shells only, without Claude
+/// Code: the setup then never asks to install it (shell/setup).
+pub fn shells_only(settings: &Settings) -> bool {
+    settings
+        .extra
+        .get(SHELLS_ONLY)
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+}
+
+/// Records the « shells only » choice; off removes the key.
+pub fn set_shells_only(settings: &mut Settings, on: bool) {
+    if on {
+        settings
+            .extra
+            .insert(SHELLS_ONLY.into(), serde_json::Value::Bool(true));
+    } else {
+        settings.extra.remove(SHELLS_ONLY);
+    }
+}
+
 /// The value a control reports.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -39,6 +65,9 @@ pub enum Target {
     AgentPaneControl,
     /// Claude Code's launch command (`agentCommands.claude`).
     ClaudeCommand,
+    /// Hangar without Claude Code: the setup no longer asks to install it
+    /// ([`shells_only`]).
+    ShellsOnly,
     // Appearance
     UiScale,
     NavigatorOpen,
@@ -214,6 +243,7 @@ pub fn apply(settings: &mut Settings, target: &Target, value: &Value) -> bool {
             None => return false,
         },
         (T::AgentPaneControl, Bool(on)) => settings.agent_pane_control = *on,
+        (T::ShellsOnly, Bool(on)) => set_shells_only(settings, *on),
         (T::ClaudeCommand, Text(command)) => {
             // Cleared means back to the default, and storing "" would pin
             // Claude Code to a command it no longer follows. What is stored is
@@ -371,6 +401,7 @@ mod tests {
             (Target::ClaudeBridge, |s| s.claude_bridge),
             (Target::HibernateIdle, |s| s.hibernate_idle),
             (Target::AgentPaneControl, |s| s.agent_pane_control),
+            (Target::ShellsOnly, shells_only),
             (Target::NavigatorOpen, |s| s.navigator_open),
             (Target::InspectorOpen, |s| s.inspector_open),
             (Target::SystemTitleBar, |s| s.system_title_bar),
