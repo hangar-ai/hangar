@@ -59,6 +59,8 @@ pub enum PanelMsg {
     EmptyConfirm,
     Check(String),
     Branch(String),
+    /// How many waiting deliveries share a check; none: the default.
+    BatchSize(Option<u32>),
     Model(ModelField, String),
     /// Every field back to the value Hangar ships with.
     Reset,
@@ -240,6 +242,7 @@ pub fn update(st: &mut State, m: &mut Model, msg: PanelMsg) -> iced::Task<Messag
         }
         PanelMsg::Check(text) => panel.draft.check_command = text,
         PanelMsg::Branch(text) => panel.draft.branch = text,
+        PanelMsg::BatchSize(size) => panel.draft.batch_size = size,
         PanelMsg::Model(which, text) => *model_field(&mut panel.draft, which) = text,
         PanelMsg::Reset => panel.draft = draft_of(&Workspace::default()),
         PanelMsg::Save => return save(panel, m),
@@ -360,6 +363,7 @@ pub fn view<'a>(st: &'a State, ctx: Ctx<'a>, ws_id: &'a WsId) -> Element<'a, Mes
                     .then(|| ctx.t(Key::OrchBranchInvalid).into_owned()),
                 PanelMsg::Branch,
             ),
+            batch_row(ctx, draft),
         ]),
         form::section(t, ctx.t(Key::OrchSectionModels))
             .hint(ctx.t(Key::OrchModelsHint))
@@ -538,6 +542,68 @@ fn permission_row<'a>(ctx: Ctx<'a>, draft: &'a Draft) -> Element<'a, Message> {
     )
     .hint(ctx.t(Key::OrchPermissionHint))
     .into()
+}
+
+/// An option of the batch size list: none is the default.
+#[derive(Debug, Clone, PartialEq)]
+struct Size {
+    size: Option<u32>,
+    label: String,
+}
+
+impl fmt::Display for Size {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.label)
+    }
+}
+
+/// The sizes offered: one at a time, a few, the default, more.
+const BATCH_SIZES: [u32; 6] = [1, 2, 3, 4, 6, 8];
+
+/// "Deliveries checked together": how many waiting deliveries share one run
+/// of the check (the merge queue, docs/native/DELIVERIES.md).
+fn batch_row<'a>(ctx: Ctx<'a>, draft: &'a Draft) -> Element<'a, Message> {
+    let t = ctx.theme;
+    let (options, chosen) = batch_choice(ctx, draft);
+    let select = input::select(t, options, chosen, |size: Size| {
+        msg(PanelMsg::BatchSize(size.size))
+    });
+    form::row(t, ctx.t(Key::OrchBatchSize), container(select).width(300.0))
+        .hint(ctx.t(Key::OrchBatchSizeHint))
+        .into()
+}
+
+/// The sizes offered, and the one the draft holds.
+fn batch_choice(ctx: Ctx<'_>, draft: &Draft) -> (Vec<Size>, Option<Size>) {
+    let default = hangar_core::delivery::BATCH_SIZE as u32;
+    let options: Vec<Size> = BATCH_SIZES
+        .iter()
+        .map(|&size| Size {
+            size: (size != default).then_some(size),
+            label: if size == default {
+                ctx.i18n
+                    .t_with(Key::OrchBatchSizeDefault, &args!("n" => size))
+                    .into_owned()
+            } else if size == 1 {
+                ctx.t(Key::OrchBatchSizeAlone).into_owned()
+            } else {
+                size.to_string()
+            },
+        })
+        .collect();
+    let wanted = draft.batch_size.filter(|size| *size != default);
+    let chosen = options
+        .iter()
+        .find(|option| option.size == wanted)
+        .cloned()
+        .or_else(|| {
+            // A size set by hand in the file, not one of the list.
+            wanted.map(|size| Size {
+                size: Some(size),
+                label: size.to_string(),
+            })
+        });
+    (options, chosen)
 }
 
 /// A text row: the check command, the branch.
@@ -721,6 +787,38 @@ mod tests {
         assert!(normalize_draft(draft).shared_build_cache);
         // It is a change to save, and not the defaults any more.
         assert!(!same_settings(
+            &normalize_draft(draft),
+            &orchestration_defaults()
+        ));
+    }
+
+    #[test]
+    fn the_batch_size_shows_its_default_and_a_choice_is_what_gets_saved() {
+        let mut model = shop(false);
+        let mut st = opened(&model);
+        let pkg = Packages::default();
+        let ws: WsId = "w1".into();
+        {
+            let mut ui = simulate(view(&st, ctx(&model, &pkg), &ws));
+            assert!(ui.find("Deliveries checked together").is_ok());
+        }
+        let label = |model: &Model, st: &State| {
+            let draft = &st.panel.as_ref().unwrap().draft;
+            batch_choice(ctx(model, &pkg), draft).1.unwrap().label
+        };
+        assert_eq!(label(&model, &st), "4 (default)");
+        let _ = update(&mut st, &mut model, PanelMsg::BatchSize(Some(1)));
+        assert_eq!(label(&model, &st), "1, one at a time");
+        let draft = &st.panel.as_ref().unwrap().draft;
+        assert_eq!(normalize_draft(draft).batch_size, Some(1));
+        assert!(!same_settings(
+            &normalize_draft(draft),
+            &orchestration_defaults()
+        ));
+        // Back to the default: nothing to store.
+        let _ = update(&mut st, &mut model, PanelMsg::BatchSize(None));
+        let draft = &st.panel.as_ref().unwrap().draft;
+        assert!(same_settings(
             &normalize_draft(draft),
             &orchestration_defaults()
         ));

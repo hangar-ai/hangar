@@ -2322,6 +2322,14 @@ pub enum Key {
     OrchBadgeWorkerHint,
     /// `orch.badgeWorkerNoTask`
     OrchBadgeWorkerNoTask,
+    /// `orch.batchSize`
+    OrchBatchSize,
+    /// `orch.batchSizeAlone`
+    OrchBatchSizeAlone,
+    /// `orch.batchSizeDefault`
+    OrchBatchSizeDefault,
+    /// `orch.batchSizeHint`
+    OrchBatchSizeHint,
     /// `orch.branch`
     OrchBranch,
     /// `orch.branchHint`
@@ -3923,7 +3931,7 @@ pub enum Key {
 }
 
 /// How many keys there are.
-pub const KEY_COUNT: usize = 1953;
+pub const KEY_COUNT: usize = 1957;
 
 impl Key {
     /// Every key, in the order of their ids.
@@ -5082,6 +5090,10 @@ impl Key {
         Key::OrchBadgeWorker,
         Key::OrchBadgeWorkerHint,
         Key::OrchBadgeWorkerNoTask,
+        Key::OrchBatchSize,
+        Key::OrchBatchSizeAlone,
+        Key::OrchBatchSizeDefault,
+        Key::OrchBatchSizeHint,
         Key::OrchBranch,
         Key::OrchBranchHint,
         Key::OrchBranchInvalid,
@@ -7040,6 +7052,10 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "orch.badgeWorker", en: Text::plain("Worker"), fr: Text::plain("Worker") },
     Message { id: "orch.badgeWorkerHint", en: Text::plain("Worker of the orchestrator, on “{title}”"), fr: Text::plain("Worker de l'orchestrateur, sur «\u{202f}{title}\u{202f}»") },
     Message { id: "orch.badgeWorkerNoTask", en: Text::plain("Worker of the orchestrator"), fr: Text::plain("Worker de l'orchestrateur") },
+    Message { id: "orch.batchSize", en: Text::plain("Deliveries checked together"), fr: Text::plain("Livraisons vérifiées ensemble") },
+    Message { id: "orch.batchSizeAlone", en: Text::plain("1, one at a time"), fr: Text::plain("1, une à la fois") },
+    Message { id: "orch.batchSizeDefault", en: Text::plain("{n} (default)"), fr: Text::plain("{n} (par défaut)") },
+    Message { id: "orch.batchSizeHint", en: Text::plain("Deliveries waiting at the same time share one run of the check, up to this many. When it fails, Hangar finds the delivery that breaks it, and only that one is sent back. The branch only ever moves to what the check passed on."), fr: Text::plain("Les livraisons qui attendent en même temps partagent une seule vérification, jusqu'à ce nombre. Si elle échoue, Hangar retrouve la livraison qui la casse, et seule celle-là est renvoyée. La branche n'avance que sur ce que la vérification a validé.") },
     Message { id: "orch.branch", en: Text::plain("Target branch"), fr: Text::plain("Branche cible") },
     Message { id: "orch.branchHint", en: Text::plain("Where deliveries land"), fr: Text::plain("Là où arrivent les livraisons") },
     Message { id: "orch.branchInvalid", en: Text::plain("Not a branch name git accepts"), fr: Text::plain("Pas un nom de branche que git accepte") },

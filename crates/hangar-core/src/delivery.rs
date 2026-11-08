@@ -1,9 +1,10 @@
 //! Deliveries: a worker's branch landing on its workspace's branch.
 //!
-//! One at a time per repository. Each one is merged onto the branch as it is
-//! now in a worktree of its own, checked with the workspace's command, read by
-//! a reviewer agent with a fresh context, and only then landed, or handed back
-//! to its worker with what failed. Nothing is ever pushed.
+//! One at a time per repository, or several checked together (`batch`, the
+//! merge queue: docs/native/DELIVERIES.md). Each one is merged onto the branch
+//! as it is now in a worktree of its own, checked with the workspace's command,
+//! read by a reviewer agent with a fresh context, and only then landed, or
+//! handed back to its worker with what failed. Nothing is ever pushed.
 //!
 //! The person's own checkout is never worked in. Every merge, check and review
 //! happens in a temporary worktree that goes away whatever the outcome, and

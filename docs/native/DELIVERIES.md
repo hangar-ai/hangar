@@ -64,28 +64,39 @@ members before it had landed, as the sequential queue would have done.
 - A member whose merge changes nothing (all of it is on main or in the
   members before it): the usual "nothing new" error.
 
-### Checking it: once, then halves
+### Checking it: once, then by halves
 
 The check runs once, on the end of the chain.
 
 - Green: every member passed.
 - Red, one member: that member fails, with that check's output — exactly the
   check of its own merge.
-- Red, several: split in halves `A` and `B`. `A` is checked on main. Then `B`
-  is checked on main plus what of `A` passed. When all of `A` passed, the
-  tree of `B` on top of it is the tree that just failed, so it is not run
-  again: it is red. Each half goes down the same way, to the single members
-  that break it.
+- Red, several: Hangar looks for the first member that breaks it, by halves
+  over the chain's prefixes. The whole chain is red; the first half (main +
+  the first half of the members) is checked: green, the culprit is in the
+  second half and the next probe is three quarters; red, it is in the first
+  half and the next probe is a quarter; and so on down to `k` members that
+  pass and `k + 1` that fail. Member `k + 1` gets `checkFailed`, with the
+  check of its own merge (main + the `k` before it). The members after it are
+  merged again, together, on the `k` that passed, and that chain goes the
+  same way: checked once, searched only if red.
+
+This is the brief's "first half on main, second half on main + first half"
+when the first half is green. When the first half is red, the members after
+the culprit are checked together again rather than half by half: one check
+instead of two or more.
 
 The rule that keeps main safe: what this returns as *passed* is always a list
 of members whose chain, on main, is a tree the check passed on. A member
-blamed always failed on its own exact merge. Every check that runs is
-remembered by its tree, as before, so a tree that passed never runs twice.
+blamed always failed on its own exact merge. Every tree the check failed on
+is remembered for the batch, and every tree it passed on is remembered as
+before (`delivery-passed.json`), so no tree is checked twice: the tree of the
+second half on a green first half is the one that just failed, and is not run
+again.
 
-With five deliveries waiting, all green, that is two checks instead of five
-(a batch of four, then the fifth alone). One failing in a batch of four:
-the batch, its first half, then the half holding the failing one, member by
-member — three or four checks for four deliveries, against four.
+The cost, for a batch of `n` with one member failing: the batch, about
+`log2(n)` probes, and the members after the culprit together — four checks
+for a batch of four, four for five. All green: one check for the batch.
 
 A check that cannot run (its shell is missing, Hangar quits): `error` for
 every member, nothing merged, as before.
@@ -126,17 +137,41 @@ Every round removes at least one member or ends the batch, so it ends.
 
 Each member's `delivery_submit` gets its own outcome, with the same kinds and
 the same detail as before (`landed`, `checkFailed`, `changesRequested`,
-`conflict`, `stale`, `dirty`, `error`); a landed or failed one says it was
-checked in a batch, and with which branches. Each member's stage in
-`delivery_status` moves as its own did: queued, merging, checking, reviewing,
-landing. The batch the delivery is in is known to `delivery_batch_of` in
-core.
+`conflict`, `stale`, `dirty`, `error`): the board, the worker's message and
+the orchestrator's event follow from it exactly as for a delivery on its own.
+A landed or failed one adds that it was checked in a batch, and with which
+branches. Each member's stage in `delivery_status` moves as its own did
+(queued, merging, checking, reviewing, landing: Hangar Mobile's stages are
+unchanged), and while it is checked with others `delivery_status` adds
+`batch`: how many deliveries the check it is in covers (`Running::batch`).
+
+## The setting
+
+"Deliveries checked together", in the workspace's orchestration settings
+(`OrchestrationSettings::batch_size`, `batchSize` in the file, written only
+when set): 1 (one at a time, as before 2.3), 2, 3, 4 (the default,
+`delivery::BATCH_SIZE`), 6 or 8; a file may hold up to 16
+(`delivery::MAX_BATCH_SIZE`). It reaches the queue in `Delivery::batch_size`;
+the size of the delivery that takes the turn is the one used.
+
+## Not done
+
+- Reviews in parallel: each would need a checkout of its own.
+- Filling the re-check after a culprit with deliveries still waiting beyond
+  the batch size: the fifth of five waiting deliveries goes in the next
+  batch even when the first one had room left after a failure.
 
 ## Measure
 
-`scripts`-free, by hand: a synthetic repository whose check sleeps 60 s, five
-deliveries submitted together, one of them failing its check. See
-"Measured" below.
+`delivery::tests::batches::measure_a_queue_of_five_with_one_failing`, run by
+hand (`cargo test -p hangar-core --lib measure_a_queue -- --ignored
+--nocapture`, `HANGAR_MEASURE_CHECK_SECS` for the check's length): throwaway
+repositories, five deliveries waiting together, a check that sleeps 60 s and
+fails when `bad.rs` is there, the third delivery adding it — then the same
+with all five green. Once one at a time (batch size 1), then with batches of
+4 and 5; it asserts that every delivery's outcome and the files that end on
+main are the same as one at a time. The reviewer is a stand-in that approves:
+the review's minutes are the same either way, one per delivery.
 
 ## Measured
 
