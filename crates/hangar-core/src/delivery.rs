@@ -1713,7 +1713,7 @@ impl Default for Limits {
 }
 
 /// A delivery in progress, for `delivery_status`.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Running {
     pub task_id: String,
@@ -1728,9 +1728,69 @@ pub struct Running {
     pub batch: Option<u32>,
 }
 
-fn stages() -> &'static Mutex<HashMap<String, Running>> {
-    static STAGES: OnceLock<Mutex<HashMap<String, Running>>> = OnceLock::new();
+/// What `Event::DeliveryStages` says each time a delivery moves on: where
+/// every delivery under way stands, in the order they joined their queue,
+/// and the one that just ended, with how.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Stages {
+    pub running: Vec<Running>,
+    pub ended: Option<StageEnd>,
+}
+
+/// A delivery over, with its outcome.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StageEnd {
+    pub task_id: String,
+    pub outcome: Kind,
+}
+
+/// The deliveries under way, each with the turn it joined in.
+#[derive(Default)]
+struct StageBook {
+    joined: u64,
+    entries: HashMap<String, (u64, Running)>,
+}
+
+impl StageBook {
+    fn running(&self) -> Vec<Running> {
+        let mut entries: Vec<&(u64, Running)> = self.entries.values().collect();
+        entries.sort_by_key(|(joined, _)| *joined);
+        entries
+            .into_iter()
+            .map(|(_, entry)| entry.clone())
+            .collect()
+    }
+}
+
+fn stages() -> &'static Mutex<StageBook> {
+    static STAGES: OnceLock<Mutex<StageBook>> = OnceLock::new();
     STAGES.get_or_init(Default::default)
+}
+
+/// Where stage changes are told: the window's bus, once it gave it
+/// (`delivery_watch`). Nothing is told before.
+fn watcher() -> &'static Mutex<Option<crate::host::Host>> {
+    static WATCHER: OnceLock<Mutex<Option<crate::host::Host>>> = OnceLock::new();
+    WATCHER.get_or_init(Default::default)
+}
+
+/// Tells `host`'s subscribers each time a delivery changes stage, and when
+/// one ends (`Event::DeliveryStages`).
+pub fn delivery_watch(host: crate::host::Host) {
+    *watcher().lock().unwrap_or_else(|p| p.into_inner()) = Some(host);
+}
+
+/// Tells the watcher where the deliveries stand now. Called with the book's
+/// lock released.
+fn announce(ended: Option<StageEnd>) {
+    let Some(host) = watcher().lock().unwrap_or_else(|p| p.into_inner()).clone() else {
+        return;
+    };
+    let running = stages().lock().unwrap().running();
+    let _ = host.emit(crate::host::Event::DeliveryStages(Stages {
+        running,
+        ended,
+    }));
 }
 
 fn now_ms() -> u64 {
@@ -1745,16 +1805,25 @@ struct Stage(String);
 
 impl Stage {
     fn enter(task: &str, queue: &str) -> Stage {
-        stages().lock().unwrap().insert(
-            task.to_string(),
-            Running {
-                task_id: task.to_string(),
-                queue: queue.to_string(),
-                stage: "queued".into(),
-                since: now_ms(),
-                batch: None,
-            },
-        );
+        {
+            let mut book = stages().lock().unwrap();
+            book.joined += 1;
+            let joined = book.joined;
+            book.entries.insert(
+                task.to_string(),
+                (
+                    joined,
+                    Running {
+                        task_id: task.to_string(),
+                        queue: queue.to_string(),
+                        stage: "queued".into(),
+                        since: now_ms(),
+                        batch: None,
+                    },
+                ),
+            );
+        }
+        announce(None);
         Stage(task.to_string())
     }
 
@@ -1766,23 +1835,40 @@ impl Stage {
 /// Says how many deliveries the check `task`'s delivery is in covers; none
 /// when it goes on its own.
 fn set_batch(task: &str, batch: Option<u32>) {
-    if let Some(entry) = stages().lock().unwrap().get_mut(task) {
-        entry.batch = batch;
+    let changed = match stages().lock().unwrap().entries.get_mut(task) {
+        Some((_, entry)) if entry.batch != batch => {
+            entry.batch = batch;
+            true
+        }
+        _ => false,
+    };
+    if changed {
+        announce(None);
     }
 }
 
 /// Moves the stage of `task`'s delivery, whichever thread runs it: a batch
 /// moves its members' stages.
 fn set_stage(task: &str, stage: &str) {
-    if let Some(entry) = stages().lock().unwrap().get_mut(task) {
-        entry.stage = stage.to_string();
-        entry.since = now_ms();
+    let moved = match stages().lock().unwrap().entries.get_mut(task) {
+        Some((_, entry)) => {
+            entry.stage = stage.to_string();
+            entry.since = now_ms();
+            true
+        }
+        None => false,
+    };
+    if moved {
+        announce(None);
     }
 }
 
 impl Drop for Stage {
     fn drop(&mut self) {
-        stages().lock().unwrap().remove(&self.0);
+        let gone = stages().lock().unwrap().entries.remove(&self.0).is_some();
+        if gone {
+            announce(None);
+        }
     }
 }
 
@@ -2721,7 +2807,8 @@ pub async fn delivery_preflight(
 /// Takes as long as the delivery does — the check and the review are minutes —
 /// on a thread of its own, never the window's.
 pub async fn delivery_run(delivery: Delivery) -> Outcome {
-    tokio::task::spawn_blocking(move || {
+    let task_id = delivery.task.id.clone();
+    let outcome = tokio::task::spawn_blocking(move || {
         deliver(
             &delivery,
             &Claude {
@@ -2731,7 +2818,12 @@ pub async fn delivery_run(delivery: Delivery) -> Outcome {
         )
     })
     .await
-    .unwrap_or_else(|err| Outcome::error(format!("the delivery stopped unexpectedly: {err}")))
+    .unwrap_or_else(|err| Outcome::error(format!("the delivery stopped unexpectedly: {err}")));
+    announce(Some(StageEnd {
+        task_id,
+        outcome: outcome.outcome,
+    }));
+    outcome
 }
 
 pub async fn delivery_cleanup(
@@ -2750,7 +2842,7 @@ pub async fn delivery_cleanup(
 }
 
 pub fn delivery_running() -> Vec<Running> {
-    stages().lock().unwrap().values().cloned().collect()
+    stages().lock().unwrap().running()
 }
 
 #[cfg(test)]
@@ -2761,6 +2853,62 @@ mod tests {
 
     /// The merge queue: deliveries checked together.
     mod batches;
+
+    /// Each stage change and the end are told on the watcher's bus, with
+    /// where every delivery stands, in the order they joined.
+    #[test]
+    fn stage_changes_are_told_to_the_window() {
+        let host =
+            crate::host::Host::with_paths(crate::paths::Paths::rooted(&std::env::temp_dir()));
+        let mut bus = host.subscribe();
+        delivery_watch(host);
+        let mine = |stages: &Stages| -> Vec<(String, String, Option<u32>)> {
+            stages
+                .running
+                .iter()
+                .filter(|entry| entry.task_id.starts_with("told-"))
+                .map(|entry| (entry.task_id.clone(), entry.stage.clone(), entry.batch))
+                .collect()
+        };
+        // Other tests' deliveries may speak on the same bus: each snapshot
+        // is the whole picture, so the one awaited is looked for.
+        let mut until = |wanted: &dyn Fn(&Stages) -> bool| loop {
+            match bus.try_recv() {
+                Ok(crate::host::Event::DeliveryStages(stages)) if wanted(&stages) => return,
+                Ok(_) => {}
+                Err(err) => panic!("the change was not told: {err:?}"),
+            }
+        };
+        let queued = |task: &str| (task.to_string(), "queued".to_string(), None);
+        let first = Stage::enter("told-a", "repo-told");
+        let second = Stage::enter("told-b", "repo-told");
+        until(&|s| mine(s) == [queued("told-a"), queued("told-b")]);
+        first.set("checking");
+        until(&|s| mine(s) == [("told-a".into(), "checking".into(), None), queued("told-b")]);
+        set_batch("told-a", Some(2));
+        until(&|s| {
+            mine(s)
+                == [
+                    ("told-a".into(), "checking".into(), Some(2)),
+                    queued("told-b"),
+                ]
+        });
+        drop(first);
+        until(&|s| mine(s) == [queued("told-b")]);
+        drop(second);
+        until(&|s| mine(s).is_empty());
+        announce(Some(StageEnd {
+            task_id: "told-b".into(),
+            outcome: Kind::Landed,
+        }));
+        until(&|s| {
+            s.ended
+                == Some(StageEnd {
+                    task_id: "told-b".into(),
+                    outcome: Kind::Landed,
+                })
+        });
+    }
 
     /// A repository on `main` with one commit, its main checkout, and a
     /// worker's worktree on `worker` branched from it. Removed with the test.

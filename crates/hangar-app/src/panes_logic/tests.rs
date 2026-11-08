@@ -1263,3 +1263,103 @@ fn the_subscription_holds_a_timer_only_for_a_job_due() {
     m.live.panes_logic.note_printed("sh", NOW, NOW);
     assert_eq!(subscription(&st, &m).units(), 3);
 }
+
+fn stages(
+    running: Vec<(&str, &str, Option<u32>)>,
+    ended: Option<(&str, hangar_core::delivery::Kind)>,
+) -> CoreEvent {
+    CoreEvent::DeliveryStages(hangar_core::delivery::Stages {
+        running: running
+            .into_iter()
+            .map(|(task, stage, batch)| hangar_core::delivery::Running {
+                task_id: task.into(),
+                queue: "repo".into(),
+                stage: stage.into(),
+                since: NOW,
+                batch,
+            })
+            .collect(),
+        ended: ended.map(|(task, outcome)| hangar_core::delivery::StageEnd {
+            task_id: task.into(),
+            outcome,
+        }),
+    })
+}
+
+/// A worker on task `t1` in the workspace on screen, and one on `t2` in a
+/// workspace off it.
+fn workers() -> Model {
+    let worker = |id: &str, name: &str, task: &str| Pane {
+        task_id: Some(task.into()),
+        ..pane(id, name, AgentId::Claude)
+    };
+    model(vec![
+        workspace("w1", vec![worker("p1", "Finn", "t1")]),
+        workspace("w2", vec![worker("p2", "Theo", "t2")]),
+    ])
+    .0
+}
+
+#[test]
+fn a_delivery_stage_reaches_the_live_model_from_cores_event() {
+    use self::delivery_stage::DeliveryStage;
+    let mut m = workers();
+    assert_eq!(m.live.panes_logic.delivery_stage("t1", NOW), None);
+    let version = m.live.version;
+    assert!(reduce_core_event(&mut m, &stages(vec![("t1", "merging", None)], None), NOW).is_some());
+    assert_eq!(
+        m.live.panes_logic.delivery_stage("t1", NOW),
+        Some(DeliveryStage::Merging)
+    );
+    assert!(m.live.version > version);
+    reduce_core_event(
+        &mut m,
+        &stages(vec![], Some(("t1", hangar_core::delivery::Kind::Landed))),
+        NOW + 1,
+    );
+    assert_eq!(
+        m.live.panes_logic.delivery_stage("t1", NOW + 1),
+        Some(DeliveryStage::Ended(hangar_core::delivery::Kind::Landed))
+    );
+}
+
+#[test]
+fn a_checking_chip_ticks_only_while_it_is_on_screen() {
+    let mut m = workers();
+    // No delivery, or one that is not being checked: nothing ticks.
+    assert!(!checking_on_screen(&m));
+    reduce_core_event(&mut m, &stages(vec![("t1", "reviewing", None)], None), NOW);
+    assert!(!checking_on_screen(&m));
+    // Checked, but its worker is in a workspace off screen.
+    reduce_core_event(&mut m, &stages(vec![("t2", "checking", None)], None), NOW);
+    assert!(!checking_on_screen(&m));
+    // Checked, and its pane is drawn.
+    reduce_core_event(
+        &mut m,
+        &stages(vec![("t1", "checking", Some(3))], None),
+        NOW,
+    );
+    assert!(checking_on_screen(&m));
+    // Another view in front: not drawn any more.
+    m.ui.view = View::Board;
+    assert!(!checking_on_screen(&m));
+}
+
+#[test]
+fn an_outcome_wakes_the_window_once_when_it_is_due_to_go() {
+    let mut m = workers();
+    assert_eq!(m.live.panes_logic.deliveries.next_expiry(), None);
+    reduce_core_event(
+        &mut m,
+        &stages(
+            vec![],
+            Some(("t1", hangar_core::delivery::Kind::CheckFailed)),
+        ),
+        NOW,
+    );
+    let due = NOW + delivery_stage::OUTCOME_SHOW_MS;
+    assert_eq!(m.live.panes_logic.deliveries.next_expiry(), Some(due));
+    assert!(m.live.panes_logic.deliveries.prune(due));
+    assert_eq!(m.live.panes_logic.delivery_stage("t1", due), None);
+    assert_eq!(m.live.panes_logic.deliveries.next_expiry(), None);
+}

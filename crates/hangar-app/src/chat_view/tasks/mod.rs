@@ -22,6 +22,7 @@
 //! What the panel shows is worked out when what it reads changes, not on each
 //! frame ([`model::Cache`]).
 
+pub mod chip;
 pub mod model;
 mod view;
 

@@ -403,3 +403,74 @@ fn the_panel_is_worked_out_again_only_when_what_it_reads_changes() {
     assert_eq!(read.overall.percent, 64);
     assert!(Arc::ptr_eq(&read, &cache.panel(&m, &ws)));
 }
+
+fn stages(
+    running: Vec<(&str, &str)>,
+    ended: Option<(&str, hangar_core::delivery::Kind)>,
+) -> hangar_core::delivery::Stages {
+    hangar_core::delivery::Stages {
+        running: running
+            .into_iter()
+            .map(|(task, stage)| hangar_core::delivery::Running {
+                task_id: task.into(),
+                queue: "repo".into(),
+                stage: stage.into(),
+                since: now_ms(),
+                batch: None,
+            })
+            .collect(),
+        ended: ended.map(|(task, outcome)| hangar_core::delivery::StageEnd {
+            task_id: task.into(),
+            outcome,
+        }),
+    }
+}
+
+#[test]
+fn a_tasks_delivery_shows_on_its_row_beside_its_progress() {
+    let mut m = shop(Some(reported_board()));
+    let pkg = Packages::default();
+    let wanted = ["Queued (2nd)", "Merging", "60 %"];
+    assert_eq!(
+        on_screen(&m, &pkg, &wanted),
+        ["60 %"],
+        "no delivery, no chip"
+    );
+    m.live.panes_logic.deliveries_changed(
+        &stages(
+            vec![
+                ("t-doing", "merging"),
+                ("t-other", "queued"),
+                ("t-review", "queued"),
+            ],
+            None,
+        ),
+        now_ms(),
+    );
+    assert_eq!(
+        on_screen(&m, &pkg, &wanted),
+        ["Queued (2nd)", "Merging", "60 %"]
+    );
+}
+
+#[test]
+fn a_failed_check_shows_on_the_row_and_opens_the_task() {
+    let mut m = shop(Some(reported_board()));
+    let pkg = Packages::default();
+    m.live.panes_logic.deliveries_changed(
+        &stages(
+            vec![],
+            Some(("t-doing", hangar_core::delivery::Kind::CheckFailed)),
+        ),
+        now_ms(),
+    );
+    assert_eq!(on_screen(&m, &pkg, &["Check failed ✗"]), ["Check failed ✗"]);
+    let sent = click(&m, &pkg, "Check failed ✗");
+    assert!(
+        sent.iter().any(|msg| matches!(
+            msg,
+            Message::Intent(crate::message::Intent::OpenTask { task: Some(task), .. }) if task == "t-doing"
+        )),
+        "{sent:?}"
+    );
+}

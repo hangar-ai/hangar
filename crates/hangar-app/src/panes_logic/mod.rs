@@ -26,6 +26,7 @@
 //! | `shells` | shells.ts | which shell a pane runs |
 //! | `pane_branch` | paneBranch.ts | the branch cache |
 //! | `file_drop` | fileDrop.ts | paths typed for a dropped file |
+//! | `delivery_stage` | — | each task's delivery stage, from core's `delivery:stages` |
 //!
 //! Every moment is an `EpochMs` handed in as `now`; the only clock read in
 //! this directory is `wall_clock_ms`, at the edge, where `update`,
@@ -76,6 +77,7 @@ pub mod agent_state;
 pub mod agents;
 pub mod bridge_events;
 pub mod context_gauge;
+pub mod delivery_stage;
 pub mod file_drop;
 pub mod hibernate;
 pub mod hibernation;
@@ -129,6 +131,7 @@ pub use crate::state::live::EpochMs;
 use self::agent_state::AgentStates;
 use self::agents::{Claims, is_resumable};
 use self::bridge_events::CarriedQueues;
+use self::delivery_stage::{DeliveryStage, DeliveryStages};
 use self::hibernation::{
     ForcedOutcome, Hibernation, Reading, SleepEnv, SleepMode, SleepRead, Slept, Step, begin,
     finish, prune, put_to_sleep, read_forced, settle_forced,
@@ -194,6 +197,8 @@ pub struct Live {
     last_active: Option<WsId>,
     /// Where each pane is in the state (`index_panes`).
     index: PaneIndex,
+    /// Where each task's delivery stands (`delivery_stage`).
+    deliveries: DeliveryStages,
 }
 
 /// The package's messages, routed by the shell as `Message::PanesLogic(Msg)`.
@@ -272,6 +277,9 @@ pub enum Msg {
     Tick,
     /// Every 1.5 s while a pane is mounted.
     Slow,
+    /// Every second while a delivery being checked is on screen, and once
+    /// when an outcome shown is due to go.
+    Delivery,
     HibernateTick,
     /// The system answered which of a workspace's shells run something.
     Probed {
@@ -430,6 +438,16 @@ impl Live {
     }
 
     /// The branch the header of a pane on this folder shows.
+    /// Core said where the deliveries stand (`CoreEvent::DeliveryStages`).
+    pub fn deliveries_changed(&mut self, stages: &hangar_core::delivery::Stages, now: EpochMs) {
+        self.deliveries.apply(stages, now);
+    }
+
+    /// Where `task`'s delivery stands at `now`: under way, or just ended.
+    pub fn delivery_stage(&self, task: &str, now: EpochMs) -> Option<DeliveryStage> {
+        self.deliveries.stage(task, now)
+    }
+
     pub fn pane_branch(&self, folder: &str) -> Option<&PaneBranch> {
         self.branches.peek(folder)
     }
@@ -1234,6 +1252,13 @@ pub fn update(st: &mut State, m: &mut Model, sv: &Services, msg: Msg) -> Task<Me
         }
         Msg::Tick => tick(m, sv, now),
         Msg::Slow => slow(st, m, now),
+        Msg::Delivery => {
+            // The chip's time moved, or an outcome went: drawn again.
+            if m.live.panes_logic.deliveries.prune(now) {
+                bump(m);
+            }
+            Task::none()
+        }
         Msg::HibernateTick => hibernate_tick(st, m, sv, now),
         Msg::Probed {
             workspace,
@@ -1610,6 +1635,28 @@ fn next_slow_at(st: &State, m: &Model) -> Option<EpochMs> {
     [marks, hunt, context, branches].into_iter().flatten().min()
 }
 
+/// How often a checking chip's time moves.
+const DELIVERY_TICK_MS: u64 = 1_000;
+
+/// Whether a delivery being checked has its chip on screen: its worker's
+/// pane, or its task in the tasks panel, in a workspace drawn. Only then
+/// does its time tick; nothing ticks otherwise.
+fn checking_on_screen(m: &Model) -> bool {
+    let mut checking = m.live.panes_logic.deliveries.checking().peekable();
+    if checking.peek().is_none() {
+        return false;
+    }
+    let checking: HashSet<&str> = checking.collect();
+    m.state().workspaces.iter().any(|ws| {
+        attended_workspace(m, ws)
+            && ws.panes.iter().any(|pane| {
+                pane.task_id
+                    .as_deref()
+                    .is_some_and(|task| checking.contains(task))
+            })
+    })
+}
+
 /// Whether the workspace's panes are drawn at all (`visible` of TerminalPane
 /// before the zoom).
 fn attended_workspace(m: &Model, ws: &Workspace) -> bool {
@@ -1692,6 +1739,15 @@ pub fn subscription(st: &State, m: &Model) -> Subscription<Message> {
     if let Some(at) = next_slow_at(st, m) {
         subscriptions.push(wake_at(at, Wake::Slow));
     }
+    if checking_on_screen(m) {
+        subscriptions.push(
+            iced::time::every(Duration::from_millis(DELIVERY_TICK_MS))
+                .map(|_| Message::PanesLogic(Msg::Delivery)),
+        );
+    }
+    if let Some(at) = m.live.panes_logic.deliveries.next_expiry() {
+        subscriptions.push(wake_at(at, Wake::Delivery));
+    }
     if m.live.hydrated && m.settings().hibernate_idle {
         subscriptions.push(
             iced::time::every(Duration::from_millis(HIBERNATE_TICK_MS))
@@ -1706,6 +1762,7 @@ pub fn subscription(st: &State, m: &Model) -> Subscription<Message> {
 enum Wake {
     Tick,
     Slow,
+    Delivery,
 }
 
 impl Wake {
@@ -1713,6 +1770,7 @@ impl Wake {
         Message::PanesLogic(match self {
             Wake::Tick => Msg::Tick,
             Wake::Slow => Msg::Slow,
+            Wake::Delivery => Msg::Delivery,
         })
     }
 
@@ -1723,6 +1781,7 @@ impl Wake {
         match self {
             Wake::Tick => activity::TICK_MS,
             Wake::Slow => SLOW_MS,
+            Wake::Delivery => DELIVERY_TICK_MS,
         }
     }
 }
@@ -1847,6 +1906,11 @@ fn reduce_core_event(m: &mut Model, event: &CoreEvent, now: EpochMs) -> Option<T
         }
         CoreEvent::BridgeQueue { pane, pending } => {
             m.live.panes_logic.queue_changed(pane, pending.clone(), now);
+            bump(m);
+            Some(Task::none())
+        }
+        CoreEvent::DeliveryStages(stages) => {
+            m.live.panes_logic.deliveries_changed(stages, now);
             bump(m);
             Some(Task::none())
         }

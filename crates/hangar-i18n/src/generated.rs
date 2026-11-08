@@ -2492,6 +2492,36 @@ pub enum Key {
     PaneContext,
     /// `pane.ctxPct`
     PaneCtxPct,
+    /// `pane.delivery.changesRequested`
+    PaneDeliveryChangesRequested,
+    /// `pane.delivery.checkFailed`
+    PaneDeliveryCheckFailed,
+    /// `pane.delivery.checking`
+    PaneDeliveryChecking,
+    /// `pane.delivery.checkingBatch`
+    PaneDeliveryCheckingBatch,
+    /// `pane.delivery.checkingBatchShort`
+    PaneDeliveryCheckingBatchShort,
+    /// `pane.delivery.conflict`
+    PaneDeliveryConflict,
+    /// `pane.delivery.failed`
+    PaneDeliveryFailed,
+    /// `pane.delivery.landed`
+    PaneDeliveryLanded,
+    /// `pane.delivery.landing`
+    PaneDeliveryLanding,
+    /// `pane.delivery.merging`
+    PaneDeliveryMerging,
+    /// `pane.delivery.queued`
+    PaneDeliveryQueued,
+    /// `pane.delivery.ready`
+    PaneDeliveryReady,
+    /// `pane.delivery.reviewing`
+    PaneDeliveryReviewing,
+    /// `pane.delivery.tip`
+    PaneDeliveryTip,
+    /// `pane.delivery.tipOutcome`
+    PaneDeliveryTipOutcome,
     /// `pane.event.aborted`
     PaneEventAborted,
     /// `pane.event.dropped`
@@ -3931,7 +3961,7 @@ pub enum Key {
 }
 
 /// How many keys there are.
-pub const KEY_COUNT: usize = 1957;
+pub const KEY_COUNT: usize = 1972;
 
 impl Key {
     /// Every key, in the order of their ids.
@@ -5175,6 +5205,21 @@ impl Key {
         Key::PaneConflict,
         Key::PaneContext,
         Key::PaneCtxPct,
+        Key::PaneDeliveryChangesRequested,
+        Key::PaneDeliveryCheckFailed,
+        Key::PaneDeliveryChecking,
+        Key::PaneDeliveryCheckingBatch,
+        Key::PaneDeliveryCheckingBatchShort,
+        Key::PaneDeliveryConflict,
+        Key::PaneDeliveryFailed,
+        Key::PaneDeliveryLanded,
+        Key::PaneDeliveryLanding,
+        Key::PaneDeliveryMerging,
+        Key::PaneDeliveryQueued,
+        Key::PaneDeliveryReady,
+        Key::PaneDeliveryReviewing,
+        Key::PaneDeliveryTip,
+        Key::PaneDeliveryTipOutcome,
         Key::PaneEventAborted,
         Key::PaneEventDropped,
         Key::PaneEventEdit,
@@ -7137,6 +7182,21 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "pane.conflict", en: Text::plain("{name} just edited a file this pane had edited too"), fr: Text::plain("{name} vient de modifier un fichier que ce panneau avait modifié aussi") },
     Message { id: "pane.context", en: Text::plain("Context: {used} of {window} tokens ({pct}%) · {model} — the agent compacts automatically as it nears the limit"), fr: Text::plain("Contexte\u{202f}: {used} sur {window} tokens ({pct}\u{202f}%) · {model} — l'agent compacte automatiquement en approchant la limite") },
     Message { id: "pane.ctxPct", en: Text::plain("{pct}%"), fr: Text::plain("{pct}\u{202f}%") },
+    Message { id: "pane.delivery.changesRequested", en: Text::plain("Changes requested ✗"), fr: Text::plain("Modifications demandées ✗") },
+    Message { id: "pane.delivery.checkFailed", en: Text::plain("Check failed ✗"), fr: Text::plain("Vérification échouée ✗") },
+    Message { id: "pane.delivery.checking", en: Text::plain("Checking · {elapsed}"), fr: Text::plain("Vérification · {elapsed}") },
+    Message { id: "pane.delivery.checkingBatch", en: Text::plain("Checking in a batch of {size} · {elapsed}"), fr: Text::plain("Vérification en lot de {size} · {elapsed}") },
+    Message { id: "pane.delivery.checkingBatchShort", en: Text::plain("Batch of {size} · {elapsed}"), fr: Text::plain("Lot de {size} · {elapsed}") },
+    Message { id: "pane.delivery.conflict", en: Text::plain("Conflict ✗"), fr: Text::plain("Conflit ✗") },
+    Message { id: "pane.delivery.failed", en: Text::plain("Delivery failed ✗"), fr: Text::plain("Livraison échouée ✗") },
+    Message { id: "pane.delivery.landed", en: Text::plain("Landed ✓"), fr: Text::plain("Fusionnée ✓") },
+    Message { id: "pane.delivery.landing", en: Text::plain("Landing"), fr: Text::plain("Arrivée sur la branche") },
+    Message { id: "pane.delivery.merging", en: Text::plain("Merging"), fr: Text::plain("Fusion") },
+    Message { id: "pane.delivery.queued", en: Text::plain("Queued ({place})"), fr: Text::plain("En file ({place})") },
+    Message { id: "pane.delivery.ready", en: Text::plain("Ready to land ✓"), fr: Text::plain("Prête à fusionner ✓") },
+    Message { id: "pane.delivery.reviewing", en: Text::plain("Reviewing"), fr: Text::plain("Relecture") },
+    Message { id: "pane.delivery.tip", en: Text::plain("Hangar is delivering this task: it merges it, checks it, has it reviewed, then lands it"), fr: Text::plain("Hangar livre cette tâche\u{202f}: il la fusionne, la vérifie, la fait relire, puis la fait arriver sur la branche") },
+    Message { id: "pane.delivery.tipOutcome", en: Text::plain("Open the task, with the delivery's comment"), fr: Text::plain("Ouvrir la tâche, avec le commentaire de la livraison") },
     Message { id: "pane.event.aborted", en: Text::plain("Interrupted"), fr: Text::plain("Interrompu") },
     Message { id: "pane.event.dropped", en: Text::plain("Dropped from the queue: {text}"), fr: Text::plain("Écarté de la file\u{202f}: {text}") },
     Message { id: "pane.event.edit", en: Text::plain("Edited {file}"), fr: Text::plain("A modifié {file}") },

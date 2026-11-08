@@ -83,6 +83,10 @@ pub enum Event {
     AccountsChanged,
     /// `git-clone:progress`: a clone started by `git_clone`, as it goes.
     GitCloneProgress(crate::git_clone::CloneProgress),
+    /// `delivery:stages`: a delivery joined its queue, changed stage or
+    /// ended: where every delivery under way stands, and how the one that
+    /// ended went (delivery.rs, `delivery_watch`).
+    DeliveryStages(crate::delivery::Stages),
     /// `notification-activated`: the person clicked a notification that names
     /// a pane (Windows; notify.rs). The window brings itself, or the
     /// workspace's own window, forward and reveals the pane.
@@ -115,6 +119,7 @@ impl Event {
             Event::KitsChanged => "kits:changed",
             Event::AccountsChanged => "accounts:changed",
             Event::GitCloneProgress(_) => "git-clone:progress",
+            Event::DeliveryStages(_) => "delivery:stages",
             #[cfg(feature = "desktop")]
             Event::NotificationActivated(_) => "notification-activated",
         }

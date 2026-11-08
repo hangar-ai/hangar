@@ -61,6 +61,9 @@ pub enum CoreEvent {
     VoiceDownload(hangar_core::voice::models::Progress),
     RemoteChanged,
     RemoteShared(hangar_core::remote::Share),
+    /// A delivery joined its queue, changed stage or ended (core's
+    /// `delivery:stages`).
+    DeliveryStages(hangar_core::delivery::Stages),
     /// The person clicked a notification that names a pane.
     NotificationActivated {
         workspace: String,
@@ -158,6 +161,7 @@ pub fn message(event: Event) -> Message {
         Event::KitsChanged => core(CoreEvent::KitsChanged),
         Event::AccountsChanged => core(CoreEvent::AccountsChanged),
         Event::GitCloneProgress(progress) => core(CoreEvent::GitCloneProgress(progress)),
+        Event::DeliveryStages(stages) => core(CoreEvent::DeliveryStages(stages)),
         Event::NotificationActivated(activated) => core(CoreEvent::NotificationActivated {
             workspace: activated.workspace_id,
             pane: activated.pane_id,

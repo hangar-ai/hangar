@@ -45,7 +45,7 @@ pub fn panel<'a>(
     } else {
         let now = now_ms();
         for group in &panel.groups {
-            body = body.push(column_group(st, ctx, group, now));
+            body = body.push(column_group(st, ctx, ws, group, now));
         }
     }
 
@@ -285,7 +285,13 @@ fn waiting_row<'a>(ctx: Ctx<'a>, ws: &'a Workspace, item: &Waiting) -> Element<'
     .into()
 }
 
-fn column_group<'a>(st: &'a State, ctx: Ctx<'a>, group: &Group, now: u64) -> Element<'a, Message> {
+fn column_group<'a>(
+    st: &'a State,
+    ctx: Ctx<'a>,
+    ws: &'a Workspace,
+    group: &Group,
+    now: u64,
+) -> Element<'a, Message> {
     let mut list = column![heading(
         ctx.theme,
         ctx.t(group.column.label_key()).into_owned(),
@@ -293,12 +299,18 @@ fn column_group<'a>(st: &'a State, ctx: Ctx<'a>, group: &Group, now: u64) -> Ele
     )]
     .spacing(space::XXS);
     for task in &group.rows {
-        list = list.push(task_row(st, ctx, task, now));
+        list = list.push(task_row(st, ctx, ws, task, now));
     }
     list.into()
 }
 
-fn task_row<'a>(st: &'a State, ctx: Ctx<'a>, task: &Row, now: u64) -> Element<'a, Message> {
+fn task_row<'a>(
+    st: &'a State,
+    ctx: Ctx<'a>,
+    ws: &'a Workspace,
+    task: &Row,
+    now: u64,
+) -> Element<'a, Message> {
     let t = ctx.theme;
     let tr = ctx.i18n;
     let open = st.is_expanded(&task.id);
@@ -344,6 +356,14 @@ fn task_row<'a>(st: &'a State, ctx: Ctx<'a>, task: &Row, now: u64) -> Element<'a
             .spacing(space::XS)
             .align_y(Alignment::Center),
         );
+    }
+
+    // Its delivery, while Hangar runs it and a few seconds after: beside the
+    // progress its worker last reported.
+    if let Some(stage) = ctx.model.live.panes_logic.delivery_stage(&task.id, now) {
+        lines = lines.push(super::chip::delivery_chip(
+            ctx, &ws.cwd, &task.id, stage, now, true, false,
+        ));
     }
 
     // A done task is done: its 100 says nothing the column does not.

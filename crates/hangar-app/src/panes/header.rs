@@ -224,7 +224,19 @@ pub fn view<'a>(ctx: Ctx<'a>, head: Head<'a>) -> Element<'a, Message> {
         bar = bar.push(node_label(ctx, &node));
     }
 
-    if let Some(branch) = logic.pane_branch(&folder_of(head.ws, pane)) {
+    // The worker's delivery, while Hangar merges, checks, reviews and lands
+    // it, then how it went for a few seconds. Its chip takes the branch's
+    // room: the branch is the one being delivered, and the header has no
+    // width for both beside the worker's badges.
+    let now = crate::panes_logic::wall_clock_ms();
+    let delivery = pane
+        .task_id
+        .as_deref()
+        .filter(|task| fit.state && !task.is_empty())
+        .and_then(|task| Some((task, logic.delivery_stage(task, now)?)));
+    if delivery.is_none()
+        && let Some(branch) = logic.pane_branch(&folder_of(head.ws, pane))
+    {
         bar = bar.push(branch_label(ctx, branch));
     }
 
@@ -272,6 +284,18 @@ pub fn view<'a>(ctx: Ctx<'a>, head: Head<'a>) -> Element<'a, Message> {
                 .wrapping(text::Wrapping::None)
                 .style(style::text::state(t, state_tone(glyph_state))),
             state_title,
+        ));
+    }
+
+    if let Some((task, stage)) = delivery {
+        bar = bar.push(crate::chat_view::tasks::chip::delivery_chip(
+            ctx,
+            &head.ws.cwd,
+            task,
+            stage,
+            now,
+            true,
+            fit.short_states,
         ));
     }
 

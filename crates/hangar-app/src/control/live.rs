@@ -82,6 +82,10 @@ pub struct LivePort {
 
 impl LivePort {
     pub fn new(services: Services, shared: Arc<Shared>) -> LivePort {
+        // The deliveries this port runs tell the window their stages
+        // (`CoreEvent::DeliveryStages`): the panes and the tasks panel show
+        // them.
+        hangar_core::delivery::delivery_watch(services.core().host().clone());
         LivePort { services, shared }
     }
 
