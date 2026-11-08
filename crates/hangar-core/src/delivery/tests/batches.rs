@@ -389,9 +389,11 @@ fn the_room_batches_what_waits_together_and_a_size_of_one_keeps_each_alone() {
     assert_eq!(mine.detail, "b");
 }
 
-/// Approves everything, from any thread.
+/// Approves everything, from any thread (for the unix tests below).
+#[cfg(unix)]
 struct Approves;
 
+#[cfg(unix)]
 impl Reviewer for Approves {
     fn review(&self, _: &Path, _: &str, _: &str, _: Option<&str>) -> Result<Verdict, String> {
         Ok(approve())
