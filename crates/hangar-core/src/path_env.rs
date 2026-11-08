@@ -31,27 +31,67 @@ pub fn ensure() {
     DONE.get_or_init(apply);
 }
 
+/// Runs the repair again, after something was installed while the app ran:
+/// Claude Code's installer puts `claude` in `~/.local/bin`, a folder that may
+/// not have existed (so was left out) the first time, and adds it to the rc
+/// files the login shell reads. The shell is asked afresh; what PATH already
+/// had stays, after it.
+pub fn refresh() {
+    ensure();
+    apply();
+}
+
 #[cfg(not(unix))]
-fn apply() {}
-
-#[cfg(unix)]
 fn apply() {
-    let mut merged: Vec<PathBuf> = Vec::new();
-    let mut seen: HashSet<PathBuf> = HashSet::new();
-
-    // The login shell leads: it is the PATH the user actually works in, and the
-    // one their agents were installed into.
-    if let Some(answer) = login_shell_path() {
-        push_all(std::env::split_paths(&answer), &mut merged, &mut seen);
+    // Windows has no login shell to ask. The native installer writes its
+    // folder to the user's PATH in the registry, which a process already
+    // running never sees: the folder is added here when it is there.
+    let Some(home) = dirs::home_dir() else {
+        return;
+    };
+    let current: Vec<std::path::PathBuf> = std::env::var_os("PATH")
+        .map(|p| std::env::split_paths(&p).collect())
+        .unwrap_or_default();
+    let bin = home.join(".local").join("bin");
+    if !bin.is_dir() || current.contains(&bin) {
+        return;
     }
-    if let Some(current) = std::env::var_os("PATH") {
-        push_all(std::env::split_paths(&current), &mut merged, &mut seen);
-    }
-    push_all(well_known(), &mut merged, &mut seen);
-
+    let mut merged = current;
+    merged.push(bin);
     if let Ok(joined) = std::env::join_paths(&merged) {
         std::env::set_var("PATH", joined);
     }
+}
+
+#[cfg(unix)]
+fn apply() {
+    let current = std::env::var_os("PATH");
+    let merged = merged(login_shell_path(), current, well_known());
+    if let Ok(joined) = std::env::join_paths(&merged) {
+        std::env::set_var("PATH", joined);
+    }
+}
+
+/// The PATH the process gets: the login shell's answer first — it is the PATH
+/// the user actually works in, and the one their agents were installed into —
+/// then the current one, then the well-known folders, each folder once and
+/// only when it exists.
+#[cfg(unix)]
+fn merged(
+    login: Option<std::ffi::OsString>,
+    current: Option<std::ffi::OsString>,
+    well_known: Vec<PathBuf>,
+) -> Vec<PathBuf> {
+    let mut merged: Vec<PathBuf> = Vec::new();
+    let mut seen: HashSet<PathBuf> = HashSet::new();
+    if let Some(answer) = login {
+        push_all(std::env::split_paths(&answer), &mut merged, &mut seen);
+    }
+    if let Some(current) = current {
+        push_all(std::env::split_paths(&current), &mut merged, &mut seen);
+    }
+    push_all(well_known, &mut merged, &mut seen);
+    merged
 }
 
 /// Keeps directories that exist, in the order first seen. A PATH entry that is
@@ -388,6 +428,26 @@ mod tests {
 
         let probe = slot.lock().unwrap().take().unwrap();
         assert_eq!(probe.collect(), Some(std::ffi::OsString::from(own_path())));
+    }
+
+    /// What `refresh` is for: a folder an installer made after the first
+    /// repair (`~/.local/bin`, `claude` in it) is on the PATH the second
+    /// time, after what the PATH already had.
+    #[test]
+    fn a_folder_made_after_the_first_repair_joins_on_the_next() {
+        let dir = tempfile::tempdir().unwrap();
+        let first = dir.path().join("usr-bin");
+        std::fs::create_dir_all(&first).unwrap();
+        let local_bin = dir.path().join(".local/bin");
+        let current = std::env::join_paths([&first]).unwrap();
+
+        let before = merged(None, Some(current.clone()), vec![local_bin.clone()]);
+        assert_eq!(before, vec![first.clone()]);
+
+        std::fs::create_dir_all(&local_bin).unwrap();
+        let joined = std::env::join_paths(&before).unwrap();
+        let after = merged(None, Some(joined), vec![local_bin.clone()]);
+        assert_eq!(after, vec![first, local_bin]);
     }
 
     #[test]

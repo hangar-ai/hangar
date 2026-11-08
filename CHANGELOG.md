@@ -10,6 +10,10 @@ Every release, with its installers, is on the
 
 ## [Unreleased]
 
+### Added
+
+- **Claude Code is set up with Hangar.** When it is missing, a first screen installs it in one click with Anthropic's official installer (its output shown as it runs), then opens Claude Code to sign in; a workspace cannot be created without it, unless you choose to use Hangar with shells only (Settings › General).
+
 ## [2.2.0] - 2026-11-07
 
 ### Added
