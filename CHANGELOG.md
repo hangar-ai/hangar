@@ -12,6 +12,7 @@ Every release, with its installers, is on the
 
 ### Added
 
+- **Deliveries are checked together.** When several wait, Hangar merges them on the branch and runs the check once for all of them; if it fails, it splits them to find the one that breaks, and only that one is handed back. The branch stays exactly as safe: nothing lands on a tree the check did not pass. With five deliveries waiting and a one-minute check: 73 s instead of 315 s when all pass. The batch size is in the orchestration settings (4 by default).
 - **Claude Code is set up with Hangar.** When it is missing, a first screen installs it in one click with Anthropic's official installer (its output shown as it runs), then opens Claude Code to sign in; a workspace cannot be created without it, unless you choose to use Hangar with shells only (Settings › General).
 
 ## [2.2.0] - 2026-11-07
