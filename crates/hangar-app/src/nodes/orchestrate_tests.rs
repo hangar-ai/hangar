@@ -261,6 +261,7 @@ fn delivery() -> Delivery {
         build_env: vec![("CARGO_TARGET_DIR".into(), "/Users/me/cache".into())],
         check_root: None,
         data_dir: None,
+        batch_size: None,
     }
 }
 

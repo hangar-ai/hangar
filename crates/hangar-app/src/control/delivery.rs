@@ -813,6 +813,10 @@ async fn status(
                     .or(state.as_ref().map(|state| state.state().to_string()))
                     .unwrap_or_else(|| "none".into()),
             });
+            // Checked together with others: "checking in a batch of 3".
+            if let Some(batch) = stage.and_then(|stage| stage.batch) {
+                entry["batch"] = json!(batch);
+            }
             if let Some(state) = &state {
                 entry["since"] = json!(iso_time(stage.map_or(state.since, |stage| stage.since)));
                 if let Some(detail) = state.detail.as_deref().filter(|detail| !detail.is_empty()) {
@@ -875,6 +879,7 @@ async fn deliver(
         build_env: hangar_core::build_cache::check_env_for(std::path::Path::new(&ws.cwd), &ws.id),
         check_root: None,
         data_dir: None,
+        batch_size: settings.batch_size,
     };
     let outcome = match delivery.run(request.clone()).await {
         Ok(outcome) => outcome,

@@ -962,6 +962,15 @@ fn remember_passed(request: &Delivery, repo: &str, tree: &str, line: &str) {
 
 pub(crate) mod owns;
 
+/// Deliveries that wait together, checked together.
+mod batch;
+
+/// The most waiting deliveries one check is shared by, unless the workspace
+/// says otherwise (`Delivery::batch_size`).
+pub const BATCH_SIZE: usize = 4;
+/// The most a workspace can set.
+pub const MAX_BATCH_SIZE: u32 = 16;
+
 /* ── Who stands in a worktree ──────────────────────────────────── */
 
 pub mod occupied;
@@ -1616,6 +1625,10 @@ pub struct Delivery {
     /// Where the trees whose check passed are kept; none: the app's data folder.
     #[serde(default)]
     pub data_dir: Option<String>,
+    /// The most waiting deliveries one check is shared by (the workspace's
+    /// setting); none: `BATCH_SIZE`. 1: each one is checked on its own.
+    #[serde(default)]
+    pub batch_size: Option<u32>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
@@ -1708,6 +1721,10 @@ pub struct Running {
     /// queued, merging, checking, reviewing or landing.
     pub stage: String,
     pub since: u64,
+    /// Checked together with others: how many deliveries the check it is in
+    /// covers (the merge queue). None on its own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub batch: Option<u32>,
 }
 
 fn stages() -> &'static Mutex<HashMap<String, Running>> {
@@ -1734,16 +1751,31 @@ impl Stage {
                 queue: queue.to_string(),
                 stage: "queued".into(),
                 since: now_ms(),
+                batch: None,
             },
         );
         Stage(task.to_string())
     }
 
     fn set(&self, stage: &str) {
-        if let Some(entry) = stages().lock().unwrap().get_mut(&self.0) {
-            entry.stage = stage.to_string();
-            entry.since = now_ms();
-        }
+        set_stage(&self.0, stage);
+    }
+}
+
+/// Says how many deliveries the check `task`'s delivery is in covers; none
+/// when it goes on its own.
+fn set_batch(task: &str, batch: Option<u32>) {
+    if let Some(entry) = stages().lock().unwrap().get_mut(task) {
+        entry.batch = batch;
+    }
+}
+
+/// Moves the stage of `task`'s delivery, whichever thread runs it: a batch
+/// moves its members' stages.
+fn set_stage(task: &str, stage: &str) {
+    if let Some(entry) = stages().lock().unwrap().get_mut(task) {
+        entry.stage = stage.to_string();
+        entry.since = now_ms();
     }
 }
 
@@ -1783,17 +1815,43 @@ pub fn deliver(request: &Delivery, reviewer: &dyn Reviewer, limits: &Limits) -> 
         }
     };
     let stage = Stage::enter(&request.task.id, &repo);
+    // Waits in the repository's room: whoever has the turn may take it into
+    // a batch, and leaves its outcome there.
+    let ticket = batch::Ticket::join(&repo, request);
     let turn = turn_of(&repo);
     let _turn = turn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    loop {
+        let size = request.batch_size.map_or(BATCH_SIZE, |size| {
+            (size as usize).clamp(1, MAX_BATCH_SIZE as usize)
+        });
+        match ticket.next(size) {
+            batch::Next::Settled(outcome) => return *outcome,
+            batch::Next::Batch(members) => {
+                let settled = batch::run(&members.requests, reviewer, limits);
+                ticket.settle(&members.seqs, settled);
+            }
+            batch::Next::Alone => return alone(request, &worktree, reviewer, limits, &stage),
+        }
+    }
+}
+
+/// A delivery on its own: the path every delivery took before batches.
+fn alone(
+    request: &Delivery,
+    worktree: &Path,
+    reviewer: &dyn Reviewer,
+    limits: &Limits,
+    stage: &Stage,
+) -> Outcome {
     if !request.reuse {
         // Submitted again: this one replaces what of the task waited for the
         // person, whatever it turns out to be.
-        forget_tested(&worktree, &request.task.id);
+        forget_tested(worktree, &request.task.id);
     }
 
     let mut reuse = request.reuse;
     for _ in 0..LANDING_TRIES {
-        match attempt(request, &worktree, reviewer, limits, reuse, &stage) {
+        match attempt(request, worktree, reviewer, limits, reuse, stage) {
             Step::Done(outcome) => return *outcome,
             Step::Moved => reuse = false,
         }
@@ -1819,18 +1877,7 @@ fn attempt(
     // 1. Only what is committed is delivered.
     if !reuse {
         match uncommitted(worktree) {
-            Ok(files) if !files.is_empty() => {
-                let mut outcome = Outcome::new(
-                    Kind::Dirty,
-                    format!(
-                        "Your worktree has uncommitted changes: {}. Only commits are delivered: commit them on \
-{branch} (or delete what is not part of the task), then call delivery_submit again.",
-                        listing(&files)
-                    ),
-                );
-                outcome.files = files;
-                return done(outcome);
-            }
+            Ok(files) if !files.is_empty() => return done(uncommitted_work(request, files)),
             Ok(_) => {}
             Err(err) => {
                 return done(Outcome::error(format!(
@@ -1897,87 +1944,29 @@ can land.",
         Err(err) => return done(Outcome::error(err)),
     };
     let dir = scratch.path.clone();
-    let mut merge_args = vec!["-c", "merge.autoStash=false"];
-    // A repository with no identity configured still gets a merge commit.
-    let anonymous = git(&dir, &["var", "GIT_COMMITTER_IDENT"]).is_err();
-    if anonymous {
-        merge_args.extend([
-            "-c",
-            "user.name=Hangar.AI",
-            "-c",
-            "user.email=hangar@localhost",
-        ]);
-    }
-    // Hooks are the person's checkout's business: this merge is a test bench,
-    // and the check is what verifies it.
-    let message = format!("Merge branch '{branch}'");
-    let title = request.task.title.trim();
-    merge_args.extend(["merge", "--no-edit", "--no-verify", "-m", message.as_str()]);
-    if !title.is_empty() {
-        merge_args.extend(["-m", title]);
-    }
-    merge_args.push(tip.as_str());
-    let merged = match git_run(&dir, &merge_args, true) {
-        Ok(finished) => finished,
-        Err(err) => return done(Outcome::error(err)),
-    };
-    if !merged.succeeded() {
-        let conflicted: Vec<String> = git(&dir, &["diff", "--name-only", "-z", "--diff-filter=U"])
-            .unwrap_or_default()
-            .split('\0')
-            .filter(|path| !path.is_empty())
-            .map(str::to_string)
-            .collect();
-        if conflicted.is_empty() {
-            return done(Outcome::error(format!(
-                "merging {branch} onto {target} failed: {}",
-                problem(&merged.err, &merged.out)
-            )));
-        }
-        let mut outcome = Outcome::new(
-            Kind::Conflict,
-            format!(
-                "Merging {branch} onto the current {target} conflicts in {}. Merge {target} into your branch \
+    let merge = match merge_branch(&dir, request, &tip) {
+        Merged::Head(merge) => merge,
+        Merged::Conflict(conflicted) => {
+            let mut outcome = Outcome::new(
+                Kind::Conflict,
+                format!(
+                    "Merging {branch} onto the current {target} conflicts in {}. Merge {target} into your branch \
 (`git merge {target}`) and resolve the conflicts keeping both sides: what landed on {target} is the person's or \
 another worker's work, never yours to drop. Commit, then call delivery_submit again. If both cannot stand \
 together, say so in a comment on your task and stop.",
-                listing(&conflicted)
-            ),
-        );
-        outcome.files = conflicted;
-        outcome.base = Some(base);
-        return done(outcome);
-    }
-    let merge = match rev(&dir, "HEAD") {
-        Ok(sha) => sha,
-        Err(err) => return done(Outcome::error(err)),
+                    listing(&conflicted)
+                ),
+            );
+            outcome.files = conflicted;
+            outcome.base = Some(base);
+            return done(outcome);
+        }
+        Merged::Failed(err) => return done(Outcome::error(err)),
     };
     if merge == base {
-        return done(Outcome::error(format!(
-            "{branch} has nothing that is not on {target} already. Commit your work on {branch}, then call delivery_submit again"
-        )));
+        return done(Outcome::error(nothing_new(request)));
     }
-    let changed: Vec<String> = git(&dir, &["diff", "--name-only", "-z", &base, &merge])
-        .unwrap_or_default()
-        .split('\0')
-        .filter(|path| !path.is_empty())
-        .map(str::to_string)
-        .collect();
-    let prefix = git(
-        Path::new(&request.workspace),
-        &["rev-parse", "--show-prefix"],
-    )
-    .map(|out| out.trim().to_string())
-    .unwrap_or_default();
-    let outside: Vec<String> = if !owns::scoped(&request.task.owns) {
-        vec![]
-    } else {
-        changed
-            .iter()
-            .filter(|path| !owns::covers(path, &request.task.owns, &prefix))
-            .cloned()
-            .collect()
-    };
+    let (changed, outside) = changes(&dir, request, &base, &merge);
     let mut passed = Outcome::new(Kind::Landed, String::new());
     passed.changed = changed.clone();
     passed.outside_owns = outside.clone();
@@ -2021,26 +2010,9 @@ together, say so in a comment on your task and stop.",
             Err(err) => return done(Outcome::error(err)),
         };
         if !check.passed {
-            let how = if check.timed_out {
-                format!(
-                    "did not finish within {} minutes and was stopped",
-                    limits.check.as_secs().div_ceil(60)
-                )
-            } else {
-                match check.exit_code {
-                    Some(code) => format!("failed (exit {code})"),
-                    None => "failed".to_string(),
-                }
-            };
             let mut outcome = passed;
             outcome.outcome = Kind::CheckFailed;
-            outcome.detail = format!(
-                "The check `{line}` {how} on {branch} merged onto {target}. It runs in a checkout of that \
-merge that Hangar keeps for this workspace and resets to each merge: untracked files are removed, files git \
-ignores stay, and the build output is shared and outside it. It has to install what it needs itself. The end of its output:\n```\n{}\n```\nFix it on your branch, run the check yourself, \
-commit, then call delivery_submit again.",
-                check.tail
-            );
+            outcome.detail = check_failed(request, line, &check, limits);
             outcome.check = Some(check);
             return done(outcome);
         }
@@ -2073,31 +2045,9 @@ commit, then call delivery_submit again.",
         }
     };
     if !verdict.passes() {
-        let mut items: Vec<String> = verdict
-            .blocking
-            .iter()
-            .map(|item| match item.line {
-                Some(line) => format!("- {}:{line}: {}", item.file, item.problem.trim()),
-                None => format!("- {}: {}", item.file, item.problem.trim()),
-            })
-            .collect();
-        if items.is_empty() {
-            items.push("- (no item given)".to_string());
-        }
-        let notes = verdict.notes.trim();
         let mut outcome = passed;
         outcome.outcome = Kind::ChangesRequested;
-        outcome.detail = format!(
-            "The reviewer asked for changes before {branch} lands:\n{}\n{}Fix these on your branch, commit, then call \
-delivery_submit again. If you believe an item is wrong, say why in a comment on the task and stop, rather than \
-working around it.",
-            items.join("\n"),
-            if notes.is_empty() {
-                String::new()
-            } else {
-                format!("Notes: {notes}\n")
-            }
-        );
+        outcome.detail = changes_requested(request, &verdict);
         outcome.review = Some(verdict);
         return done(outcome);
     }
@@ -2125,6 +2075,199 @@ land it on {target}. There is nothing more for you to do: stop here.",
     }
     stage.set("landing");
     land_step(request, worktree, &base, &merge, &tip, passed)
+}
+
+/// A worker's worktree with uncommitted changes: nothing is delivered.
+fn uncommitted_work(request: &Delivery, files: Vec<String>) -> Outcome {
+    let mut outcome = Outcome::new(
+        Kind::Dirty,
+        format!(
+            "Your worktree has uncommitted changes: {}. Only commits are delivered: commit them on \
+{} (or delete what is not part of the task), then call delivery_submit again.",
+            listing(&files),
+            request.branch
+        ),
+    );
+    outcome.files = files;
+    outcome
+}
+
+/// What merging a delivery's branch into the check checkout gave.
+enum Merged {
+    /// The checkout's head after the merge.
+    Head(String),
+    /// The files in conflict; the merge is left half done.
+    Conflict(Vec<String>),
+    Failed(String),
+}
+
+/// Merges `tip` (the head of `request`'s branch) into what `dir` has checked
+/// out, as the commit that would land.
+fn merge_branch(dir: &Path, request: &Delivery, tip: &str) -> Merged {
+    let (branch, target) = (&request.branch, &request.target);
+    let mut merge_args = vec!["-c", "merge.autoStash=false"];
+    // A repository with no identity configured still gets a merge commit.
+    let anonymous = git(dir, &["var", "GIT_COMMITTER_IDENT"]).is_err();
+    if anonymous {
+        merge_args.extend([
+            "-c",
+            "user.name=Hangar.AI",
+            "-c",
+            "user.email=hangar@localhost",
+        ]);
+    }
+    // Hooks are the person's checkout's business: this merge is a test bench,
+    // and the check is what verifies it.
+    let message = format!("Merge branch '{branch}'");
+    let title = request.task.title.trim();
+    merge_args.extend(["merge", "--no-edit", "--no-verify", "-m", message.as_str()]);
+    if !title.is_empty() {
+        merge_args.extend(["-m", title]);
+    }
+    merge_args.push(tip);
+    let merged = match git_run(dir, &merge_args, true) {
+        Ok(finished) => finished,
+        Err(err) => return Merged::Failed(err),
+    };
+    if !merged.succeeded() {
+        let conflicted: Vec<String> = git(dir, &["diff", "--name-only", "-z", "--diff-filter=U"])
+            .unwrap_or_default()
+            .split('\0')
+            .filter(|path| !path.is_empty())
+            .map(str::to_string)
+            .collect();
+        if conflicted.is_empty() {
+            return Merged::Failed(format!(
+                "merging {branch} onto {target} failed: {}",
+                problem(&merged.err, &merged.out)
+            ));
+        }
+        return Merged::Conflict(conflicted);
+    }
+    match rev(dir, "HEAD") {
+        Ok(sha) => Merged::Head(sha),
+        Err(err) => Merged::Failed(err),
+    }
+}
+
+fn nothing_new(request: &Delivery) -> String {
+    let (branch, target) = (&request.branch, &request.target);
+    format!(
+        "{branch} has nothing that is not on {target} already. Commit your work on {branch}, then call delivery_submit again"
+    )
+}
+
+/// The files `merge` changes from `base`, and those of them outside what the
+/// task owns.
+fn changes(dir: &Path, request: &Delivery, base: &str, merge: &str) -> (Vec<String>, Vec<String>) {
+    let changed: Vec<String> = git(dir, &["diff", "--name-only", "-z", base, merge])
+        .unwrap_or_default()
+        .split('\0')
+        .filter(|path| !path.is_empty())
+        .map(str::to_string)
+        .collect();
+    let prefix = git(
+        Path::new(&request.workspace),
+        &["rev-parse", "--show-prefix"],
+    )
+    .map(|out| out.trim().to_string())
+    .unwrap_or_default();
+    let outside: Vec<String> = if !owns::scoped(&request.task.owns) {
+        vec![]
+    } else {
+        changed
+            .iter()
+            .filter(|path| !owns::covers(path, &request.task.owns, &prefix))
+            .cloned()
+            .collect()
+    };
+    (changed, outside)
+}
+
+/// What a `checkFailed` tells the worker.
+fn check_failed(request: &Delivery, line: &str, check: &Check, limits: &Limits) -> String {
+    let (branch, target) = (&request.branch, &request.target);
+    let how = if check.timed_out {
+        format!(
+            "did not finish within {} minutes and was stopped",
+            limits.check.as_secs().div_ceil(60)
+        )
+    } else {
+        match check.exit_code {
+            Some(code) => format!("failed (exit {code})"),
+            None => "failed".to_string(),
+        }
+    };
+    format!(
+        "The check `{line}` {how} on {branch} merged onto {target}. It runs in a checkout of that \
+merge that Hangar keeps for this workspace and resets to each merge: untracked files are removed, files git \
+ignores stay, and the build output is shared and outside it. It has to install what it needs itself. The end of its output:\n```\n{}\n```\nFix it on your branch, run the check yourself, \
+commit, then call delivery_submit again.",
+        check.tail
+    )
+}
+
+/// What a `changesRequested` tells the worker.
+fn changes_requested(request: &Delivery, verdict: &Verdict) -> String {
+    let branch = &request.branch;
+    let mut items: Vec<String> = verdict
+        .blocking
+        .iter()
+        .map(|item| match item.line {
+            Some(line) => format!("- {}:{line}: {}", item.file, item.problem.trim()),
+            None => format!("- {}: {}", item.file, item.problem.trim()),
+        })
+        .collect();
+    if items.is_empty() {
+        items.push("- (no item given)".to_string());
+    }
+    let notes = verdict.notes.trim();
+    format!(
+        "The reviewer asked for changes before {branch} lands:\n{}\n{}Fix these on your branch, commit, then call \
+delivery_submit again. If you believe an item is wrong, say why in a comment on the task and stop, rather than \
+working around it.",
+        items.join("\n"),
+        if notes.is_empty() {
+            String::new()
+        } else {
+            format!("Notes: {notes}\n")
+        }
+    )
+}
+
+/// What a `landed` tells the worker.
+fn landed(request: &Delivery, merge: &str, place: Option<&str>) -> String {
+    let (branch, target) = (&request.branch, &request.target);
+    match place {
+        Some(place) => format!(
+            "{branch} landed on {target} ({}), fast-forwarded in {place}.",
+            short(merge)
+        ),
+        None => format!(
+            "{branch} landed on {target} ({}); {target} is checked out nowhere, so only its ref moved.",
+            short(merge)
+        ),
+    }
+}
+
+/// What a `dirty` in the person's checkout tells the worker.
+fn in_the_way(request: &Delivery, place: &str, files: &[String], reason: &str) -> String {
+    let (branch, target) = (&request.branch, &request.target);
+    format!(
+        "{branch} passed {}its review, but {target} is checked out in {place}, which has local changes \
+landing would overwrite{}. Nothing there was touched (git said: {reason}). It waits for the person: once \
+those changes are committed or set aside, they land it from Hangar. There is nothing more for you to do: stop here.",
+        if request.check_command.is_some() {
+            "its check and "
+        } else {
+            ""
+        },
+        if files.is_empty() {
+            String::new()
+        } else {
+            format!(" ({})", listing(files))
+        }
+    )
 }
 
 enum Landing {
@@ -2254,16 +2397,7 @@ fn land_step(
         Landing::Landed(place) => {
             forget_tested(repo, task);
             outcome.outcome = Kind::Landed;
-            outcome.detail = match &place {
-                Some(place) => format!(
-                    "{branch} landed on {target} ({}), fast-forwarded in {place}.",
-                    short(merge)
-                ),
-                None => format!(
-                    "{branch} landed on {target} ({}); {target} is checked out nowhere, so only its ref moved.",
-                    short(merge)
-                ),
-            };
+            outcome.detail = landed(request, merge, place.as_deref());
             outcome.landed_in = place;
             Step::Done(Box::new(outcome))
         }
@@ -2277,21 +2411,7 @@ fn land_step(
             save_tested(repo, task, base, merge, tip);
             outcome.outcome = Kind::Dirty;
             outcome.in_checkout = true;
-            outcome.detail = format!(
-                "{branch} passed {}its review, but {target} is checked out in {place}, which has local changes \
-landing would overwrite{}. Nothing there was touched (git said: {reason}). It waits for the person: once \
-those changes are committed or set aside, they land it from Hangar. There is nothing more for you to do: stop here.",
-                if request.check_command.is_some() {
-                    "its check and "
-                } else {
-                    ""
-                },
-                if files.is_empty() {
-                    String::new()
-                } else {
-                    format!(" ({})", listing(&files))
-                }
-            );
+            outcome.detail = in_the_way(request, &place, &files, &reason);
             outcome.files = files;
             outcome.landed_in = None;
             Step::Done(Box::new(outcome))
@@ -2638,6 +2758,9 @@ mod tests {
     use std::cell::{Cell, RefCell};
     use std::fs;
 
+    /// The merge queue: deliveries checked together.
+    mod batches;
+
     /// A repository on `main` with one commit, its main checkout, and a
     /// worker's worktree on `worker` branched from it. Removed with the test.
     struct Repo {
@@ -2742,6 +2865,7 @@ mod tests {
             build_env: vec![],
             check_root: Some(repo.root.join("checks").to_string_lossy().into_owned()),
             data_dir: Some(repo.root.join("data").to_string_lossy().into_owned()),
+            batch_size: None,
         }
     }
 

@@ -37,6 +37,8 @@ pub struct Draft {
     pub branch: String,
     /// Empty for the person's own mode.
     pub permission_mode: String,
+    /// Carried through as it is: the panel has no field for it yet.
+    pub batch_size: Option<u32>,
 }
 
 /// A field of the draft that can be refused.
@@ -84,6 +86,7 @@ pub fn draft_of(ws: &Workspace) -> Draft {
         reviewer_model: settings.reviewer_model,
         branch: settings.branch.unwrap_or_default(),
         permission_mode: settings.permission_mode.unwrap_or_default(),
+        batch_size: settings.batch_size,
     }
 }
 
@@ -181,6 +184,7 @@ pub fn normalize_draft(draft: &Draft) -> OrchestrationSettings {
         permission_mode: ORCHESTRATION_PERMISSION_MODES
             .contains(&draft.permission_mode.as_str())
             .then(|| draft.permission_mode.clone()),
+        batch_size: draft.batch_size,
     }
 }
 
@@ -214,6 +218,18 @@ mod tests {
     }
 
     #[test]
+    fn the_batch_size_the_panel_has_no_field_for_survives_a_save() {
+        let ws = Workspace {
+            orchestration: Some(OrchestrationSettings {
+                batch_size: Some(2),
+                ..orchestration_defaults()
+            }),
+            ..Workspace::default()
+        };
+        assert_eq!(normalize_draft(&draft_of(&ws)).batch_size, Some(2));
+    }
+
+    #[test]
     fn the_default_model_names_are_the_stores_defaults() {
         let base = orchestration_defaults();
         assert_eq!(base.orchestrator_model, DEFAULT_ORCHESTRATOR_MODEL);
@@ -235,6 +251,7 @@ mod tests {
                 reviewer_model: base.reviewer_model,
                 branch: String::new(),
                 permission_mode: String::new(),
+                batch_size: None,
             }
         );
     }

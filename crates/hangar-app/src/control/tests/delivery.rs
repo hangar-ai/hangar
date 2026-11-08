@@ -1363,6 +1363,7 @@ async fn tells_a_worker_where_its_own_delivery_stands() {
         queue: "c:/dev/app/.git".into(),
         stage: "reviewing".into(),
         since: 1_700_000_000_000,
+        batch: None,
     }];
     s.submit(json!({})).await.unwrap();
     until(|| !s.runs().is_empty()).await;
@@ -1409,6 +1410,43 @@ async fn tells_a_worker_where_its_own_delivery_stands() {
         json!({"worker": "Bo", "state": "changesRequested",
                "detail": "The reviewer asked for changes before worker/t1 lands:"}),
     );
+}
+
+#[tokio::test]
+async fn a_delivery_checked_with_others_says_how_many_share_its_check() {
+    let s = setup();
+    s.next(Next::Hold);
+    *lock(&s.delivery.running) = vec![Running {
+        task_id: "t1".into(),
+        queue: "c:/dev/app/.git".into(),
+        stage: "checking".into(),
+        since: 1_700_000_000_000,
+        batch: Some(3),
+    }];
+    s.submit(json!({})).await.unwrap();
+    until(|| !s.runs().is_empty()).await;
+
+    let status = control(
+        "delivery_status",
+        &s.ws(),
+        &json!({}),
+        &Caller {
+            pane_id: Some("p1".into()),
+            pane_name: None,
+            cwd: Some("C:\\dev\\app".into()),
+        },
+        &s.port(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        status["deliveries"],
+        json!([{"worker": "Bo", "task": "t1", "state": "checking", "batch": 3,
+                "since": "2023-11-14T22:13:20.000Z"}])
+    );
+
+    s.finish(outcome(Kind::Landed, "worker/t1 landed on main."));
+    s.fake.settle().await;
 }
 
 #[tokio::test]

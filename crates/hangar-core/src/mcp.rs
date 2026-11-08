@@ -644,7 +644,7 @@ fn base_tool_definitions() -> Value {
         },
         {
             "name": "delivery_status",
-            "description": "Where deliveries stand: from a worker pane, its own; otherwise every worker's in your workspace. Each says its stage while running (queued, merging, checking, reviewing, landing) or its last outcome. Outcomes arrive as messages by themselves: there is no need to poll this.",
+            "description": "Where deliveries stand: from a worker pane, its own; otherwise every worker's in your workspace. Each says its stage while running (queued, merging, checking, reviewing, landing) or its last outcome; batch, when present, is how many waiting deliveries are checked together with it (they share one check run, and each still gets its own outcome). Outcomes arrive as messages by themselves: there is no need to poll this.",
             "inputSchema": {
                 "type": "object",
                 "properties": {}

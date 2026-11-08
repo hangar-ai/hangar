@@ -336,6 +336,12 @@ pub struct OrchestrationSettings {
     /// it alone.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub shared_build_cache: bool,
+    /// The most waiting deliveries one check is shared by (the merge queue,
+    /// docs/native/DELIVERIES.md); none: `hangar_core::delivery::BATCH_SIZE`.
+    /// 1 checks each delivery on its own, as before 2.3. Not written while
+    /// unset, so a file that never set it stays as it was.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub batch_size: Option<u32>,
 }
 
 impl Default for OrchestrationSettings {
@@ -349,6 +355,7 @@ impl Default for OrchestrationSettings {
             branch: None,
             permission_mode: None,
             shared_build_cache: false,
+            batch_size: None,
         }
     }
 }

@@ -594,6 +594,7 @@ async fn delivery_says_when_the_worker_committed_since_and_when_a_landing_runs_f
         queue: "q".into(),
         stage: "checking".into(),
         since: 1,
+        batch: None,
     }];
     locked(&r.fakes.changes).truncated = true;
     let answer = r
@@ -793,6 +794,7 @@ async fn land_answers_while_a_long_landing_runs_and_the_same_call_waits_for_that
         queue: "q".into(),
         stage: "checking".into(),
         since: 1,
+        batch: None,
     }];
 
     assert_equal(

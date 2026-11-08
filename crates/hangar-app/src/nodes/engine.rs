@@ -694,6 +694,8 @@ struct RunningWire {
     stage: String,
     #[serde(default)]
     since: u64,
+    #[serde(default)]
+    batch: Option<u32>,
 }
 
 pub async fn delivery_running(client: &NodeClient) -> Result<Vec<Running>, String> {
@@ -712,6 +714,7 @@ pub async fn delivery_running(client: &NodeClient) -> Result<Vec<Running>, Strin
             queue: run.queue,
             stage: run.stage,
             since: run.since,
+            batch: run.batch,
         })
         .collect())
 }

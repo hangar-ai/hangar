@@ -57,6 +57,10 @@ pub fn orchestration_of(ws: &Workspace) -> OrchestrationSettings {
     OrchestrationSettings {
         auto_merge: saved.auto_merge,
         shared_build_cache: saved.shared_build_cache,
+        batch_size: saved
+            .batch_size
+            .filter(|size| *size >= 1)
+            .map(|size| size.min(hangar_core::delivery::MAX_BATCH_SIZE)),
         check_command: optional(&saved.check_command),
         orchestrator_model: name(&saved.orchestrator_model, &defaults.orchestrator_model),
         worker_model: name(&saved.worker_model, &defaults.worker_model),
