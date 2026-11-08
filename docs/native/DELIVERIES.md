@@ -175,4 +175,20 @@ the review's minutes are the same either way, one per delivery.
 
 ## Measured
 
-(filled in by the measurement run; see the task's comments)
+2026-11-08, Linux, a check of 60 s, five deliveries waiting, the review a
+stand-in (add one real review per delivery to every line):
+
+| | one at a time | batches of 4 (default) | batches of 5 |
+|---|---|---|---|
+| one failing (the third) | 314.8 s, 5 checks | 256.4 s, 4 checks | 257.1 s, 4 checks |
+| all green | 315.4 s, 5 checks | 134.2 s, 2 checks | 73.5 s, 1 check |
+
+Every delivery had the same outcome as one at a time (four landed and the
+third `checkFailed`; all five landed), and main held the same files. With a
+failure the gain is a check or so: finding the culprit costs about
+`log2(n)` probes, and what follows it is checked once more. With every
+delivery green, five checks become one per batch. The deliveries of a batch
+are taken in the order they joined the queue, which the threads of the
+measure do not fix: with one failing, the batch of 4 can take 4 or 5 checks
+depending on where the failing one falls in it (4 here; 5 in a shorter run
+of the same measure with a 1 s check).
