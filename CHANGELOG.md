@@ -10,11 +10,17 @@ Every release, with its installers, is on the
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-11-08
+
 ### Added
 
 - **A delivery's progress is on its worker's pane.** A chip says where it stands (queued, merging, checking with the time it has taken, in a batch of N, reviewing, landing) and then how it ended; the chat view's tasks panel shows the same on the task.
 - **Deliveries are checked together.** When several wait, Hangar merges them on the branch and runs the check once for all of them; if it fails, it splits them to find the one that breaks, and only that one is handed back. The branch stays exactly as safe: nothing lands on a tree the check did not pass. With five deliveries waiting and a one-minute check: 73 s instead of 315 s when all pass. The batch size is in the orchestration settings (4 by default).
 - **Claude Code is set up with Hangar.** When it is missing, a first screen installs it in one click with Anthropic's official installer (its output shown as it runs), then opens Claude Code to sign in; a workspace cannot be created without it, unless you choose to use Hangar with shells only (Settings › General).
+
+### Changed
+
+- Releases ship Windows and Linux. macOS is no longer built for download: 2.2.0 is the last macOS release, and the README says how to build Hangar on a Mac.
 
 ## [2.2.0] - 2026-11-07
 
@@ -760,6 +766,7 @@ statistics, workspace sleep and per-workspace MCP servers.
 - Automatic updates from signed GitHub releases.
 - An interface in English and French (0.1.1).
 
+[2.2.1]: https://github.com/simnJS/hangar-ai/releases/tag/v2.2.1
 [2.2.0]: https://github.com/simnJS/hangar-ai/releases/tag/v2.2.0
 [2.1.0]: https://github.com/simnJS/hangar-ai/releases/tag/v2.1.0
 [2.0.0]: https://github.com/simnJS/hangar-ai/releases/tag/v2.0.0
