@@ -5,13 +5,16 @@ use std::sync::Arc;
 
 use serde_json::{Value, json};
 
-use super::super::fake::{Fake, pane, workspace};
-use super::super::port::{AppPort, Port};
-use super::super::remote::{AwayPort, RemotePort, away_workspace, narrowed, refused};
-use super::contains;
+use super::fake::{Fake, pane, workspace};
+use super::port::{AppPort, Port};
+use super::remote::{AwayPort, RemotePort, away_workspace, narrowed, refused};
 use crate::nodes::testing::{answer, listen, read_request};
 use crate::services::Channel;
 use crate::state::AgentId;
+
+fn contains(text: &str, part: &str) {
+    assert!(text.contains(part), "{text:?} does not contain {part:?}");
+}
 
 /// "Hangar" and "Shop" of this machine, and "Demo" on node `node`, with
 /// Nova, its orchestrator's pane.
@@ -24,8 +27,8 @@ fn with_remote(node: &str) -> Arc<Fake> {
         vec![pane("p9", "Nova", AgentId::Claude, None)],
     );
     demo.node = Some(node.into());
-    super::super::fake::lock(&fake.state).workspaces.push(demo);
-    super::super::fake::lock(&fake.opened).insert("w9".into());
+    super::fake::lock(&fake.state).workspaces.push(demo);
+    super::fake::lock(&fake.opened).insert("w9".into());
     fake
 }
 
@@ -35,7 +38,7 @@ fn from_nova() -> Value {
 
 async fn on_node(node: &str, op: &str, args: Value, fake: &Arc<Fake>) -> Result<Value, String> {
     let port: Port = Arc::new(RemotePort::new(fake.port(), node.into()));
-    super::super::answer(op, args, Channel::Agent, &port).await
+    super::answer(op, args, Channel::Agent, &port).await
 }
 
 #[test]
@@ -198,11 +201,11 @@ async fn a_worker_sent_to_a_node_sees_its_workspace_only_and_no_file_here() {
         .map(|ws| ws.id.clone())
         .collect();
     assert_eq!(ids, ["w1"]);
-    let panes = super::super::answer("pane_list", from_zed(), Channel::Agent, &port)
+    let panes = super::answer("pane_list", from_zed(), Channel::Agent, &port)
         .await
         .unwrap();
     assert_eq!(panes["workspace"]["name"], "Hangar", "{panes}");
-    let listed = super::super::answer("workspace_list", from_zed(), Channel::Agent, &port)
+    let listed = super::answer("workspace_list", from_zed(), Channel::Agent, &port)
         .await
         .unwrap();
     let names: Vec<&str> = listed["workspaces"]
@@ -219,9 +222,7 @@ async fn a_worker_sent_to_a_node_sees_its_workspace_only_and_no_file_here() {
 async fn a_worker_on_a_node_reaches_its_workspace_s_board_here() {
     let fake = with_away("n-a");
     // Not the panes it drives: its board, setting or not.
-    super::super::fake::lock(&fake.state)
-        .settings
-        .agent_pane_control = false;
+    super::fake::lock(&fake.state).settings.agent_pane_control = false;
     let port: Port = Arc::new(AwayPort::new(fake.port(), "w1".into()));
     let mut args = from_zed();
     args["request"] = json!({
@@ -229,7 +230,7 @@ async fn a_worker_on_a_node_reaches_its_workspace_s_board_here() {
         "path": "/api/tasks/t1/comment",
         "body": {"author": "Zed", "text": "done"},
     });
-    let answer = super::super::answer("board_relay", args.clone(), Channel::Agent, &port)
+    let answer = super::answer("board_relay", args.clone(), Channel::Agent, &port)
         .await
         .unwrap();
     assert_eq!(answer["task"]["id"], "t1");
@@ -240,13 +241,13 @@ async fn a_worker_on_a_node_reaches_its_workspace_s_board_here() {
 
     // Another route, or a pane of this machine, is refused.
     args["request"]["path"] = json!("/api/memory");
-    let refused = super::super::answer("board_relay", args, Channel::Agent, &port)
+    let refused = super::answer("board_relay", args, Channel::Agent, &port)
         .await
         .unwrap_err();
     contains(&refused, "board_relay takes a board call");
     let mut ava = json!({"caller": {"paneId": "p1", "paneName": "Ava"}});
     ava["request"] = json!({"method": "GET", "path": "/api/board"});
-    let refused = super::super::answer("board_relay", ava, Channel::Agent, &fake.port())
+    let refused = super::answer("board_relay", ava, Channel::Agent, &fake.port())
         .await
         .unwrap_err();
     contains(&refused, "you are not one");

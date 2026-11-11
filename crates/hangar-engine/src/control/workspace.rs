@@ -4,7 +4,7 @@
 
 use serde_json::{Value, json};
 
-use crate::message::{GitOrigin, GitRequest};
+use crate::control::requests::{GitOrigin, GitRequest};
 use crate::state::roles::{orchestration_of, orchestrator_of};
 use crate::state::types::OrchestrationSettings;
 use crate::state::{AgentActivity, AppState, PaneId, Patch, Workspace};

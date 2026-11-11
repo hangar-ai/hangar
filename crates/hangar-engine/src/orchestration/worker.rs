@@ -1354,16 +1354,15 @@ pub async fn list_workers(ws: &Workspace, port: &impl WorkerPort) -> Value {
     let (tasks, trees) = if panes.is_empty() {
         (Vec::new(), Vec::new())
     } else {
-        let (tasks, trees) =
-            iced::futures::join!(port.board_load(&ws.cwd), port.worktree_list(&ws.cwd));
+        let (tasks, trees) = futures::join!(port.board_load(&ws.cwd), port.worktree_list(&ws.cwd));
         (tasks.unwrap_or_default(), trees.unwrap_or_default())
     };
     // The workers on a node: the worktrees of the node's repository.
     let mut away: HashMap<String, Vec<Worktree>> = HashMap::new();
     for pane in &panes {
-        let Some((repo, _)) = crate::nodes::away::pane_node(pane)
+        let Some((repo, _)) = crate::nodes::pane_node(pane)
             .and(pane.cwd.as_deref())
-            .and_then(crate::nodes::away::repo_of)
+            .and_then(crate::nodes::repo_of)
         else {
             continue;
         };
@@ -1381,11 +1380,11 @@ pub async fn list_workers(ws: &Workspace, port: &impl WorkerPort) -> Value {
             .as_deref()
             .and_then(|id| tasks.iter().find(|task| task.id == id));
         let shared = pane.shared_folder == Some(true);
-        let node = crate::nodes::away::pane_node(pane);
+        let node = crate::nodes::pane_node(pane);
         let listed = node
             .as_ref()
             .and(pane.cwd.as_deref())
-            .and_then(crate::nodes::away::repo_of)
+            .and_then(crate::nodes::repo_of)
             .and_then(|(repo, _)| away.get(&repo))
             .unwrap_or(&trees);
         let tree = match (&pane.cwd, shared) {
@@ -1545,11 +1544,11 @@ pub async fn stop_worker(
 ) -> StoppedWorker {
     let shared = pane.shared_folder == Some(true);
     // A worker on a node: its worktree is one of the node's repository.
-    let node = crate::nodes::away::pane_node(pane);
+    let node = crate::nodes::pane_node(pane);
     let repo = node
         .as_ref()
         .and(pane.cwd.as_deref())
-        .and_then(crate::nodes::away::repo_of)
+        .and_then(crate::nodes::repo_of)
         .map_or_else(|| ws.cwd.clone(), |(repo, _)| repo);
     // Read while the worktree still exists: it names the branch.
     let trees = match (&pane.cwd, shared) {

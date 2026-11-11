@@ -169,7 +169,7 @@ pub async fn preview_of(ws: &Workspace, port: &Port) -> Result<Arc<dyn PreviewHo
 /// opens as a pane of it (`preview::panes`), and a workspace holds
 /// `MAX_PANES` at most, its terminals and its views together. Asked before
 /// anything opens, so that a refusal leaves nothing behind.
-pub(super) fn room_for_one(ws: &Workspace, port: &Port) -> Result<(), String> {
+pub fn room_for_one(ws: &Workspace, port: &Port) -> Result<(), String> {
     let snapshot = port.snapshot();
     let count = workspace_in(&snapshot, &ws.id).map_or(ws.pane_count(), Workspace::pane_count);
     if count >= MAX_PANES {
@@ -186,7 +186,7 @@ pub(super) fn room_for_one(ws: &Workspace, port: &Port) -> Result<(), String> {
 /// The preview's entries changed: the workspace's view panes follow, and the
 /// workspace is laid out again when a pane `opened` or closed
 /// (`ModelCmd::ViewsChanged`).
-pub(super) async fn views_changed(ws: &Workspace, port: &Port, arrange: bool) {
+pub async fn views_changed(ws: &Workspace, port: &Port, arrange: bool) {
     tell(
         port,
         ModelCmd::ViewsChanged {
@@ -378,7 +378,7 @@ async fn admit<T: Pathed>(
 /// Whatever showing something in a workspace's preview does to it: it is
 /// using it, as sending to its panes is, and an asleep one wakes as
 /// `pane_send` wakes it (`wakeFor`). Says whether it woke.
-pub(super) async fn wake_for(ws: &Workspace, port: &Port) -> bool {
+pub async fn wake_for(ws: &Workspace, port: &Port) -> bool {
     let woke = is_asleep(&port.snapshot(), &ws.id);
     if woke {
         tell(port, ModelCmd::OpenWorkspace(ws.id.clone())).await;
@@ -390,7 +390,7 @@ pub(super) async fn wake_for(ws: &Workspace, port: &Port) -> bool {
 /// Whether the person can see what was just shown, told to the agent
 /// straight (`sight`): `workspace`, `visible`, and `woke` and `note` when
 /// they apply.
-pub(super) async fn sight(
+pub async fn sight(
     ws: &Workspace,
     preview: &Arc<dyn PreviewHost>,
     woke: bool,
@@ -434,7 +434,7 @@ pub(super) async fn sight(
 }
 
 /// `ModelShown` in the workspace on screen, `ModelShownElsewhere` in another.
-pub(super) fn shown(port: &Port, ws: &Workspace, by: Option<String>, file: String) -> ControlEvent {
+pub fn shown(port: &Port, ws: &Workspace, by: Option<String>, file: String) -> ControlEvent {
     let workspace = ws.name.clone();
     if on_screen(&port.snapshot().state, ws) {
         ControlEvent::ModelShown {
@@ -451,12 +451,7 @@ pub(super) fn shown(port: &Port, ws: &Workspace, by: Option<String>, file: Strin
     }
 }
 
-pub(super) fn closed(
-    port: &Port,
-    ws: &Workspace,
-    by: Option<String>,
-    file: String,
-) -> ControlEvent {
+pub fn closed(port: &Port, ws: &Workspace, by: Option<String>, file: String) -> ControlEvent {
     let workspace = ws.name.clone();
     if on_screen(&port.snapshot().state, ws) {
         ControlEvent::ModelClosed {

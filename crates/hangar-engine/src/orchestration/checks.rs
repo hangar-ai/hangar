@@ -34,3 +34,23 @@ pub fn last_check(workspace_id: &str) -> Option<CheckCost> {
         .get(workspace_id)
         .copied()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_last_check_of_a_workspace_is_the_one_kept() {
+        assert_eq!(last_check("ws-never-checked"), None);
+        record_check("ws-checked", 700, true);
+        record_check("ws-checked", 95, false);
+        assert_eq!(
+            last_check("ws-checked"),
+            Some(CheckCost {
+                seconds: 95,
+                passed: false
+            })
+        );
+        assert_eq!(last_check("ws-other"), None);
+    }
+}

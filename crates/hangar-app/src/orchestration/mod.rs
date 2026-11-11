@@ -22,21 +22,18 @@
 //! `control::Msg::Model`, which P18's `update` applies on the UI thread
 //! (PACKAGES.md, rule 6). It draws nothing.
 
-pub mod brief;
-pub mod brief_text;
-pub mod events;
-pub mod heard;
 pub mod live;
-pub mod manager_feed;
-pub mod port;
-pub mod projects;
 pub mod runtime;
-mod sweep;
-pub mod text;
-pub mod worker;
 
+// The engines live in hangar-engine (`hangar_engine::orchestration`): named
+// here as before. This package runs them on the desktop.
 #[cfg(test)]
-pub(crate) mod testkit;
+#[allow(unused_imports)]
+pub(crate) use hangar_engine::orchestration::testkit;
+#[allow(unused_imports)]
+pub use hangar_engine::orchestration::{
+    brief, brief_text, checks, events, heard, manager_feed, port, projects, sweep, text, worker,
+};
 
 use iced::futures::stream;
 use iced::{Subscription, Task};

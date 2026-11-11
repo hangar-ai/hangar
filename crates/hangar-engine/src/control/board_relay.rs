@@ -38,7 +38,7 @@ pub async fn control(
         .pane_id
         .as_deref()
         .and_then(|id| ws.panes.iter().find(|pane| pane.id == id))
-        .filter(|pane| crate::nodes::away::pane_node(pane).is_some());
+        .filter(|pane| crate::nodes::pane_node(pane).is_some());
     let Some(pane) = pane else {
         return Err(
             "board_relay carries the board calls of a worker sent to a node from a workspace of this computer, and you are not one. Use the board tools."

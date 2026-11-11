@@ -384,7 +384,7 @@ impl std::fmt::Debug for ManagerFeed {
 }
 
 impl ManagerFeed {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "testing"))]
     pub fn new(push: Option<Box<dyn ManagerSink>>) -> Self {
         ManagerFeed {
             push,
@@ -722,7 +722,7 @@ impl ManagerFeed {
         self.journal.clone()
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "testing"))]
     pub fn stop(&mut self) {
         self.stopped = true;
         self.timer = None;

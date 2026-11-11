@@ -32,6 +32,11 @@ pub use types::{
     AgentId, AppState, Pane, PaneId, Settings, SplitDir, SplitNode, ViewPane, Workspace, WsId,
 };
 
+pub use snapshot::Snapshot;
+// What the engines name at `crate::state::*` beside the persisted state, as
+// the app does.
+pub use crate::live::{AgentActivity, PaneActivity};
+
 /// What the boot read from `state.json`: the state, and the values it held
 /// that no field could read (`Store::hydrate_read`).
 #[derive(Debug, Clone, Default)]

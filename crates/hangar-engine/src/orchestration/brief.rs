@@ -122,7 +122,7 @@ fn activity_words(activity: Option<&PaneActivity>) -> &'static str {
     }
 }
 
-pub use hangar_engine::orchestration::checks::CheckCost;
+pub use crate::orchestration::checks::CheckCost;
 
 /// `last check 12 min, passed`: minutes once it took a minute.
 fn check_cost_words(cost: CheckCost) -> String {
@@ -398,7 +398,7 @@ fn pane_of<'a>(state: &'a AppState, pane_id: &str) -> Option<(&'a Workspace, &'a
 
 /// The pane's briefing, or `None` for a pane with no part in an
 /// orchestration (`buildBriefing`).
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 pub fn build_briefing(inputs: &BriefingInputs<'_>) -> Option<Briefing> {
     build_briefing_with(inputs, None)
 }

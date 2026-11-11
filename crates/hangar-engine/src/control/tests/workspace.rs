@@ -11,7 +11,7 @@ use super::super::run::DISABLED;
 use super::super::types::Caller;
 use super::super::workspace::set_check;
 use super::{contains, control, from_ava, matches, refusal, with};
-use crate::message::{GitOrigin, GitRequest};
+use crate::control::requests::{GitOrigin, GitRequest};
 use crate::state::types::{OrchestrationSettings, PaneRole};
 use crate::state::{AgentActivity, AgentId, PaneActivity};
 

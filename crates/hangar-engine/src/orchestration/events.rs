@@ -31,7 +31,7 @@ use serde::{Deserialize, Serialize};
 use hangar_core::board::Task;
 
 use super::text::{MAX_TEXT, is_hangar_author, minutes, one_line, same_name, task_ref};
-use crate::state::live::{BridgeEvent, TurnPhase};
+use crate::live::{BridgeEvent, TurnPhase};
 use crate::state::roles::{NEEDS_YOU_LABEL, orchestrator_of, workers_of};
 use crate::state::types::{AppState, Pane, PaneId, Workspace, WsId};
 use crate::state::{AgentActivity, PaneActivity};
@@ -917,7 +917,7 @@ fn orchestrated(state: &AppState) -> Vec<(Workspace, Pane)> {
 }
 
 impl OrchestratorEngine {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "testing"))]
     pub fn new() -> Self {
         Self::default()
     }
@@ -1361,7 +1361,7 @@ impl OrchestratorEngine {
             .unwrap_or_default()
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "testing"))]
     pub fn stop(&mut self) {
         self.stopped = true;
         self.spaces.clear();
@@ -1439,4 +1439,4 @@ impl LiveView for SpaceLive<'_> {
 }
 
 #[cfg(test)]
-pub(crate) mod tests;
+pub mod tests;

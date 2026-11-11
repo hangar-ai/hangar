@@ -73,7 +73,7 @@ fn occupied(path: &str, dirs: Option<&[(u32, PathBuf)]>) -> bool {
 /// The linked worktrees of `listed` the sweep must leave alone: every one
 /// whose task is not done on `tasks` (the workspace's board), or that a
 /// live process of `dirs` stands in.
-pub(super) fn guarded(
+pub fn guarded(
     listed: &[Worktree],
     tasks: &[Task],
     dirs: Option<&[(u32, PathBuf)]>,
@@ -90,7 +90,7 @@ pub(super) fn guarded(
 /// worktrees as git listed them, `held` the folders this Hangar's panes run
 /// in, `tasks` the workspace's board. Nothing is swept when git listed
 /// nothing: what is not known is kept.
-pub(super) fn sweep_workspace(
+pub fn sweep_workspace(
     cwd: &str,
     listed: &[Worktree],
     held: &[String],
@@ -155,7 +155,7 @@ mod tests {
     const CLEO: &str = "hangar/audit-rendering-bddfd5";
 
     fn scene() -> Scene {
-        let root = crate::kit_tabs::testdir::scratch("sweep");
+        let root = crate::testdir::scratch("sweep");
         // macOS's temp folder is behind a link; git lists the real path.
         #[cfg(unix)]
         let root = std::fs::canonicalize(&root).unwrap();

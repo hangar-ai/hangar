@@ -19,6 +19,15 @@ uuid.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
+# The orchestration engines: dates in the briefings, plan statuses, task
+# titles folded to ASCII for branch names, and futures joined.
+chrono.workspace = true
+regex.workspace = true
+unicode-normalization.workspace = true
+futures = "0.3"
+
+[dev-dependencies]
+tempfile = "3"
 
 [features]
 # What the hosts' tests need to put the engine in a state (seeding a pane's

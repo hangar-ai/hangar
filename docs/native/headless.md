@@ -38,9 +38,12 @@ they are refused.
    2. what the panes are doing (`panes_logic`): its state machines and their
       read-model, **done**; its clock (iced subscriptions) and the glue that
       feeds it from the `Model` stay in the app until step 2;
-   3. the agents' operations (`control`) and the model writes they ask for,
-      applied by the engine to its own state;
-   4. the orchestration engines (`orchestration`);
+   3. the agents' operations (`control`): **done**; the model writes they ask
+      for (`ModelCmd`) are still applied by the app (`control/writes.rs`)
+      until step 2;
+   4. the orchestration engines (`orchestration`): **done**; their runtime
+      (the tokio task that owns them, `runtime.rs`) and their ports over the
+      app's services (`live.rs`) stay in the app until step 2;
    5. the desk (`mobile`'s calls, without the phone's server).
 2. **A host for the engine without a window**: the store and the
    read-models in one place, saved to disk on tokio's clock, the core's
@@ -89,3 +92,24 @@ the host that drives it; the app's `panes_logic` package remains that host
 (its `update`, ticks and subscriptions) until the engine has a host of its
 own. Helpers that put the engine in a state for a test are behind the
 engine's `testing` feature, which the app's tests turn on.
+
+## Steps 1.3 and 1.4: the agents' operations and the orchestration
+
+They depend on each other (the events of the orchestrator name the
+deliveries' outcomes, the deliveries post events), so they moved together,
+after the pieces they read: the `Snapshot` (taking it from the `Model` stays
+the app's), the account rules, where panes run, the git request, the
+preview access types and the record of the last delivery checks. The dev
+command names a palette command by id, the host saying which ids it knows
+(`AppPort::knows_command`), and its capture size as numbers.
+
+`hangar_engine::control`: the dispatch (`run`), the port (`AppPort`,
+`ModelCmd`, the hooks), the operations (panes, previews, kit tabs,
+workspaces, manager, deliveries, board relay) and the fake port their tests
+run against. `hangar_engine::orchestration`: workers, events, the manager's
+feed, briefings, projects, the sweep of stale worktrees. What stays in the
+app is the host: building the port over its services (`control/live.rs`,
+`orchestration/live.rs`), applying the writes to the `Model`
+(`control/writes.rs`), the requests of a node's agents (`control/remote.rs`),
+the runtime and the iced glue. The delivery harness the tests share is
+`hangar_engine::control::testing`, behind the `testing` feature.

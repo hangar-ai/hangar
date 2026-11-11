@@ -196,7 +196,7 @@ struct BoardRead {
 /// Every workspace but the HQ, summarized, in the order the store keeps them
 /// (`loadProjects`). Each folder is read once, and every folder at once.
 pub async fn load_projects(port: &impl ProjectsPort) -> Vec<ProjectSummary> {
-    use iced::futures::future::join_all;
+    use futures::future::join_all;
 
     let state = port.state();
     let spaces: Vec<&Workspace> = state
@@ -230,7 +230,7 @@ pub async fn load_projects(port: &impl ProjectsPort) -> Vec<ProjectSummary> {
         (board, git)
     });
     // An unreadable memory is no plan anywhere, not a failed list.
-    let (reads, memory) = iced::futures::join!(join_all(reads), port.load_memory());
+    let (reads, memory) = futures::join!(join_all(reads), port.load_memory());
     let memory = memory.unwrap_or_default();
     let by_folder: HashMap<&str, &(BoardRead, Option<bool>)> = folders
         .iter()

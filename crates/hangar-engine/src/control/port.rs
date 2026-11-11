@@ -42,8 +42,8 @@ use hangar_core::git::Worktree;
 use hangar_core::kits::KitInfo;
 use hangar_core::shells::ShellInfo;
 
-use crate::message::GitRequest;
-pub use crate::services::preview::{BoxFuture, SnapshotAngle};
+use crate::control::requests::GitRequest;
+pub use crate::preview::{BoxFuture, SnapshotAngle};
 use crate::state::{
     AgentId, PaneActivity, PaneId, PanePatch, Settings, Snapshot, SplitDir, StoreOutcome,
     Workspace, WorkspaceDraft, WorkspacePatch, WsId,
@@ -757,4 +757,13 @@ pub fn object<const N: usize>(pairs: [(&str, Value); N]) -> Value {
 /// `value` as JSON; what cannot be written reads as `null`.
 pub fn json<T: Serialize>(value: &T) -> Value {
     serde_json::to_value(value).unwrap_or(Value::Null)
+}
+
+/// Whether a workspace's panes are up: opened in the main window during this
+/// run, or shown in a window of its own (P18's `is_open`, App.tsx's
+/// `isOpen`). A workspace detached when Hangar last quit draws its panes
+/// without ever being opened in the main window; read off the opened set
+/// alone, its workers would be listed as stopped while they run.
+pub fn open_in(snapshot: &Snapshot, workspace_id: &str) -> bool {
+    workspace_in(snapshot, workspace_id).is_some_and(|ws| is_open(snapshot, ws))
 }

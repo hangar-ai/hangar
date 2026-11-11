@@ -241,7 +241,7 @@ impl WorkerPort for World {
             opened: self.opened.lock().unwrap().clone(),
             ..crate::state::Snapshot::default()
         };
-        crate::orchestration::live::open_in(&snapshot, workspace_id)
+        crate::control::port::open_in(&snapshot, workspace_id)
     }
 
     fn activity(&self, _pane: &str) -> Option<PaneActivity> {
@@ -323,7 +323,7 @@ impl WorkerPort for World {
             added.port_base = Some(init.port_base);
             added.shared_folder = init.shared_folder;
             if let Some(node) = &init.node {
-                crate::nodes::away::set_pane_node(&mut added, node);
+                crate::nodes::set_pane_node(&mut added, node);
             }
         }
         self.map_shop(|ws| ws.panes.push(added));
@@ -1627,7 +1627,7 @@ async fn sends_a_worker_to_a_node_its_base_pushed_its_worktree_there_and_its_bri
     let mia = app.pane_named("Mia").unwrap();
     assert_eq!(mia.cwd.as_deref(), Some(path.as_str()));
     assert_eq!(
-        crate::nodes::away::pane_node(&mia).as_deref(),
+        crate::nodes::pane_node(&mia).as_deref(),
         Some("n1"),
         "the pane runs on the node"
     );

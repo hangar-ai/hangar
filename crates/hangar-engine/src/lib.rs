@@ -22,4 +22,7 @@ pub mod nodes;
 pub mod orchestration;
 pub mod panes;
 pub mod preview;
+
 pub mod state;
+#[cfg(test)]
+mod testdir;

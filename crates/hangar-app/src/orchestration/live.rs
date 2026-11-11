@@ -33,7 +33,6 @@ use super::text::now_ms;
 use super::worker::{Starting, WorkerPort};
 
 use crate::control::ModelCmd;
-use crate::control::port::{is_open, workspace_in};
 use crate::message::Message;
 use crate::services::inbox::Answer;
 use crate::state::types::{AppState, Pane, PaneId};
@@ -66,7 +65,7 @@ async fn blocking<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> 
 
 // The last delivery check of each workspace: hangar-engine's, named here as
 // before.
-pub use hangar_engine::orchestration::checks::{last_check, record_check};
+pub use hangar_engine::orchestration::checks::last_check;
 
 /// Once per run: what old versions' deliveries left in the temp folder goes,
 /// and git forgets the worktrees whose folder is gone, in each workspace's
@@ -725,14 +724,8 @@ impl ProjectsPort for LivePort {
     }
 }
 
-/// Whether a workspace's panes are up: opened in the main window during this
-/// run, or shown in a window of its own (P18's `is_open`, App.tsx's
-/// `isOpen`). A workspace detached when Hangar last quit draws its panes
-/// without ever being opened in the main window; read off the opened set
-/// alone, its workers would be listed as stopped while they run.
-pub fn open_in(snapshot: &Snapshot, workspace_id: &str) -> bool {
-    workspace_in(snapshot, workspace_id).is_some_and(|ws| is_open(snapshot, ws))
-}
+// Whether a workspace is open: the engine's, named here as before.
+pub use hangar_engine::control::port::open_in;
 
 /// `f` on the blocking pool for the panes' shells: the PTY manager's lock is
 /// the one every pane's reader and writer takes, and a kill reaps the shell.
@@ -787,25 +780,5 @@ mod tests {
         })
         .await;
         assert_eq!(killed, Ok(Ok(())));
-    }
-}
-
-#[cfg(test)]
-mod check_cost_tests {
-    use super::*;
-
-    #[test]
-    fn the_last_check_of_a_workspace_is_the_one_kept() {
-        assert_eq!(last_check("ws-never-checked"), None);
-        record_check("ws-checked", 700, true);
-        record_check("ws-checked", 95, false);
-        assert_eq!(
-            last_check("ws-checked"),
-            Some(CheckCost {
-                seconds: 95,
-                passed: false
-            })
-        );
-        assert_eq!(last_check("ws-other"), None);
     }
 }

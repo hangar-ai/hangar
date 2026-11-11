@@ -187,7 +187,7 @@ pub fn delivery_state(port: &Port, task: &str) -> Option<DeliveryState> {
 }
 
 /// Whether a delivery of the workspace is under way, for hibernation.
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 pub fn delivering_in(port: &Port, ws: &str) -> bool {
     port.deliveries().delivering_in(ws)
 }
@@ -425,7 +425,7 @@ async fn delivered_from(
     delivery: &dyn DeliveryDeps,
     landing: bool,
 ) -> Result<String, String> {
-    match crate::nodes::away::pane_node(pane) {
+    match crate::nodes::pane_node(pane) {
         Some(node) => {
             // A path on the node, as it is: not this machine's to resolve.
             let there = pane.cwd.clone().unwrap_or_default();
@@ -919,7 +919,7 @@ async fn deliver(
     };
     // What the check cost, for the orchestrator's briefing.
     if let Some(check) = &outcome.check {
-        crate::orchestration::live::record_check(&ws.id, check.seconds, check.passed);
+        crate::orchestration::checks::record_check(&ws.id, check.seconds, check.passed);
     }
     // The outcome stands whatever its follow-ups managed; the next delivery or
     // the person sees the board as it is.
@@ -1033,7 +1033,7 @@ async fn settle(
             });
         let mut kept = cleanup.kept;
         // A worker on a node: its worktree and branch there go too.
-        if let Some(node) = crate::nodes::away::pane_node(pane) {
+        if let Some(node) = crate::nodes::pane_node(pane) {
             let there = pane.cwd.clone().unwrap_or_default();
             match delivery.clean_node(node, there, branch.to_string()).await {
                 Ok(cleanup) => kept.extend(cleanup.kept),

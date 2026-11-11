@@ -25,27 +25,25 @@
 //! - `remote.rs`: the requests of a node's agents, run against the node's
 //!   workspaces and answered on the node (`Msg::Node`).
 
-mod board_relay;
-pub mod delivery;
-pub mod delivery_text;
 mod engines;
-mod kit_tabs;
 mod live;
-mod manager;
-mod panes;
-mod paths;
-pub mod port;
-mod preview;
 pub mod remote;
-mod run;
-pub mod types;
-mod workspace;
 mod writes;
 
+// The operations themselves live in hangar-engine (`hangar_engine::control`):
+// named here as before. This package is their host on the desktop.
+#[allow(unused_imports)]
+pub use hangar_engine::control::{
+    board_relay, delivery, delivery_text, kit_tabs, manager, panes, paths, port, preview, requests,
+    run, types, workspace,
+};
+
 #[cfg(test)]
-mod fake;
+use hangar_engine::control::fake;
 #[cfg(test)]
-mod tests;
+mod land_tests;
+#[cfg(test)]
+mod remote_tests;
 
 use std::collections::HashMap;
 use std::sync::Arc;

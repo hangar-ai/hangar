@@ -3213,11 +3213,16 @@ dependencies = [
 name = "hangar-engine"
 version = "2.2.1"
 dependencies = [
+ "chrono",
+ "futures",
  "hangar-core",
  "hangar-i18n",
+ "regex",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
+ "unicode-normalization",
  "uuid 1.24.0",
 ]
 
