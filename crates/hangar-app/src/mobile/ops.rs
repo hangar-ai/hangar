@@ -426,6 +426,28 @@ pub async fn hold(
     Ok(())
 }
 
+/// The person's words for a pane whose Claude Code works and runs the mod:
+/// into its queue, which the session takes when the turn ends, rather than
+/// typed into the turn. What waits there can be taken back (`unqueue_pane`).
+pub async fn queue_pane(port: &Port, pane: &Pane, text: &str) -> Result<RemoteSent, String> {
+    if text.trim().is_empty() {
+        return Err("Nothing to send: give text.".into());
+    }
+    if !queues(port) {
+        return Err(format!(
+            "The hangar-bridge mod is off: nothing can wait for \"{}\". Nothing was sent.",
+            pane.name
+        ));
+    }
+    port.enqueue(&pane.id, text, None).await?;
+    Ok(RemoteSent::QUEUED)
+}
+
+/// Takes back what waits in the pane's queue, by its id.
+pub async fn unqueue_pane(port: &Port, pane: &Pane, id: &str) -> Result<(), String> {
+    port.unqueue(&pane.id, id).await
+}
+
 /// What `type` sends.
 #[derive(Debug, Clone, Default)]
 pub struct Input {

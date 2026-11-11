@@ -348,6 +348,11 @@ impl AppPort for App {
         ready(Ok(()))
     }
 
+    fn unqueue(&self, pane: &PaneId, id: &str) -> BoxFuture<Result<(), String>> {
+        locked(&self.queued).push(format!("unqueue:{pane}:{id}"));
+        ready(Ok(()))
+    }
+
     fn dir_exists(&self, _path: &str) -> BoxFuture<bool> {
         ready(true)
     }

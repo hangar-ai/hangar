@@ -198,6 +198,15 @@ pub trait AppPort: Send + Sync + 'static {
         from: Option<&str>,
     ) -> BoxFuture<Result<(), String>>;
 
+    /// Takes a prompt still waiting in the hangar-bridge queue back, by its
+    /// id (`bridge_cancel`): it never reaches the session.
+    fn unqueue(&self, pane: &PaneId, id: &str) -> BoxFuture<Result<(), String>> {
+        let _ = (pane, id);
+        Box::pin(std::future::ready(Err(
+            "What waits in this pane's queue cannot be taken back from here.".to_string(),
+        )))
+    }
+
     fn dir_exists(&self, path: &str) -> BoxFuture<bool>;
 
     /// Whether workspaces can go to windows of their own at all.

@@ -994,6 +994,179 @@ fn a_delivery_whose_files_cannot_be_read_stays_one_line() {
     assert_eq!(shown_texts(&st, &m, &[line, "3 files"]), [line]);
 }
 
+/* ── the queue ─────────────────────────────────────────────────── */
+
+/// Leo at work, its Claude Code running the mod.
+fn at_work(m: &mut Model) {
+    let now = crate::control::types::now_ms();
+    crate::panes_logic::mount_for_test(m, LEO, WS, "Leo", now - 600_000);
+    for event in [
+        json!({"kind": "hello", "sessionId": "s1", "model": "claude-opus-5-5", "version": "2.1.322"}),
+        json!({"kind": "turn", "phase": "start"}),
+    ] {
+        let event = crate::services::CoreEvent::Bridge {
+            pane: LEO.into(),
+            event,
+        };
+        let _ = crate::panes_logic::reduce_for_test(m, &event, now - 10_000);
+    }
+}
+
+/// What the mod holds for Leo, as core says it.
+fn leo_queue(m: &mut Model, pending: &[(&str, &str, Option<&str>)]) {
+    let event = crate::services::CoreEvent::BridgeQueue {
+        pane: LEO.into(),
+        pending: pending
+            .iter()
+            .map(|(id, text, from)| hangar_core::bridge::Queued {
+                id: (*id).into(),
+                text: (*text).into(),
+                from: from.map(str::to_string),
+            })
+            .collect(),
+    };
+    let _ = crate::panes_logic::reduce_for_test(m, &event, crate::control::types::now_ms());
+}
+
+#[test]
+fn what_is_sent_while_the_orchestrator_works_waits_in_its_queue_and_can_be_taken_back() {
+    let mut m = shop(true);
+    at_work(&mut m);
+    let mut st = State::default();
+    read_into(&mut st, &mut m, page(vec![person("u0", "Hello")], None));
+    assert_eq!(
+        shown_texts(
+            &st,
+            &m,
+            &["Leo is working: what you send waits for the end of its turn"]
+        )
+        .len(),
+        1
+    );
+    st.chat_mut(WS, LEO).draft = text_editor::Content::with_text("Also add tests\n");
+    apply(&mut st, &mut m, vec![Msg::Send(WS.into())]);
+    assert_eq!(
+        calls(&st).last(),
+        Some(&Call::Queue {
+            text: "Also add tests".into()
+        })
+    );
+    let chat = st.chat(WS).unwrap();
+    assert_eq!(chat.draft.text().trim(), "");
+    assert!(
+        chat.thread.outgoing.is_empty(),
+        "no bubble: it is in the queue"
+    );
+
+    // The queue as the mod holds it: Hangar's own news is not the person's.
+    leo_queue(
+        &mut m,
+        &[
+            ("q1", "Also add tests", None),
+            ("q2", "3 updates in workspace", Some("hangar")),
+            ("q3", "And update the README", None),
+        ],
+    );
+    assert_eq!(
+        shown_texts(
+            &st,
+            &m,
+            &[
+                "Waiting for Leo to finish",
+                "Also add tests",
+                "3 updates in workspace",
+                "And update the README",
+                "Send now"
+            ]
+        ),
+        [
+            "Waiting for Leo to finish",
+            "Also add tests",
+            "And update the README",
+            "Send now"
+        ]
+    );
+
+    // Edit: back into the input, and out of the queue.
+    st.chat_mut(WS, LEO).draft = text_editor::Content::with_text("Hmm");
+    apply(
+        &mut st,
+        &mut m,
+        vec![Msg::Unqueue {
+            ws: WS.into(),
+            id: "q1".into(),
+            edit: true,
+        }],
+    );
+    assert_eq!(calls(&st).last(), Some(&Call::Unqueue { id: "q1".into() }));
+    assert_eq!(
+        st.chat(WS).unwrap().draft.text().trim_end(),
+        "Hmm\nAlso add tests"
+    );
+    assert_eq!(
+        shown_texts(&st, &m, &["Also add tests", "And update the README"]),
+        ["And update the README"]
+    );
+    // Remove: gone, and if it was too late, back with why.
+    apply(
+        &mut st,
+        &mut m,
+        vec![
+            Msg::Unqueue {
+                ws: WS.into(),
+                id: "q3".into(),
+                edit: false,
+            },
+            Msg::Unqueued {
+                ws: WS.into(),
+                id: "q3".into(),
+                result: Err("already taken".into()),
+            },
+        ],
+    );
+    assert_eq!(
+        shown_texts(&st, &m, &["And update the README"]),
+        ["And update the README"]
+    );
+    // Send now: the turn stops, and the queue goes.
+    let asked = clicks(&st, &m, &["Send now"]);
+    apply(&mut st, &mut m, asked);
+    assert_eq!(calls(&st).last(), Some(&Call::Stop));
+}
+
+#[test]
+fn a_message_the_queue_refused_shows_as_not_sent() {
+    let mut m = shop(true);
+    at_work(&mut m);
+    let mut st = State::default();
+    read_into(&mut st, &mut m, page(vec![], None));
+    apply(
+        &mut st,
+        &mut m,
+        vec![Msg::Queued {
+            ws: WS.into(),
+            text: "Also add tests".into(),
+            at: 5,
+            result: Err("The hangar-bridge mod is off".into()),
+        }],
+    );
+    let out = &st.chat(WS).unwrap().thread.outgoing;
+    assert_eq!(out.len(), 1);
+    assert!(matches!(out[0].state, Sent::Failed(_)));
+}
+
+#[test]
+fn without_the_mod_what_is_sent_while_it_works_is_typed_as_before() {
+    let mut m = shop(true);
+    let now = crate::control::types::now_ms();
+    crate::panes_logic::mount_for_test(&mut m, LEO, WS, "Leo", now - 600_000);
+    let mut st = State::default();
+    read_into(&mut st, &mut m, page(vec![], None));
+    st.chat_mut(WS, LEO).draft = text_editor::Content::with_text("go");
+    apply(&mut st, &mut m, vec![Msg::Send(WS.into())]);
+    assert_eq!(calls(&st).last(), Some(&Call::Send { text: "go".into() }));
+}
+
 /* ── plans ─────────────────────────────────────────────────────── */
 
 const PLAN: &str = "## Search box\n\n\
@@ -1615,6 +1788,23 @@ fn the_permission_and_question_cards_are_drawn() {
         ],
     );
     picture("delivered", &st, &m, "graphite");
+
+    let mut m = shop(true);
+    at_work(&mut m);
+    leo_queue(
+        &mut m,
+        &[
+            ("q1", "Also add tests for an empty query", None),
+            (
+                "q2",
+                "And keep the box hidden on mobile until the filters are open",
+                None,
+            ),
+        ],
+    );
+    let mut st = State::default();
+    read_into(&mut st, &mut m, busy_page(None));
+    picture("queue", &st, &m, "graphite");
 
     let mut st = State::default();
     read_into(

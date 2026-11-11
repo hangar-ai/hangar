@@ -214,6 +214,24 @@ impl AppPort for LivePort {
         })
     }
 
+    fn unqueue(&self, pane: &PaneId, id: &str) -> BoxFuture<Result<(), String>> {
+        let host = self.host();
+        let node = self.node_of(pane);
+        let (pane, id) = (pane.clone(), id.to_string());
+        Box::pin(async move {
+            if node.is_some() {
+                return Err(
+                    "What waits in the queue of a pane on a node cannot be taken back from here."
+                        .to_string(),
+                );
+            }
+            blocking(move || {
+                hangar_core::bridge::bridge_cancel(&host, pane, Some(id));
+            })
+            .await
+        })
+    }
+
     fn dir_exists(&self, path: &str) -> BoxFuture<bool> {
         let path = path.to_string();
         Box::pin(async move {

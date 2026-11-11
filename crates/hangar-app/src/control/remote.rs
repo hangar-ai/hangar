@@ -456,6 +456,10 @@ impl AppPort for AwayPort {
         self.inner.enqueue(pane, text, from)
     }
 
+    fn unqueue(&self, pane: &PaneId, id: &str) -> BoxFuture<Result<(), String>> {
+        self.inner.unqueue(pane, id)
+    }
+
     fn dir_exists(&self, path: &str) -> BoxFuture<bool> {
         self.inner.dir_exists(path)
     }

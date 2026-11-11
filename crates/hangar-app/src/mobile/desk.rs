@@ -75,6 +75,19 @@ pub async fn send_text(
     type_into(port, mobile, &ws, &pane, input).await
 }
 
+/// The person's words while the pane works: held in its queue until the
+/// turn ends (`ops::queue_pane`).
+pub async fn queue(port: &Port, ws: &str, pane: &str, text: &str) -> Result<RemoteSent, String> {
+    let (_, pane) = find(port, ws, pane)?;
+    super::ops::queue_pane(port, &pane, text).await
+}
+
+/// Takes back a prompt still waiting in the pane's queue.
+pub async fn unqueue(port: &Port, ws: &str, pane: &str, id: &str) -> Result<(), String> {
+    let (_, pane) = find(port, ws, pane)?;
+    super::ops::unqueue_pane(port, &pane, id).await
+}
+
 /// Escape to the pane while its agent works, as the person stops a turn in
 /// the terminal. Refused unless it works now: typed into a dialog, Escape
 /// would answer it; at the prompt, it clears what is typed there.

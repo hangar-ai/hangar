@@ -64,6 +64,7 @@ use crate::preview::highlight::Lines;
 use crate::preview::markdown::highlight_blocks;
 use crate::services::{CoreEvent, Services};
 use crate::shell::Notice;
+use crate::state::live::QueuedPrompt;
 use crate::state::roles::orchestrator_of;
 use crate::state::{AgentActivity, AgentId, Model, Pane, PaneId, Workspace, WsId};
 
@@ -124,6 +125,14 @@ pub enum Call {
     },
     /// The files a delivery brought, read from git (not through the desk).
     Changes(Range),
+    /// Into the pane's queue while it works, for when the turn ends.
+    Queue {
+        text: String,
+    },
+    /// Taken back from the queue.
+    Unqueue {
+        id: String,
+    },
 }
 
 /// The files a delivery brought, as far as they are read.
@@ -184,6 +193,8 @@ pub struct Chat {
     refusal: Option<String>,
     /// What to change in the plan the pane presents, as typed.
     plan_feedback: String,
+    /// Prompts taken back from the queue, hidden until the queue says so.
+    taken_back: HashSet<String>,
     /// A stop is on its way.
     stopping: bool,
     /// Why the last stop was refused.
@@ -224,6 +235,7 @@ impl Chat {
             deciding: false,
             refusal: None,
             plan_feedback: String::new(),
+            taken_back: HashSet::new(),
             stopping: false,
             stop_error: None,
             at_bottom: true,
@@ -374,6 +386,25 @@ pub enum Msg {
         ws: WsId,
         range: Range,
         result: Result<Arc<Changes>, String>,
+    },
+    /// What went to the queue, or why it did not.
+    Queued {
+        ws: WsId,
+        text: String,
+        at: i64,
+        result: Result<RemoteSent, String>,
+    },
+    /// A prompt that waits in the queue, taken back; with `true`, into the
+    /// input to be changed.
+    Unqueue {
+        ws: WsId,
+        id: String,
+        edit: bool,
+    },
+    Unqueued {
+        ws: WsId,
+        id: String,
+        result: Result<(), String>,
     },
     /// The "Changes" overlay on a delivery, a file of it shown first.
     OpenChanges {
@@ -775,6 +806,7 @@ fn touches(msg_: &Msg) -> Option<&str> {
         | Msg::Sent { ws, .. }
         | Msg::Toggle(ws, _)
         | Msg::Changes { ws, .. }
+        | Msg::Queued { ws, .. }
         | Msg::SubmitAnswer(ws)
         | Msg::Permit(ws, _)
         | Msg::Plan(ws, _)
@@ -794,6 +826,8 @@ fn touches(msg_: &Msg) -> Option<&str> {
         | Msg::Stopped { .. }
         | Msg::PlanFeedback(..)
         | Msg::OpenChanges { .. }
+        | Msg::Unqueue { .. }
+        | Msg::Unqueued { .. }
         | Msg::Link(_) => None,
     }
 }
@@ -899,6 +933,28 @@ fn route(st: &mut State, m: &mut Model, msg_: Msg) -> Task<Message> {
                     Err(_) => Changed::Failed,
                 };
                 chat.changes.insert(range, read);
+            }
+            Task::none()
+        }
+        Msg::Queued {
+            ws,
+            text,
+            at,
+            result,
+        } => {
+            // Refused: shown where a message that failed to go is.
+            if let (Some(chat), Err(error)) = (st.chats.get_mut(&ws), result) {
+                chat.thread.send(text, at);
+                chat.thread.sent(at, Sent::Failed(error));
+            }
+            Task::none()
+        }
+        Msg::Unqueue { ws, id, edit } => unqueue(st, m, &ws, id, edit),
+        Msg::Unqueued { ws, id, result } => {
+            if let (Some(chat), Err(error)) = (st.chats.get_mut(&ws), result) {
+                // Too late, or refused: it is shown again, with why.
+                chat.taken_back.remove(&id);
+                chat.stop_error = Some(error);
             }
             Task::none()
         }
@@ -1045,6 +1101,35 @@ fn send(st: &mut State, m: &Model, ws: &str) -> Task<Message> {
         return Task::none();
     }
     let at = now_ms();
+    if queueing(m, &pane) {
+        // It works: the words wait in its queue, shown above the input,
+        // and go when the turn ends.
+        chat.thread.clear_failed();
+        chat.draft = text_editor::Content::new();
+        let ws_id = ws.to_string();
+        let words = text.clone();
+        return call(
+            st,
+            m,
+            ws,
+            &pane.id,
+            Call::Queue { text },
+            move |result| {
+                msg(Msg::Queued {
+                    ws: ws_id,
+                    text: words,
+                    at,
+                    result,
+                })
+            },
+            |port, _, ws, pane, call| {
+                let Call::Queue { text } = call else {
+                    unreachable!("a queue")
+                };
+                Box::pin(async move { desk::queue(&port, &ws, &pane, &text).await })
+            },
+        );
+    }
     chat.thread.clear_failed();
     chat.thread.send(text.clone(), at);
     chat.draft = text_editor::Content::new();
@@ -1204,6 +1289,78 @@ fn plan(st: &mut State, m: &Model, ws: &str, approve: bool) -> Task<Message> {
                 )
                 .await
             })
+        },
+    )
+}
+
+/// Whether the person's words for this orchestrator wait in its queue: it
+/// works, its Claude Code runs the mod, and the queue is this window's.
+pub(super) fn queueing(m: &Model, pane: &Pane) -> bool {
+    m.live.panes_logic.activity_or_idle(&pane.id) == AgentActivity::Working
+        && m.live.panes_logic.bridged_count([&pane.id]) == 1
+        && m.settings().claude_bridge
+        && crate::nodes::away::pane_node(pane).is_none()
+}
+
+/// The person's prompts that wait in the orchestrator's queue, oldest first:
+/// not Hangar's or another agent's, not those being taken back.
+pub(super) fn waiting<'a>(m: &'a Model, chat: &'a Chat) -> impl Iterator<Item = &'a QueuedPrompt> {
+    m.live
+        .panes_logic
+        .insight(&chat.pane)
+        .queue
+        .iter()
+        .filter(|queued| queued.from.as_deref().is_none_or(str::is_empty))
+        .filter(|queued| !chat.taken_back.contains(&queued.id))
+}
+
+/// Takes a prompt back from the queue; with `edit`, into the input (after
+/// what is typed there).
+fn unqueue(st: &mut State, m: &Model, ws: &str, id: String, edit: bool) -> Task<Message> {
+    let Some(text) = st.chats.get(ws).and_then(|chat| {
+        waiting(m, chat)
+            .find(|queued| queued.id == id)
+            .map(|queued| queued.text.clone())
+    }) else {
+        return Task::none();
+    };
+    let Some(chat) = found(st, m, ws) else {
+        return Task::none();
+    };
+    chat.taken_back.insert(id.clone());
+    chat.stop_error = None;
+    if edit {
+        let typed = chat.draft.text();
+        let joined = if typed.trim().is_empty() {
+            text
+        } else {
+            format!("{}\n{text}", typed.trim_end())
+        };
+        chat.draft = text_editor::Content::with_text(&joined);
+        chat.draft
+            .perform(text_editor::Action::Move(text_editor::Motion::DocumentEnd));
+    }
+    let pane = chat.pane.clone();
+    let ws_id = ws.to_string();
+    let taken = id.clone();
+    call(
+        st,
+        m,
+        ws,
+        &pane,
+        Call::Unqueue { id },
+        move |result| {
+            msg(Msg::Unqueued {
+                ws: ws_id,
+                id: taken,
+                result,
+            })
+        },
+        |port, _, ws, pane, call| {
+            let Call::Unqueue { id } = call else {
+                unreachable!("an unqueue")
+            };
+            Box::pin(async move { desk::unqueue(&port, &ws, &pane, &id).await })
         },
     )
 }

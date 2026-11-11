@@ -2205,6 +2205,27 @@ async fn desk_plan_shows_the_plan_and_sends_it_back_with_what_to_change() {
 }
 
 #[tokio::test]
+async fn desk_queue_holds_the_words_for_the_turn_s_end_and_takes_them_back() {
+    const PANE: &str = "queued-leo";
+    let r = rig(vec![held_shop(PANE)], vec![], true);
+    let ws = format!("held-{PANE}");
+    assert_eq!(
+        desk::queue(&r.port, &ws, PANE, "Also add tests").await,
+        Ok(RemoteSent::QUEUED)
+    );
+    assert_eq!(desk::unqueue(&r.port, &ws, PANE, "q1").await, Ok(()));
+    assert_eq!(
+        r.app.queued(),
+        [
+            format!("{PANE}:Also add tests"),
+            format!("unqueue:{PANE}:q1")
+        ]
+    );
+    assert!(r.typed().is_empty(), "nothing typed into the turn");
+    assert!(desk::queue(&r.port, &ws, PANE, "  ").await.is_err());
+}
+
+#[tokio::test]
 async fn desk_permit_types_the_key_when_no_mod_takes_the_answer() {
     const PANE: &str = "held-untaken";
     let r = rig(vec![held_shop(PANE)], vec![], true);

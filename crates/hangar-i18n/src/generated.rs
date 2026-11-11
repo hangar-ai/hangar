@@ -474,6 +474,18 @@ pub enum Key {
     ChatConvQuestionSubmit,
     /// `chatConv.question.title`
     ChatConvQuestionTitle,
+    /// `chatConv.queue.edit`
+    ChatConvQueueEdit,
+    /// `chatConv.queue.hint`
+    ChatConvQueueHint,
+    /// `chatConv.queue.remove`
+    ChatConvQueueRemove,
+    /// `chatConv.queue.sendNow`
+    ChatConvQueueSendNow,
+    /// `chatConv.queue.sendNowHint`
+    ChatConvQueueSendNowHint,
+    /// `chatConv.queue.title`
+    ChatConvQueueTitle,
     /// `chatConv.queued`
     ChatConvQueued,
     /// `chatConv.readFailed`
@@ -4037,7 +4049,7 @@ pub enum Key {
 }
 
 /// How many keys there are.
-pub const KEY_COUNT: usize = 2010;
+pub const KEY_COUNT: usize = 2016;
 
 impl Key {
     /// Every key, in the order of their ids.
@@ -4272,6 +4284,12 @@ impl Key {
         Key::ChatConvQuestionRecap,
         Key::ChatConvQuestionSubmit,
         Key::ChatConvQuestionTitle,
+        Key::ChatConvQueueEdit,
+        Key::ChatConvQueueHint,
+        Key::ChatConvQueueRemove,
+        Key::ChatConvQueueSendNow,
+        Key::ChatConvQueueSendNowHint,
+        Key::ChatConvQueueTitle,
         Key::ChatConvQueued,
         Key::ChatConvReadFailed,
         Key::ChatConvReasonNoSession,
@@ -6287,6 +6305,12 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "chatConv.question.recap", en: Text::plain("Your answers"), fr: Text::plain("Vos réponses") },
     Message { id: "chatConv.question.submit", en: Text::plain("Send the answer"), fr: Text::plain("Envoyer la réponse") },
     Message { id: "chatConv.question.title", en: Text::plain("{name} asks"), fr: Text::plain("{name} demande") },
+    Message { id: "chatConv.queue.edit", en: Text::plain("Edit"), fr: Text::plain("Modifier") },
+    Message { id: "chatConv.queue.hint", en: Text::plain("{name} is working: what you send waits for the end of its turn"), fr: Text::plain("{name} travaille\u{202f}: ce que vous envoyez attend la fin de son tour") },
+    Message { id: "chatConv.queue.remove", en: Text::plain("Remove"), fr: Text::plain("Retirer") },
+    Message { id: "chatConv.queue.sendNow", en: Text::plain("Send now"), fr: Text::plain("Envoyer maintenant") },
+    Message { id: "chatConv.queue.sendNowHint", en: Text::plain("Stops the turn: the first message goes at once"), fr: Text::plain("Arrête le tour en cours\u{202f}: le premier message part tout de suite") },
+    Message { id: "chatConv.queue.title", en: Text::plain("Waiting for {name} to finish"), fr: Text::plain("En attente\u{202f}: partira quand {name} aura fini") },
     Message { id: "chatConv.queued", en: Text::plain("Queued: {name} gets it once Claude Code is up"), fr: Text::plain("En file\u{202f}: {name} le recevra dès que Claude Code sera prêt") },
     Message { id: "chatConv.readFailed", en: Text::plain("Could not read the conversation: {error}"), fr: Text::plain("Impossible de lire la conversation\u{202f}: {error}") },
     Message { id: "chatConv.reason.noSession", en: Text::plain("No conversation with {name} yet. Write below to start one."), fr: Text::plain("Pas encore de conversation avec {name}. Écrivez ci-dessous pour en commencer une.") },

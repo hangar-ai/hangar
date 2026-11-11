@@ -1830,6 +1830,91 @@ fn round<'a>(
 /// The composer: the input, and under it what to know before sending, Stop
 /// while the orchestrator works, Send; or, while a question or a permission
 /// waits, its card instead.
+/// The longest a prompt waiting in the queue is shown, on one line.
+const QUEUED_WORDS: usize = 120;
+
+/// What the person sent while the orchestrator works, waiting for its turn
+/// to end, at the top of the input: each can be taken back, or taken back
+/// into the input to be changed; "Send now" stops the turn, and the first
+/// one goes at once.
+fn queue<'a>(
+    ctx: Ctx<'a>,
+    ws: &'a Workspace,
+    pane: &'a Pane,
+    chat: &'a Chat,
+    works: bool,
+) -> Option<Element<'a, Message>> {
+    let t = ctx.theme;
+    let waiting: Vec<_> = super::waiting(ctx.model, chat).collect();
+    if waiting.is_empty() {
+        return None;
+    }
+    let mut head = row![
+        icon(Icon::Clock, 12.0).color(t.colors.fg_subtle),
+        text(
+            ctx.i18n
+                .t_with(
+                    Key::ChatConvQueueTitle,
+                    &args!("name" => pane.name.as_str())
+                )
+                .into_owned()
+        )
+        .size(tokens::font_size::CAPTION)
+        .width(Length::Fill)
+        .style(style::text::muted(t)),
+    ]
+    .spacing(tokens::space::MD)
+    .align_y(Alignment::Center);
+    if works {
+        head = head.push(hangar_ui::tip::over(
+            t,
+            ui_button::ghost(t, ctx.t(Key::ChatConvQueueSendNow).into_owned())
+                .on_press_maybe((!chat.stopping).then(|| msg(Msg::Stop(ws.id.clone())))),
+            ctx.t(Key::ChatConvQueueSendNowHint).into_owned(),
+        ));
+    }
+    let mut list = column![head].spacing(tokens::space::XS);
+    for queued in waiting {
+        let id = queued.id.clone();
+        list = list.push(
+            row![
+                text(hangar::first_line(&queued.text, QUEUED_WORDS))
+                    .size(tokens::font_size::UI)
+                    .width(Length::Fill)
+                    .style(style::text::secondary(t)),
+                ui_button::icon_button(t, Icon::Pencil)
+                    .side(24.0)
+                    .tip(ctx.t(Key::ChatConvQueueEdit).into_owned())
+                    .on_press(msg(Msg::Unqueue {
+                        ws: ws.id.clone(),
+                        id: id.clone(),
+                        edit: true,
+                    })),
+                ui_button::icon_button(t, Icon::Close)
+                    .side(24.0)
+                    .tip(ctx.t(Key::ChatConvQueueRemove).into_owned())
+                    .on_press(msg(Msg::Unqueue {
+                        ws: ws.id.clone(),
+                        id,
+                        edit: false,
+                    })),
+            ]
+            .spacing(tokens::space::XS)
+            .align_y(Alignment::Center),
+        );
+    }
+    Some(
+        container(list)
+            .padding(Padding {
+                top: tokens::space::MD,
+                right: tokens::space::MD,
+                bottom: tokens::space::SM,
+                left: tokens::space::XL,
+            })
+            .into(),
+    )
+}
+
 fn composer<'a>(
     ctx: Ctx<'a>,
     ws: &'a Workspace,
@@ -1876,6 +1961,13 @@ fn composer<'a>(
         (None, Some(why)) => text(blocked_words(ctx, pane, why))
             .size(tokens::font_size::CAPTION)
             .style(style::text::warning(t)),
+        (None, None) if super::queueing(ctx.model, pane) => text(
+            ctx.i18n
+                .t_with(Key::ChatConvQueueHint, &args!("name" => pane.name.as_str()))
+                .into_owned(),
+        )
+        .size(tokens::font_size::CAPTION)
+        .style(style::text::subtle(t)),
         (None, None) => text(ctx.t(Key::ChatConvInputHint))
             .size(tokens::font_size::CAPTION)
             .style(style::text::subtle(t)),
@@ -1908,16 +2000,24 @@ fn composer<'a>(
     let waiting = chat.thread.pending.is_some();
     let surface: Element<'a, Message> = match card(ctx, ws, pane, chat) {
         Some(card) => card,
-        None => column![
-            crate::keymap::guard(ctx, editor),
-            container(footer).padding(Padding {
-                top: 0.0,
-                right: tokens::space::MD,
-                bottom: tokens::space::MD,
-                left: tokens::space::XL,
-            })
-        ]
-        .into(),
+        None => {
+            let mut parts = column![];
+            if let Some(queue) = queue(ctx, ws, pane, chat, works) {
+                parts = parts.push(queue).push(
+                    container(rule::horizontal(tokens::BORDER_WIDTH).style(style::rule::sep(t)))
+                        .padding([0.0, tokens::space::XL]),
+                );
+            }
+            parts
+                .push(crate::keymap::guard(ctx, editor))
+                .push(container(footer).padding(Padding {
+                    top: 0.0,
+                    right: tokens::space::MD,
+                    bottom: tokens::space::MD,
+                    left: tokens::space::XL,
+                }))
+                .into()
+        }
     };
     centred(
         container(
