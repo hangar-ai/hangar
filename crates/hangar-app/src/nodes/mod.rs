@@ -106,6 +106,8 @@ impl Conn {
 #[derive(Debug, Default)]
 pub struct Live {
     pub statuses: HashMap<String, NodeStatus>,
+    /// The workspaces each connected node runs itself, as last read.
+    pub own: HashMap<String, Vec<model::OwnWorkspace>>,
 }
 
 impl Live {
@@ -135,6 +137,14 @@ pub enum Msg {
     Reconcile,
     /// `HANGAR_DEV_NODES_CONNECT`: every node connected as the app starts.
     DevConnectAll,
+    /// The connected nodes asked which workspaces they run themselves
+    /// (every 5 s).
+    RefreshOwn,
+    /// What node `id` answered; `None`: it could not say (an older node).
+    Own {
+        id: String,
+        workspaces: Option<Vec<model::OwnWorkspace>>,
+    },
 }
 
 /// Debug builds started with `HANGAR_DEV_NODES_CONNECT=1` connect every
@@ -422,6 +432,15 @@ pub fn update(st: &mut State, m: &mut Model, sv: &Services, msg: Msg) -> Task<Me
             }
         }
         Msg::Reconcile => reconcile(st, m),
+        Msg::RefreshOwn => return refresh_own(m),
+        Msg::Own { id, workspaces } => match workspaces {
+            Some(workspaces) => {
+                m.live.nodes.own.insert(id, workspaces);
+            }
+            None => {
+                m.live.nodes.own.remove(&id);
+            }
+        },
         Msg::DevConnectAll => {
             if !st.dev_connected {
                 st.dev_connected = true;
@@ -457,7 +476,36 @@ pub fn subscription(st: &State, m: &Model) -> Subscription<Message> {
     if st.conns.is_empty() {
         return Subscription::none();
     }
-    iced::time::every(Duration::from_secs(1)).map(|_| Message::Nodes(Msg::Reconcile))
+    Subscription::batch([
+        iced::time::every(Duration::from_secs(1)).map(|_| Message::Nodes(Msg::Reconcile)),
+        iced::time::every(OWN_EVERY).map(|_| Message::Nodes(Msg::RefreshOwn)),
+    ])
+}
+
+/// How often the connected nodes are asked for their own workspaces.
+const OWN_EVERY: Duration = Duration::from_secs(5);
+
+/// Each connected node asked which workspaces it runs itself.
+fn refresh_own(m: &Model) -> Task<Message> {
+    let ids: Vec<String> = m.settings().nodes.iter().map(|n| n.id.clone()).collect();
+    Task::batch(ids.into_iter().filter_map(|id| {
+        let client = client(m, &id)?;
+        Some(Task::perform(
+            async move {
+                let answer = wire::request(&client, "GET", "/node/own", None).await;
+                answer
+                    .ok()
+                    .and_then(|answer| answer.json().ok())
+                    .map(|value| model::parse_own(&value))
+            },
+            move |workspaces| {
+                Message::Nodes(Msg::Own {
+                    id: id.clone(),
+                    workspaces,
+                })
+            },
+        ))
+    }))
 }
 
 pub fn on_intent(

@@ -54,8 +54,9 @@ they are refused.
    its window's ports, the engine's host with its own.
 3. **The node runs the engine for its own workspaces** and is their
    authority: their state saved on the node, its agents' control requests
-   answered there. A desktop that connects shows and drives them as a
-   client. Existing remote workspaces move to the node.
+   answered there: **done**. A desktop that connects shows them on the
+   node's card; the remote workspaces it drives itself stay as they were
+   (moving them to the node is still to do).
 4. **The Discord connector in the engine** (discord-connector.md): it runs
    where the engine runs, on the node for its workspaces with the PC off.
 5. **A node that starts on its own**: its settings (the bot's token among
@@ -181,3 +182,39 @@ bus (`OrchestrationHooks`) is the runtime's handle.
 What stays the app's own around the engine is the window: its terminals'
 widgets, the hub, the preview, the windows and their focus, notifications;
 and what reaches its nodes.
+
+## Step 3: the node runs its own workspaces
+
+`hangar-node serve` hosts the engine (`hangar-node/src/own.rs`): an
+`EngineHost` whose state is `~/.local/state/hangar-node/state.json` and
+whose terminals are the node's own panes (`NodeTerminals` over `Panes`),
+each with a screen. Their history and streams are the node's, so a desktop
+streams them as any pane of the node.
+
+- **Authority.** core's control requests are looked at first by the node
+  (`control::watch`): one whose caller is a pane of the node's own (an
+  agent's `caller.paneId`, a briefing's `paneId`) is answered there, through
+  the engine's dispatch, with no desktop connected; the others go to the
+  desktop that drives the node, as before, or are refused when none does.
+- **Starting.** The host is loaded before the API listens: a state file it
+  cannot read stops the node rather than letting a save write over it. Its
+  last save runs on the way out.
+- **The API.** `GET /node/own` lists the workspaces with their panes, their
+  role and what they are doing; `POST /node/own/workspaces {name, cwd,
+  orchestrator?}` makes one in a folder of the node, with one Claude Code
+  pane, its orchestrator unless told otherwise; `DELETE
+  /node/own/workspaces/{id}` removes one, its shells with it; `POST
+  /node/own/panes/{id}/send {text}` queues what the person says for a pane's
+  session.
+- **On the server.** `hangar-node workspaces`, `hangar-node workspace add
+  <folder> [--name <name>] [--no-orchestrator]`, `hangar-node workspace
+  remove <id>` and `hangar-node send <pane> <text…>` ask the running daemon.
+- **On the desktop.** A connected node's card lists the workspaces it runs
+  itself, with each pane and what it is doing, read every 5 s.
+
+Tested on the binary itself (`hangar-node/tests/node.rs`): a workspace
+made through the API, its orchestrator's shell started and a Claude Code
+typed in it (a script standing in for it) whose request through Hangar's
+MCP server the node answers with no desktop, the state kept across a
+restart, and the workspace removed with its shell; the same from the
+command line.

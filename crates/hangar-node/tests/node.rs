@@ -190,8 +190,37 @@ impl Node {
     }
 }
 
+impl Node {
+    /// Stops the daemon and starts it again in the same home.
+    fn restart(mut self) -> Node {
+        stop(self.pid);
+        self.pid = 0;
+        let home = std::mem::replace(&mut self.home, tempfile::tempdir().unwrap());
+        let status = command(home.path())
+            .args(["serve", "--detach"])
+            .status()
+            .unwrap();
+        assert!(status.success(), "serve --detach: {status}");
+        Node::found(home)
+    }
+}
+
+fn stop(pid: i32) {
+    if pid <= 0 {
+        return;
+    }
+    unsafe { libc::kill(pid, libc::SIGTERM) };
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while alive(pid) && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
 impl Drop for Node {
     fn drop(&mut self) {
+        if self.pid <= 0 {
+            return;
+        }
         unsafe { libc::kill(self.pid, libc::SIGTERM) };
         let deadline = Instant::now() + Duration::from_secs(10);
         while alive(self.pid) && Instant::now() < deadline {
@@ -1244,4 +1273,159 @@ fn a_local_workspace_s_repository_is_made_here_and_its_workers_worktrees_come_fr
         json!({ "op": "repo_info", "path": tree.to_str().unwrap() }),
     );
     assert_eq!(info["value"]["branch"], "hangar/x-1a2b3c", "{info}");
+}
+
+/// Waits for `found` to answer something, up to `WAIT`.
+fn wait_for<T>(what: &str, mut found: impl FnMut() -> Option<T>) -> T {
+    let deadline = Instant::now() + WAIT;
+    loop {
+        if let Some(found) = found() {
+            return found;
+        }
+        assert!(Instant::now() < deadline, "never happened: {what}");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
+/// A workspace the node runs itself, with no desktop: made through the
+/// API, its orchestrator's shell started and Claude Code typed in it, the
+/// requests of that Claude Code answered by the node, and the workspace
+/// still there after the node restarts.
+#[test]
+fn a_workspace_of_the_node_s_own_runs_with_no_desktop() {
+    let home = tempfile::tempdir().unwrap();
+    let project = home.path().join("project");
+    std::fs::create_dir_all(&project).unwrap();
+    // A Claude Code that asks Hangar's MCP server for the workspaces, as
+    // the pane's agent, and writes the answers down.
+    let fake = home.path().join("fake-claude");
+    let initialize = json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": { "name": "t", "version": "1" } } });
+    let call = json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": { "name": "workspace_list", "arguments": {} } });
+    std::fs::write(
+        &fake,
+        format!(
+            "#!/bin/sh\n{{ printf '%s\\n' '{initialize}' '{call}'; sleep 15; }} | '{BIN}' --mcp | head -n 2 > \"$HOME/answers.jsonl\"\n"
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+    std::fs::create_dir_all(state_dir(home.path())).unwrap();
+    std::fs::write(
+        state_dir(home.path()).join("state.json"),
+        json!({ "settings": { "agentCommands": { "claude": fake.to_str().unwrap() } } })
+            .to_string(),
+    )
+    .unwrap();
+    let status = command(home.path())
+        .args(["serve", "--detach"])
+        .status()
+        .unwrap();
+    assert!(status.success(), "serve --detach: {status}");
+    let node = Node::found(home);
+
+    let (status, made) = node.post(
+        "/node/own/workspaces",
+        json!({ "name": "Project", "cwd": project.to_str().unwrap() }),
+    );
+    assert_eq!(status, 200, "{made}");
+    let ws = made["id"].as_str().unwrap().to_string();
+    let (_, listed) = node.get("/node/own");
+    let workspace = &listed["workspaces"][0];
+    assert_eq!(workspace["id"], ws.as_str());
+    assert_eq!(workspace["panes"][0]["role"], "orchestrator", "{listed}");
+    let pane = workspace["panes"][0]["id"].as_str().unwrap().to_string();
+
+    // Its shell runs among the node's panes, streamed as any of them.
+    wait_for("the orchestrator's shell", || {
+        node.pane(&pane).filter(|p| p["alive"] == true)
+    });
+    // Its Claude Code reached the node, which answered with no desktop.
+    let answers = node.home().join("answers.jsonl");
+    let answered = wait_for("the agent's answers", || {
+        let raw = std::fs::read_to_string(&answers).ok()?;
+        (raw.lines().count() >= 2).then_some(raw)
+    });
+    let call: Value = serde_json::from_str(answered.lines().nth(1).unwrap()).unwrap();
+    let text = call["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap_or_default();
+    assert!(text.contains("Project"), "{answered}");
+    assert!(!text.contains("not connected"), "{answered}");
+
+    // A folder that is not one is refused.
+    let (status, _) = node.post(
+        "/node/own/workspaces",
+        json!({ "name": "Nowhere", "cwd": "/no/such/folder" }),
+    );
+    assert_eq!(status, 400);
+
+    // Kept across a restart, and started again.
+    wait_for("the state saved", || {
+        std::fs::read_to_string(state_dir(node.home()).join("state.json"))
+            .ok()
+            .filter(|raw| raw.contains(&ws))
+    });
+    let node = node.restart();
+    let (_, listed) = node.get("/node/own");
+    assert_eq!(listed["workspaces"][0]["id"], ws.as_str());
+    wait_for("the shell started again", || {
+        node.pane(&pane).filter(|p| p["alive"] == true)
+    });
+
+    // Gone when removed, its shell with it.
+    let (status, _) = node.delete(&format!("/node/own/workspaces/{ws}"));
+    assert_eq!(status, 200);
+    wait_for("the shell gone", || {
+        node.pane(&pane).is_none().then_some(())
+    });
+    let (_, listed) = node.get("/node/own");
+    assert_eq!(listed["workspaces"], json!([]));
+}
+
+/// The same from a shell on the server: `hangar-node workspace …`.
+#[test]
+fn the_node_s_own_workspaces_from_the_command_line() {
+    let node = Node::start();
+    let project = node.home().join("site");
+    std::fs::create_dir_all(&project).unwrap();
+    let run = |args: &[&str]| {
+        let out = command(node.home()).args(args).output().unwrap();
+        (
+            out.status.code().unwrap_or(-1),
+            String::from_utf8_lossy(&out.stdout).into_owned(),
+            String::from_utf8_lossy(&out.stderr).into_owned(),
+        )
+    };
+    let (code, out, _) = run(&["workspaces"]);
+    assert_eq!(code, 0);
+    assert!(out.contains("No workspace"), "{out}");
+    let (code, id, err) = run(&[
+        "workspace",
+        "add",
+        project.to_str().unwrap(),
+        "--name",
+        "Site",
+    ]);
+    assert_eq!(code, 0, "{err}");
+    let id = id.trim().to_string();
+    let (_, out, _) = run(&["workspaces"]);
+    assert!(out.contains(&id) && out.contains("Site"), "{out}");
+    assert!(out.contains("(orchestrator)"), "{out}");
+    let (_, listed) = node.get("/node/own");
+    let pane = listed["workspaces"][0]["panes"][0]["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let (code, _, err) = run(&["send", &pane, "hello", "there"]);
+    assert_eq!(code, 0, "{err}");
+    let (code, _, err) = run(&["send", "nobody", "hello"]);
+    assert_eq!(code, 1);
+    assert!(err.contains("no such pane"), "{err}");
+    let (code, _, err) = run(&["workspace", "add", "/no/such/folder"]);
+    assert_eq!(code, 1);
+    assert!(err.contains("/no/such/folder"), "{err}");
+    let (code, _, _) = run(&["workspace", "remove", &id]);
+    assert_eq!(code, 0);
+    let (_, out, _) = run(&["workspaces"]);
+    assert!(out.contains("No workspace"), "{out}");
 }

@@ -412,13 +412,15 @@ async fn a_workspace_made_by_the_person_opens_and_its_panes_start() {
         .edit(StoreAction::AddWorkspace(crate::state::WorkspaceDraft {
             name: "Blog".into(),
             cwd: "/srv/blog".into(),
+            layout: 1,
             agents: vec![AgentId::Claude],
             ..Default::default()
         }));
     let ws = made.workspace.expect("a workspace");
     assert!(rig.host.snapshot().opened.contains(&ws));
     let panes = rig.host.snapshot().state.workspaces[0].panes.len();
-    eventually("its panes started", || rig.shells.spawned().len() == panes).await;
+    assert_eq!(panes, 1);
+    eventually("its pane started", || rig.shells.spawned().len() == 1).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]

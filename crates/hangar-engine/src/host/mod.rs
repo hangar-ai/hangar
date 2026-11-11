@@ -26,6 +26,7 @@
 //! What it says happened (an agent's announcement, a change) goes out as
 //! [`News`] to whoever follows it: a connector (Discord) or a desktop.
 
+mod desk;
 mod launch;
 mod orchestrate;
 mod port;
@@ -53,6 +54,7 @@ use crate::control::port::{CmdOut, MobileHooks, ModelCmd, Port};
 use crate::control::run::{self, Gate};
 use crate::control::types::ControlEvent;
 use crate::live::{BridgeEvent, Delivering, PaneStatus};
+use crate::mobile::engine::{Hook as DeskHook, Mobile};
 use crate::orchestration::runtime::{self as orchestration_runtime, EngineMsg};
 use crate::panes::bridge_events::carry_key;
 use crate::panes::pane_index::info_of;
@@ -61,6 +63,7 @@ use crate::state::persist::{SAVE_DEBOUNCE, Writer};
 use crate::state::types::{AppState, Pane, PaneId, Workspace, WsId};
 use crate::state::{PanePatch, Snapshot, Store, StoreAction, StoreOutcome};
 
+pub use desk::HostSources;
 pub use orchestrate::{HostPorts, HostRuntime};
 pub use port::HostPort;
 pub use terminals::{CorePtys, Spawn, TermEvent, TermSink, Terminals};
@@ -195,6 +198,8 @@ struct Inner {
     deliveries: Deliveries,
     orchestration: OnceLock<Orchestration>,
     mobile: RwLock<Option<Arc<dyn MobileHooks>>>,
+    /// The desk: what the chat view, the phone and a connector call.
+    desk: OnceLock<Arc<Mobile>>,
     news: broadcast::Sender<News>,
     /// The shells this host started, by pane.
     shells: Mutex<HashMap<PaneId, Life>>,
@@ -274,6 +279,7 @@ impl EngineHost {
             deliveries: Deliveries::default(),
             orchestration: OnceLock::new(),
             mobile: RwLock::new(None),
+            desk: OnceLock::new(),
             news,
             shells: Mutex::new(HashMap::new()),
             printed: Mutex::new(HashMap::new()),
@@ -292,6 +298,9 @@ impl EngineHost {
         let events = self.0.core.subscribe();
         let runtime = orchestration_runtime::start(HostRuntime::new(self.clone()));
         let _ = self.0.orchestration.set(runtime);
+        let desk = Mobile::new(Arc::new(HostSources::new(self)));
+        self.install_mobile(Arc::new(DeskHook(desk.clone())));
+        let _ = self.0.desk.set(desk);
         tokio::spawn(follow_events(self.clone(), events));
         tokio::spawn(save_loop(self.clone()));
         tokio::spawn(panes_loop(self.clone()));
@@ -389,6 +398,11 @@ impl EngineHost {
     /// The orchestration runtime, once started.
     pub fn orchestration(&self) -> Option<&Orchestration> {
         self.0.orchestration.get()
+    }
+
+    /// The desk (`mobile::desk`'s calls take it), once started.
+    pub fn desk(&self) -> Option<Arc<Mobile>> {
+        self.0.desk.get().cloned()
     }
 
     pub fn core(&self) -> &hangar_core::Host {
@@ -550,6 +564,9 @@ impl EngineHost {
                 let Some(report) = BridgeEvent::parse(&event) else {
                     return;
                 };
+                if let Some(desk) = self.0.desk.get() {
+                    desk.note_bridge_event(&pane_id, &report, now);
+                }
                 self.with_pane(&pane_id, now, |live, info, amb| {
                     live.on_bridge(info, report.clone(), amb)
                 });

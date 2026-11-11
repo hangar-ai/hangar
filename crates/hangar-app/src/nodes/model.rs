@@ -314,3 +314,33 @@ pub enum TargetProblem {
     Empty,
     Invalid,
 }
+
+/// A workspace a node runs itself (`GET /node/own`, the node's own.rs):
+/// shown on its card, driven from Discord or `hangar-node workspace`.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct OwnWorkspace {
+    pub id: String,
+    pub name: String,
+    pub cwd: String,
+    #[serde(default)]
+    pub panes: Vec<OwnPane>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct OwnPane {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub role: Option<String>,
+    #[serde(default)]
+    pub activity: Option<String>,
+}
+
+/// `GET /node/own`'s answer read; what it cannot read is no workspace.
+pub fn parse_own(value: &serde_json::Value) -> Vec<OwnWorkspace> {
+    value
+        .get("workspaces")
+        .cloned()
+        .and_then(|list| serde_json::from_value(list).ok())
+        .unwrap_or_default()
+}

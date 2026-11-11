@@ -13,7 +13,7 @@ use crate::ctx::Ctx;
 use crate::message::Message;
 use crate::state::types::NodeConfig;
 
-use super::model::{Failure, NodeStatus, Step, TargetProblem, target_problem};
+use super::model::{Failure, NodeStatus, OwnWorkspace, Step, TargetProblem, target_problem};
 use super::{Msg, State};
 
 fn press(msg: Msg) -> Message {
@@ -153,6 +153,16 @@ fn node_row<'a>(ctx: Ctx<'a>, node: &'a NodeConfig) -> Element<'a, Message> {
                 ]
                 .spacing(tokens::space::MD),
             );
+            if let Some(own) = ctx
+                .model
+                .live
+                .nodes
+                .own
+                .get(&node.id)
+                .filter(|own| !own.is_empty())
+            {
+                lines = lines.push(own_workspaces(ctx, own));
+            }
         }
         NodeStatus::Unreachable { failure, retry_in } => {
             let mut text = failure_text(ctx, failure);
@@ -195,6 +205,40 @@ fn node_row<'a>(ctx: Ctx<'a>, node: &'a NodeConfig) -> Element<'a, Message> {
         .padding(Padding::from([tokens::space::XL, tokens::space::XL]))
         .width(Length::Fill)
         .into()
+}
+
+/// The workspaces the node runs itself, each with its panes and what they
+/// are doing.
+fn own_workspaces<'a>(ctx: Ctx<'a>, own: &'a [OwnWorkspace]) -> Element<'a, Message> {
+    let t = ctx.theme;
+    let mut list = column![
+        typography::body(t, ctx.t(Key::NodesOwnTitle)).font(hangar_theme::fonts::ui_semibold()),
+        typography::hint(t, ctx.t(Key::NodesOwnHint)),
+    ]
+    .spacing(tokens::space::SM);
+    for ws in own {
+        let panes: Vec<String> = ws
+            .panes
+            .iter()
+            .map(|pane| {
+                let doing = ctx.t(match pane.activity.as_deref() {
+                    Some("working") => Key::NodesOwnWorking,
+                    Some("waiting") => Key::NodesOwnWaiting,
+                    Some("yours") => Key::NodesOwnYours,
+                    _ => Key::NodesOwnIdle,
+                });
+                format!("{} · {doing}", pane.name)
+            })
+            .collect();
+        list = list.push(
+            column![
+                typography::body(t, format!("{} — {}", ws.name, ws.cwd)),
+                typography::hint(t, panes.join("   ")),
+            ]
+            .spacing(tokens::space::XS),
+        );
+    }
+    list.into()
 }
 
 fn add_form<'a>(st: &'a State, ctx: Ctx<'a>) -> Element<'a, Message> {

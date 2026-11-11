@@ -9,16 +9,21 @@
 //!   version `<v>`, and exits 3 otherwise: the desktop's one SSH call that
 //!   probes the node also starts it when nothing is to be installed;
 //! - `hangar-node --mcp` is the MCP stdio proxy the agents of the node's
-//!   panes start, as `hangar-ai --mcp` is on the desktop.
+//!   panes start, as `hangar-ai --mcp` is on the desktop;
+//! - `hangar-node workspaces`, `workspace add <folder>`, `workspace remove
+//!   <id>` and `send <pane> <text>` show and change the workspaces the node
+//!   runs itself (own.rs, cli.rs), through the running daemon.
 //!
 //! Linux only: built for another system, the binary says so and exits.
 
 mod api;
+mod cli;
 mod control;
 mod daemon;
 mod engine;
 mod events;
 mod files;
+mod own;
 mod panes;
 mod proxy;
 mod state;
@@ -43,7 +48,9 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const TARGET: &str = env!("HANGAR_NODE_TARGET");
 
 #[cfg(target_os = "linux")]
-const USAGE: &str = "usage: hangar-node version | serve [--detach [--if-version <v>]] | --mcp";
+const USAGE: &str = "usage: hangar-node version | serve [--detach [--if-version <v>]] | --mcp
+       hangar-node workspaces | workspace add <folder> [--name <name>] [--no-orchestrator]
+       hangar-node workspace remove <id> | send <pane> <text…>";
 
 /// What `serve --detach --if-version` exits with when this is another
 /// version: nothing was started.
@@ -72,6 +79,10 @@ fn run(args: &[String]) -> i32 {
                 OTHER_VERSION
             }
         }
+        ["workspaces"] => report(cli::workspaces()),
+        ["workspace", "add", rest @ ..] => report(cli::add(rest)),
+        ["workspace", "remove", id] => report(cli::remove(id)),
+        ["send", pane, words @ ..] if !words.is_empty() => report(cli::send(pane, words)),
         ["help"] | ["--help"] | ["-h"] => {
             println!("{USAGE}");
             0

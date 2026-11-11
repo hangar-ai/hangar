@@ -36,6 +36,11 @@ pub fn log_file(dir: &Path) -> PathBuf {
     dir.join("node.log")
 }
 
+/// The state of the workspaces the node runs itself (own.rs).
+pub fn engine_file(dir: &Path) -> PathBuf {
+    dir.join("state.json")
+}
+
 /// The agents' API endpoint (hangar-core's endpoint.rs), the node's own.
 pub fn endpoint_file(dir: &Path) -> PathBuf {
     dir.join("endpoint.json")

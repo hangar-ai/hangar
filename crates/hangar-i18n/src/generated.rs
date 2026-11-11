@@ -2368,6 +2368,18 @@ pub enum Key {
     NodesGitMissing,
     /// `nodes.info`
     NodesInfo,
+    /// `nodes.own.hint`
+    NodesOwnHint,
+    /// `nodes.own.idle`
+    NodesOwnIdle,
+    /// `nodes.own.title`
+    NodesOwnTitle,
+    /// `nodes.own.waiting`
+    NodesOwnWaiting,
+    /// `nodes.own.working`
+    NodesOwnWorking,
+    /// `nodes.own.yours`
+    NodesOwnYours,
     /// `nodes.pane.away`
     NodesPaneAway,
     /// `nodes.pane.connecting`
@@ -4073,7 +4085,7 @@ pub enum Key {
 }
 
 /// How many keys there are.
-pub const KEY_COUNT: usize = 2028;
+pub const KEY_COUNT: usize = 2034;
 
 impl Key {
     /// Every key, in the order of their ids.
@@ -5255,6 +5267,12 @@ impl Key {
         Key::NodesGitFound,
         Key::NodesGitMissing,
         Key::NodesInfo,
+        Key::NodesOwnHint,
+        Key::NodesOwnIdle,
+        Key::NodesOwnTitle,
+        Key::NodesOwnWaiting,
+        Key::NodesOwnWorking,
+        Key::NodesOwnYours,
         Key::NodesPaneAway,
         Key::NodesPaneConnecting,
         Key::NodesPaneReconnect,
@@ -7288,6 +7306,12 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "nodes.gitFound", en: Text::plain("git"), fr: Text::plain("git") },
     Message { id: "nodes.gitMissing", en: Text::plain("No git"), fr: Text::plain("Pas de git") },
     Message { id: "nodes.info", en: Text::plain("hangar-node {version} on {hostname} ({target})"), fr: Text::plain("hangar-node {version} sur {hostname} ({target})") },
+    Message { id: "nodes.own.hint", en: Text::plain("They keep running with this computer off: drive them from Discord, or with hangar-node workspace on the server."), fr: Text::plain("Ils continuent sans cet ordinateur\u{202f}: pilotez-les depuis Discord, ou avec hangar-node workspace sur le serveur.") },
+    Message { id: "nodes.own.idle", en: Text::plain("idle"), fr: Text::plain("inactif") },
+    Message { id: "nodes.own.title", en: Text::plain("Workspaces this node runs itself"), fr: Text::plain("Workspaces que ce nœud fait tourner lui-même") },
+    Message { id: "nodes.own.waiting", en: Text::plain("waiting for you"), fr: Text::plain("vous attend") },
+    Message { id: "nodes.own.working", en: Text::plain("working"), fr: Text::plain("travaille") },
+    Message { id: "nodes.own.yours", en: Text::plain("done"), fr: Text::plain("a fini") },
     Message { id: "nodes.pane.away", en: Text::plain("Node {node} is not connected"), fr: Text::plain("Le nœud {node} n’est pas connecté") },
     Message { id: "nodes.pane.connecting", en: Text::plain("Connecting to node {node}…"), fr: Text::plain("Connexion au nœud {node}…") },
     Message { id: "nodes.pane.reconnect", en: Text::plain("Reconnect"), fr: Text::plain("Reconnecter") },

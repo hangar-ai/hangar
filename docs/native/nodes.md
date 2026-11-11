@@ -81,6 +81,15 @@ workspace's worker sent to the node whose commit lands back here. It needs
 Docker and a display and takes minutes, so it is not in CI: run it by hand
 after a change to nodes. See `scripts/node-test/README.md`.
 
+## Workspaces of the node's own
+
+A node also runs workspaces itself, with no desktop: hangar-engine's host
+in the daemon, their state on the node, their agents' requests answered
+there (headless.md, step 3). They are made from the server (`hangar-node
+workspace add <folder>`), the node API (`/node/own`) or Discord
+(discord-connector.md), and a connected desktop lists them on the node's
+card.
+
 ## Later (phase 2 and on)
 
 - Orchestration on a node (workers in worktrees there), the chat view of a

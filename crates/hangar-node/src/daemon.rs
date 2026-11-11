@@ -63,16 +63,29 @@ async fn run(
     headless: &hangar_core::headless::Headless,
 ) -> Result<(), String> {
     let token = hangar_core::endpoint::generate_token();
-    let node = Arc::new(crate::api::Node::new(
+    let panes = Arc::new(crate::panes::Panes::new(headless.pty().clone()));
+    // The workspaces the node runs itself: an unreadable state file stops
+    // the node rather than letting the first save write over it.
+    let own = hangar_engine::host::EngineHost::load(hangar_engine::host::Config {
+        core: host.clone(),
+        terminals: Arc::new(crate::own::NodeTerminals::new(
+            panes.clone(),
+            headless.pty().clone(),
+        )),
+        state_file: state::engine_file(dir),
+    })?;
+    let node = Arc::new(crate::api::Node::with_panes(
         token.clone(),
         host,
-        headless.pty().clone(),
+        panes,
         crate::proxy::Core {
             port: headless.port(),
             token: headless.token().to_string(),
         },
+        Some(own.clone()),
     ));
-    crate::control::watch(node.host(), node.drivers.clone());
+    crate::control::watch(node.host(), node.drivers.clone(), Some(own.clone()));
+    own.start();
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
         .await
         .map_err(|err| format!("the node API could not listen: {err}"))?;
@@ -102,6 +115,7 @@ async fn run(
         .await
         .map_err(|err| format!("the node API stopped: {err}"))?;
     eprintln!("hangar-node stopping");
+    own.shutdown().await;
     node.panes.kill_all();
     Ok(())
 }

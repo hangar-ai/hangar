@@ -18,6 +18,8 @@ path = "src/main.rs"
 # on a server (hangar-core's Cargo.toml, headless.rs).
 # A path rather than the workspace entry: that one keeps the default features.
 hangar-core = { path = "../hangar-core", default-features = false }
+# The workspaces the node runs itself (own.rs, docs/native/headless.md).
+hangar-engine = { path = "../hangar-engine" }
 # `ws` for this crate alone: the panes' streams and the events are WebSockets.
 axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "query", "tokio", "ws"] }
 tokio = { workspace = true }

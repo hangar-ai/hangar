@@ -306,7 +306,13 @@ pub struct Spawn {
     pub mcp_config: Option<String>,
     pub kits: Option<Vec<String>>,
     pub claude_account: Option<String>,
+    /// Told everything the shell prints and its end, after the history has
+    /// it: the screens of the panes the node runs itself (own.rs).
+    pub observer: Option<Observer>,
 }
+
+/// What follows a pane's output beside its history and its streams.
+pub type Observer = Arc<dyn Fn(&PtyEvent) + Send + Sync>;
 
 pub struct Panes {
     pty: Arc<PtyManager>,
@@ -354,9 +360,15 @@ impl Panes {
             HISTORY_JOIN,
         ));
         let sink_pane = pane.clone();
-        let sink: pty::PtySink = Box::new(move |event| match event {
-            PtyEvent::Output(output) => sink_pane.output(output.seq, output.data),
-            PtyEvent::Exit(exit) => sink_pane.ended(exit.code),
+        let observer = spawn.observer.clone();
+        let sink: pty::PtySink = Box::new(move |event| {
+            if let Some(observer) = &observer {
+                observer(&event);
+            }
+            match event {
+                PtyEvent::Output(output) => sink_pane.output(output.seq, output.data),
+                PtyEvent::Exit(exit) => sink_pane.ended(exit.code),
+            }
         });
         // Booked before the shell starts, so its first bytes have a pane to
         // land in; put back as it was when the spawn fails.
@@ -391,6 +403,11 @@ impl Panes {
 
     pub fn write(&self, id: &str, data: String) -> Result<(), String> {
         pty::pty_write(&self.pty, id.to_string(), data)
+    }
+
+    /// Whether the pane's shell runs.
+    pub fn alive(&self, id: &str) -> bool {
+        pty::pty_alive(&self.pty, id.to_string())
     }
 
     pub fn resize(&self, id: &str, cols: u16, rows: u16) -> Result<(), String> {

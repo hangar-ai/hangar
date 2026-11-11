@@ -26,6 +26,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use hangar_core::{Event, Host};
+use hangar_engine::host::EngineHost;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use tokio::sync::broadcast::error::RecvError;
@@ -119,25 +120,41 @@ impl Drivers {
     }
 }
 
-/// Watches core's control requests for as long as the node runs: those no
-/// desktop will hear of are refused at once.
-pub fn watch(host: &Host, drivers: Arc<Drivers>) {
+/// Watches core's control requests for as long as the node runs: those of
+/// the panes the node runs itself are answered here (own.rs); of the others,
+/// those no desktop will hear of are refused at once.
+pub fn watch(host: &Host, drivers: Arc<Drivers>, own: Option<EngineHost>) {
     let mut receiver = host.subscribe();
     tokio::spawn(async move {
         loop {
-            match receiver.recv().await {
-                Ok(Event::ControlRequest(request) | Event::ControlInternal(request)) => {
-                    if !drivers.book(&request.id) {
-                        hangar_core::control::control_reply(
-                            request.id,
-                            false,
-                            None,
-                            Some(UNAVAILABLE.into()),
-                        );
-                    }
-                }
-                Ok(_) | Err(RecvError::Lagged(_)) => {}
+            let (request, internal) = match receiver.recv().await {
+                Ok(Event::ControlRequest(request)) => (request, false),
+                Ok(Event::ControlInternal(request)) => (request, true),
+                Ok(_) | Err(RecvError::Lagged(_)) => continue,
                 Err(RecvError::Closed) => return,
+            };
+            if let Some(own) = own
+                .as_ref()
+                .filter(|own| crate::own::owns(own, &request.args, internal))
+            {
+                let own = own.clone();
+                tokio::spawn(async move {
+                    let answer = own.answer(&request.op, request.args, internal).await;
+                    let (ok, value, error) = match answer {
+                        Ok(value) => (true, Some(value), None),
+                        Err(error) => (false, None, Some(error)),
+                    };
+                    hangar_core::control::control_reply(request.id, ok, value, error);
+                });
+                continue;
+            }
+            if !drivers.book(&request.id) {
+                hangar_core::control::control_reply(
+                    request.id,
+                    false,
+                    None,
+                    Some(UNAVAILABLE.into()),
+                );
             }
         }
     });

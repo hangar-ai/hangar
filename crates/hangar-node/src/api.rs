@@ -44,7 +44,6 @@ use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{any, delete, get, post};
 use axum::{Json, Router};
-use hangar_core::pty::PtyManager;
 use hangar_core::Host;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -57,22 +56,32 @@ use crate::proxy;
 pub struct Node {
     token: String,
     host: Host,
-    pub panes: Panes,
+    pub panes: Arc<Panes>,
     core: proxy::Core,
     home: PathBuf,
     /// The desktops answering core's control requests (control.rs).
     pub drivers: Arc<crate::control::Drivers>,
+    /// The workspaces the node runs itself (own.rs).
+    pub own: Option<hangar_engine::host::EngineHost>,
 }
 
 impl Node {
-    pub fn new(token: String, host: Host, pty: Arc<PtyManager>, core: proxy::Core) -> Self {
+    /// The node over panes shared with the workspaces it runs itself.
+    pub fn with_panes(
+        token: String,
+        host: Host,
+        panes: Arc<Panes>,
+        core: proxy::Core,
+        own: Option<hangar_engine::host::EngineHost>,
+    ) -> Self {
         Self {
             token,
             host,
-            panes: Panes::new(pty),
+            panes,
             core,
             home: dirs::home_dir().unwrap_or_else(|| PathBuf::from("/")),
             drivers: Arc::default(),
+            own,
         }
     }
 
@@ -103,6 +112,10 @@ pub fn router(node: Shared) -> Router {
         .route("/node/sessions", get(crate::transcripts::sessions))
         .route("/node/memory", get(memory))
         .route("/node/control/{id}/reply", post(crate::control::reply))
+        .route("/node/own", get(crate::own::list))
+        .route("/node/own/workspaces", post(crate::own::create))
+        .route("/node/own/workspaces/{id}", delete(crate::own::remove))
+        .route("/node/own/panes/{id}/send", post(crate::own::send))
         .route(
             "/node/worktree",
             post(crate::engine::worktree_add).delete(crate::engine::worktree_remove),
@@ -328,6 +341,7 @@ async fn spawn(State(node): State<Shared>, Json(body): Json<SpawnBody>) -> Respo
             mcp_config: mcp.as_ref().map(|file| file.path.clone()),
             kits: body.kits,
             claude_account: body.claude_account,
+            observer: None,
         })?;
         Ok::<_, String>((spawned, mcp))
     })

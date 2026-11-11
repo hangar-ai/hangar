@@ -3213,6 +3213,7 @@ dependencies = [
 name = "hangar-engine"
 version = "2.2.1"
 dependencies = [
+ "alacritty_terminal",
  "chrono",
  "futures",
  "hangar-core",
@@ -3308,6 +3309,7 @@ dependencies = [
  "dirs 6.0.0",
  "futures-util",
  "hangar-core",
+ "hangar-engine",
  "http-body-util",
  "hyper",
  "hyper-util",
