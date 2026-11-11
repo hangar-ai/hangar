@@ -113,10 +113,13 @@ pub enum ModelCmd {
     /// takes a capture with the view laid out at that size rather than the
     /// window's: a dialog taller than the window, shown whole.
     DevCommand {
-        command: Option<crate::commands::CommandId>,
+        /// The command's id (`view.board`), known to the host
+        /// (`AppPort::knows_command`).
+        command: Option<String>,
         query: Option<String>,
         stats_project: Option<String>,
-        capture: Option<iced::Size>,
+        /// Width and height, in logical pixels.
+        capture: Option<(f32, f32)>,
         /// Opens that pane's « … » menu, as its button does.
         pane_menu: Option<PaneId>,
     },
@@ -216,6 +219,13 @@ pub trait AppPort: Send + Sync + 'static {
 
     /// `tokio::time::sleep` in the app; nothing in the tests.
     fn sleep(&self, ms: u64) -> BoxFuture<()>;
+
+    /// Whether `id` names a command of the host's palette (`dev_command`):
+    /// the engine knows no palette, the app does.
+    fn knows_command(&self, id: &str) -> bool {
+        let _ = id;
+        true
+    }
 
     /// Runs `task` in the background, as the TS's `void promise` did: a
     /// delivery after its answer, a watch on a new orchestrator's pane.

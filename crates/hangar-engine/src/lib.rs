@@ -10,10 +10,16 @@
 //!   mod report;
 //! - `accounts`: which Claude account a pane runs on;
 //! - `nodes`: which node a pane runs on, and how a node's folders are laid
-//!   out.
+//!   out;
+//! - `control`: the agents' operations; `orchestration`: the workers, the
+//!   events to the orchestrator, the briefings; `preview`: what reaching the
+//!   workspaces' previews takes.
 
 pub mod accounts;
+pub mod control;
 pub mod live;
 pub mod nodes;
+pub mod orchestration;
 pub mod panes;
+pub mod preview;
 pub mod state;

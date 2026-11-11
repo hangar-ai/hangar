@@ -64,30 +64,9 @@ async fn blocking<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> 
         .map_err(|err| format!("the task stopped: {err}"))
 }
 
-/// The last delivery check of each workspace, by id: what it took and said.
-fn checks() -> &'static Mutex<std::collections::HashMap<String, CheckCost>> {
-    static CHECKS: std::sync::OnceLock<Mutex<std::collections::HashMap<String, CheckCost>>> =
-        std::sync::OnceLock::new();
-    CHECKS.get_or_init(Default::default)
-}
-
-/// Remembers how long a workspace's delivery check ran and what it said, for
-/// the orchestrator's next briefing. A check that did not run is not recorded.
-pub fn record_check(workspace_id: &str, seconds: u64, passed: bool) {
-    checks()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
-        .insert(workspace_id.to_string(), CheckCost { seconds, passed });
-}
-
-/// The workspace's last check, if one ran since the app started.
-pub fn last_check(workspace_id: &str) -> Option<CheckCost> {
-    checks()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
-        .get(workspace_id)
-        .copied()
-}
+// The last delivery check of each workspace: hangar-engine's, named here as
+// before.
+pub use hangar_engine::orchestration::checks::{last_check, record_check};
 
 /// Once per run: what old versions' deliveries left in the temp folder goes,
 /// and git forgets the worktrees whose folder is gone, in each workspace's

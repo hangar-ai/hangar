@@ -107,12 +107,10 @@ pub async fn run(op: &str, args: Value, port: &Port, gate: Gate) -> Result<Value
 /// the site).
 async fn dev_command(args: &Value, port: &Port) -> Result<Value, String> {
     let id = args.get("command").and_then(Value::as_str);
-    let command = id
-        .map(|id| {
-            id.parse::<crate::commands::CommandId>()
-                .map_err(|_| format!("No command is called \"{id}\"."))
-        })
-        .transpose()?;
+    if let Some(id) = id.filter(|id| !port.knows_command(id)) {
+        return Err(format!("No command is called \"{id}\"."));
+    }
+    let command = id.map(str::to_string);
     let text = |key: &str| args.get(key).and_then(Value::as_str).map(str::to_string);
     let (query, stats_project) = (text("query"), text("stats_project"));
     let number = |key: &str| {
@@ -122,7 +120,7 @@ async fn dev_command(args: &Value, port: &Port) -> Result<Value, String> {
     };
     let capture = number("width")
         .zip(number("height"))
-        .map(|(width, height)| iced::Size::new(width as f32, height as f32));
+        .map(|(width, height)| (width as f32, height as f32));
     let pane_menu = text("pane_menu");
     if command.is_none()
         && query.is_none()

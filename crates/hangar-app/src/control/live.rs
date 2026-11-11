@@ -241,6 +241,10 @@ impl AppPort for LivePort {
         })
     }
 
+    fn knows_command(&self, id: &str) -> bool {
+        id.parse::<crate::commands::CommandId>().is_ok()
+    }
+
     fn sleep(&self, ms: u64) -> BoxFuture<()> {
         Box::pin(tokio::time::sleep(Duration::from_millis(ms)))
     }

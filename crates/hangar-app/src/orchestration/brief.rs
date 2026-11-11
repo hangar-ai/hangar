@@ -122,12 +122,7 @@ fn activity_words(activity: Option<&PaneActivity>) -> &'static str {
     }
 }
 
-/// What the workspace's last delivery check cost and said.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CheckCost {
-    pub seconds: u64,
-    pub passed: bool,
-}
+pub use hangar_engine::orchestration::checks::CheckCost;
 
 /// `last check 12 min, passed`: minutes once it took a minute.
 fn check_cost_words(cost: CheckCost) -> String {

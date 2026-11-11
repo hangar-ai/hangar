@@ -120,7 +120,11 @@ pub fn carry_out(
             capture,
             pane_menu,
         } => {
-            run.extend(command.map(Message::Command));
+            run.extend(
+                command
+                    .and_then(|id| id.parse::<crate::commands::CommandId>().ok())
+                    .map(Message::Command),
+            );
             if let Some(pane) = pane_menu {
                 run.push(Message::PaneMenu(crate::pane_menu::Msg::Toggle(
                     pane,
@@ -135,7 +139,11 @@ pub fn carry_out(
                     hangar_ui::palette::Msg::Query(query),
                 )));
             }
-            run.extend(capture.map(|size| Message::DevCapture(Some(size))));
+            run.extend(
+                capture.map(|(width, height)| {
+                    Message::DevCapture(Some(iced::Size::new(width, height)))
+                }),
+            );
             StoreOutcome::default()
         }
         ModelCmd::Activate { ws, pane } => {
