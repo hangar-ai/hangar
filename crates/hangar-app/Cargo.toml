@@ -19,6 +19,7 @@ path = "src/main.rs"
 # who adds each.
 [dependencies]
 hangar-core.workspace = true
+hangar-engine.workspace = true
 hangar-theme.workspace = true
 hangar-i18n.workspace = true
 hangar-term.workspace = true

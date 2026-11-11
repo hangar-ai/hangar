@@ -21,6 +21,11 @@ use serde_json::{Map, Value};
 
 use hangar_i18n::Locale;
 
+/// The theme new settings name: hangar-theme's default (`hangar_theme::DEFAULT_ID`,
+/// which the app's tests hold equal to this; the engine draws nothing and
+/// does not depend on the themes).
+pub const DEFAULT_THEME_ID: &str = "graphite";
+
 /// A workspace's id, as the TS made it (`crypto.randomUUID()` or older
 /// formats): any string.
 pub type WsId = String;
@@ -581,7 +586,7 @@ pub struct NodeConfig {
 impl Default for Settings {
     fn default() -> Self {
         Settings {
-            theme_id: hangar_theme::DEFAULT_ID.into(),
+            theme_id: DEFAULT_THEME_ID.into(),
             locale: None,
             shell_id: None,
             font_family: r#""Cascadia Code", "JetBrains Mono", Consolas, "Courier New", monospace"#

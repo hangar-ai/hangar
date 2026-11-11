@@ -124,7 +124,9 @@ pub enum Call {
         feedback: Option<String>,
         prompt: Option<String>,
     },
-    /// The files a delivery brought, read from git (not through the desk).
+    /// The files a delivery brought, read from git (not through the desk):
+    /// recorded for the tests only, as the other calls are.
+    #[cfg_attr(not(test), allow(dead_code))]
     Changes(Range),
     /// Into the pane's queue while it works, for when the turn ends.
     Queue {

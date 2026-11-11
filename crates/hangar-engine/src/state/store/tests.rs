@@ -16,29 +16,29 @@ fn draft(layout: u8, agents: &[AgentId]) -> WorkspaceDraft {
     }
 }
 
-fn model() -> Model {
-    let mut model = Model::default();
+fn model() -> Store {
+    let mut model = Store::default();
     model.hydrate(AppState::default());
     model
 }
 
 /// A model holding one workspace of `layout` panes; answers its id.
-fn with_workspace(model: &mut Model, layout: u8, agents: &[AgentId]) -> WsId {
+fn with_workspace(model: &mut Store, layout: u8, agents: &[AgentId]) -> WsId {
     model
         .apply(StoreAction::AddWorkspace(draft(layout, agents)))
         .workspace
         .unwrap()
 }
 
-fn ws<'a>(model: &'a Model, id: &str) -> &'a Workspace {
+fn ws<'a>(model: &'a Store, id: &str) -> &'a Workspace {
     model.workspace(id).unwrap()
 }
 
-fn pane_ids(model: &Model, id: &str) -> Vec<PaneId> {
+fn pane_ids(model: &Store, id: &str) -> Vec<PaneId> {
     ws(model, id).panes.iter().map(|p| p.id.clone()).collect()
 }
 
-fn tree_ids(model: &Model, id: &str) -> Vec<PaneId> {
+fn tree_ids(model: &Store, id: &str) -> Vec<PaneId> {
     let w = ws(model, id);
     leaf_ids(&normalize_tree(&w.panes, w.tree.as_ref()))
 }
@@ -648,9 +648,8 @@ fn hydration_names_every_pane_uniquely_and_drops_dangling_folder_ids() {
         active_workspace_id: Some("two".into()),
         ..AppState::default()
     };
-    let mut m = Model::default();
+    let mut m = Store::default();
     m.hydrate(state);
-    assert!(m.live.hydrated);
     assert_eq!(m.revision(), 0, "hydrating is not a change to save");
     let names: Vec<&str> = m
         .state()
@@ -662,17 +661,16 @@ fn hydration_names_every_pane_uniquely_and_drops_dangling_folder_ids() {
     assert_eq!(names, ["Ava", "Max", "Leo"]);
     assert_eq!(m.workspace("one").unwrap().folder_id, None);
     assert_eq!(m.workspace("two").unwrap().folder_id.as_deref(), Some("f"));
-    assert_eq!(m.ui.opened_ids, ["two"]);
 }
 
 // View panes: what a preview shows, a leaf of the grid beside the terminals.
 
 /// Every leaf of the grid, terminals and views, in reading order.
-fn grid_ids(model: &Model, id: &str) -> Vec<PaneId> {
+fn grid_ids(model: &Store, id: &str) -> Vec<PaneId> {
     crate::state::layout::grid_order(ws(model, id))
 }
 
-fn add_view(model: &mut Model, w: &str, id: &str, near: Option<&str>) -> Option<PaneId> {
+fn add_view(model: &mut Store, w: &str, id: &str, near: Option<&str>) -> Option<PaneId> {
     model
         .apply(StoreAction::AddView {
             ws: w.into(),

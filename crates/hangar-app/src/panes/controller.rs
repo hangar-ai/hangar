@@ -1661,8 +1661,10 @@ mod tests {
     /// Saying it saves the pane as the shell it is.
     #[test]
     fn a_pane_of_a_retired_agent_says_once_that_it_is_a_shell_now() {
-        let raw = serde_json::from_str(include_str!("../state/fixtures/retired_agents.json"))
-            .expect("the fixture is JSON");
+        let raw = serde_json::from_str(include_str!(
+            "../../../hangar-engine/src/state/fixtures/retired_agents.json"
+        ))
+        .expect("the fixture is JSON");
         let (state, kept) = crate::state::read_checked(raw).expect("the fixture reads");
         let mut m = Model::default();
         m.hydrate_read(state, kept);

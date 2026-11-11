@@ -1,0 +1,20 @@
+[package]
+name = "hangar-engine"
+description = "Hangar without its window: the persisted state of the workspaces, and the logic that runs them"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+edition = "2024"
+
+# What runs the workspaces whatever draws them: the desktop app (hangar-app)
+# and a Hangar with no window (docs/native/headless.md). Nothing here draws:
+# no iced, no theme, no widgets.
+[dependencies]
+# Without `desktop`: what a node runs too (no dictation, notifications,
+# Discord presence or phone server); the desktop app turns it on.
+hangar-core = { path = "../hangar-core", default-features = false }
+hangar-i18n.workspace = true
+uuid.workspace = true
+serde.workspace = true
+serde_json.workspace = true

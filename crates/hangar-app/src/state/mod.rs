@@ -7,39 +7,23 @@
 //! `apply(StoreAction)` (PACKAGES.md, rule 3), so a save and a snapshot never
 //! miss a change.
 
-mod lenient;
 pub mod live;
 pub mod persist;
 pub mod snapshot;
-pub mod store;
-pub mod types;
-pub mod unread;
 
-// The logic modules of `src/lib/*` the store is built on, with their tests.
-pub mod folders;
-pub mod layout;
-pub mod pane_names;
-pub mod roles;
-
-#[cfg(test)]
-mod roundtrip_tests;
+// The persisted state and its store live in hangar-engine, with the logic
+// modules of `src/lib/*` they are built on: named here as before.
+pub use hangar_engine::state::{folders, layout, pane_names, roles, store, types, unread};
 
 use std::sync::Arc;
 
 use iced::window;
 
 #[allow(unused_imports)]
-pub use lenient::read_checked;
+pub use hangar_engine::state::read_checked;
+pub use hangar_engine::state::{Loaded, Store};
 #[cfg(test)]
-pub use lenient::{app_state as read_state, read as read_state_keeping};
-
-/// What the boot read from `state.json`: the state, and the values it held
-/// that no field could read (`hydrate_read`).
-#[derive(Debug, Clone, Default)]
-pub struct Loaded {
-    pub state: AppState,
-    pub kept: Vec<unread::Kept>,
-}
+pub use hangar_engine::state::{read_state, read_state_keeping};
 // What packages name most, at `crate::state::*`; some have no user until the
 // packages land.
 #[allow(unused_imports)]
@@ -63,23 +47,8 @@ use crate::shell::{Drawer, View, WindowKind};
 /// Everything the window knows.
 #[derive(Debug, Default)]
 pub struct Model {
-    /// `state.json`'s content. An `Arc` so a snapshot shares it until the
-    /// next write (`Arc::make_mut` in store.rs).
-    state: Arc<AppState>,
-    /// Bumped by every store action that changed `state`: what the save and
-    /// the snapshot follow.
-    revision: u64,
-    /// Whether the store action being applied wrote `state` (`state_mut`):
-    /// how `apply` tells a change without keeping a copy to compare.
-    wrote: bool,
-    /// What `state.json` held that no field could read, written back on
-    /// every save (unread.rs).
-    unread: unread::Unread,
-    /// Respawns not yet announced (`Intent::PaneRespawned`).
-    respawned: Vec<Respawn>,
-    /// Workspaces removed and not yet cleaned up after (their delivery
-    /// check worktree): the shell takes them (`take_removed`).
-    removed: Vec<Removed>,
+    /// The persisted state and what saving it needs (hangar-engine).
+    store: Store,
     pub ui: Ui,
     pub live: Live,
 }
@@ -87,53 +56,78 @@ pub struct Model {
 impl Model {
     /// The persisted state, to read.
     pub fn state(&self) -> &AppState {
-        &self.state
+        self.store.state()
     }
 
     /// The persisted state, shared (for a snapshot or a save off the UI
     /// thread).
     pub fn state_arc(&self) -> Arc<AppState> {
-        self.state.clone()
+        self.store.state_arc()
     }
 
     pub fn revision(&self) -> u64 {
-        self.revision
+        self.store.revision()
     }
 
     /// The JSON `save_state` writes: the state, with what `state.json` held
     /// that this version could not read put back where it was.
     pub fn to_json(&self) -> serde_json::Value {
-        persist::to_json(&self.state, &self.unread)
+        self.store.to_json()
     }
 
     /// What a save writes, to be turned into JSON off the UI thread
-    /// (`persist::Save::into_json`). The values set aside at load that the
-    /// app has since written over are forgotten for good here, once per
-    /// save rather than after every store action: that needs the state as
-    /// JSON, which only a file written by another version (`unread` not
-    /// empty) pays for.
+    /// (`persist::Save::into_json`).
     pub fn take_save(&mut self) -> persist::Save {
-        if !self.unread.is_empty() {
-            let now = serde_json::to_value(&*self.state).unwrap_or_default();
-            self.unread.prune(&now);
-        }
-        persist::Save {
-            state: self.state_arc(),
-            unread: self.unread.clone(),
-        }
+        self.store.take_save()
     }
 
     pub fn settings(&self) -> &Settings {
-        &self.state.settings
+        self.store.settings()
     }
 
     pub fn workspace(&self, id: &str) -> Option<&Workspace> {
-        self.state.workspaces.iter().find(|ws| ws.id == id)
+        self.store.workspace(id)
+    }
+
+    /// Applies one store action (hangar-engine's `Store::apply`).
+    pub fn apply(&mut self, action: StoreAction) -> StoreOutcome {
+        self.store.apply(action)
+    }
+
+    /// Takes in what `load_state` read. Not a store action: hydrating is not
+    /// a change to save.
+    pub fn hydrate(&mut self, state: AppState) {
+        self.hydrate_read(state, Vec::new());
+    }
+
+    /// `hydrate`, with the values the reader could not read, to be written
+    /// back on every save until the app writes those fields. The active
+    /// workspace is on screen at once; a detached one joins when its window
+    /// opens again (`Model::window_opened`), so its panes start there and
+    /// not before.
+    pub fn hydrate_read(&mut self, state: AppState, kept: Vec<unread::Kept>) {
+        self.store.hydrate_read(state, kept);
+        if let Some(active) = self.state().active_workspace_id.clone() {
+            self.mount(&active);
+        }
+        self.live.hydrated = true;
+    }
+
+    /// The respawns since the last call, oldest first (the shell turns each
+    /// into an `Intent::PaneRespawned`).
+    pub(crate) fn take_respawns(&mut self) -> Vec<Respawn> {
+        self.store.take_respawns()
+    }
+
+    /// The workspaces removed since the last call, oldest first (the shell
+    /// removes their delivery check worktree off the UI thread).
+    pub(crate) fn take_removed(&mut self) -> Vec<Removed> {
+        self.store.take_removed()
     }
 
     /// The workspace the main window shows, if it still exists.
     pub fn active_workspace(&self) -> Option<&Workspace> {
-        self.state
+        self.state()
             .active_workspace_id
             .as_deref()
             .and_then(|id| self.workspace(id))
@@ -145,7 +139,7 @@ impl Model {
         let id = self
             .active_workspace()
             .and_then(|ws| ws.theme_id.as_deref())
-            .unwrap_or(&self.state.settings.theme_id);
+            .unwrap_or(&self.state().settings.theme_id);
         hangar_theme::by_id_or_default(id)
     }
 
@@ -156,13 +150,13 @@ impl Model {
         let id = self
             .window_workspace(w)
             .and_then(|ws| ws.theme_id.as_deref())
-            .unwrap_or(&self.state.settings.theme_id);
+            .unwrap_or(&self.state().settings.theme_id);
         hangar_theme::by_id_or_default(id)
     }
 
     /// The interface language: the settings' choice, else the system's.
     pub fn locale(&self) -> hangar_i18n::Locale {
-        self.state
+        self.state()
             .settings
             .locale
             .unwrap_or_else(hangar_i18n::Locale::system)
@@ -285,11 +279,48 @@ impl Model {
     /// The workspaces that were in a window of their own when the app last
     /// quit, whose windows open again at boot.
     pub fn detached_workspaces(&self) -> Vec<WsId> {
-        self.state
+        self.state()
             .workspaces
             .iter()
             .filter(|ws| ws.detached == Some(true))
             .map(|ws| ws.id.clone())
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The window's part of hydrating, beside the store's: the active
+    /// workspace is mounted at once, and the engines may answer.
+    #[test]
+    fn hydrating_mounts_the_active_workspace_and_opens_the_model() {
+        let mut m = Model::default();
+        m.hydrate(AppState {
+            workspaces: vec![
+                Workspace {
+                    id: "one".into(),
+                    ..Workspace::default()
+                },
+                Workspace {
+                    id: "two".into(),
+                    ..Workspace::default()
+                },
+            ],
+            active_workspace_id: Some("two".into()),
+            ..AppState::default()
+        });
+        assert!(m.live.hydrated);
+        assert_eq!(m.ui.opened_ids, ["two"]);
+        assert_eq!(m.revision(), 0, "hydrating is not a change to save");
+    }
+
+    /// New settings name the themes' default, which the engine spells out
+    /// without depending on the themes.
+    #[test]
+    fn the_engine_s_default_theme_is_the_themes_default() {
+        assert_eq!(types::DEFAULT_THEME_ID, hangar_theme::DEFAULT_ID);
+        assert_eq!(Settings::default().theme_id, hangar_theme::DEFAULT_ID);
     }
 }

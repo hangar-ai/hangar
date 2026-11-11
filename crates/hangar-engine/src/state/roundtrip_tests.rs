@@ -5,7 +5,7 @@
 use serde_json::{Value, json};
 
 use super::types::{AgentId, PaneRole, SplitDir, SplitNode};
-use super::{Model, Patch, Settings, StoreAction, Workspace, layout, read_state_keeping};
+use super::{Patch, Settings, Store, StoreAction, Workspace, layout, read_state_keeping};
 
 const TYPICAL: &str = include_str!("fixtures/typical.json");
 const HAND_EDITED: &str = include_str!("fixtures/hand_edited.json");
@@ -13,10 +13,10 @@ const HAND_EDITED: &str = include_str!("fixtures/hand_edited.json");
 /// and a launch command for each agent.
 const RETIRED_AGENTS: &str = include_str!("fixtures/retired_agents.json");
 
-fn load(file: &str) -> (Model, Value) {
+fn load(file: &str) -> (Store, Value) {
     let raw: Value = serde_json::from_str(file).unwrap();
     let (state, kept) = read_state_keeping(raw.clone());
-    let mut model = Model::default();
+    let mut model = Store::default();
     model.hydrate_read(state, kept);
     (model, raw)
 }
@@ -349,7 +349,7 @@ fn what_could_not_be_read_is_written_back_as_it_was() {
 
     // And it reads back the same.
     let (again, kept) = read_state_keeping(written);
-    let mut reread = Model::default();
+    let mut reread = Store::default();
     reread.hydrate_read(again, kept);
     assert_eq!(reread.state(), model.state());
     assert_eq!(reread.to_json(), model.to_json());

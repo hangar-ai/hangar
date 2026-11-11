@@ -6,7 +6,7 @@ use super::*;
 use crate::shell::SettingsCategory;
 use crate::state::{AppState, WorkspaceDraft};
 
-const TYPICAL: &str = include_str!("../../state/fixtures/typical.json");
+const TYPICAL: &str = include_str!("../../../../hangar-engine/src/state/fixtures/typical.json");
 
 /// A hydrated model with its main window, focused.
 fn model() -> (Model, window::Id) {

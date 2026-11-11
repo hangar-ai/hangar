@@ -1,4 +1,4 @@
-//! The only way the persisted model changes: `Model::apply(StoreAction)`,
+//! The only way the persisted model changes: `Store::apply(StoreAction)`,
 //! one action per store action of `src/store.tsx` (inventory §1.3).
 //!
 //! `apply` is synchronous and answers the ids an action makes (the new pane's,
@@ -13,7 +13,7 @@ use std::collections::HashSet;
 use std::fmt;
 use std::sync::Arc;
 
-use super::Model;
+use super::Store;
 use super::folders::place_before;
 use super::layout::{
     MAX_PANES, arranged_tree, grid_order, grid_tree, insert_leaf, leaf, move_leaf,
@@ -334,7 +334,7 @@ pub fn make_workspace<S: AsRef<str>>(
     }
 }
 
-impl Model {
+impl Store {
     /// Applies one store action.
     ///
     /// A change is told by `reduce` itself: every arm writes the state
@@ -374,30 +374,23 @@ impl Model {
     /// to be written back on every save until the app writes those fields.
     pub fn hydrate_read(&mut self, mut state: AppState, kept: Vec<Kept>) {
         fix_up(&mut state);
-        // The active one is on screen at once. A detached one joins when its
-        // window opens again (`Model::window_opened`), so its panes start
-        // there and not before.
-        if let Some(active) = &state.active_workspace_id {
-            self.mount(active);
-        }
         self.unread = if kept.is_empty() {
             Unread::default()
         } else {
             Unread::settle(kept, &serde_json::to_value(&state).unwrap_or_default())
         };
         self.state = Arc::new(state);
-        self.live.hydrated = true;
     }
 
     /// The respawns since the last call, oldest first (the shell turns each
     /// into an `Intent::PaneRespawned`).
-    pub(crate) fn take_respawns(&mut self) -> Vec<Respawn> {
+    pub fn take_respawns(&mut self) -> Vec<Respawn> {
         std::mem::take(&mut self.respawned)
     }
 
     /// The workspaces removed since the last call, oldest first (the shell
     /// removes their delivery check worktree off the UI thread).
-    pub(crate) fn take_removed(&mut self) -> Vec<Removed> {
+    pub fn take_removed(&mut self) -> Vec<Removed> {
         std::mem::take(&mut self.removed)
     }
 
@@ -440,7 +433,7 @@ fn names_besides(state: &AppState, ws: &str) -> Vec<String> {
 /// Runs `edit` on workspace `id` as the last write left it, if it is there,
 /// and writes the result only when it differs.
 fn map_workspace<R>(
-    model: &mut Model,
+    model: &mut Store,
     id: &str,
     edit: impl FnOnce(&Workspace) -> Option<(Workspace, R)>,
 ) -> Option<R> {
@@ -455,7 +448,7 @@ fn map_workspace<R>(
 /// Rewrites one of the two saved-command lists, whichever `scope` names
 /// (`mapCommands`).
 fn map_commands(
-    model: &mut Model,
+    model: &mut Store,
     scope: CommandScope,
     ws: &str,
     edit: impl FnOnce(&mut Vec<SavedCommand>),
@@ -478,7 +471,7 @@ fn map_commands(
     }
 }
 
-fn reduce(model: &mut Model, action: StoreAction) -> StoreOutcome {
+fn reduce(model: &mut Store, action: StoreAction) -> StoreOutcome {
     let mut outcome = StoreOutcome::default();
     match action {
         StoreAction::AddWorkspace(draft) => {
@@ -931,7 +924,7 @@ fn reduce(model: &mut Model, action: StoreAction) -> StoreOutcome {
 /// One write rather than a remove and an add: both lists change against the
 /// same state, so the command is never in both and never in neither
 /// (`moveSavedCommand`).
-fn move_saved_command(model: &mut Model, from: CommandScope, to: CommandScope, ws: &str, id: &str) {
+fn move_saved_command(model: &mut Store, from: CommandScope, to: CommandScope, ws: &str, id: &str) {
     if from == to {
         return;
     }

@@ -18,6 +18,7 @@ repository = "https://github.com/hangar-ai/hangar"
 
 [workspace.dependencies]
 hangar-core = { path = "crates/hangar-core" }
+hangar-engine = { path = "crates/hangar-engine" }
 hangar-theme = { path = "crates/hangar-theme" }
 hangar-ui = { path = "crates/hangar-ui" }
 hangar-term = { path = "crates/hangar-term" }
