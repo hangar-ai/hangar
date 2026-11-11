@@ -649,6 +649,40 @@ pub async fn permit_pane(
     allow: bool,
     shown: Option<&str>,
 ) -> Result<super::contract::RemoteAnswered, String> {
+    let decision = super::held::permission_decision(allow);
+    let key = if allow { "enter" } else { "escape" };
+    answer_dialog(port, mobile, ws, pane, shown, decision, key).await
+}
+
+/// The plan a pane's ExitPlanMode dialog shows, on the prompt shown:
+/// approved, or sent back to keep planning with what to change in it
+/// (`feedback`). Through the ask its mod holds, the words reach the model;
+/// with keys, Enter approves and Escape keeps planning, without them.
+pub async fn plan_pane(
+    port: &Port,
+    mobile: &Mobile,
+    ws: &Workspace,
+    pane: &Pane,
+    approve: bool,
+    feedback: Option<&str>,
+    shown: Option<&str>,
+) -> Result<super::contract::RemoteAnswered, String> {
+    let decision = super::held::plan_decision(approve, feedback);
+    let key = if approve { "enter" } else { "escape" };
+    answer_dialog(port, mobile, ws, pane, shown, decision, key).await
+}
+
+/// Answers the dialog a pane waits on, when it is still the one shown:
+/// `decision` through the ask its mod holds open for it, else `key`.
+async fn answer_dialog(
+    port: &Port,
+    mobile: &Mobile,
+    ws: &Workspace,
+    pane: &Pane,
+    shown: Option<&str>,
+    decision: Value,
+    key: &str,
+) -> Result<super::contract::RemoteAnswered, String> {
     let snapshot = port.snapshot();
     if activity(&snapshot, &pane.id) != Some(AgentActivity::Waiting) {
         // A sleep stops the agents: no dialog outlives it, and Enter or
@@ -672,7 +706,7 @@ pub async fn permit_pane(
         let input = mobile.book().chat.permission_input(&pane.id, tool);
         let ask = super::held::permission(ws, pane, tool, input.as_ref());
         if let Some(ask) = ask
-            && super::held::give(port, pane, &ask, super::held::permission_decision(allow)).await
+            && super::held::give(port, pane, &ask, decision).await
         {
             return Ok(super::contract::RemoteAnswered {
                 answered: true,
@@ -680,7 +714,6 @@ pub async fn permit_pane(
             });
         }
     }
-    let key = if allow { "enter" } else { "escape" };
     let input = Input {
         keys: vec![key.into()],
         ..Input::default()

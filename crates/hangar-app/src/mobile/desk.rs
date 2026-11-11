@@ -36,7 +36,7 @@ use super::answer::{answer_pane, choices_from};
 use super::chat_live::{self, ChatLive, chat_pane};
 use super::contract::{ChatPending, ChatReason, RemoteAnswered, RemoteChat, RemoteSent};
 use super::engine::{ChatRead, Mobile};
-use super::ops::{Input, permit_pane, type_into};
+use super::ops::{Input, permit_pane, plan_pane, type_into};
 
 /// A page of a pane's conversation, with what it waits on the person for
 /// (`ChatPending`) and the calls it runs now: what `remote_chat` answers.
@@ -136,6 +136,22 @@ pub async fn permit(
 ) -> Result<RemoteAnswered, String> {
     let (ws, pane) = find(port, ws, pane)?;
     permit_pane(port, mobile, &ws, &pane, allow, prompt).await
+}
+
+/// Approves the plan the pane presents, or sends it back to keep planning
+/// with what to change (`feedback`), unless what it asks is no longer
+/// `prompt`, the plan the chat showed.
+pub async fn plan(
+    port: &Port,
+    mobile: &Mobile,
+    ws: &str,
+    pane: &str,
+    approve: bool,
+    feedback: Option<&str>,
+    prompt: Option<&str>,
+) -> Result<RemoteAnswered, String> {
+    let (ws, pane) = find(port, ws, pane)?;
+    plan_pane(port, mobile, &ws, &pane, approve, feedback, prompt).await
 }
 
 /// A page of the pane's conversation, the newest unless `before` (an

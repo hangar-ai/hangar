@@ -450,7 +450,7 @@ The route answers `{ "decision": … }` once the person answered in Hangar, `{ "
 pub fn answer_ask(pane_id: &str, id: &str, decision: serde_json::Value) -> bool
 ```
 
-- Note: `decision` is `{ "behavior": "allow" }`, with `answers` (question text → the labels chosen and the person's own words, comma-joined) for a question, or `{ "behavior": "deny", "interrupt": true }`, which stops the turn as Escape does. The mod turns it into Claude Code's `decision` (`updatedInput` with the answers, or the plan given back). False when the ask is over or already answered.
+- Note: `decision` is `{ "behavior": "allow" }`, with `answers` (question text → the labels chosen and the person's own words, comma-joined) for a question, or `{ "behavior": "deny", "interrupt": true }`, which stops the turn as Escape does. A plan sent back to keep planning is `{ "behavior": "deny", "message": … }` without `interrupt`: the turn goes on and Claude reads what to change. The plan itself is reported whole up to 64 KB (other text inputs are cut at 4 KB). The mod turns it into Claude Code's `decision` (`updatedInput` with the answers, or the plan given back). False when the ask is over or already answered.
 - `held_asks(pane_id)`, `answer_untaken`, `withdraw_answer`: the window answers through these (`mobile::held`), and takes an answer back that no mod took within 3 s, typing the dialog's keys instead.
 
 ### Pane control

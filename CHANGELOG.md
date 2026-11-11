@@ -14,6 +14,7 @@ Every release, with its installers, is on the
 
 - **Answers reach Claude Code as answers.** A permission allowed or denied, or a question answered, in the chat view or on the phone now goes to Claude Code as the decision itself, through the hangar-bridge mod, as an Agent SDK host's would: no keys typed into the dialog, no screen read back. The dialog stays up in the terminal meanwhile and either place can answer; a pane on a node, or a Claude Code without the mod, is still answered with keys.
 - **Stop in the chat view.** While the orchestrator works, a button next to Send stops its turn, as Escape does in the terminal.
+- **Plans in the chat view.** When the orchestrator presents a plan (plan mode), the chat view shows it whole, formatted, in a card with Approve the plan and Keep planning; a field says what to change in it, and Claude plans again with those words, the turn going on. Through the hangar-bridge mod.
 
 ### Changed
 

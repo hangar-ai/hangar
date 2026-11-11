@@ -54,6 +54,7 @@ use hangar_core::chat::{Answer, Body, Question};
 
 use crate::control::port::{BoxFuture, Port};
 use crate::message::{Intent, Message};
+use crate::mobile::chat_live::PLAN_TOOL;
 use crate::mobile::contract::{ChatPending, RemoteAnswered, RemoteSent};
 use crate::mobile::desk::{self, ChatView};
 use crate::mobile::engine::Mobile;
@@ -113,6 +114,12 @@ pub enum Call {
     },
     /// Escape to the pane while it works: the turn stops.
     Stop,
+    /// The plan approved, or sent back with what to change.
+    Plan {
+        approve: bool,
+        feedback: Option<String>,
+        prompt: Option<String>,
+    },
 }
 
 /// What Hangar Mobile's state says of the pane's input, looked at on each
@@ -158,6 +165,8 @@ pub struct Chat {
     deciding: bool,
     /// Why the last answer or permission was refused.
     refusal: Option<String>,
+    /// What to change in the plan the pane presents, as typed.
+    plan_feedback: String,
     /// A stop is on its way.
     stopping: bool,
     /// Why the last stop was refused.
@@ -196,6 +205,7 @@ impl Chat {
             form: Form::default(),
             deciding: false,
             refusal: None,
+            plan_feedback: String::new(),
             stopping: false,
             stop_error: None,
             at_bottom: true,
@@ -364,6 +374,9 @@ pub enum Msg {
     Permit(WsId, bool),
     /// Stop: the turn the orchestrator is working on ends.
     Stop(WsId),
+    /// The plan presented: approved (`true`), or sent back to keep planning.
+    Plan(WsId, bool),
+    PlanFeedback(WsId, String),
     Stopped {
         ws: WsId,
         result: Result<RemoteSent, String>,
@@ -579,6 +592,29 @@ fn sync_prose(chat: &mut Chat, ws: &str) -> Task<Message> {
             chat.prose.insert(item.id.clone(), (text.clone(), content));
         }
     }
+    // The plan the pane presents, read as Claude's messages are.
+    if let Some(ChatPending::Permission {
+        plan: Some(plan),
+        prompt,
+        ..
+    }) = &chat.thread.pending
+    {
+        let key = plan_key(prompt);
+        held.insert(key.clone());
+        if chat
+            .prose
+            .get(&key)
+            .is_none_or(|(source, _)| source != plan)
+        {
+            let content = rich::parse(plan);
+            blocks.extend(
+                rich::code_blocks(&content)
+                    .into_iter()
+                    .filter(|block| !chat.code.contains_key(&block.key)),
+            );
+            chat.prose.insert(key, (plan.clone(), content));
+        }
+    }
     chat.prose.retain(|id, _| held.contains(id));
     if blocks.is_empty() {
         return Task::none();
@@ -594,6 +630,11 @@ fn sync_prose(chat: &mut Chat, ws: &str) -> Task<Message> {
     )
 }
 
+/// Where the plan a prompt presents is kept with Claude's messages.
+pub(super) fn plan_key(prompt: &str) -> String {
+    format!("plan:{prompt}")
+}
+
 /// The question form follows the question the pane waits on.
 fn sync_form(chat: &mut Chat) {
     match &chat.thread.pending {
@@ -607,6 +648,14 @@ fn sync_form(chat: &mut Chat) {
             }
         }
         _ => chat.form = Form::default(),
+    }
+    // What to change in a plan goes with it.
+    let plan = matches!(
+        &chat.thread.pending,
+        Some(ChatPending::Permission { tool, plan: Some(_), .. }) if tool == PLAN_TOOL
+    );
+    if !plan {
+        chat.plan_feedback.clear();
     }
 }
 
@@ -635,6 +684,7 @@ fn touches(msg_: &Msg) -> Option<&str> {
         | Msg::Toggle(ws, _)
         | Msg::SubmitAnswer(ws)
         | Msg::Permit(ws, _)
+        | Msg::Plan(ws, _)
         | Msg::Decided { ws, .. }
         | Msg::Coloured(ws, _)
         | Msg::Send(ws) => Some(ws),
@@ -649,6 +699,7 @@ fn touches(msg_: &Msg) -> Option<&str> {
         | Msg::Start(_)
         | Msg::Stop(_)
         | Msg::Stopped { .. }
+        | Msg::PlanFeedback(..)
         | Msg::Link(_) => None,
     }
 }
@@ -794,6 +845,13 @@ fn route(st: &mut State, m: &mut Model, msg_: Msg) -> Task<Message> {
         Msg::SubmitAnswer(ws) => submit_answer(st, m, &ws),
         Msg::Permit(ws, allow) => permit(st, m, &ws, allow),
         Msg::Stop(ws) => stop(st, m, &ws),
+        Msg::Plan(ws, approve) => plan(st, m, &ws, approve),
+        Msg::PlanFeedback(ws, words) => {
+            if let Some(chat) = st.chats.get_mut(&ws) {
+                chat.plan_feedback = words;
+            }
+            Task::none()
+        }
         Msg::Stopped { ws, result } => {
             if let Some(chat) = st.chats.get_mut(&ws) {
                 chat.stopping = false;
@@ -804,6 +862,9 @@ fn route(st: &mut State, m: &mut Model, msg_: Msg) -> Task<Message> {
         Msg::Decided { ws, result } => {
             if let Some(chat) = st.chats.get_mut(&ws) {
                 chat.deciding = false;
+                if result.is_ok() {
+                    chat.plan_feedback.clear();
+                }
                 chat.refusal = result.err();
             }
             // Answered, or refused because the prompt changed: either way the
@@ -971,6 +1032,59 @@ fn permit(st: &mut State, m: &Model, ws: &str, allow: bool) -> Task<Message> {
             };
             Box::pin(async move {
                 desk::permit(&port, &mobile, &ws, &pane, allow, prompt.as_deref()).await
+            })
+        },
+    )
+}
+
+/// The plan the pane presents, approved or sent back with what to change.
+fn plan(st: &mut State, m: &Model, ws: &str, approve: bool) -> Task<Message> {
+    let Some(chat) = found(st, m, ws) else {
+        return Task::none();
+    };
+    let Some(ChatPending::Permission { prompt, tool, .. }) = &chat.thread.pending else {
+        return Task::none();
+    };
+    if chat.deciding || tool != PLAN_TOOL {
+        return Task::none();
+    }
+    let prompt = Some(prompt.clone());
+    let feedback =
+        Some(chat.plan_feedback.trim().to_string()).filter(|words| !approve && !words.is_empty());
+    chat.deciding = true;
+    chat.refusal = None;
+    let pane = chat.pane.clone();
+    call(
+        st,
+        m,
+        ws,
+        &pane,
+        Call::Plan {
+            approve,
+            feedback,
+            prompt,
+        },
+        decided(ws),
+        |port, mobile, ws, pane, call| {
+            let Call::Plan {
+                approve,
+                feedback,
+                prompt,
+            } = call
+            else {
+                unreachable!("a plan")
+            };
+            Box::pin(async move {
+                desk::plan(
+                    &port,
+                    &mobile,
+                    &ws,
+                    &pane,
+                    approve,
+                    feedback.as_deref(),
+                    prompt.as_deref(),
+                )
+                .await
             })
         },
     )

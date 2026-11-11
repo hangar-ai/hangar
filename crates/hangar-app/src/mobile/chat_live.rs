@@ -192,6 +192,7 @@ impl ChatLive {
                 tool: tool.clone(),
                 title: described.ask,
                 detail: described.detail,
+                plan: plan_of(tool, input),
             });
         }
         page.open_call.as_ref().map(|call| ChatPending::Permission {
@@ -199,6 +200,7 @@ impl ChatLive {
             tool: call.tool.clone(),
             title: call.title.clone(),
             detail: call.detail.clone(),
+            plan: None,
         })
     }
 
@@ -253,6 +255,18 @@ impl ChatLive {
             .collect()
     }
 }
+
+/// The plan an ExitPlanMode dialog presents, whole, as the mod reported it.
+fn plan_of(tool: &str, input: &Value) -> Option<String> {
+    (tool == PLAN_TOOL)
+        .then(|| input.get("plan").and_then(Value::as_str))
+        .flatten()
+        .filter(|plan| !plan.trim().is_empty())
+        .map(str::to_string)
+}
+
+/// The tool that presents a plan for the person to approve.
+pub const PLAN_TOOL: &str = "ExitPlanMode";
 
 /// Which permission prompt the phone shows: its call when known, and what it
 /// shows of it — the tool, the title, the detail. The phone sends it back

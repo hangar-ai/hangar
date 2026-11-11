@@ -440,6 +440,14 @@ pub enum Key {
     ChatConvPermissionTitle,
     /// `chatConv.placeholder`
     ChatConvPlaceholder,
+    /// `chatConv.plan.approve`
+    ChatConvPlanApprove,
+    /// `chatConv.plan.feedback`
+    ChatConvPlanFeedback,
+    /// `chatConv.plan.keep`
+    ChatConvPlanKeep,
+    /// `chatConv.plan.title`
+    ChatConvPlanTitle,
     /// `chatConv.question.asked`
     ChatConvQuestionAsked,
     /// `chatConv.question.back`
@@ -4025,7 +4033,7 @@ pub enum Key {
 }
 
 /// How many keys there are.
-pub const KEY_COUNT: usize = 2004;
+pub const KEY_COUNT: usize = 2008;
 
 impl Key {
     /// Every key, in the order of their ids.
@@ -4243,6 +4251,10 @@ impl Key {
         Key::ChatConvPermissionDeny,
         Key::ChatConvPermissionTitle,
         Key::ChatConvPlaceholder,
+        Key::ChatConvPlanApprove,
+        Key::ChatConvPlanFeedback,
+        Key::ChatConvPlanKeep,
+        Key::ChatConvPlanTitle,
         Key::ChatConvQuestionAsked,
         Key::ChatConvQuestionBack,
         Key::ChatConvQuestionMulti,
@@ -6252,6 +6264,10 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "chatConv.permission.deny", en: Text::plain("Deny"), fr: Text::plain("Refuser") },
     Message { id: "chatConv.permission.title", en: Text::plain("{name} asks to use {tool}"), fr: Text::plain("{name} demande à utiliser {tool}") },
     Message { id: "chatConv.placeholder", en: Text::plain("Message {name}…"), fr: Text::plain("Message à {name}…") },
+    Message { id: "chatConv.plan.approve", en: Text::plain("Approve the plan"), fr: Text::plain("Approuver le plan") },
+    Message { id: "chatConv.plan.feedback", en: Text::plain("What to change in the plan (optional)"), fr: Text::plain("Ce qu’il faut changer dans le plan (facultatif)") },
+    Message { id: "chatConv.plan.keep", en: Text::plain("Keep planning"), fr: Text::plain("Continuer à planifier") },
+    Message { id: "chatConv.plan.title", en: Text::plain("{name} proposes a plan"), fr: Text::plain("{name} propose un plan") },
     Message { id: "chatConv.question.asked", en: Text::plain("Asked: {question}"), fr: Text::plain("Question\u{202f}: {question}") },
     Message { id: "chatConv.question.back", en: Text::plain("Back"), fr: Text::plain("Retour") },
     Message { id: "chatConv.question.multi", en: Text::plain("Pick any that apply"), fr: Text::plain("Choisissez tout ce qui convient") },

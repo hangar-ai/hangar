@@ -206,7 +206,14 @@ export type ChatItem = { id: string; at: number } & ChatItemBody;
 export type ChatPending =
   | { kind: "question"; toolUseId: string; questions: ChatQuestion[] }
   /** The pane waits and its last tool call has no result. */
-  | { kind: "permission"; tool: string; title: string; detail?: string };
+  | {
+      kind: "permission";
+      tool: string;
+      title: string;
+      detail?: string;
+      /** ExitPlanMode held by the hangar-bridge mod: the plan, as Markdown. */
+      plan?: string;
+    };
 
 /**
  * Why a chat is empty when it is not the conversation's doing: the pane does

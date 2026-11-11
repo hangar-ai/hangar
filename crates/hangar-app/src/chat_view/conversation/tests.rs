@@ -811,6 +811,7 @@ fn asking(prompt: &str) -> ChatPending {
         title: "Used pane_send".into(),
         detail: Some(json!({"pane": "Ava", "text": "go"}).to_string()),
         prompt: prompt.into(),
+        plan: None,
     }
 }
 
@@ -875,6 +876,103 @@ fn a_permission_card_allows_or_denies_the_prompt_it_shows() {
             prompt: Some("p2".into())
         })
     );
+}
+
+/* ── plans ─────────────────────────────────────────────────────── */
+
+const PLAN: &str = "## Search box\n\n\
+    1. Index product titles and tags in `src/search/index.ts`\n\
+    2. Add the box to `Catalogue.tsx`, debounced by 200 ms\n\
+    3. Keep the query in the URL, as the filters do\n\n\
+    ```ts\nexport function search(q: string) {\n  return index.query(q).slice(0, 20)\n}\n```\n\n\
+    Tests: an empty query shows everything; a query with no match says so.";
+
+fn planning(prompt: &str) -> ChatPending {
+    ChatPending::Permission {
+        tool: "ExitPlanMode".into(),
+        title: "Present the plan".into(),
+        detail: None,
+        prompt: prompt.into(),
+        plan: Some(PLAN.into()),
+    }
+}
+
+#[test]
+fn a_plan_is_approved_or_sent_back_with_what_to_change() {
+    let mut m = shop(true);
+    let mut st = State::default();
+    read_into(&mut st, &mut m, page(vec![], Some(planning("plan-1"))));
+    assert_eq!(
+        shown_texts(
+            &st,
+            &m,
+            &[
+                "Leo proposes a plan",
+                "Keep planning",
+                "Approve the plan",
+                "Leo asks to use ExitPlanMode",
+                "Allow",
+            ]
+        ),
+        vec!["Leo proposes a plan", "Keep planning", "Approve the plan"],
+        "a plan has its own card, not a permission's"
+    );
+    // Sent back with what to change.
+    apply(
+        &mut st,
+        &mut m,
+        vec![Msg::PlanFeedback(
+            WS.into(),
+            "  Skip the URL part.  ".into(),
+        )],
+    );
+    let asked = clicks(&st, &m, &["Keep planning"]);
+    apply(&mut st, &mut m, asked);
+    assert_eq!(
+        calls(&st).last(),
+        Some(&Call::Plan {
+            approve: false,
+            feedback: Some("Skip the URL part.".into()),
+            prompt: Some("plan-1".into()),
+        })
+    );
+    apply(
+        &mut st,
+        &mut m,
+        vec![Msg::Decided {
+            ws: WS.into(),
+            result: Ok(RemoteAnswered {
+                answered: true,
+                queued: None,
+            }),
+        }],
+    );
+    assert_eq!(
+        st.chat(WS).unwrap().plan_feedback,
+        "",
+        "gone with the answer"
+    );
+
+    // The revised plan, approved: no words of the last one go with it.
+    read_into(&mut st, &mut m, page(vec![], Some(planning("plan-2"))));
+    apply(
+        &mut st,
+        &mut m,
+        vec![Msg::PlanFeedback(WS.into(), "never sent".into())],
+    );
+    let asked = clicks(&st, &m, &["Approve the plan"]);
+    apply(&mut st, &mut m, asked);
+    assert_eq!(
+        calls(&st).last(),
+        Some(&Call::Plan {
+            approve: true,
+            feedback: None,
+            prompt: Some("plan-2".into()),
+        })
+    );
+    // The pane left its plan: what was typed for it goes too.
+    read_into(&mut st, &mut m, page(vec![], None));
+    assert_eq!(st.chat(WS).unwrap().plan_feedback, "");
 }
 
 /* ── input ─────────────────────────────────────────────────────── */
@@ -1381,9 +1479,14 @@ fn the_permission_and_question_cards_are_drawn() {
             tool: "Bash".into(),
             title: "Run rm -rf dist && pnpm build".into(),
             detail: Some("rm -rf dist && pnpm build".into()),
+            plan: None,
         })),
     );
     picture("permission", &st, &m, "graphite");
+
+    let mut st = State::default();
+    read_into(&mut st, &mut m, busy_page(Some(planning("plan-1"))));
+    picture("plan", &st, &m, "graphite");
 
     let mut st = State::default();
     read_into(

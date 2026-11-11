@@ -124,12 +124,15 @@ async function setWaiting($, value, detail) {
 /** Past this, a text in a call's input is cut: a whole written file has no business on a phone. */
 const INPUT_TEXT = 4096
 
-/** A call's input as reported: long texts cut, long lists shortened. */
-function clipped(value, depth = 0) {
-  if (typeof value === 'string') return value.length > INPUT_TEXT ? value.slice(0, INPUT_TEXT) + '…' : value
+/** A plan to approve is read whole in Hangar: cut only past this. */
+const PLAN_TEXT = 65536
+
+/** A call's input as reported: long texts cut (past `max`), long lists shortened. */
+function clipped(value, depth = 0, max = INPUT_TEXT) {
+  if (typeof value === 'string') return value.length > max ? value.slice(0, max) + '…' : value
   if (value === null || typeof value !== 'object' || depth > 4) return value
-  if (Array.isArray(value)) return value.slice(0, 50).map((entry) => clipped(entry, depth + 1))
-  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, clipped(entry, depth + 1)]))
+  if (Array.isArray(value)) return value.slice(0, 50).map((entry) => clipped(entry, depth + 1, max))
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, clipped(entry, depth + 1, max)]))
 }
 
 /** The first line of an answer is what a notification has room for. */
@@ -509,7 +512,7 @@ export function register(on) {
     try {
       await setWaiting($, true, {
         tool: e.tool_name,
-        input: clipped(e.tool_input),
+        input: clipped(e.tool_input, 0, e.tool_name === 'ExitPlanMode' ? PLAN_TEXT : INPUT_TEXT),
         askId: id,
         ...(toolUseId ? { toolUseId } : {}),
       })

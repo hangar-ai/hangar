@@ -103,6 +103,24 @@ pub fn permission_decision(allow: bool) -> Value {
     }
 }
 
+/// A plan approved, or sent back to keep planning: the model reads why, and
+/// what to change when the person said. It is not stopped: it plans again.
+pub fn plan_decision(approve: bool, feedback: Option<&str>) -> Value {
+    if approve {
+        return json!({ "behavior": "allow" });
+    }
+    let message = match feedback.map(str::trim).filter(|words| !words.is_empty()) {
+        Some(words) => format!(
+            "The person wants to keep planning before anything is implemented. What to change in the plan: {words}"
+        ),
+        None => {
+            "The person wants to keep planning: revise the plan before anything is implemented."
+                .to_string()
+        }
+    };
+    json!({ "behavior": "deny", "message": message })
+}
+
 /// The answers as the dialog gives them: each question's text to the labels
 /// picked and the person's own words, joined by commas.
 pub fn question_decision(questions: &[Question], choices: &[Choice]) -> Value {
@@ -196,6 +214,25 @@ mod tests {
             permission_decision(false),
             json!({ "behavior": "deny", "interrupt": true })
         );
+    }
+
+    #[test]
+    fn a_plan_sent_back_carries_what_to_change_and_does_not_stop_the_turn() {
+        assert_eq!(
+            plan_decision(true, Some("ignored")),
+            json!({ "behavior": "allow" })
+        );
+        let kept = plan_decision(false, Some("  Split step 2 in two  "));
+        assert_eq!(kept["behavior"], "deny");
+        assert!(
+            kept["message"]
+                .as_str()
+                .unwrap()
+                .ends_with(": Split step 2 in two")
+        );
+        assert!(kept.get("interrupt").is_none());
+        let plain = plan_decision(false, Some("   "));
+        assert!(plain["message"].as_str().unwrap().contains("keep planning"));
     }
 
     #[test]

@@ -23,6 +23,7 @@ use iced::{Alignment, Background, Border, Color, Element, Length, Padding};
 
 use crate::ctx::Ctx;
 use crate::message::Message;
+use crate::mobile::chat_live::PLAN_TOOL;
 use crate::mobile::contract::{ChatPending, ChatReason};
 use crate::orchestration_ui::actions::can_create_orchestrator;
 use crate::state::roles::orchestrator_of;
@@ -32,7 +33,7 @@ use super::calls::{self, Kind, Piece};
 use super::hangar;
 use super::settled::settled;
 use super::thread::{Outgoing, Sent};
-use super::{Blocked, Chat, Msg, State, blocked, msg, rich, titles};
+use super::{Blocked, Chat, Msg, State, blocked, msg, plan_key, rich, titles};
 use crate::orchestration::events::DeliveryOutcome;
 use crate::orchestration::heard::Heard;
 
@@ -1106,6 +1107,9 @@ fn outgoing<'a>(ctx: Ctx<'a>, pane: &'a Pane, out: &'a Outgoing) -> Element<'a, 
 /// title and buttons stay in sight.
 const CARD_BODY_HEIGHT: f32 = 340.0;
 
+/// A plan is read before it is approved: its card gets more room.
+const PLAN_BODY_HEIGHT: f32 = 480.0;
+
 /// A card's parts: its title row, what it shows (scrolled when tall) and
 /// its buttons (always shown).
 struct CardParts<'a> {
@@ -1129,11 +1133,21 @@ fn card<'a>(
         ChatPending::Question { questions, .. } => question_card(ctx, ws, pane, chat, questions),
         ChatPending::Permission {
             tool,
+            plan: Some(_),
+            prompt,
+            ..
+        } if tool == PLAN_TOOL => plan_card(ctx, ws, pane, chat, prompt),
+        ChatPending::Permission {
+            tool,
             title,
             detail,
             ..
         } => permission_card(ctx, ws, pane, chat, tool, title, detail.as_deref()),
     };
+    let tall = matches!(
+        chat.thread.pending,
+        Some(ChatPending::Permission { ref tool, plan: Some(_), .. }) if tool == PLAN_TOOL
+    );
     let body = container(
         scrollable(container(parts.body).padding(Padding {
             right: tokens::space::LG,
@@ -1143,7 +1157,11 @@ fn card<'a>(
         .height(Length::Shrink)
         .style(style::scrollable::default(t)),
     )
-    .max_height(CARD_BODY_HEIGHT);
+    .max_height(if tall {
+        PLAN_BODY_HEIGHT
+    } else {
+        CARD_BODY_HEIGHT
+    });
     let mut stack = column![parts.title, body].spacing(tokens::space::LG);
     // What happened to the last answer, right above the buttons: never out
     // of sight.
@@ -1395,6 +1413,56 @@ fn question_card<'a>(
         body: block.into(),
         actions: actions.into(),
         scroll: iced::widget::Id::from(format!("chat-view-question-{}-{at}", form.tool_use_id)),
+    }
+}
+
+/// The plan the pane presents, read as Claude's messages are, then
+/// approved, or sent back to keep planning with what to change in it.
+fn plan_card<'a>(
+    ctx: Ctx<'a>,
+    ws: &'a Workspace,
+    pane: &'a Pane,
+    chat: &'a Chat,
+    prompt: &'a str,
+) -> CardParts<'a> {
+    let t = ctx.theme;
+    let free = !chat.deciding;
+    let body: Element<'a, Message> = match chat.prose.get(&plan_key(prompt)) {
+        Some((_, content)) => rich::view(t, content, &chat.code),
+        None => Space::new().into(),
+    };
+    let ws_id = ws.id.clone();
+    let feedback = text_input(&ctx.t(Key::ChatConvPlanFeedback), &chat.plan_feedback)
+        .size(tokens::font_size::UI)
+        .padding([tokens::space::SM, tokens::space::MD])
+        .width(Length::Fill)
+        .style(style::text_input::field(t))
+        .on_input_maybe(free.then_some(move |words| msg(Msg::PlanFeedback(ws_id.clone(), words))))
+        .on_submit_maybe(free.then(|| msg(Msg::Plan(ws.id.clone(), false))));
+    let actions = column![
+        crate::keymap::guard(ctx, feedback),
+        row![
+            Space::new().width(Length::Fill),
+            ui_button::secondary(t, ctx.t(Key::ChatConvPlanKeep))
+                .on_press_maybe(free.then(|| msg(Msg::Plan(ws.id.clone(), false)))),
+            ui_button::primary(t, ctx.t(Key::ChatConvPlanApprove))
+                .icon(Icon::Check)
+                .on_press_maybe(free.then(|| msg(Msg::Plan(ws.id.clone(), true)))),
+        ]
+        .spacing(tokens::space::MD)
+        .align_y(Alignment::Center),
+    ]
+    .spacing(tokens::space::MD);
+    CardParts {
+        title: card_title(
+            t,
+            ctx.i18n
+                .t_with(Key::ChatConvPlanTitle, &args!("name" => pane.name.as_str()))
+                .into_owned(),
+        ),
+        body,
+        actions: actions.into(),
+        scroll: iced::widget::Id::from(format!("chat-view-plan-{prompt}")),
     }
 }
 

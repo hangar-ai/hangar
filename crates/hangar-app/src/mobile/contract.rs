@@ -176,6 +176,10 @@ pub enum ChatPending {
         title: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         detail: Option<String>,
+        /// The plan an ExitPlanMode dialog presents, whole: `detail` is cut
+        /// for the phone, a plan is read in full.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        plan: Option<String>,
         /// Which prompt this is (`chat_live::prompt_of`): the phone sends it
         /// back with its answer, which is refused unless the pane still asks
         /// this one (MOB-02).

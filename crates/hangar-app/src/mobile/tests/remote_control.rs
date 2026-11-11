@@ -2132,6 +2132,79 @@ async fn desk_permit_answers_the_ask_the_mod_holds_and_types_nothing() {
 }
 
 #[tokio::test]
+async fn desk_plan_shows_the_plan_and_sends_it_back_with_what_to_change() {
+    const PANE: &str = "held-plan";
+    let r = rig(vec![held_shop(PANE)], vec![], true);
+    reads(&r, Some(page()));
+    let plan = "## Search box\n\n1. Index the titles\n2. Add the box";
+    held_ask(
+        &r,
+        PANE,
+        "ask-plan1",
+        "ExitPlanMode",
+        "toolu_plan1",
+        json!({ "plan": plan }),
+    );
+    r.act(PANE, &format!("held-{PANE}"), AgentActivity::Waiting);
+    let waiting = mod_waits(PANE, "ask-plan1");
+    let shown = match desk::chat(
+        &r.port,
+        &r.mobile,
+        &format!("held-{PANE}"),
+        PANE,
+        None,
+        None,
+    )
+    .await
+    .unwrap()
+    .pending
+    {
+        Some(ChatPending::Permission {
+            prompt,
+            plan: Some(shown_plan),
+            ..
+        }) => {
+            assert_eq!(shown_plan, plan, "the plan, whole");
+            prompt
+        }
+        other => panic!("no plan pending: {other:?}"),
+    };
+
+    let answered = desk::plan(
+        &r.port,
+        &r.mobile,
+        &format!("held-{PANE}"),
+        PANE,
+        false,
+        Some("Keep the query out of the URL."),
+        Some(&shown),
+    )
+    .await;
+
+    assert_eq!(
+        answered,
+        Ok(RemoteAnswered {
+            answered: true,
+            queued: None
+        })
+    );
+    // Sent back, the turn goes on: Claude reads what to change and plans
+    // again.
+    let AskPoll::Decision(decision) = waiting.await.unwrap() else {
+        panic!("no decision")
+    };
+    assert_eq!(decision["behavior"], "deny");
+    assert!(decision.get("interrupt").is_none());
+    assert!(
+        decision["message"]
+            .as_str()
+            .unwrap()
+            .ends_with("Keep the query out of the URL.")
+    );
+    assert!(r.typed().is_empty());
+}
+
+#[tokio::test]
 async fn desk_permit_types_the_key_when_no_mod_takes_the_answer() {
     const PANE: &str = "held-untaken";
     let r = rig(vec![held_shop(PANE)], vec![], true);

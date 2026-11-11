@@ -276,6 +276,18 @@ test('a plan approved in Hangar runs with the plan it was shown', async ($, on) 
   expect(out.decision).toEqual({ behavior: 'allow', updatedInput: input })
 })
 
+test('a plan to approve is reported whole, where any other text is cut', async ($, on) => {
+  const sent = setupAsks(on, () => ({ gone: true }))
+  on('classic.PermissionRequest', () => ({}))
+  const plan = '## Plan\n' + 'step\n'.repeat(2000)
+
+  await start($)
+  await $.classic.PermissionRequest({ tool_name: 'ExitPlanMode', tool_input: { plan, planFilePath: '/p.md' } })
+
+  const [opened] = events(sent)
+  expect(opened.input.plan).toBe(plan)
+})
+
 test("a decision of the user's own PermissionRequest hook stands, and nothing waits", async ($, on) => {
   const sent = setupAsks(on, () => ({ decision: { behavior: 'allow' } }))
   on('classic.PermissionRequest', () => ({ decision: { behavior: 'deny', message: 'policy' } }))
