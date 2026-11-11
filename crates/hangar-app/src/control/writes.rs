@@ -258,7 +258,7 @@ mod tests {
     use hangar_i18n::Locale;
 
     use super::*;
-    use crate::state::{AppState, Snapshot};
+    use crate::state::AppState;
 
     fn delivery(m: &mut Model, begin: bool) {
         let (ws, task) = ("w1".to_string(), "t1".to_string());
@@ -279,15 +279,15 @@ mod tests {
         delivery(&mut m, false);
         assert!(m.live.control.task_delivering("w1", "t1"));
         assert_eq!(
-            Snapshot::of(&m).delivering.get("w1"),
+            crate::state::snapshot_of(&m).delivering.get("w1"),
             Some(&HashSet::from(["t1".to_string()]))
         );
         delivery(&mut m, false);
         assert!(!m.live.control.is_delivering("w1"));
-        assert!(Snapshot::of(&m).delivering.is_empty());
+        assert!(crate::state::snapshot_of(&m).delivering.is_empty());
         // Ending once more is harmless.
         delivery(&mut m, false);
-        assert!(Snapshot::of(&m).delivering.is_empty());
+        assert!(crate::state::snapshot_of(&m).delivering.is_empty());
     }
 
     /// A workspace whose first pane is the orchestrator, in the person's own

@@ -471,7 +471,9 @@ impl App {
             if self.model.live.hydrated {
                 tasks.push(persist::schedule(revision));
             }
-        } else if self.model.live.hydrated && self.snapshot.borrow().is_stale(&self.model) {
+        } else if self.model.live.hydrated
+            && crate::state::is_stale(&self.snapshot.borrow(), &self.model)
+        {
             // Nothing to save, but what the engines and hibernation read
             // beside the state (opened workspaces, deliveries, activity,
             // sleep) moved (P18). Compared rather than republished on every
@@ -484,7 +486,7 @@ impl App {
 
     fn publish_snapshot(&self) {
         self.snapshot
-            .send_replace(Arc::new(Snapshot::of(&self.model)));
+            .send_replace(Arc::new(crate::state::snapshot_of(&self.model)));
     }
 
     fn save_if_due(&mut self, revision: u64) -> Task<Message> {

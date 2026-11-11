@@ -114,6 +114,7 @@ pub enum ManagerNews {
 }
 
 impl ManagerNews {
+    #[allow(dead_code)]
     pub fn is_block(&self) -> bool {
         matches!(self, ManagerNews::Block(_))
     }

@@ -31,7 +31,7 @@ pub use live::{
     AgentActivity, BridgeEvent, GlyphState, Live, PaneActivity, PaneInsight, PanelDrag, PlanLimits,
     Signals, Ui, WindowUi,
 };
-pub use snapshot::Snapshot;
+pub use snapshot::{Snapshot, is_stale, snapshot_of};
 #[allow(unused_imports)]
 pub use store::{
     CommandScope, FolderPatch, PanePatch, Patch, Removed, Respawn, SavedCommandDraft,
@@ -69,6 +69,7 @@ impl Model {
         self.store.revision()
     }
 
+    #[cfg(test)]
     /// The JSON `save_state` writes: the state, with what `state.json` held
     /// that this version could not read put back where it was.
     pub fn to_json(&self) -> serde_json::Value {
@@ -94,6 +95,7 @@ impl Model {
         self.store.apply(action)
     }
 
+    #[cfg(test)]
     /// Takes in what `load_state` read. Not a store action: hydrating is not
     /// a change to save.
     pub fn hydrate(&mut self, state: AppState) {
@@ -238,6 +240,7 @@ impl Model {
         }
     }
 
+    #[allow(dead_code)]
     /// The focused pane of workspace `ws`, when it is one of its terminals:
     /// `None` while a view pane has the focus, which no terminal command is
     /// about.

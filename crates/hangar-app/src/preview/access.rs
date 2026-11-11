@@ -23,7 +23,9 @@ use tokio::sync::watch;
 
 use super::model::{self, FileKind, Kind, PreviewFile};
 use super::roots::{self, RootGrants};
-use super::store::{Entry, SavedKitTab, SavedTabs, Scope, ShowFile, Status, Store, View, What};
+#[cfg(test)]
+use super::store::View;
+use super::store::{Entry, SavedKitTab, SavedTabs, Scope, ShowFile, Status, Store, What};
 use super::webview::Helper;
 use crate::services::PreviewAccess;
 use crate::services::preview::{BoxFuture, PreviewEntry, PreviewRequest, SnapshotAngle};
@@ -50,6 +52,7 @@ pub trait Snapshotter: Send + Sync {
     ) -> BoxFuture<Result<Vec<u8>, String>>;
 }
 
+#[cfg(test)]
 /// A workspace's preview as the control handlers answer about it
 /// (`ModelList`).
 #[derive(Debug, Clone, PartialEq)]
@@ -234,6 +237,7 @@ impl Shared {
             .clone()
     }
 
+    #[cfg(test)]
     /// A workspace's preview with where it stands on screen (`ModelHost.list`).
     pub fn list_view(&self, workspace: &str) -> ListView {
         self.read(|store| {

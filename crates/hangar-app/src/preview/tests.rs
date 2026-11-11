@@ -92,7 +92,7 @@ impl Harness {
             scopes: Arc::default(),
             revision: u64::MAX,
         };
-        let (snapshots, receiver) = watch::channel(Arc::new(crate::state::Snapshot::of(&model)));
+        let (snapshots, receiver) = watch::channel(Arc::new(crate::state::snapshot_of(&model)));
         let (inbox, inbox_receiver) = inbox::channel();
         let st = State {
             shared: shared.clone(),

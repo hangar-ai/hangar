@@ -36,7 +36,11 @@ use std::sync::{LazyLock, RwLock};
 use hangar_core::delivery::Cleanup;
 use serde_json::{Value, json};
 
-use crate::state::types::{AppState, NodeConfig, Pane};
+use crate::state::types::{AppState, NodeConfig};
+
+// Where a pane runs and how a node's folders are laid out: hangar-engine's,
+// named here as before.
+pub use hangar_engine::nodes::{label_of, node_of, pane_node, repo_of, set_pane_node};
 
 use super::commands::{self, Cmd};
 use super::connect;
@@ -44,34 +48,6 @@ use super::engine;
 use super::model::NodeClient;
 use super::runner::Runner;
 use super::wire;
-
-/// The node pane `pane` runs on, when it is one sent from a local workspace.
-pub fn pane_node(pane: &Pane) -> Option<String> {
-    pane.node
-        .as_deref()
-        .map(str::trim)
-        .filter(|node| !node.is_empty())
-        .map(str::to_string)
-}
-
-/// Pane `pane` runs on node `node`.
-pub fn set_pane_node(pane: &mut Pane, node: &str) {
-    pane.node = Some(node.to_string());
-}
-
-/// The node pane `pane` of `ws` runs on: its own, else its workspace's.
-pub fn node_of(ws: &crate::state::types::Workspace, pane: &Pane) -> Option<String> {
-    pane_node(pane).or_else(|| ws.node.clone())
-}
-
-/// The label of a node: its name, else its SSH target.
-pub fn label_of(node: &NodeConfig) -> String {
-    if node.label.trim().is_empty() {
-        node.ssh_target.trim().to_string()
-    } else {
-        node.label.trim().to_string()
-    }
-}
 
 /// FNV-1a, 32 bits: a short name that stays the same from one run to the
 /// next, which std's hasher does not promise.
@@ -104,28 +80,6 @@ pub fn repo_name(main_root: &str) -> String {
     }
     let key = spelled.replace('\\', "/").to_lowercase();
     format!("{name}-{:08x}", fnv(&key))
-}
-
-/// The node's repository and the worktree root a worker's folder there is
-/// in: `<repo>-worktrees/<folder>[/<subfolder>]` gives `(<repo>,
-/// <repo>-worktrees/<folder>)`. `None` for a folder Hangar did not lay out.
-pub fn repo_of(folder: &str) -> Option<(String, String)> {
-    let parts: Vec<&str> = folder.split('/').collect();
-    let at = parts
-        .iter()
-        .enumerate()
-        .rev()
-        .find(|(index, part)| {
-            *index > 0 && part.len() > "-worktrees".len() && part.ends_with("-worktrees")
-        })
-        .map(|(index, _)| index)?;
-    if at + 1 >= parts.len() || parts[at + 1].is_empty() {
-        return None;
-    }
-    let mut repo: Vec<&str> = parts[..at].to_vec();
-    let name = parts[at].strip_suffix("-worktrees")?;
-    repo.push(name);
-    Some((repo.join("/"), parts[..=at + 1].join("/")))
 }
 
 /// The node's repositories sent to this run, by path: what the engine's git

@@ -14,6 +14,7 @@ use iced::keyboard::key::Physical;
 use iced::keyboard::{Key, Modifiers};
 use serde_json::{Map, Value};
 
+#[cfg(test)]
 use hangar_i18n::{Key as Text, Translator, args};
 use hangar_ui::shortcut::{Binding, Chord, Platform, format_binding_on, parse_binding_on};
 
@@ -183,6 +184,7 @@ impl KeymapIndex {
         &self.labels[id as usize]
     }
 
+    #[cfg(test)]
     /// `"Close pane (Ctrl+Shift+X)"`: a label followed by the key that runs
     /// it, so a tooltip stays true after a command is rebound
     /// (`useShortcutTitle`).

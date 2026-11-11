@@ -66,6 +66,7 @@ impl Live {
         self.boards.get(cwd)?.clone()
     }
 
+    #[cfg(test)]
     /// Several boards at once, by folder: `useBoardsOf`. A folder nobody asked
     /// the cache to keep is `None`, like one still being read.
     pub fn boards_of<'a>(&'a self, cwds: &[String]) -> HashMap<String, Option<&'a [Task]>> {
@@ -83,6 +84,7 @@ impl Live {
             .map_or(ws.cwd.as_str(), |(key, _)| key.as_str())
     }
 
+    #[cfg(test)]
     /// Whether the first read of this folder's board has answered.
     pub fn is_loaded(&self, cwd: &str) -> bool {
         self.tasks(cwd).is_some()
@@ -115,6 +117,7 @@ impl Live {
         self.answer(cwd, Some(Arc::new(tasks)));
     }
 
+    #[cfg(test)]
     /// Every folder the cache holds a board for, sorted.
     pub fn folders(&self) -> Vec<&str> {
         let mut folders: Vec<&str> = self.boards.keys().map(String::as_str).collect();

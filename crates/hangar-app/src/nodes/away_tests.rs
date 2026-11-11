@@ -13,6 +13,8 @@ use std::sync::{Arc, Mutex};
 
 use serde_json::{Value, json};
 
+use crate::state::types::Pane;
+
 use super::*;
 use crate::nodes::commands::{Cmd, Mux};
 use crate::nodes::model::NodeInfo;

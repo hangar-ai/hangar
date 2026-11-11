@@ -196,6 +196,7 @@ pub struct Scope {
 }
 
 impl Scope {
+    #[allow(dead_code)]
     pub fn active(&self) -> Option<&Entry> {
         let id = self.active_id.as_deref()?;
         self.entries.iter().find(|entry| entry.id == id)
@@ -259,6 +260,7 @@ impl KitTabToOpen {
         }
     }
 
+    #[cfg(test)]
     pub fn params(mut self, params: &[(&str, &str)]) -> Self {
         self.params = params
             .iter()
@@ -272,11 +274,13 @@ impl KitTabToOpen {
         self
     }
 
+    #[cfg(test)]
     pub fn opened_by(mut self, pane: impl Into<String>) -> Self {
         self.opened_by = Some(pane.into());
         self
     }
 
+    #[cfg(test)]
     pub fn reveal(mut self, reveal: bool) -> Self {
         self.reveal = reveal;
         self
@@ -540,6 +544,7 @@ impl Store {
         self.entries().filter(|entry| entry.is_model()).collect()
     }
 
+    #[cfg(test)]
     /// Every workspace's kit tabs: the pages the window keeps running.
     pub fn kit_tabs(&self) -> Vec<&Entry> {
         self.entries().filter(|entry| entry.is_kit_tab()).collect()
@@ -1072,6 +1077,7 @@ impl Store {
         count
     }
 
+    #[cfg(test)]
     /// Everything every workspace has open (`closeAllModels`).
     pub fn close_all_models(&mut self) {
         if self.scopes.is_empty() {
@@ -1165,6 +1171,7 @@ impl Store {
         self.set(vec![(workspace, Some(next))]);
     }
 
+    #[cfg(test)]
     /// Whether an entry has loaded or failed, for a caller waiting on it
     /// (`whenSettled`'s test): `None` for an entry that is not open.
     pub fn settled(&self, id: &str) -> Option<Option<&Entry>> {

@@ -109,6 +109,9 @@ pub struct PanelDrag {
 }
 
 /// `Model.live`: every package's shared read-model, and the shell's own.
+/// Every package has its slot here by convention (PACKAGES.md), read or not
+/// yet: an empty one is no mistake.
+#[allow(dead_code)]
 #[derive(Debug, Default)]
 pub struct Live {
     /// `load_state` has answered and the state is in. Nothing is saved, and

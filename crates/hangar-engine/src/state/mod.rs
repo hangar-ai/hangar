@@ -13,6 +13,7 @@ mod lenient;
 pub mod pane_names;
 pub mod persist;
 pub mod roles;
+pub mod snapshot;
 pub mod store;
 pub mod types;
 pub mod unread;

@@ -1352,6 +1352,7 @@ impl OrchestratorEngine {
             .unwrap_or_default()
     }
 
+    #[allow(dead_code)]
     /// The workspace's board as last read.
     pub fn tasks(&self, workspace_id: &str) -> Vec<Task> {
         self.spaces

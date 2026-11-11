@@ -57,6 +57,7 @@ pub enum Focus {
     /// A region as a whole: a drawer, a panel.
     Region(Region),
     /// A widget with an id (`text_input::focus`, `widget::focus_next`).
+    #[cfg_attr(not(test), allow(dead_code))]
     Widget(widget::Id),
 }
 

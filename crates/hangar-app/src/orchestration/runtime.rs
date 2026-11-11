@@ -424,6 +424,7 @@ impl OrchestrationHandle {
         self.engines().events.journal(workspace_id)
     }
 
+    #[allow(dead_code)]
     /// The workspace's board as the engine last read it.
     pub fn tasks(&self, workspace_id: &str) -> Vec<Task> {
         self.engines().events.tasks(workspace_id)

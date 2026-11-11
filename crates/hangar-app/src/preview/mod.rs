@@ -220,6 +220,7 @@ impl Live {
         self.scopes.get(workspace)
     }
 
+    #[cfg(test)]
     pub fn has_preview(&self, workspace: &str) -> bool {
         self.scope(workspace).is_some()
     }

@@ -23,7 +23,6 @@
 
 mod badge;
 mod menu_items;
-mod model;
 mod picker;
 mod settings_page;
 mod switch;
@@ -43,6 +42,8 @@ use crate::services::{CoreEvent, Services};
 use crate::shell::MenuEntry;
 use crate::state::live::BridgeEvent;
 use crate::state::{Model, PaneId, Patch, Settings, StoreAction, Workspace, WsId};
+// Which account a pane runs on: hangar-engine's rules, named here as before.
+use hangar_engine::accounts as model;
 
 #[allow(unused_imports)]
 pub use model::{

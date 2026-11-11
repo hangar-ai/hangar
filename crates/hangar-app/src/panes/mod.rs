@@ -152,10 +152,12 @@ pub struct PaneReport {
 }
 
 impl Live {
+    #[allow(dead_code)]
     pub fn report(&self, pane: &str) -> Option<&PaneReport> {
         self.reports.get(pane)
     }
 
+    #[allow(dead_code)]
     pub fn reports(&self) -> impl Iterator<Item = (&PaneId, &PaneReport)> {
         self.reports.iter()
     }
