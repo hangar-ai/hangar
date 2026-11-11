@@ -994,6 +994,58 @@ fn a_delivery_whose_files_cannot_be_read_stays_one_line() {
     assert_eq!(shown_texts(&st, &m, &[line, "3 files"]), [line]);
 }
 
+/* ── files Claude names ────────────────────────────────────────── */
+
+#[test]
+fn a_file_claude_names_opens_in_the_workspace_s_preview() {
+    let dir = std::env::temp_dir().join(format!("hangar-chat-paths-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("index.ts");
+    std::fs::write(&file, "export {}\n").unwrap();
+    let named = file.to_string_lossy().replace('\\', "/");
+    let mut m = shop(true);
+    let mut st = State::default();
+    read_into(
+        &mut st,
+        &mut m,
+        page(
+            vec![item(
+                "a1",
+                Body::Assistant {
+                    text: format!("Edited `{named}:3` and `src/gone.ts`."),
+                },
+            )],
+            None,
+        ),
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+    picture("paths", &st, &m, "graphite");
+    // The links of the message as parsed: the file there, not the other.
+    let (_, content) = st.chat(WS).unwrap().prose.get("a1").unwrap();
+    let style = iced::widget::markdown::Style::from_palette(iced::Theme::Dark.palette());
+    let links: Vec<String> = content
+        .items()
+        .iter()
+        .filter_map(|item| match item {
+            iced::widget::markdown::Item::Paragraph(text) => Some(text.spans(style)),
+            _ => None,
+        })
+        .flat_map(|spans| {
+            spans
+                .iter()
+                .filter_map(|span| span.link.clone())
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    let url = format!("hangar-file:{WS}|{named}:3");
+    assert_eq!(links, std::slice::from_ref(&url));
+    // Clicked, it is the file's preview that opens.
+    assert_eq!(
+        paths::file_of(&url).map(|file| (file.ws, file.path, file.line)),
+        Some((WS.to_string(), named, Some(3)))
+    );
+}
+
 /* ── the queue ─────────────────────────────────────────────────── */
 
 /// Leo at work, its Claude Code running the mod.

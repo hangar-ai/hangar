@@ -31,6 +31,7 @@
 
 mod calls;
 mod hangar;
+mod paths;
 pub mod rich;
 mod settled;
 mod thread;
@@ -632,9 +633,15 @@ fn read(st: &mut State, m: &Model, ws: &str, pane: &str, before: Option<String>)
 
 /// Parses Claude's new messages, forgets those no longer held, and colours
 /// the code blocks not coloured yet, off the UI thread.
-fn sync_prose(chat: &mut Chat, ws: &str) -> Task<Message> {
+fn sync_prose(chat: &mut Chat, ws: &str, folder: &str) -> Task<Message> {
     let mut held = HashSet::new();
     let mut blocks = Vec::new();
+    // The files Claude names, linked to the workspace's (`paths`).
+    let parse = |source: &str| {
+        rich::parse(&paths::link_files(source, ws, &|path| {
+            paths::is_file_in(folder, path)
+        }))
+    };
     for item in &chat.thread.items {
         let Body::Assistant { text } = &item.body else {
             continue;
@@ -645,7 +652,7 @@ fn sync_prose(chat: &mut Chat, ws: &str) -> Task<Message> {
             .get(&item.id)
             .is_none_or(|(source, _)| source != text);
         if fresh {
-            let content = rich::parse(text);
+            let content = parse(text);
             blocks.extend(
                 rich::code_blocks(&content)
                     .into_iter()
@@ -668,7 +675,7 @@ fn sync_prose(chat: &mut Chat, ws: &str) -> Task<Message> {
             .get(&key)
             .is_none_or(|(source, _)| source != plan)
         {
-            let content = rich::parse(plan);
+            let content = parse(plan);
             blocks.extend(
                 rich::code_blocks(&content)
                     .into_iter()
@@ -841,6 +848,10 @@ fn route(st: &mut State, m: &mut Model, msg_: Msg) -> Task<Message> {
             result,
         } => {
             let desk = desk_state(m, &pane);
+            let folder = m
+                .workspace(&ws)
+                .map(|found| found.cwd.clone())
+                .unwrap_or_default();
             let Some(chat) = st.chats.get_mut(&ws).filter(|chat| chat.pane == pane) else {
                 return Task::none();
             };
@@ -867,7 +878,7 @@ fn route(st: &mut State, m: &mut Model, msg_: Msg) -> Task<Message> {
                     chat.error = Some(error);
                 }
             }
-            let colour = sync_prose(chat, &ws);
+            let colour = sync_prose(chat, &ws, &folder);
             let wanted = wanted_changes(chat);
             let again = !older && std::mem::take(&mut chat.again);
             let next = if again {
@@ -1052,6 +1063,22 @@ fn route(st: &mut State, m: &mut Model, msg_: Msg) -> Task<Message> {
             Task::none()
         }
         Msg::Start(ws) => Task::done(Message::Intent(Intent::CreateOrchestrator(ws))),
+        Msg::Link(url) if url.starts_with(paths::SCHEME) => {
+            // A file Claude named: in the workspace's preview, beside the
+            // conversation.
+            let Some(file) = paths::file_of(&url) else {
+                return Task::none();
+            };
+            Task::done(Message::Intent(Intent::ShowPreview(
+                crate::services::PreviewRequest {
+                    ws: file.ws,
+                    path: file.path,
+                    title: None,
+                    opened_by: None,
+                    reveal: true,
+                },
+            )))
+        }
         Msg::Link(url) => {
             let web = ["http://", "https://", "mailto:"]
                 .iter()
