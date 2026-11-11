@@ -1199,3 +1199,187 @@ fn the_messages_keep_their_layout_until_what_they_show_changes() {
     let other = st.chat_mut(WS, "ava").revision;
     assert_ne!(other, before);
 }
+
+/* ── pictures ──────────────────────────────────────────────────── */
+
+/// A conversation with something of everything: what the chat view shows
+/// most of the day.
+fn busy_page(pending: Option<ChatPending>) -> ChatView {
+    page(
+        vec![
+            person("u1", "Add a search box to the catalogue, and keep the filters as they are."),
+            item(
+                "h1",
+                Body::User {
+                    text: "[Hangar] Worker Ada delivered “Search index”.\nIts branch is merged.\nChecks passed in 2 min.\nReview: approved.".into(),
+                    from: Sender::Hangar,
+                    images: 0,
+                },
+            ),
+            item(
+                "a1",
+                Body::Assistant {
+                    text: "I'll split this in two: an **index** the box queries, then the box itself.\n\n1. Index the product titles and tags\n2. Add the box to `Catalogue.tsx`, debounced\n\n```ts\nexport function search(q: string) {\n  return index.query(q).slice(0, 20)\n}\n```"
+                        .into(),
+                },
+            ),
+            item(
+                "c1",
+                Body::Action {
+                    tool: "Read".into(),
+                    title: "Read src/catalogue/Catalogue.tsx".into(),
+                    detail: Some("src/catalogue/Catalogue.tsx".into()),
+                    result: Some(CallResult { ok: true, text: "…".into() }),
+                    state: CallState::Done,
+                },
+            ),
+            item(
+                "c2",
+                Body::Action {
+                    tool: "mcp__hangar__board_create_task".into(),
+                    title: "Used board_create_task".into(),
+                    detail: Some(json!({"title": "Search box"}).to_string()),
+                    result: Some(CallResult { ok: true, text: "created".into() }),
+                    state: CallState::Done,
+                },
+            ),
+            item(
+                "c3",
+                Body::Action {
+                    tool: "Bash".into(),
+                    title: "Ran pnpm test".into(),
+                    detail: Some("pnpm test".into()),
+                    result: Some(CallResult { ok: false, text: "1 failed".into() }),
+                    state: CallState::Error,
+                },
+            ),
+            item(
+                "a2",
+                Body::Assistant {
+                    text: "One test fails on an empty query; I'm fixing it before handing the box to Ada.".into(),
+                },
+            ),
+            item(
+                "c4",
+                Body::Action {
+                    tool: "Edit".into(),
+                    title: "Edited src/search/index.ts".into(),
+                    detail: Some("src/search/index.ts".into()),
+                    result: None,
+                    state: CallState::Running,
+                },
+            ),
+        ],
+        pending,
+    )
+}
+
+/// Draws the region as it stands into `chat-<name>-<theme>-en.png` when
+/// pictures are asked for (`inspector::snapshot`).
+fn picture(name: &str, st: &State, m: &Model, theme_id: &str) {
+    let pkg = Packages::default();
+    let theme = hangar_theme::by_id_or_default(theme_id);
+    let ctx = crate::ctx::Ctx {
+        theme,
+        ..ctx(m, &pkg)
+    };
+    let ws = m.workspace(WS).unwrap();
+    crate::inspector::snapshot::render(
+        &format!("chat-{name}"),
+        theme,
+        hangar_i18n::Locale::En,
+        iced::Size::new(860.0, 900.0),
+        view(st, ctx, ws),
+    );
+}
+
+#[test]
+fn a_busy_conversation_is_drawn_in_a_dark_and_a_light_theme() {
+    let mut m = shop(true);
+    let mut st = State::default();
+    read_into(&mut st, &mut m, busy_page(None));
+    let light = hangar_theme::themes()
+        .iter()
+        .find(|theme| !theme.is_dark())
+        .expect("a light theme exists")
+        .id;
+    picture("busy", &st, &m, "graphite");
+    picture("busy", &st, &m, light);
+}
+
+#[test]
+fn a_conversation_at_work_is_drawn_with_its_model_and_stop() {
+    let mut m = shop(true);
+    let now = crate::control::types::now_ms();
+    crate::panes_logic::mount_for_test(&mut m, LEO, WS, "Leo", now - 600_000);
+    for event in [
+        json!({"kind": "hello", "sessionId": "s1", "model": "claude-opus-5-5", "version": "2.1.322"}),
+        json!({"kind": "turn", "phase": "start"}),
+        json!({"kind": "usage", "context": {"tokens": 64000, "window": 200000, "percent": 32}}),
+    ] {
+        let event = crate::services::CoreEvent::Bridge {
+            pane: LEO.into(),
+            event,
+        };
+        let _ = crate::panes_logic::reduce_for_test(&mut m, &event, now - 72_000);
+    }
+    let mut st = State::default();
+    read_into(&mut st, &mut m, busy_page(None));
+    picture("working", &st, &m, "graphite");
+    // The turn started 72 s ago; drawing takes a moment.
+    let spans: Vec<String> = (12..40).map(|s| format!("Working · 1m {s}s")).collect();
+    let mut wanted: Vec<&str> = spans.iter().map(String::as_str).collect();
+    wanted.push("Opus 5.5 · 32% context");
+    let shown = shown_texts(&st, &m, &wanted);
+    assert_eq!(shown.len(), 2, "{shown:?}");
+    assert_eq!(shown[1], "Opus 5.5 · 32% context");
+    // Stop sends Escape to the pane, through the desk, once at a time.
+    apply(
+        &mut st,
+        &mut m,
+        vec![Msg::Stop(WS.into()), Msg::Stop(WS.into())],
+    );
+    let stops = calls(&st)
+        .into_iter()
+        .filter(|call| *call == Call::Stop)
+        .count();
+    assert_eq!(stops, 1);
+}
+
+#[test]
+fn a_duration_reads_short() {
+    assert_eq!(view::span(8_400), "8s");
+    assert_eq!(view::span(125_000), "2m 05s");
+    assert_eq!(view::span(3_840_000), "1h 04m");
+}
+
+#[test]
+fn the_permission_and_question_cards_are_drawn() {
+    let mut m = shop(true);
+    let mut st = State::default();
+    read_into(
+        &mut st,
+        &mut m,
+        busy_page(Some(ChatPending::Permission {
+            prompt: "p1".into(),
+            tool: "Bash".into(),
+            title: "Run rm -rf dist && pnpm build".into(),
+            detail: Some("rm -rf dist && pnpm build".into()),
+        })),
+    );
+    picture("permission", &st, &m, "graphite");
+
+    let mut st = State::default();
+    read_into(
+        &mut st,
+        &mut m,
+        busy_page(Some(ChatPending::Question {
+            tool_use_id: "toolu_q".into(),
+            questions: vec![
+                question("Which colour should the box's border take?", false),
+                sizes(),
+            ],
+        })),
+    );
+    picture("question", &st, &m, "graphite");
+}

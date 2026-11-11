@@ -1893,6 +1893,18 @@ pub fn on_event(
     reduce_core_event(m, event, wall_clock_ms())
 }
 
+/// `on_event` without the services, at moment `now`: for the other
+/// packages' tests, which make a pane work by reporting for its mod.
+#[cfg(test)]
+pub(crate) fn reduce_for_test(
+    m: &mut Model,
+    event: &CoreEvent,
+    now: EpochMs,
+) -> Option<Task<Message>> {
+    index_panes(m);
+    reduce_core_event(m, event, now)
+}
+
 /// The reducer of core's events into `Live`: the reports of the mod, the
 /// queue, the shell's end. Everything it needs is the model and the moment.
 fn reduce_core_event(m: &mut Model, event: &CoreEvent, now: EpochMs) -> Option<Task<Message>> {

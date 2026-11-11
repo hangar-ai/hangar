@@ -110,6 +110,8 @@ pub enum Call {
         allow: bool,
         prompt: Option<String>,
     },
+    /// Escape to the pane while it works: the turn stops.
+    Stop,
 }
 
 /// What Hangar Mobile's state says of the pane's input, looked at on each
@@ -155,6 +157,10 @@ pub struct Chat {
     deciding: bool,
     /// Why the last answer or permission was refused.
     refusal: Option<String>,
+    /// A stop is on its way.
+    stopping: bool,
+    /// Why the last stop was refused.
+    stop_error: Option<String>,
     /// The view is at its bottom: new items keep it there.
     at_bottom: bool,
     /// Changes whenever what the messages show does: the key their layout
@@ -189,6 +195,8 @@ impl Chat {
             form: Form::default(),
             deciding: false,
             refusal: None,
+            stopping: false,
+            stop_error: None,
             at_bottom: true,
             revision: next_revision(),
         }
@@ -353,6 +361,12 @@ pub enum Msg {
     },
     SubmitAnswer(WsId),
     Permit(WsId, bool),
+    /// Stop: the turn the orchestrator is working on ends.
+    Stop(WsId),
+    Stopped {
+        ws: WsId,
+        result: Result<RemoteSent, String>,
+    },
     Decided {
         ws: WsId,
         result: Result<RemoteAnswered, String>,
@@ -632,6 +646,8 @@ fn touches(msg_: &Msg) -> Option<&str> {
         | Msg::OtherText { .. }
         | Msg::Step { .. }
         | Msg::Start(_)
+        | Msg::Stop(_)
+        | Msg::Stopped { .. }
         | Msg::Link(_) => None,
     }
 }
@@ -776,6 +792,14 @@ fn route(st: &mut State, m: &mut Model, msg_: Msg) -> Task<Message> {
         }
         Msg::SubmitAnswer(ws) => submit_answer(st, m, &ws),
         Msg::Permit(ws, allow) => permit(st, m, &ws, allow),
+        Msg::Stop(ws) => stop(st, m, &ws),
+        Msg::Stopped { ws, result } => {
+            if let Some(chat) = st.chats.get_mut(&ws) {
+                chat.stopping = false;
+                chat.stop_error = result.err();
+            }
+            refresh(st, m, &ws)
+        }
         Msg::Decided { ws, result } => {
             if let Some(chat) = st.chats.get_mut(&ws) {
                 chat.deciding = false;
@@ -947,6 +971,30 @@ fn permit(st: &mut State, m: &Model, ws: &str, allow: bool) -> Task<Message> {
             Box::pin(async move {
                 desk::permit(&port, &mobile, &ws, &pane, allow, prompt.as_deref()).await
             })
+        },
+    )
+}
+
+fn stop(st: &mut State, m: &Model, ws: &str) -> Task<Message> {
+    let Some(chat) = found(st, m, ws) else {
+        return Task::none();
+    };
+    if chat.stopping {
+        return Task::none();
+    }
+    chat.stopping = true;
+    chat.stop_error = None;
+    let pane = chat.pane.clone();
+    let ws_id = ws.to_string();
+    call(
+        st,
+        m,
+        ws,
+        &pane,
+        Call::Stop,
+        move |result| msg(Msg::Stopped { ws: ws_id, result }),
+        |port, mobile, ws, pane, _| {
+            Box::pin(async move { desk::interrupt(&port, &mobile, &ws, &pane).await })
         },
     )
 }

@@ -346,6 +346,8 @@ pub enum Key {
     ChatConvCallsSearches,
     /// `chatConv.calls.tasks`
     ChatConvCallsTasks,
+    /// `chatConv.context`
+    ChatConvContext,
     /// `chatConv.disabled.answering`
     ChatConvDisabledAnswering,
     /// `chatConv.disabled.loading`
@@ -430,6 +432,12 @@ pub enum Key {
     ChatConvShowLess,
     /// `chatConv.showMore`
     ChatConvShowMore,
+    /// `chatConv.stop`
+    ChatConvStop,
+    /// `chatConv.stopFailed`
+    ChatConvStopFailed,
+    /// `chatConv.stopHint`
+    ChatConvStopHint,
     /// `chatConv.tool.blockTask`
     ChatConvToolBlockTask,
     /// `chatConv.tool.claimTask`
@@ -480,6 +488,10 @@ pub enum Key {
     ChatConvToolUpdateTask,
     /// `chatConv.tool.writeMemory`
     ChatConvToolWriteMemory,
+    /// `chatConv.working`
+    ChatConvWorking,
+    /// `chatConv.workingFor`
+    ChatConvWorkingFor,
     /// `chatView.chat`
     ChatViewChat,
     /// `chatView.panes`
@@ -3961,7 +3973,7 @@ pub enum Key {
 }
 
 /// How many keys there are.
-pub const KEY_COUNT: usize = 1972;
+pub const KEY_COUNT: usize = 1978;
 
 impl Key {
     /// Every key, in the order of their ids.
@@ -4132,6 +4144,7 @@ impl Key {
         Key::ChatConvCallsRunning,
         Key::ChatConvCallsSearches,
         Key::ChatConvCallsTasks,
+        Key::ChatConvContext,
         Key::ChatConvDisabledAnswering,
         Key::ChatConvDisabledLoading,
         Key::ChatConvDisabledNotClaude,
@@ -4174,6 +4187,9 @@ impl Key {
         Key::ChatConvSending,
         Key::ChatConvShowLess,
         Key::ChatConvShowMore,
+        Key::ChatConvStop,
+        Key::ChatConvStopFailed,
+        Key::ChatConvStopHint,
         Key::ChatConvToolBlockTask,
         Key::ChatConvToolClaimTask,
         Key::ChatConvToolCommentTask,
@@ -4199,6 +4215,8 @@ impl Key {
         Key::ChatConvToolUnblockTask,
         Key::ChatConvToolUpdateTask,
         Key::ChatConvToolWriteMemory,
+        Key::ChatConvWorking,
+        Key::ChatConvWorkingFor,
         Key::ChatViewChat,
         Key::ChatViewPanes,
         Key::ChatViewShowChat,
@@ -6109,6 +6127,7 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "chatConv.calls.running", en: Text::plain("{n} running"), fr: Text::plain("{n} en cours") },
     Message { id: "chatConv.calls.searches", en: Text::plural("{n} search", "{n} searches"), fr: Text::plural("{n} recherche", "{n} recherches") },
     Message { id: "chatConv.calls.tasks", en: Text::plural("{n} task created", "{n} tasks created"), fr: Text::plural("{n} tâche créée", "{n} tâches créées") },
+    Message { id: "chatConv.context", en: Text::plain("{pct}% context"), fr: Text::plain("contexte {pct}\u{202f}%") },
     Message { id: "chatConv.disabled.answering", en: Text::plain("An answer is being typed into {name}: wait for it."), fr: Text::plain("Une réponse est en cours de saisie dans {name}\u{202f}: attendez qu’elle finisse.") },
     Message { id: "chatConv.disabled.loading", en: Text::plain("Hangar is starting: wait a moment."), fr: Text::plain("Hangar démarre\u{202f}: patientez un instant.") },
     Message { id: "chatConv.disabled.notClaude", en: Text::plain("{name} is not a Claude Code pane."), fr: Text::plain("{name} n’est pas un panneau Claude Code.") },
@@ -6151,6 +6170,9 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "chatConv.sending", en: Text::plain("Sending…"), fr: Text::plain("Envoi…") },
     Message { id: "chatConv.showLess", en: Text::plain("Show less"), fr: Text::plain("Réduire") },
     Message { id: "chatConv.showMore", en: Text::plain("Show all"), fr: Text::plain("Tout afficher") },
+    Message { id: "chatConv.stop", en: Text::plain("Stop"), fr: Text::plain("Arrêter") },
+    Message { id: "chatConv.stopFailed", en: Text::plain("Could not stop: {error}"), fr: Text::plain("Impossible d’arrêter\u{202f}: {error}") },
+    Message { id: "chatConv.stopHint", en: Text::plain("Stop the turn, as Escape does in the terminal"), fr: Text::plain("Arrête le tour, comme Échap dans le terminal") },
     Message { id: "chatConv.tool.blockTask", en: Text::plain("Put “{task}” on hold"), fr: Text::plain("«\u{202f}{task}\u{202f}» mise en attente") },
     Message { id: "chatConv.tool.claimTask", en: Text::plain("Claimed “{task}”"), fr: Text::plain("«\u{202f}{task}\u{202f}» prise en charge") },
     Message { id: "chatConv.tool.commentTask", en: Text::plain("Commented on “{task}”"), fr: Text::plain("Commentaire sur «\u{202f}{task}\u{202f}»") },
@@ -6176,6 +6198,8 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "chatConv.tool.unblockTask", en: Text::plain("Took “{task}” off hold"), fr: Text::plain("«\u{202f}{task}\u{202f}» sortie de l’attente") },
     Message { id: "chatConv.tool.updateTask", en: Text::plain("Updated “{task}”"), fr: Text::plain("«\u{202f}{task}\u{202f}» modifiée") },
     Message { id: "chatConv.tool.writeMemory", en: Text::plain("Saved to the memory"), fr: Text::plain("Enregistré dans la mémoire") },
+    Message { id: "chatConv.working", en: Text::plain("Working…"), fr: Text::plain("Au travail…") },
+    Message { id: "chatConv.workingFor", en: Text::plain("Working · {time}"), fr: Text::plain("Au travail · {time}") },
     Message { id: "chatView.chat", en: Text::plain("Chat"), fr: Text::plain("Chat") },
     Message { id: "chatView.panes", en: Text::plain("Panes"), fr: Text::plain("Panneaux") },
     Message { id: "chatView.showChat", en: Text::plain("Show the workspace as a chat"), fr: Text::plain("Afficher le workspace en chat") },

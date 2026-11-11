@@ -75,6 +75,36 @@ pub async fn send_text(
     type_into(port, mobile, &ws, &pane, input).await
 }
 
+/// Escape to the pane while its agent works, as the person stops a turn in
+/// the terminal. Refused unless it works now: typed into a dialog, Escape
+/// would answer it; at the prompt, it clears what is typed there.
+pub async fn interrupt(
+    port: &Port,
+    mobile: &Mobile,
+    ws: &str,
+    pane: &str,
+) -> Result<RemoteSent, String> {
+    let (ws, pane) = find(port, ws, pane)?;
+    let activity = activity_of(&port.snapshot(), &pane.id).map(|entry| entry.activity);
+    if activity != Some(AgentActivity::Working) {
+        return Err(format!(
+            "\"{}\" is not working: nothing was sent.",
+            pane.name
+        ));
+    }
+    if port.terminal(&pane.id).is_none() {
+        return Err(format!(
+            "\"{}\" has no terminal open: nothing was sent.",
+            pane.name
+        ));
+    }
+    let input = Input {
+        keys: vec!["escape".into()],
+        ..Input::default()
+    };
+    type_into(port, mobile, &ws, &pane, input).await
+}
+
 /// Answers the question `tool_use_id` the pane waits on, one answer per
 /// question — option labels and the person's own words — typed into its
 /// dialog step by step, each checked on the screen (`remote_answer`).

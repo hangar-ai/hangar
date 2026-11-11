@@ -1,6 +1,12 @@
 //! The conversation, drawn: a header with the orchestrator and what it does,
-//! the messages newest at the bottom (the scroll anchored there), the card of
-//! the question or permission it waits on, and the input.
+//! the messages newest at the bottom (the scroll anchored there), and the
+//! composer, with the card of the question or permission it waits on on top
+//! of it.
+//!
+//! Laid out as a chat reads: the person's messages in bubbles on the right,
+//! Claude's words open on the page, its calls quiet lines of the work log —
+//! an icon for what they do, what they did, folded in runs — and, while it
+//! works, a line that says so at the bottom.
 
 use std::hash::{DefaultHasher, Hash, Hasher};
 
@@ -13,7 +19,7 @@ use iced::widget::text_editor::{Binding, KeyPress, Status};
 use iced::widget::{
     Space, button, column, container, row, rule, scrollable, text, text_editor, text_input,
 };
-use iced::{Alignment, Element, Length, Padding};
+use iced::{Alignment, Background, Border, Color, Element, Length, Padding};
 
 use crate::ctx::Ctx;
 use crate::message::Message;
@@ -22,7 +28,7 @@ use crate::orchestration_ui::actions::can_create_orchestrator;
 use crate::state::roles::orchestrator_of;
 use crate::state::{AgentActivity, Pane, Workspace};
 
-use super::calls::{self, Piece};
+use super::calls::{self, Kind, Piece};
 use super::settled::settled;
 use super::thread::{Outgoing, Sent};
 use super::{Blocked, Chat, Msg, State, blocked, msg, rich, titles};
@@ -30,11 +36,16 @@ use super::{Blocked, Chat, Msg, State, blocked, msg, rich, titles};
 /// The widest the column of messages gets: lines longer than this read badly.
 const COLUMN_WIDTH: f32 = 760.0;
 /// How wide a bubble of the person's gets, at most.
-const BUBBLE_WIDTH: f32 = 560.0;
+const BUBBLE_WIDTH: f32 = 580.0;
+/// The roundness of a bubble and of the composer.
+const SOFT: f32 = 16.0;
 /// The lines of a message of Hangar's shown before « Show all ».
 const HANGAR_LINES: usize = 3;
 /// The lines of a call's detail or result shown expanded, at most.
 const DETAIL_LINES: usize = 40;
+/// A call's icon, and how far its words sit from the row's edge.
+const CALL_ICON: f32 = 13.0;
+const CALL_INDENT: f32 = tokens::space::SM + CALL_ICON + tokens::space::MD;
 
 /// The input's widget id.
 pub fn input_id() -> iced::widget::Id {
@@ -50,16 +61,13 @@ pub fn view<'a>(st: &'a State, ctx: Ctx<'a>, ws: &'a Workspace) -> Element<'a, M
     let Some(chat) = chat.filter(|chat| chat.loaded) else {
         return loading(t, ctx.t(Key::ChatConvLoading).into_owned());
     };
-    let mut body = column![
+    let body = column![
         header(ctx, pane),
         rule::horizontal(tokens::BORDER_WIDTH).style(style::rule::sep(t)),
         messages(ctx, ws, pane, chat),
+        composer(ctx, ws, pane, chat),
     ]
     .height(Length::Fill);
-    if let Some(card) = card(ctx, ws, pane, chat) {
-        body = body.push(card);
-    }
-    body = body.push(input(ctx, ws, pane, chat));
     container(body)
         .width(Length::Fill)
         .height(Length::Fill)
@@ -99,9 +107,36 @@ fn no_orchestrator<'a>(ctx: Ctx<'a>, ws: &'a Workspace) -> Element<'a, Message> 
     }
 }
 
+/// `color` at `alpha`.
+fn tint(color: Color, alpha: f32) -> Color {
+    Color {
+        a: color.a * alpha,
+        ..color
+    }
+}
+
+/// A round mark of `color`, `size` across.
+fn dot<'a>(color: Color, size: f32) -> Element<'a, Message> {
+    container(Space::new())
+        .width(size)
+        .height(size)
+        .style(move |_| container::Style {
+            background: Some(Background::Color(color)),
+            border: Border {
+                radius: (size / 2.0).into(),
+                ..Border::default()
+            },
+            ..container::Style::default()
+        })
+        .into()
+}
+
+/// The orchestrator, how it is doing, and on the right the model it runs and
+/// how full its context is.
 fn header<'a>(ctx: Ctx<'a>, pane: &'a Pane) -> Element<'a, Message> {
     let t = ctx.theme;
-    let activity = ctx.model.live.panes_logic.activity_or_idle(&pane.id);
+    let logic = &ctx.model.live.panes_logic;
+    let activity = logic.activity_or_idle(&pane.id);
     let label = match activity {
         AgentActivity::Working => Key::PaneStateWorking,
         AgentActivity::Waiting => Key::PaneStateWaiting,
@@ -109,23 +144,60 @@ fn header<'a>(ctx: Ctx<'a>, pane: &'a Pane) -> Element<'a, Message> {
         AgentActivity::Idle => Key::PaneStateIdle,
     };
     let state = AgentState::from(activity);
-    container(
+    let pill = container(
         row![
-            icon(Icon::Orchestrator, 15.0).color(t.colors.fg_muted),
-            text(pane.name.as_str())
-                .size(tokens::font_size::UI_LG)
-                .font(fonts::ui_semibold())
-                .style(style::text::primary(t)),
+            dot(t.colors.state(state).fill, 7.0),
             text(ctx.t(label))
                 .size(tokens::font_size::CAPTION)
                 .style(style::text::state(t, state)),
         ]
-        .spacing(tokens::space::MD)
+        .spacing(tokens::space::SM)
         .align_y(Alignment::Center),
     )
-    .padding([tokens::space::MD, tokens::space::XXL])
-    .width(Length::Fill)
-    .into()
+    .padding([tokens::space::XXS, tokens::space::MD])
+    .style(move |_| container::Style {
+        background: Some(Background::Color(tint(t.colors.state(state).fill, 0.12))),
+        border: Border {
+            radius: tokens::radius::FULL.into(),
+            ..Border::default()
+        },
+        ..container::Style::default()
+    });
+    let mut line = row![
+        icon(Icon::Orchestrator, 15.0).color(t.colors.fg_muted),
+        text(pane.name.as_str())
+            .size(tokens::font_size::UI_LG)
+            .font(fonts::ui_semibold())
+            .style(style::text::primary(t)),
+        pill,
+        Space::new().width(Length::Fill),
+    ]
+    .spacing(tokens::space::MD)
+    .align_y(Alignment::Center);
+    let insight = logic.insight(&pane.id);
+    let mut meta: Vec<String> = Vec::new();
+    if let Some(model) = insight.model.as_deref().filter(|m| !m.trim().is_empty()) {
+        meta.push(crate::stats::model::model_label(model));
+    }
+    if let Some(context) = &insight.context {
+        let pct = context.pct.round().clamp(0.0, 100.0) as u32;
+        meta.push(
+            ctx.i18n
+                .t_with(Key::ChatConvContext, &args!("pct" => pct.to_string()))
+                .into_owned(),
+        );
+    }
+    if !meta.is_empty() {
+        line = line.push(
+            text(meta.join(" · "))
+                .size(tokens::font_size::CAPTION)
+                .style(style::text::subtle(t)),
+        );
+    }
+    container(line)
+        .padding([tokens::space::MD, tokens::space::XXL])
+        .width(Length::Fill)
+        .into()
 }
 
 fn messages<'a>(
@@ -135,7 +207,7 @@ fn messages<'a>(
     chat: &'a Chat,
 ) -> Element<'a, Message> {
     let t = ctx.theme;
-    let mut list = column![].spacing(tokens::space::LG).width(Length::Fill);
+    let mut list = column![].spacing(tokens::space::XL).width(Length::Fill);
     if chat.reading_older {
         list = list.push(centre_line(hangar_ui::text::hint(
             t,
@@ -202,12 +274,24 @@ fn messages<'a>(
     }
     let ws_id = ws.id.clone();
     let content = centred(container(list).padding(Padding {
-        top: tokens::space::XXL,
+        top: tokens::space::XXXL,
         right: tokens::space::XXL,
-        bottom: tokens::space::XXL,
+        bottom: tokens::space::XL,
         left: tokens::space::XXL,
     }));
-    scrollable(settled(layout_key(ctx, pane, chat, tasks), content))
+    // The working line moves on its own clock: outside the laid-out messages.
+    let mut page = column![settled(layout_key(ctx, pane, chat, tasks), content)];
+    if let Some(working) = working(ctx, pane, chat) {
+        page = page.push(centred(container(working).width(Length::Fill).padding(
+            Padding {
+                top: 0.0,
+                right: tokens::space::XXL,
+                bottom: tokens::space::XL,
+                left: tokens::space::XXL,
+            },
+        )));
+    }
+    scrollable(page)
         .anchor_bottom()
         .on_scroll(move |viewport| msg(Msg::Scrolled(ws_id.clone(), viewport)))
         .width(Length::Fill)
@@ -238,17 +322,71 @@ fn layout_key(
     hasher.finish()
 }
 
+/// `ms` as a short span of time: 8s, 2m 05s, 1h 04m.
+pub(super) fn span(ms: u64) -> String {
+    let seconds = ms / 1000;
+    match seconds {
+        0..60 => format!("{seconds}s"),
+        60..3600 => format!("{}m {:02}s", seconds / 60, seconds % 60),
+        _ => format!("{}h {:02}m", seconds / 3600, (seconds % 3600) / 60),
+    }
+}
+
+/// While the orchestrator works and nothing waits on the person: a line that
+/// says so, with how long its turn has run.
+fn working<'a>(ctx: Ctx<'a>, pane: &'a Pane, chat: &'a Chat) -> Option<Element<'a, Message>> {
+    let t = ctx.theme;
+    let logic = &ctx.model.live.panes_logic;
+    if logic.activity_or_idle(&pane.id) != AgentActivity::Working || chat.thread.pending.is_some() {
+        return None;
+    }
+    let since = logic.insight(&pane.id).turn_started_at;
+    let words = match since {
+        Some(since) => ctx
+            .i18n
+            .t_with(
+                Key::ChatConvWorkingFor,
+                &args!("time" => span(crate::control::types::now_ms().saturating_sub(since))),
+            )
+            .into_owned(),
+        None => ctx.t(Key::ChatConvWorking).into_owned(),
+    };
+    Some(
+        row![
+            dot(t.colors.state_working_fill, 7.0),
+            text(words)
+                .size(tokens::font_size::CAPTION)
+                .style(style::text::state(t, AgentState::Working)),
+        ]
+        .spacing(tokens::space::MD)
+        .align_y(Alignment::Center)
+        .padding([0.0, tokens::space::SM])
+        .into(),
+    )
+}
+
 fn centre_line<'a>(content: impl Into<Element<'a, Message>>) -> Element<'a, Message> {
     container(content).center_x(Length::Fill).into()
 }
 
+/// A line across the conversation with words in its middle: compacted,
+/// interrupted, resumed.
 fn notice<'a>(t: &'a Theme, words: String) -> Element<'a, Message> {
-    centre_line(
+    let line = || {
+        container(rule::horizontal(tokens::BORDER_WIDTH).style(style::rule::sep(t)))
+            .width(Length::Fill)
+    };
+    row![
+        line(),
         text(words)
             .size(tokens::font_size::CAPTION)
             .style(style::text::subtle(t))
             .align_x(iced::alignment::Horizontal::Center),
-    )
+        line(),
+    ]
+    .spacing(tokens::space::LG)
+    .align_y(Alignment::Center)
+    .into()
 }
 
 fn item_view<'a>(
@@ -267,7 +405,8 @@ fn item_view<'a>(
         } => {
             let mut bubble = column![
                 text(words.as_str())
-                    .size(tokens::font_size::UI_LG)
+                    .size(tokens::font_size::BODY)
+                    .line_height(tokens::line_height::BODY)
                     .style(style::text::primary(t))
             ]
             .spacing(tokens::space::XS);
@@ -290,9 +429,8 @@ fn item_view<'a>(
                 return Space::new().into();
             };
             container(rich::view(t, content, &chat.code))
-                .padding([tokens::space::LG, tokens::space::XL])
+                .padding([0.0, tokens::space::SM])
                 .width(Length::Fill)
-                .style(style::container::card(t))
                 .into()
         }
         Body::Action {
@@ -321,6 +459,22 @@ fn item_view<'a>(
     }
 }
 
+/// The icon of a call: what kind of thing it does.
+fn call_icon(tool: &str) -> Icon {
+    match calls::kind(tool) {
+        Kind::Command => Icon::Terminal,
+        Kind::Edit => Icon::Pencil,
+        Kind::Read => Icon::Folder,
+        Kind::Search => Icon::Search,
+        Kind::Task => Icon::Board,
+        Kind::Memory => Icon::Bookmark,
+        Kind::Message => Icon::Bubble,
+        Kind::Other if tool.starts_with("mcp__hangar__") => Icon::Orchestrator,
+        Kind::Other if tool.starts_with("mcp__") => Icon::Plug,
+        Kind::Other => Icon::Bolt,
+    }
+}
+
 /// A run of calls, folded into one quiet line saying what they did; the
 /// calls, each its own line as alone, once pressed.
 fn run_view<'a>(
@@ -338,20 +492,24 @@ fn run_view<'a>(
     let open = chat.expanded.contains(&key);
     let tally = calls::tally(run);
     let mut line = row![
-        icon(
-            if open {
-                Icon::ChevronDown
-            } else {
-                Icon::ChevronRight
-            },
-            11.0,
+        container(
+            icon(
+                if open {
+                    Icon::ChevronDown
+                } else {
+                    Icon::ChevronRight
+                },
+                11.0,
+            )
+            .color(t.colors.fg_subtle)
         )
-        .color(t.colors.fg_subtle),
+        .width(CALL_ICON)
+        .center_x(CALL_ICON),
         text(calls::summary(ctx.i18n, &tally))
             .size(tokens::font_size::CAPTION)
-            .style(style::text::subtle(t)),
+            .style(style::text::muted(t)),
     ]
-    .spacing(tokens::space::SM)
+    .spacing(tokens::space::MD)
     .align_y(Alignment::Center);
     if tally.failed > 0 {
         line = line.push(
@@ -374,7 +532,7 @@ fn run_view<'a>(
         );
     }
     let head = button(line)
-        .padding([tokens::space::XXS, tokens::space::MD])
+        .padding([tokens::space::XS, tokens::space::SM])
         .width(Length::Fill)
         .style(style::button::row(t, false))
         .on_press(msg(Msg::Toggle(ws.id.clone(), key)));
@@ -388,7 +546,7 @@ fn run_view<'a>(
     column![
         head,
         container(list).padding(Padding {
-            left: tokens::space::LG,
+            left: tokens::space::XL,
             ..Padding::ZERO
         })
     ]
@@ -403,15 +561,20 @@ fn mine<'a>(
     faded: bool,
 ) -> Element<'a, Message> {
     let bubble = container(content)
-        .padding([tokens::space::MD, tokens::space::XL])
+        .padding([tokens::space::LG, tokens::space::XL + tokens::space::XXS])
         .max_width(BUBBLE_WIDTH)
-        .style(move |_| {
-            let mut style = style::container::accent_soft(t)(&iced::Theme::Dark);
-            style.border.radius = tokens::radius::XL.into();
-            if faded {
-                style.background = style.background.map(|bg| bg.scale_alpha(0.6));
-            }
-            style
+        .style(move |_| container::Style {
+            background: Some(Background::Color(tint(
+                t.colors.raised,
+                if faded { 0.6 } else { 1.0 },
+            ))),
+            border: Border {
+                color: t.colors.line,
+                width: tokens::BORDER_WIDTH,
+                radius: SOFT.into(),
+            },
+            text_color: Some(t.colors.fg),
+            ..container::Style::default()
         });
     row![Space::new().width(Length::Fill), bubble].into()
 }
@@ -438,15 +601,21 @@ fn hangar_message<'a>(
         format!("{}…", head.join("\n"))
     };
     let mut stack = column![
-        text(ctx.t(Key::ChatConvHangar))
-            .size(tokens::font_size::MICRO)
-            .font(fonts::ui_semibold())
-            .style(style::text::subtle(t)),
+        row![
+            icon(Icon::Broadcast, 11.0).color(t.colors.fg_subtle),
+            text(ctx.t(Key::ChatConvHangar))
+                .size(tokens::font_size::MICRO)
+                .font(fonts::ui_semibold())
+                .style(style::text::subtle(t)),
+        ]
+        .spacing(tokens::space::SM)
+        .align_y(Alignment::Center),
         text(shown)
             .size(tokens::font_size::CAPTION)
+            .line_height(tokens::line_height::BODY)
             .style(style::text::muted(t)),
     ]
-    .spacing(tokens::space::XXS);
+    .spacing(tokens::space::XS);
     if lines > HANGAR_LINES {
         let label = if whole {
             Key::ChatConvShowLess
@@ -465,9 +634,16 @@ fn hangar_message<'a>(
         );
     }
     container(stack)
-        .padding([tokens::space::SM, tokens::space::LG])
+        .padding([tokens::space::MD, tokens::space::LG])
         .width(Length::Fill)
-        .style(style::container::well(t))
+        .style(move |_| container::Style {
+            background: Some(Background::Color(tint(t.colors.fg, 0.035))),
+            border: Border {
+                radius: tokens::radius::LG.into(),
+                ..Border::default()
+            },
+            ..container::Style::default()
+        })
         .into()
 }
 
@@ -496,8 +672,8 @@ fn clipped(words: &str, at_most: usize) -> String {
     format!("{}\n…", head.join("\n"))
 }
 
-/// A call, on one line: what it did and how it went; its detail below once
-/// pressed.
+/// A call, a line of the work log: what kind of thing it does, what it did,
+/// how it went; its detail below once pressed.
 fn action<'a>(
     ctx: Ctx<'a>,
     ws: &'a Workspace,
@@ -506,23 +682,20 @@ fn action<'a>(
     call: Action<'_>,
 ) -> Element<'a, Message> {
     let t = ctx.theme;
-    let (mark, colour, hint) = match call.state {
+    let (colour, hint) = match call.state {
         CallState::Running => (
-            Icon::Clock,
             t.colors.state_working,
             Some(ctx.t(Key::ChatConvActionRunning)),
         ),
-        CallState::Done => (Icon::Check, t.colors.success, None),
-        CallState::Error => (
-            Icon::Alert,
-            t.colors.danger,
-            Some(ctx.t(Key::ChatConvActionFailed)),
-        ),
+        CallState::Done => (t.colors.fg_muted, None),
+        CallState::Error => (t.colors.danger, Some(ctx.t(Key::ChatConvActionFailed))),
     };
     let more = call.detail.is_some() || call.result.is_some_and(|r| !r.text.trim().is_empty());
     let open = more && chat.expanded.contains(&item.id);
     let mut line = row![
-        icon(mark, 13.0).color(colour),
+        container(icon(call_icon(call.tool), CALL_ICON).color(colour))
+            .width(CALL_ICON)
+            .center_x(CALL_ICON),
         container(
             text(call.title.to_string())
                 .size(tokens::font_size::UI)
@@ -535,16 +708,6 @@ fn action<'a>(
     if let Some(hint) = hint {
         line = line.push(text(hint).size(tokens::font_size::MICRO).color(colour));
     }
-    line = line.push(
-        container(
-            text(tool_name(call.tool).to_string())
-                .size(tokens::font_size::MICRO)
-                .font(fonts::mono())
-                .style(style::text::subtle(t)),
-        )
-        .padding([0.0, tokens::space::XS])
-        .style(style::container::chip(t)),
-    );
     if more {
         line = line.push(
             icon(
@@ -553,13 +716,13 @@ fn action<'a>(
                 } else {
                     Icon::ChevronRight
                 },
-                12.0,
+                11.0,
             )
             .color(t.colors.fg_subtle),
         );
     }
     let head = button(line)
-        .padding([tokens::space::XS, tokens::space::MD])
+        .padding([tokens::space::XS, tokens::space::SM])
         .width(Length::Fill)
         .style(style::button::row(t, false))
         .on_press_maybe(more.then(|| msg(Msg::Toggle(ws.id.clone(), item.id.clone()))));
@@ -593,10 +756,10 @@ fn action<'a>(
     column![
         head,
         container(detail).padding(Padding {
-            top: 0.0,
-            right: tokens::space::MD,
+            top: tokens::space::XXS,
+            right: tokens::space::SM,
             bottom: tokens::space::SM,
-            left: tokens::space::XXXL,
+            left: CALL_INDENT,
         })
     ]
     .into()
@@ -609,9 +772,17 @@ fn mono_block<'a>(t: &'a Theme, words: String) -> Element<'a, Message> {
             .font(fonts::mono())
             .style(style::text::secondary(t)),
     )
-    .padding([tokens::space::SM, tokens::space::MD])
+    .padding([tokens::space::MD, tokens::space::LG])
     .width(Length::Fill)
-    .style(style::container::well(t))
+    .style(move |_| container::Style {
+        background: Some(Background::Color(t.colors.bg_sunken)),
+        border: Border {
+            color: t.colors.line,
+            width: tokens::BORDER_WIDTH,
+            radius: tokens::radius::LG.into(),
+        },
+        ..container::Style::default()
+    })
     .into()
 }
 
@@ -658,11 +829,15 @@ fn asked<'a>(
         };
         stack = stack.push(line);
     }
-    container(stack)
-        .padding([tokens::space::SM, tokens::space::LG])
-        .width(Length::Fill)
-        .style(style::container::well(t))
-        .into()
+    row![
+        container(icon(Icon::Bubble, CALL_ICON).color(t.colors.fg_muted))
+            .width(CALL_ICON)
+            .center_x(CALL_ICON),
+        container(stack).width(Length::Fill),
+    ]
+    .spacing(tokens::space::MD)
+    .padding([tokens::space::XS, tokens::space::SM])
+    .into()
 }
 
 /// A message sent from here the transcript does not have yet.
@@ -696,7 +871,8 @@ fn outgoing<'a>(ctx: Ctx<'a>, pane: &'a Pane, out: &'a Outgoing) -> Element<'a, 
     };
     let mut bubble = column![
         text(out.text.as_str())
-            .size(tokens::font_size::UI_LG)
+            .size(tokens::font_size::BODY)
+            .line_height(tokens::line_height::BODY)
             .style(style::text::primary(t))
     ]
     .spacing(tokens::space::XS);
@@ -720,7 +896,8 @@ struct CardParts<'a> {
     scroll: iced::widget::Id,
 }
 
-/// The card of what the pane waits on the person for.
+/// The card of what the pane waits on the person for: the top of the
+/// composer, tinted with the colour of waiting.
 fn card<'a>(
     ctx: Ctx<'a>,
     ws: &'a Workspace,
@@ -765,20 +942,25 @@ fn card<'a>(
         );
     }
     stack = stack.push(parts.actions);
-    Some(centred(
-        container(
-            container(stack)
-                .padding(tokens::space::XL)
-                .width(Length::Fill)
-                .style(move |_| {
-                    let mut style = style::container::card(t)(&iced::Theme::Dark);
-                    style.border.color = t.colors.state_waiting;
-                    style.border.width = 1.0;
-                    style
-                }),
-        )
-        .padding([tokens::space::SM, tokens::space::XXL]),
-    ))
+    Some(
+        container(stack)
+            .padding([tokens::space::XL, tokens::space::XL])
+            .width(Length::Fill)
+            .style(move |_| container::Style {
+                background: Some(Background::Color(tint(t.colors.state_waiting_fill, 0.07))),
+                border: Border {
+                    radius: iced::border::Radius {
+                        top_left: SOFT,
+                        top_right: SOFT,
+                        bottom_right: 0.0,
+                        bottom_left: 0.0,
+                    },
+                    ..Border::default()
+                },
+                ..container::Style::default()
+            })
+            .into(),
+    )
 }
 
 fn card_title<'a>(t: &'a Theme, words: String) -> Element<'a, Message> {
@@ -845,7 +1027,7 @@ fn choice<'a>(
         .spacing(tokens::space::MD)
         .align_y(Alignment::Center),
     )
-    .padding([tokens::space::SM, tokens::space::MD])
+    .padding([tokens::space::MD, tokens::space::LG])
     .width(Length::Fill)
     .style(style::button::toggle(t, on))
     .on_press_maybe(press)
@@ -907,7 +1089,7 @@ fn question_card<'a>(
         }
         block = block.push(
             text(question.question.as_str())
-                .size(tokens::font_size::UI_LG)
+                .size(tokens::font_size::BODY)
                 .width(Length::Fill)
                 .style(style::text::primary(t)),
         );
@@ -1097,9 +1279,17 @@ fn permission_card<'a>(
     };
     let what = titles::title(ctx.i18n, tool, title, detail, &task_title);
     let mut body = column![
-        text(what)
-            .size(tokens::font_size::UI_LG)
-            .style(style::text::secondary(t)),
+        row![
+            container(icon(call_icon(tool), CALL_ICON).color(t.colors.fg_muted))
+                .width(CALL_ICON)
+                .center_x(CALL_ICON),
+            text(what)
+                .size(tokens::font_size::UI_LG)
+                .width(Length::Fill)
+                .style(style::text::secondary(t)),
+        ]
+        .spacing(tokens::space::MD)
+        .align_y(Alignment::Center),
     ]
     .spacing(tokens::space::MD);
     if let Some(detail) = detail {
@@ -1168,7 +1358,78 @@ fn keys(ws: String) -> impl Fn(KeyPress) -> Option<Binding<Message>> {
     }
 }
 
-fn input<'a>(
+/// The editor inside the composer: no field of its own, the composer is.
+fn bare_editor(t: &Theme) -> impl Fn(&iced::Theme, Status) -> text_editor::Style + '_ {
+    move |_, status| {
+        let c = &t.colors;
+        let disabled = matches!(status, Status::Disabled);
+        let fade = |color: Color| tint(color, if disabled { 0.6 } else { 1.0 });
+        text_editor::Style {
+            background: Background::Color(Color::TRANSPARENT),
+            border: Border::default(),
+            placeholder: fade(c.fg_subtle),
+            value: fade(c.fg),
+            selection: c.accent_ring,
+        }
+    }
+}
+
+/// What a round button shows: an icon, or Stop's square.
+enum Glyph {
+    Icon(Icon),
+    Square,
+}
+
+/// A round button with just a glyph: Send, Stop.
+fn round<'a>(
+    t: &'a Theme,
+    glyph: Glyph,
+    primary: bool,
+    press: Option<Message>,
+) -> Element<'a, Message> {
+    let on = press.is_some();
+    let colour = match (primary, on) {
+        (true, true) => t.colors.accent_fg,
+        (true, false) => tint(t.colors.accent_fg, 0.7),
+        (false, true) => t.colors.fg,
+        (false, false) => t.colors.fg_subtle,
+    };
+    let mark: Element<'a, Message> = match glyph {
+        Glyph::Icon(glyph) => icon(glyph, 14.0).color(colour).into(),
+        Glyph::Square => container(Space::new())
+            .width(10.0)
+            .height(10.0)
+            .style(move |_| container::Style {
+                background: Some(Background::Color(colour)),
+                border: Border {
+                    radius: 2.0.into(),
+                    ..Border::default()
+                },
+                ..container::Style::default()
+            })
+            .into(),
+    };
+    button(container(mark).center_x(30.0).center_y(30.0))
+        .padding(0)
+        .style(move |theme, status| {
+            let mut look = if primary {
+                style::button::primary(t)(theme, status)
+            } else {
+                style::button::secondary(t)(theme, status)
+            };
+            look.border.radius = tokens::radius::FULL.into();
+            if primary && !on {
+                look.background = Some(Background::Color(tint(t.colors.accent, 0.35)));
+            }
+            look
+        })
+        .on_press_maybe(press)
+        .into()
+}
+
+/// The composer: the card of what waits on top of it, the input, and under
+/// it what to know before sending, Stop while the orchestrator works, Send.
+fn composer<'a>(
     ctx: Ctx<'a>,
     ws: &'a Workspace,
     pane: &'a Pane,
@@ -1186,11 +1447,16 @@ fn input<'a>(
     let mut editor = text_editor(&chat.draft)
         .id(input_id())
         .placeholder(placeholder)
-        .size(tokens::font_size::UI_LG)
-        .padding([tokens::space::MD, tokens::space::LG])
+        .size(tokens::font_size::BODY)
+        .padding(Padding {
+            top: tokens::space::XL,
+            right: tokens::space::XL,
+            bottom: tokens::space::XS,
+            left: tokens::space::XL,
+        })
         .min_height(40.0)
-        .max_height(200.0)
-        .style(style::text_editor::field(t));
+        .max_height(220.0)
+        .style(bare_editor(t));
     if why.is_none() {
         let ws_id = ws.id.clone();
         editor = editor
@@ -1198,26 +1464,79 @@ fn input<'a>(
             .key_binding(keys(ws.id.clone()));
     }
     let can_send = why.is_none() && !chat.draft.text().trim().is_empty();
-    let send = ui_button::primary(t, ctx.t(Key::ChatConvSend))
-        .icon(Icon::Send)
-        .on_press_maybe(can_send.then(|| msg(Msg::Send(ws.id.clone()))));
-    let under = match why {
-        Some(why) => text(blocked_words(ctx, pane, why))
+    let under = match (&chat.stop_error, why) {
+        (Some(error), _) => text(
+            ctx.i18n
+                .t_with(Key::ChatConvStopFailed, &args!("error" => error.as_str()))
+                .into_owned(),
+        )
+        .size(tokens::font_size::CAPTION)
+        .style(style::text::danger(t)),
+        (None, Some(why)) => text(blocked_words(ctx, pane, why))
             .size(tokens::font_size::CAPTION)
             .style(style::text::warning(t)),
-        None => text(ctx.t(Key::ChatConvInputHint))
+        (None, None) => text(ctx.t(Key::ChatConvInputHint))
             .size(tokens::font_size::CAPTION)
             .style(style::text::subtle(t)),
     };
+    let mut footer = row![container(under).width(Length::Fill)]
+        .spacing(tokens::space::MD)
+        .align_y(Alignment::Center);
+    let works = ctx.model.live.panes_logic.activity_or_idle(&pane.id) == AgentActivity::Working;
+    if works && chat.thread.pending.is_none() {
+        let stop = round(
+            t,
+            Glyph::Square,
+            false,
+            (!chat.stopping).then(|| msg(Msg::Stop(ws.id.clone()))),
+        );
+        footer = footer.push(hangar_ui::tip::over(
+            t,
+            stop,
+            ctx.t(Key::ChatConvStopHint).into_owned(),
+        ));
+    }
+    footer = footer.push(round(
+        t,
+        Glyph::Icon(Icon::Send),
+        true,
+        can_send.then(|| msg(Msg::Send(ws.id.clone()))),
+    ));
+    let mut surface = column![];
+    if let Some(card) = card(ctx, ws, pane, chat) {
+        surface = surface.push(card);
+    }
+    surface = surface
+        .push(crate::keymap::guard(ctx, editor))
+        .push(container(footer).padding(Padding {
+            top: 0.0,
+            right: tokens::space::MD,
+            bottom: tokens::space::MD,
+            left: tokens::space::XL,
+        }));
+    let waiting = chat.thread.pending.is_some();
     centred(
         container(
-            column![
-                row![crate::keymap::guard(ctx, editor), send]
-                    .spacing(tokens::space::MD)
-                    .align_y(Alignment::End),
-                under,
-            ]
-            .spacing(tokens::space::XS),
+            container(surface)
+                .width(Length::Fill)
+                .style(move |_| container::Style {
+                    background: Some(Background::Color(t.colors.card)),
+                    border: Border {
+                        color: if waiting {
+                            tint(t.colors.state_waiting_fill, 0.7)
+                        } else {
+                            t.colors.line_strong
+                        },
+                        width: tokens::BORDER_WIDTH,
+                        radius: SOFT.into(),
+                    },
+                    shadow: iced::Shadow {
+                        color: tint(t.colors.shadow, 0.6),
+                        offset: iced::Vector::new(0.0, 2.0),
+                        blur_radius: 12.0,
+                    },
+                    ..container::Style::default()
+                }),
         )
         .padding(Padding {
             top: tokens::space::SM,

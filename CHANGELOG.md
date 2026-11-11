@@ -10,6 +10,15 @@ Every release, with its installers, is on the
 
 ## [Unreleased]
 
+### Added
+
+- **Answers reach Claude Code as answers.** A permission allowed or denied, or a question answered, in the chat view or on the phone now goes to Claude Code as the decision itself, through the hangar-bridge mod, as an Agent SDK host's would: no keys typed into the dialog, no screen read back. The dialog stays up in the terminal meanwhile and either place can answer; a pane on a node, or a Claude Code without the mod, is still answered with keys.
+- **Stop in the chat view.** While the orchestrator works, a button next to Send stops its turn, as Escape does in the terminal.
+
+### Changed
+
+- **The chat view reads like a chat.** Claude's words sit open on the page, your messages in rounded bubbles on the right; its calls are quiet lines with an icon for what they do (a command, an edit, a read, a search, a task), folded in runs as before. While it works, a line at the bottom says so and for how long, and the header gives the model and how full its context is. The input is one rounded composer, with the question or permission waiting on top of it.
+
 ## [2.2.1] - 2026-11-08
 
 ### Added
