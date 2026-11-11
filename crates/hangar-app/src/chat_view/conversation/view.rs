@@ -1,7 +1,7 @@
 //! The conversation, drawn: a header with the orchestrator and what it does,
 //! the messages newest at the bottom (the scroll anchored there), and the
-//! composer, with the card of the question or permission it waits on on top
-//! of it.
+//! composer, or in its place the card of the question or permission it waits
+//! on.
 //!
 //! Laid out as a chat reads: the person's messages in bubbles on the right,
 //! Claude's words open on the page, its calls quiet lines of the work log —
@@ -896,8 +896,8 @@ struct CardParts<'a> {
     scroll: iced::widget::Id,
 }
 
-/// The card of what the pane waits on the person for: the top of the
-/// composer, tinted with the colour of waiting.
+/// The card of what the pane waits on the person for, in the composer's
+/// place, tinted with the colour of waiting.
 fn card<'a>(
     ctx: Ctx<'a>,
     ws: &'a Workspace,
@@ -949,12 +949,7 @@ fn card<'a>(
             .style(move |_| container::Style {
                 background: Some(Background::Color(tint(t.colors.state_waiting_fill, 0.07))),
                 border: Border {
-                    radius: iced::border::Radius {
-                        top_left: SOFT,
-                        top_right: SOFT,
-                        bottom_right: 0.0,
-                        bottom_left: 0.0,
-                    },
+                    radius: SOFT.into(),
                     ..Border::default()
                 },
                 ..container::Style::default()
@@ -1034,20 +1029,10 @@ fn choice<'a>(
     .into()
 }
 
-/// A question's answer in words: the labels picked, then the person's own.
-fn said(answer: &Answer) -> String {
-    answer
-        .selected
-        .iter()
-        .cloned()
-        .chain(answer.other.clone())
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
 /// The question card: one question at a time, as Claude Code asks them —
 /// its header and words, its options and "Other", the step it is (1/3),
-/// Back and Next, and on the last one the answers given and Send.
+/// Back and Next, and Send on the last one. Nothing of the answers given
+/// before: Back goes to them.
 fn question_card<'a>(
     ctx: Ctx<'a>,
     ws: &'a Workspace,
@@ -1144,9 +1129,6 @@ fn question_card<'a>(
             block = block.push(crate::keymap::guard(ctx, field));
         }
     }
-    if last && count > 1 {
-        block = block.push(recap(ctx, ws, form, questions, free));
-    }
     let answered = form.answered(questions, at);
     let mut actions = row![].spacing(tokens::space::MD).align_y(Alignment::Center);
     if at > 0 {
@@ -1194,69 +1176,6 @@ fn question_card<'a>(
         actions: actions.into(),
         scroll: iced::widget::Id::from(format!("chat-view-question-{}-{at}", form.tool_use_id)),
     }
-}
-
-/// The answers given so far, each a way back to its question.
-fn recap<'a>(
-    ctx: Ctx<'a>,
-    ws: &'a Workspace,
-    form: &'a super::Form,
-    questions: &'a [Question],
-    free: bool,
-) -> Element<'a, Message> {
-    let t = ctx.theme;
-    let mut list = column![
-        text(ctx.t(Key::ChatConvQuestionRecap))
-            .size(tokens::font_size::MICRO)
-            .font(fonts::ui_semibold())
-            .style(style::text::subtle(t))
-    ]
-    .spacing(tokens::space::XS);
-    for (at, question) in questions.iter().enumerate() {
-        let answer = form
-            .answers_at(questions, at)
-            .map(|answer| said(&answer))
-            .unwrap_or_else(|| ctx.t(Key::ChatConvQuestionNoAnswer).into_owned());
-        let named = if question.header.trim().is_empty() {
-            (at + 1).to_string()
-        } else {
-            question.header.clone()
-        };
-        list = list.push(
-            button(
-                row![
-                    container(
-                        text(named)
-                            .size(tokens::font_size::MICRO)
-                            .style(style::text::muted(t)),
-                    )
-                    .padding([0.0, tokens::space::SM])
-                    .style(style::container::chip(t)),
-                    text(answer)
-                        .size(tokens::font_size::CAPTION)
-                        .width(Length::Fill)
-                        .style(style::text::secondary(t)),
-                ]
-                .spacing(tokens::space::MD)
-                .align_y(Alignment::Center),
-            )
-            .padding([tokens::space::XS, tokens::space::MD])
-            .width(Length::Fill)
-            .style(style::button::row(t, false))
-            .on_press_maybe(free.then(|| {
-                msg(Msg::Step {
-                    ws: ws.id.clone(),
-                    to: at,
-                })
-            })),
-        );
-    }
-    container(list)
-        .padding(Padding {
-            top: tokens::space::MD,
-            ..Padding::ZERO
-        })
-        .into()
 }
 
 fn permission_card<'a>(
@@ -1427,8 +1346,9 @@ fn round<'a>(
         .into()
 }
 
-/// The composer: the card of what waits on top of it, the input, and under
-/// it what to know before sending, Stop while the orchestrator works, Send.
+/// The composer: the input, and under it what to know before sending, Stop
+/// while the orchestrator works, Send; or, while a question or a permission
+/// waits, its card instead.
 fn composer<'a>(
     ctx: Ctx<'a>,
     ws: &'a Workspace,
@@ -1502,19 +1422,22 @@ fn composer<'a>(
         true,
         can_send.then(|| msg(Msg::Send(ws.id.clone()))),
     ));
-    let mut surface = column![];
-    if let Some(card) = card(ctx, ws, pane, chat) {
-        surface = surface.push(card);
-    }
-    surface = surface
-        .push(crate::keymap::guard(ctx, editor))
-        .push(container(footer).padding(Padding {
-            top: 0.0,
-            right: tokens::space::MD,
-            bottom: tokens::space::MD,
-            left: tokens::space::XL,
-        }));
+    // What waits on the person takes the input's place: nothing can be sent
+    // until it is answered, and the card says what to do.
     let waiting = chat.thread.pending.is_some();
+    let surface: Element<'a, Message> = match card(ctx, ws, pane, chat) {
+        Some(card) => card,
+        None => column![
+            crate::keymap::guard(ctx, editor),
+            container(footer).padding(Padding {
+                top: 0.0,
+                right: tokens::space::MD,
+                bottom: tokens::space::MD,
+                left: tokens::space::XL,
+            })
+        ]
+        .into(),
+    };
     centred(
         container(
             container(surface)

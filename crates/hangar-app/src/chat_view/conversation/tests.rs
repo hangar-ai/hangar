@@ -513,12 +513,13 @@ fn a_question_card_asks_one_question_at_a_time_and_answers_through_the_desk() {
         "Warm",
         "Next",
         "Choose an answer to go on.",
+        // The card takes the input's place: nothing to say about it.
         "Answer the question above first.",
         "Which sizes?",
         "Back",
         "Send the answer",
     ];
-    assert_eq!(shown_texts(&st, &m, &wanted), wanted[..8]);
+    assert_eq!(shown_texts(&st, &m, &wanted), wanted[..7]);
     assert!(
         shown_texts(&st, &m, &["Asked: Which colour?"]).is_empty(),
         "the question waiting is the card, not an item"
@@ -534,20 +535,21 @@ fn a_question_card_asks_one_question_at_a_time_and_answers_through_the_desk() {
     assert!(matches!(asked.as_slice(), [Msg::Step { to: 1, .. }]));
     apply(&mut st, &mut m, asked);
 
-    // The last question: Back, the answers so far, Send waiting.
+    // The last question: Back and Send waiting, nothing of the answers given
+    // before.
     let wanted = [
         "2/2",
         "Which sizes?",
         "Pick any that apply",
         "Back",
+        "Send the answer",
         "Your answers",
         "Blue",
         "No answer",
-        "Send the answer",
         "Which colour?",
         "Next",
     ];
-    assert_eq!(shown_texts(&st, &m, &wanted), wanted[..8]);
+    assert_eq!(shown_texts(&st, &m, &wanted), wanted[..5]);
     let asked = clicks(&st, &m, &["Send the answer"]);
     assert!(asked.is_empty(), "disabled: {asked:?}");
 
@@ -573,14 +575,6 @@ fn a_question_card_asks_one_question_at_a_time_and_answers_through_the_desk() {
         apply(&mut st, &mut m, asked);
     }
     // "Other" on a single-select question replaced its option.
-    assert_eq!(
-        shown_texts(&st, &m, &["Teal", "Small, Large", "Blue"]),
-        ["Teal", "Small, Large"]
-    );
-    // An answer of the recap takes back to its question.
-    let asked = clicks(&st, &m, &["Teal"]);
-    assert!(matches!(asked.as_slice(), [Msg::Step { to: 0, .. }]));
-
     let asked = clicks(&st, &m, &["Send the answer"]);
     apply(&mut st, &mut m, asked);
     assert_eq!(
@@ -676,10 +670,9 @@ fn a_tall_question_scrolls_inside_its_card_and_keeps_its_buttons_in_sight() {
     // Next is on screen and takes the click, however tall the options.
     let asked = clicks(&st, &m, &["Next"]);
     assert!(matches!(asked.as_slice(), [Msg::Step { to: 1, .. }]));
-    assert_eq!(
-        shown_texts(&st, &m, &["Answer the question above first."]).len(),
-        1,
-        "the input stays below the card"
+    assert!(
+        shown_texts(&st, &m, &["Answer the question above first."]).is_empty(),
+        "the card takes the input's place"
     );
 }
 
@@ -829,7 +822,8 @@ fn a_permission_card_allows_or_denies_the_prompt_it_shows() {
             ]
         )
         .len(),
-        5
+        4,
+        "the card takes the input's place"
     );
     let asked = clicks(&st, &m, &["Allow"]);
     apply(&mut st, &mut m, asked);

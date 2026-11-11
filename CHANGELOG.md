@@ -17,7 +17,11 @@ Every release, with its installers, is on the
 
 ### Changed
 
-- **The chat view reads like a chat.** Claude's words sit open on the page, your messages in rounded bubbles on the right; its calls are quiet lines with an icon for what they do (a command, an edit, a read, a search, a task), folded in runs as before. While it works, a line at the bottom says so and for how long, and the header gives the model and how full its context is. The input is one rounded composer, with the question or permission waiting on top of it.
+- **The chat view reads like a chat.** Claude's words sit open on the page, your messages in rounded bubbles on the right; its calls are quiet lines with an icon for what they do (a command, an edit, a read, a search, a task), folded in runs as before. While it works, a line at the bottom says so and for how long, and the header gives the model and how full its context is. The input is one rounded composer; while a question or a permission waits, its card takes the composer's place, with only the question being asked (no recap of the answers given before: Back goes to them).
+
+### Fixed
+
+- **A long question could not be answered from the chat view or the phone.** Claude Code now draws a bar down the left of a question's lines; when a question wrapped over several lines, Hangar no longer recognised it on the screen and refused to type the answer ("The question is not on the PC's screen…"), so the first, short questions went through and the longer ones that followed did not. The answer now goes through the mod with no screen involved, the screen check ignores the bar where keys are still typed, and a terminal the chat view hides starts at 160×50 instead of 80×24, so a long question is drawn whole.
 
 ## [2.2.1] - 2026-11-08
 
