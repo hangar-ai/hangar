@@ -1,4 +1,4 @@
-# Discord connector (experimental, design)
+# Discord connector (experimental)
 
 A Discord server as another surface of Hangar, for whoever would rather not
 open the app: a category per folder, a channel per workspace (the
@@ -12,7 +12,8 @@ is heard. It runs where the engine runs: in a node with no desktop
 `crates/hangar-discord`; this is its design, the research it rests on, and
 mockups of every card.
 
-Experiment: `discord-connector`.
+Experimental: on a node, it runs once `hangar-node discord setup` is done
+(headless.md, step 5).
 
 ![The orchestrator's channel](../images/discord/1-conversation.png)
 
