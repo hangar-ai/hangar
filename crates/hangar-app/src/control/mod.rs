@@ -25,7 +25,6 @@
 //! - `remote.rs`: the requests of a node's agents, run against the node's
 //!   workspaces and answered on the node (`Msg::Node`).
 
-mod engines;
 mod live;
 pub mod remote;
 mod writes;

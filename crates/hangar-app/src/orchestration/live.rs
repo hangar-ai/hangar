@@ -155,11 +155,11 @@ impl LivePort {
     }
 
     fn snapshot(&self) -> Arc<Snapshot> {
-        self.handle.services().snapshot()
+        self.handle.host().services().snapshot()
     }
 
     fn host(&self) -> hangar_core::Host {
-        self.handle.services().core().host().clone()
+        self.handle.host().services().core().host().clone()
     }
 
     /// A model write, applied on the UI thread by P18's `control::update`;
@@ -168,6 +168,7 @@ impl LivePort {
         let (answer, outcome) = Answer::channel();
         if !self
             .handle
+            .host()
             .services()
             .send(Message::Control(crate::control::Msg::Model(cmd, answer)))
         {
@@ -180,6 +181,7 @@ impl LivePort {
     fn tell(&self, cmd: ModelCmd) {
         let (answer, _) = Answer::channel();
         self.handle
+            .host()
             .services()
             .send(Message::Control(crate::control::Msg::Model(cmd, answer)));
     }
@@ -376,7 +378,7 @@ impl WorkerPort for LivePort {
             return crate::nodes::remote::kill(&Self::client(&node)?, pane).await;
         }
         let (pty, pane) = (
-            self.handle.services().core().pty().clone(),
+            self.handle.host().services().core().pty().clone(),
             pane.to_string(),
         );
         on_pty(pty, move |pty| {
@@ -393,7 +395,7 @@ impl WorkerPort for LivePort {
             return false;
         }
         let (pty, pane) = (
-            self.handle.services().core().pty().clone(),
+            self.handle.host().services().core().pty().clone(),
             pane.to_string(),
         );
         on_pty(pty, move |pty| hangar_core::pty::pty_alive(pty, pane))
