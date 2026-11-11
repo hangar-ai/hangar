@@ -192,7 +192,7 @@ pub async fn remote_stats(
     let snapshot = port.snapshot();
     let workspaces = &snapshot.state.workspaces;
     let sources = mobile.sources();
-    let trees = iced::futures::future::join_all(workspaces.iter().map(|ws| async move {
+    let trees = futures::future::join_all(workspaces.iter().map(|ws| async move {
         // Not a repository, or no git: the workspace's own folders say enough.
         let paths = sources.worktrees(&ws.cwd).await.unwrap_or_default();
         (ws.id.clone(), paths)

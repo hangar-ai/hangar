@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use hangar_core::board::Task;
-use hangar_core::remote::{Share, ShareKind};
+use hangar_core::mobile_data::{Share, ShareKind};
 
 use crate::orchestration::events::EngineIo;
 use crate::orchestration::events::timing::MAX_WAIT_MS;

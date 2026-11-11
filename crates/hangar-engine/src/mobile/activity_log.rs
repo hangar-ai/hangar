@@ -18,7 +18,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use hangar_core::remote::{ActivityEntry, Share};
+use hangar_core::mobile_data::{ActivityEntry, Share};
 use hangar_i18n::{Arg, Key, Locale, t, t_with};
 
 use crate::orchestration::events::{DeliveryOutcome, JournalEntry, OrchestratorEvent};

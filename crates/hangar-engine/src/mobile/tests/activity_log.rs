@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use hangar_core::remote::{ActivityEntry, Share, ShareKind};
+use hangar_core::mobile_data::{ActivityEntry, Share, ShareKind};
 use hangar_i18n::Locale;
 
 use crate::orchestration::events::{DeliveryOutcome, JournalEntry, OrchestratorEvent};

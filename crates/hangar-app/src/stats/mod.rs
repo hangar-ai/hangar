@@ -35,11 +35,12 @@ use crate::state::Model;
 pub mod cache;
 pub mod charts;
 pub mod format;
-pub mod model;
+// The statistics' model and calendar live in hangar-engine: named here as
+// before.
+pub use hangar_engine::stats::{model, time};
 mod ranked;
 mod sessions;
 mod tables;
-pub mod time;
 mod ui;
 mod view;
 

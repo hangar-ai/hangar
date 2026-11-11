@@ -19,8 +19,6 @@ use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use serde::{Deserialize, Serialize};
-
 use crate::model::{self, Span};
 use crate::preview;
 
@@ -36,25 +34,7 @@ const CAPTION_LIMIT: usize = 500;
 const NAME_LIMIT: usize = 100;
 const INDEX: &str = "shares.json";
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Share {
-    pub id: String,
-    /// Milliseconds since the epoch.
-    pub at: u64,
-    /// The folder of the workspace the agent works in.
-    pub workspace: String,
-    pub pane: String,
-    pub name: String,
-    /// The Content-Type `/m/files/{id}` answers with.
-    pub mime: String,
-    /// The viewer the phone shows it in. A record from before kinds were
-    /// told reads as `File`, and is judged again when the index loads.
-    #[serde(default)]
-    pub kind: Kind,
-    pub size: u64,
-    pub caption: Option<String>,
-}
+pub use crate::mobile_data::Share;
 
 pub struct NewShare {
     pub source: PathBuf,
@@ -265,23 +245,7 @@ pub fn sanitize_name(raw: &str) -> String {
     format!("{}{ext}", stem.trim_end_matches(['.', ' ']))
 }
 
-/// What the phone shows a share as: the kinds of the PC's preview, but the
-/// 3D model, which the phone has no viewer for.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Kind {
-    Image,
-    Video,
-    Audio,
-    /// Text and source code.
-    Text,
-    Markdown,
-    Pdf,
-    Html,
-    /// Nothing the phone shows: it is handed over, to be opened or saved.
-    #[default]
-    File,
-}
+pub use crate::mobile_data::ShareKind as Kind;
 
 impl Kind {
     /// The Content-Security-Policy its file goes out with, for when it is

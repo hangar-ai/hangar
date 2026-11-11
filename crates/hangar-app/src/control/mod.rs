@@ -35,7 +35,7 @@ mod writes;
 #[allow(unused_imports)]
 pub use hangar_engine::control::{
     board_relay, delivery, delivery_text, kit_tabs, manager, panes, paths, port, preview, requests,
-    run, types, workspace,
+    run, run_as_person, types, workspace,
 };
 
 #[cfg(test)]
@@ -282,13 +282,6 @@ async fn answer(op: &str, args: Value, channel: Channel, port: &Port) -> Result<
         },
         Channel::Internal => Err(run::unknown(op)),
     }
-}
-
-/// An operation run as the person, from the phone (`runRemote`): the same
-/// operations, never refused for the setting. P20's `pane_read` and
-/// `pane_send` go through here.
-pub async fn run_as_person(op: &str, args: Value, port: &Port) -> Result<Value, String> {
-    run::run(op, args, port, run::Gate::Person).await
 }
 
 pub fn subscription(st: &State, m: &Model) -> Subscription<Message> {

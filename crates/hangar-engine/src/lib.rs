@@ -18,10 +18,12 @@
 pub mod accounts;
 pub mod control;
 pub mod live;
+pub mod mobile;
 pub mod nodes;
 pub mod orchestration;
 pub mod panes;
 pub mod preview;
+pub mod stats;
 
 pub mod state;
 #[cfg(test)]

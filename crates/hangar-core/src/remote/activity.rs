@@ -12,7 +12,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use chrono::DateTime;
-use serde::{Deserialize, Serialize};
 
 const DAY_MS: u64 = 24 * 60 * 60 * 1000;
 /// Today and the 29 days before it.
@@ -25,14 +24,7 @@ const MAX_TEXT: usize = 500;
 const MAX_WORKSPACE: usize = 200;
 const MAX_KIND: usize = 40;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Entry {
-    /// Milliseconds since the epoch.
-    pub at: u64,
-    pub workspace: String,
-    pub kind: String,
-    pub text: String,
-}
+pub use crate::mobile_data::ActivityEntry as Entry;
 
 fn clip(text: &str, max: usize) -> String {
     text.chars().take(max).collect()

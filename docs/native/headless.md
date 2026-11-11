@@ -44,7 +44,9 @@ they are refused.
    4. the orchestration engines (`orchestration`): **done**; their runtime
       (the tokio task that owns them, `runtime.rs`) and their ports over the
       app's services (`live.rs`) stay in the app until step 2;
-   5. the desk (`mobile`'s calls, without the phone's server).
+   5. the desk (`mobile`'s calls, without the phone's server): **done**; its
+      sources over the app's services (`mobile/live.rs`) and the iced glue
+      stay in the app.
 2. **A host for the engine without a window**: the store and the
    read-models in one place, saved to disk on tokio's clock, the core's
    events fed to it, the writes applied there. The app becomes one such host
@@ -113,3 +115,21 @@ app is the host: building the port over its services (`control/live.rs`,
 (`control/writes.rs`), the requests of a node's agents (`control/remote.rs`),
 the runtime and the iced glue. The delivery harness the tests share is
 `hangar_engine::control::testing`, behind the `testing` feature.
+
+## Step 1.5: the desk
+
+`hangar_engine::mobile`: what a surface away from the window asks of the
+panes (the chat view's calls, the phone's, a connector's): conversations,
+sending, answers, permissions, plans, the queue, deliveries, apps, the
+activity log, push texts and the statistics. With it the statistics' model
+and calendar (`hangar_engine::stats`). The transcript of a pane on a node is
+asked of the host (`Sources::node_chat`): the desktop reads it over its SSH
+connection, and a host that drives no nodes has none to reach. Hangar
+Mobile's records (the activity log's lines, the shared files) are in
+hangar-core's always-built `mobile_data`, its server (`remote`) staying
+desktop-only.
+
+With this, step 1 is done: what runs the workspaces no longer depends on the
+window. What remains in the app around each package is its host: the ports
+over its services, the writes applied to its `Model`, its runtime and its
+iced glue. Step 2 makes a host of the engine's own.

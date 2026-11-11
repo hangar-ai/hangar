@@ -18,7 +18,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use hangar_core::remote::Share;
+use hangar_core::mobile_data::Share;
 use hangar_i18n::{Arg, Key, Locale, t, t_with};
 
 use crate::orchestration::manager_feed::{ManagerEvent, ManagerSink};

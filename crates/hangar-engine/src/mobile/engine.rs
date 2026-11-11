@@ -16,14 +16,14 @@ use serde_json::Value;
 
 use hangar_core::chat::ChatPage;
 use hangar_core::git::{ChangedFile, Changes, FileDiff};
-use hangar_core::remote::ActivityEntry;
+use hangar_core::mobile_data::ActivityEntry;
 use hangar_core::stats::UsageStats;
 
 use crate::control::port::{BoxFuture, MobileHooks, Port};
+use crate::live::BridgeEvent;
 use crate::orchestration::manager_feed::ManagerJournalEntry;
 use crate::orchestration::projects::ProjectSummary;
 use crate::state::PaneId;
-use crate::state::live::BridgeEvent;
 
 use super::chat_live::{ChatLive, Plan};
 use super::delivery::Landing;
@@ -48,6 +48,18 @@ pub trait Sources: Send + Sync {
     fn history(&self, since: u64) -> BoxFuture<Result<Vec<ActivityEntry>, String>>;
     /// A page of a Claude Code transcript; `None` while there is none.
     fn chat(&self, read: ChatRead) -> BoxFuture<Result<Option<ChatPage>, String>>;
+    /// A page of the transcript of a pane that runs on node `node`, as the
+    /// node writes it (`GET /node/chat`); `None` while there is none. A host
+    /// that drives no nodes has none to reach.
+    fn node_chat(
+        &self,
+        node: &str,
+        read: &ChatRead,
+    ) -> BoxFuture<Result<Option<serde_json::Value>, String>> {
+        let _ = read;
+        let refused = format!("node {node} is not connected");
+        Box::pin(std::future::ready(Err(refused)))
+    }
     /// The usage statistics, fresh for a minute (P11's cache).
     fn usage(&self) -> BoxFuture<Result<Arc<UsageStats>, String>>;
     /// The worktrees of the repository at `cwd`: their sessions are its
@@ -94,7 +106,7 @@ pub struct Mobile {
     sources: Arc<dyn Sources>,
     book: Mutex<Book>,
     /// The landings the phone started, by task (`landings`).
-    pub(super) landings: Mutex<HashMap<String, Landing>>,
+    pub landings: Mutex<HashMap<String, Landing>>,
 }
 
 impl std::fmt::Debug for Mobile {

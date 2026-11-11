@@ -472,6 +472,14 @@ impl Sources for LiveSources {
         })
     }
 
+    fn node_chat(
+        &self,
+        node: &str,
+        read: &ChatRead,
+    ) -> BoxFuture<Result<Option<serde_json::Value>, String>> {
+        Box::pin(node_chat(node.to_string(), read.clone()))
+    }
+
     fn chat(&self, read: ChatRead) -> BoxFuture<Result<Option<ChatPage>, String>> {
         Box::pin(hangar_core::chat::chat_page(
             read.session_id,
@@ -545,8 +553,66 @@ impl Sources for LiveSources {
     }
 }
 
+/// A page of the transcript of a pane on node `node`, read there over its
+/// connection (`GET /node/chat`).
+pub async fn node_chat(node: String, read: ChatRead) -> Result<Option<serde_json::Value>, String> {
+    let client = crate::nodes::remote::client_of(&node)?;
+    crate::nodes::remote::chat(
+        &client,
+        &read.session_id,
+        &read.cwd,
+        read.before.as_deref(),
+        read.limit,
+    )
+    .await
+}
+
 #[cfg(test)]
 mod tests {
+
+    /// A pane on a node: its transcript's pages are asked of the node, over
+    /// its connection, with the session, the folder and the cursor.
+    #[tokio::test]
+    async fn a_node_pane_s_transcript_is_asked_of_its_node() {
+        use crate::nodes::testing::{answer, listen, read_request};
+        let (listener, client) = listen().await;
+        let page = serde_json::to_string(&serde_json::json!({ "page": { "items": [] } })).unwrap();
+        let node = tokio::spawn(async move {
+            let mut lines = Vec::new();
+            for body in [page.as_str(), r#"{"page":null}"#] {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                lines.push(read_request(&mut stream).await.line().to_owned());
+                answer(&mut stream, 200, body).await;
+            }
+            lines
+        });
+        let node_id = "live-test-node";
+        crate::nodes::remote::publish(node_id, Some(client));
+        let read = |before: Option<&str>| ChatRead {
+            session_id: "s1".into(),
+            cwd: "/home/hangar/my demo".into(),
+            before: before.map(str::to_owned),
+            limit: Some(30),
+        };
+        let first = node_chat(node_id.into(), read(None)).await;
+        assert_eq!(first, Ok(Some(serde_json::json!({ "items": [] }))));
+        assert_eq!(
+            node_chat(node_id.into(), read(Some("4096"))).await,
+            Ok(None)
+        );
+        assert_eq!(
+            node.await.unwrap(),
+            [
+                "GET /node/chat?session=s1&cwd=%2Fhome%2Fhangar%2Fmy%20demo&limit=30 HTTP/1.1",
+                "GET /node/chat?session=s1&cwd=%2Fhome%2Fhangar%2Fmy%20demo&before=4096&limit=30 HTTP/1.1",
+            ]
+        );
+        assert_eq!(
+            node_chat("live-test-gone".into(), read(None)).await,
+            Err("node live-test-gone is not connected".into())
+        );
+        crate::nodes::remote::publish(node_id, None);
+    }
     use super::*;
 
     #[test]

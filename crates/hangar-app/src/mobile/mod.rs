@@ -32,23 +32,16 @@
 //! (`delivery::LAND_WAIT_MS`) and 6 s for a statistics scan (P11's
 //! `cache::REMOTE_WAIT`).
 
-pub mod activity_log;
-pub mod answer;
-pub mod apps;
-pub mod calls;
-pub mod chat_live;
-pub mod contract;
-pub mod delivery;
-pub mod desk;
-pub mod engine;
-pub mod held;
 mod live;
-pub mod ops;
-pub mod push;
-pub mod stats;
 
-#[cfg(test)]
-mod tests;
+// The desk lives in hangar-engine (`hangar_engine::mobile`): named here as
+// before. This package is its host on the desktop (the sources over the
+// app's services, the phone's server, the push).
+#[allow(unused_imports)]
+pub use hangar_engine::mobile::{
+    activity_log, answer, apps, calls, chat_live, contract, delivery, desk, engine, held, ops,
+    push, stats,
+};
 
 use std::sync::Arc;
 

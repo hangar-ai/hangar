@@ -42,3 +42,12 @@ mod tests;
 
 pub use port::{AppPort, CmdOut, Hook, ModelCmd, Port};
 pub use run::{ASLEEP, DISABLED};
+
+use serde_json::Value;
+
+/// An operation run as the person, from the phone (`runRemote`): the same
+/// operations, never refused for the setting. P20's `pane_read` and
+/// `pane_send` go through here.
+pub async fn run_as_person(op: &str, args: Value, port: &Port) -> Result<Value, String> {
+    run::run(op, args, port, run::Gate::Person).await
+}

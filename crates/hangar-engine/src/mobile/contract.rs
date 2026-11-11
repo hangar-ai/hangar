@@ -157,7 +157,7 @@ pub struct RemoteWoken {
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct RemoteHistory {
-    pub entries: Vec<hangar_core::remote::ActivityEntry>,
+    pub entries: Vec<hangar_core::mobile_data::ActivityEntry>,
 }
 
 /* ── Chat ─────────────────────────────────────────────────────── */

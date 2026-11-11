@@ -13,7 +13,7 @@ use hangar_core::board::Task;
 use hangar_core::chat::ChatPage;
 use hangar_core::git::{ChangedFile, Changes, FileDiff, Worktree};
 use hangar_core::memory::MemoryEntry;
-use hangar_core::remote::ActivityEntry;
+use hangar_core::mobile_data::ActivityEntry;
 use hangar_core::stats::UsageStats;
 
 use crate::control::delivery::Deliveries;

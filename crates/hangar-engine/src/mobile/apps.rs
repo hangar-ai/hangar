@@ -135,7 +135,7 @@ async fn titles_of(
             .iter()
             .any(|candidate| candidate.task_id.is_some() && candidate.app.workspace_id == ws.id)
     });
-    let boards = iced::futures::future::join_all(holders.map(|ws| sources.tasks(&ws.cwd))).await;
+    let boards = futures::future::join_all(holders.map(|ws| sources.tasks(&ws.cwd))).await;
     let mut titles = HashMap::new();
     for tasks in boards.into_iter().filter_map(Result::ok) {
         for (id, title) in tasks {
@@ -153,7 +153,7 @@ pub async fn listening(
     ask: impl Fn(Vec<u16>) -> crate::control::port::BoxFuture<Vec<u16>>,
 ) -> Vec<u16> {
     let batches = ports.chunks(PROBE_BATCH).map(|batch| ask(batch.to_vec()));
-    iced::futures::future::join_all(batches)
+    futures::future::join_all(batches)
         .await
         .into_iter()
         .flatten()

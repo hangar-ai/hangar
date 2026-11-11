@@ -87,8 +87,8 @@ pub fn clock_of(at: i64) -> (u32, u32) {
     (time.hour(), time.minute())
 }
 
-#[cfg(test)]
-pub(super) mod testing {
+#[cfg(any(test, feature = "testing"))]
+pub mod testing {
     use super::*;
 
     /// A local time of October 2026, so the tests hold in any time zone.

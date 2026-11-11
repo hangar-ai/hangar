@@ -20,7 +20,7 @@ use hangar_core::bridge::{self, HeldAsk};
 use hangar_core::chat::Question;
 
 use crate::control::port::Port;
-use crate::nodes::away;
+use crate::nodes as away;
 use crate::state::{Pane, Workspace};
 
 use super::answer::Choice;

@@ -770,7 +770,7 @@ pub async fn remote_manager(
 
 /// A line written without words (Hangar stopping is written by core itself)
 /// gets them here, in the PC's language (`textOf`).
-pub fn text_of(entry: &hangar_core::remote::ActivityEntry, locale: Locale) -> String {
+pub fn text_of(entry: &hangar_core::mobile_data::ActivityEntry, locale: Locale) -> String {
     if !entry.text.is_empty() {
         return entry.text.clone();
     }

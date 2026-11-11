@@ -11,14 +11,14 @@ use hangar_core::chat::{
     Body, CallState, ChatItem, ChatPage, OpenCall, PendingQuestion, Question, QuestionOption,
     Sender,
 };
-use hangar_core::remote::ActivityEntry;
+use hangar_core::mobile_data::ActivityEntry;
 use hangar_core::stats::{Bucket, ModelInfo, ScanInfo, SessionInfo, UsageStats};
 use hangar_i18n::Locale;
 
 use crate::control::port::{MobileHooks, Port};
+use crate::live::{BridgeEvent, RateLimit, ToolPhase, TurnPhase, UsageContext};
 use crate::orchestration::manager_feed::{ManagerEvent, ManagerJournalEntry};
 use crate::orchestration::testkit::{strings, task};
-use crate::state::live::{BridgeEvent, RateLimit, ToolPhase, TurnPhase, UsageContext};
 use crate::state::types::PaneRole;
 use crate::state::{AgentActivity, AgentId, AppState, Pane, Workspace};
 use crate::stats::model::model_label;

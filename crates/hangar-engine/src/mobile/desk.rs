@@ -29,7 +29,7 @@ use hangar_core::chat::{
 };
 
 use crate::control::port::{Port, activity_of};
-use crate::nodes::{away, remote};
+use crate::nodes as away;
 use crate::state::{AgentActivity, AgentId, Pane, Workspace};
 
 use super::answer::{answer_pane, choices_from};
@@ -287,22 +287,18 @@ pub async fn transcript_page(
     read: ChatRead,
 ) -> Result<Option<ChatPage>, String> {
     match away::node_of(ws, pane) {
-        Some(node) => node_page(&node, &read).await,
+        Some(node) => node_page(mobile, &node, &read).await,
         None => mobile.sources().chat(read).await,
     }
 }
 
-/// `read` asked of node `node` (`GET /node/chat`).
-async fn node_page(node: &str, read: &ChatRead) -> Result<Option<ChatPage>, String> {
-    let client = remote::client_of(node)?;
-    let page = remote::chat(
-        &client,
-        &read.session_id,
-        &read.cwd,
-        read.before.as_deref(),
-        read.limit,
-    )
-    .await?;
+/// `read` asked of node `node` (`GET /node/chat`), through the host.
+async fn node_page(
+    mobile: &Mobile,
+    node: &str,
+    read: &ChatRead,
+) -> Result<Option<ChatPage>, String> {
+    let page = mobile.sources().node_chat(node, read).await?;
     page.map(|page| page_of(&page)).transpose()
 }
 
@@ -328,13 +324,15 @@ pub async fn pending_now(
         before: None,
         limit: None,
     };
-    let page = node_page(&node, &read).await?.unwrap_or_else(|| ChatPage {
-        items: Vec::new(),
-        older: false,
-        cursor: None,
-        question: None,
-        open_call: None,
-    });
+    let page = node_page(mobile, &node, &read)
+        .await?
+        .unwrap_or_else(|| ChatPage {
+            items: Vec::new(),
+            older: false,
+            cursor: None,
+            question: None,
+            open_call: None,
+        });
     let activity = activity_of(&port.snapshot(), &pane.id).map(|entry| entry.activity);
     Ok(mobile
         .book()
@@ -485,22 +483,42 @@ mod tests {
     use serde_json::json;
 
     use hangar_core::git::{ChangedFile, Changes, FileDiff};
-    use hangar_core::remote::ActivityEntry;
+    use hangar_core::mobile_data::ActivityEntry;
     use hangar_core::stats::UsageStats;
 
     use super::*;
     use crate::control::port::BoxFuture;
     use crate::mobile::engine::Sources;
-    use crate::navigator::testing::{pane, workspace};
-    use crate::nodes::testing::{answer, listen, read_request};
+    fn pane(id: &str, name: &str, agent: crate::state::AgentId) -> Pane {
+        Pane {
+            id: id.into(),
+            name: name.into(),
+            agent,
+            ..Pane::default()
+        }
+    }
+
+    fn workspace(id: &str, name: &str, folder: Option<&str>, panes: Vec<Pane>) -> Workspace {
+        Workspace {
+            id: id.into(),
+            name: name.into(),
+            cwd: format!("/dev/{id}"),
+            folder_id: folder.map(str::to_string),
+            panes,
+            ..Workspace::default()
+        }
+    }
+    use crate::live::{BridgeEvent, ToolPhase};
     use crate::orchestration::manager_feed::ManagerJournalEntry;
     use crate::orchestration::projects::ProjectSummary;
-    use crate::state::live::{BridgeEvent, ToolPhase};
 
     /// This machine's transcripts: each read kept, none ever found.
     #[derive(Default)]
     struct Disk {
         reads: Mutex<Vec<ChatRead>>,
+        /// What was asked of node `desk-test-node`, which answers the full
+        /// page first and nothing after.
+        node_reads: Mutex<Vec<ChatRead>>,
     }
 
     fn none<T: Send + 'static>(value: T) -> BoxFuture<T> {
@@ -520,6 +538,19 @@ mod tests {
         fn chat(&self, read: ChatRead) -> BoxFuture<Result<Option<ChatPage>, String>> {
             self.reads.lock().unwrap().push(read);
             none(Ok(None))
+        }
+        fn node_chat(
+            &self,
+            node: &str,
+            read: &ChatRead,
+        ) -> BoxFuture<Result<Option<Value>, String>> {
+            if node != "desk-test-node" {
+                return none(Err(format!("node {node} is not connected")));
+            }
+            let mut reads = self.node_reads.lock().unwrap();
+            let first = reads.is_empty();
+            reads.push(read.clone());
+            none(Ok(first.then(|| serde_json::to_value(full_page()).unwrap())))
         }
         fn usage(&self) -> BoxFuture<Result<Arc<UsageStats>, String>> {
             none(Err("no statistics here".into()))
@@ -714,33 +745,17 @@ mod tests {
 
     #[tokio::test]
     async fn a_remote_pane_s_transcript_is_read_on_its_node_a_local_one_on_this_disk() {
-        let (listener, client) = listen().await;
-        let page = serde_json::to_string(&json!({ "page": full_page() })).unwrap();
-        let node = tokio::spawn(async move {
-            let mut lines = Vec::new();
-            for body in [page.as_str(), r#"{"page":null}"#] {
-                let (mut stream, _) = listener.accept().await.unwrap();
-                lines.push(read_request(&mut stream).await.line().to_owned());
-                answer(&mut stream, 200, body).await;
-            }
-            lines
-        });
-        let node_id = "desk-test-node";
-        remote::publish(node_id, Some(client));
         let disk = Arc::new(Disk::default());
         let mobile = Mobile::new(disk.clone());
 
-        let (ws, leo) = far(Some(node_id));
+        let (ws, leo) = far(Some("desk-test-node"));
         let got = transcript_page(&mobile, &ws, &leo, read(None)).await;
         assert_eq!(got, Ok(Some(full_page())));
         let none = transcript_page(&mobile, &ws, &leo, read(Some("4096"))).await;
         assert_eq!(none, Ok(None));
         assert_eq!(
-            node.await.unwrap(),
-            [
-                "GET /node/chat?session=s1&cwd=%2Fhome%2Fhangar%2Fmy%20demo&limit=30 HTTP/1.1",
-                "GET /node/chat?session=s1&cwd=%2Fhome%2Fhangar%2Fmy%20demo&before=4096&limit=30 HTTP/1.1",
-            ]
+            *disk.node_reads.lock().unwrap(),
+            [read(None), read(Some("4096"))]
         );
         assert!(disk.reads.lock().unwrap().is_empty(), "this disk untouched");
 
@@ -761,7 +776,6 @@ mod tests {
             Ok(None)
         );
         assert_eq!(*disk.reads.lock().unwrap(), [read(None)]);
-        remote::publish(node_id, None);
     }
 
     #[test]
