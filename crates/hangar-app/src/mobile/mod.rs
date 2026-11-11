@@ -15,6 +15,8 @@
 //! - `chat_live` and `calls`: a pane's conversation, with what its mod
 //!   reports before the transcript has it;
 //! - `answer`: answering an AskUserQuestion through its dialog;
+//! - `held`: answering through the ask the pane's mod holds open instead,
+//!   when it holds one;
 //! - `desk`: the same calls typed, for the window's own chat view;
 //! - `delivery`: a delivery that waits for the person, landed or sent back;
 //! - `apps`: the agents' dev servers the phone may open;
@@ -39,6 +41,7 @@ pub mod contract;
 pub mod delivery;
 pub mod desk;
 pub mod engine;
+pub mod held;
 mod live;
 pub mod ops;
 pub mod push;

@@ -130,6 +130,13 @@ impl ChatLive {
         }
     }
 
+    /// The input of the call the pane's permission dialog asks about, as its
+    /// mod reported it, when that dialog is on `tool`.
+    pub fn permission_input(&self, pane: &str, tool: &str) -> Option<Value> {
+        let (asked, input) = self.panes.get(pane)?.permission.as_ref()?;
+        (asked == tool).then(|| input.clone())
+    }
+
     /// The question a pane's AskUserQuestion call puts to the person, while
     /// it runs (`liveQuestion`).
     pub fn question(&self, pane: &str) -> Option<PendingQuestion> {

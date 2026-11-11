@@ -1,7 +1,8 @@
 //! Answering Claude Code's AskUserQuestion from the phone (`remote_answer`,
-//! lib/remoteAnswer.ts): the window types into the question's dialog what
-//! the person would type at the PC, so the session gets the answer exactly as
-//! if it had been given there.
+//! lib/remoteAnswer.ts). A question the pane's hangar-bridge mod holds open
+//! takes the answers as they are (`held`). Otherwise the window types into
+//! the question's dialog what the person would type at the PC, so the
+//! session gets the answer exactly as if it had been given there.
 //!
 //! The keys are those of Claude Code's own dialog (2.1.x). It shows one tab
 //! per question, each opening with the cursor on its first option. Enter
@@ -706,6 +707,22 @@ pub async fn answer_pane(
         .unwrap_or_default();
     let questions = pending_questions(pending.as_ref(), items, tool_use_id)?;
     let choices = choose(&questions)?;
+    // The ask the pane's mod holds open for this question takes the answers
+    // as they are: nothing typed, nothing read back from the screen.
+    if let Some(ask) = super::held::question(ws, pane, tool_use_id, &questions)
+        && super::held::give(
+            port,
+            pane,
+            &ask,
+            super::held::question_decision(&questions, &choices),
+        )
+        .await
+    {
+        return Ok(RemoteAnswered {
+            answered: true,
+            queued: None,
+        });
+    }
     if resumes(port, mobile, pane) {
         let text = answer_text(&questions, &choices);
         hold(port, mobile, ws, pane, Some(&text)).await?;

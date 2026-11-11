@@ -6,12 +6,17 @@
 // environment. Anywhere else those variables are missing, and every hook below
 // just passes its event through.
 //
-// Everything is reported, nothing is decided: no hook changes a tool call, a
-// permission or a prompt, and none ever waits for a person. The one about a
-// file another pane just edited only adds a note for the model to the edit's
-// result. A pane with a part in an orchestration is also told that part, in
-// its system prompt, and handed the state of the work whenever its
-// conversation starts again (Hangar's briefing).
+// Everything is reported, and the one thing decided is what the person
+// decided: no hook changes a tool call or a prompt. When Claude Code is about
+// to ask the person something — a permission, a question, a plan to approve —
+// the ask is reported with an id, and Hangar's answer to it is awaited while
+// Claude Code's own dialog stays up in the terminal: whichever the person
+// answers first wins, and only the person answers either (Hangar's chat and
+// phone; no agent can). The one about a file another pane just edited only
+// adds a note for the model to the edit's result. A pane with a part in an
+// orchestration is also told that part, in its system prompt, and handed the
+// state of the work whenever its conversation starts again (Hangar's
+// briefing).
 //
 // Only what the person queued reaches the model as typed by them. A message
 // an agent or Hangar itself queued arrives labelled with who sent it, so it
@@ -42,9 +47,26 @@ let continuing = false
 let unread = []
 /** `{ role, system, context }` for a pane with a part in an orchestration. */
 let briefing = null
+/**
+ * The asks held open for Hangar's answer: id → `{ tool, key, toolUseId }`,
+ * `key` the input as text, to know the call that ends one.
+ */
+const held = new Map()
+/** The main loop's calls running now: tool_use_id → `{ tool, key }`. */
+const running = new Map()
+/** Makes each ask's id unique within this process. */
+let asks = 0
 
 /** How recent another pane's edit must be to count as "editing it". */
 const CONFLICT_WINDOW_MS = 15 * 60 * 1000
+/**
+ * How long Hangar holds one wait for an answer: within the 30 s one fetch
+ * gets. Time in a fetch is not the hook's, so an ask can wait for as long as
+ * the person takes, one wait after another.
+ */
+const ASK_WAIT_MS = 20000
+/** What the model reads when the person says no from Hangar. */
+const DECLINED = 'The person declined this from Hangar.'
 /** How long a session's start waits for its briefing before going on without. */
 const BRIEFING_WAIT_MS = 3000
 /** Who sends Hangar's own events (`Queued.from` in bridge.rs). */
@@ -114,6 +136,103 @@ function clipped(value, depth = 0) {
 function headline(text) {
   const line = (text || '').split('\n').find((l) => l.trim()) || ''
   return line.length > 200 ? line.slice(0, 199) + '…' : line
+}
+
+/** A call's input as text, to tell two calls of one tool apart. */
+function keyOf(input) {
+  try {
+    return JSON.stringify(input ?? null)
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * The main loop's call an ask is about: the running one of that tool with
+ * that input, else the newest of that tool. None for a subagent's.
+ */
+function callOf(tool, input) {
+  const key = keyOf(input)
+  let newest
+  for (const [id, call] of running) {
+    if (call.tool !== tool) continue
+    if (call.key === key) return id
+    newest = id
+  }
+  return newest
+}
+
+/**
+ * Hangar's answer to ask `id`, or null once it will not come: the ask ended
+ * in the terminal (`settle`), Hangar is gone or does not hold it, or what it
+ * sent is not an answer.
+ */
+async function awaitDecision($, id) {
+  for (;;) {
+    if (!bridge || !held.has(id)) return null
+    let answer
+    try {
+      const res = await $.http.fetch(route('/ask/' + encodeURIComponent(id) + '?wait=' + ASK_WAIT_MS), {
+        headers: headers(),
+      })
+      if (!res.ok) return null
+      answer = JSON.parse(res.text)
+    } catch {
+      return null
+    }
+    if (answer && answer.decision && typeof answer.decision === 'object') return answer.decision
+    if (!answer || answer.pending !== true) return null
+  }
+}
+
+/**
+ * Hangar's answer as Claude Code takes it. A question's answers ride in the
+ * call's input, as do a plan's (both need it given back to run); a no stops
+ * the turn when the person asked for that, as Escape in the dialog would.
+ * Null for an answer that does not fit the ask.
+ */
+function decisionOf(e, answer) {
+  const input = e.tool_input && typeof e.tool_input === 'object' ? e.tool_input : {}
+  if (answer.behavior === 'allow') {
+    if (e.tool_name === 'AskUserQuestion') {
+      const answers = answer.answers
+      if (!answers || typeof answers !== 'object' || Object.keys(answers).length === 0) return null
+      return { behavior: 'allow', updatedInput: { ...input, answers } }
+    }
+    if (e.tool_name === 'ExitPlanMode') return { behavior: 'allow', updatedInput: input }
+    return { behavior: 'allow' }
+  }
+  if (answer.behavior === 'deny') {
+    const message = typeof answer.message === 'string' && answer.message.trim() ? answer.message : DECLINED
+    return answer.interrupt === true ? { behavior: 'deny', message, interrupt: true } : { behavior: 'deny', message }
+  }
+  return null
+}
+
+/**
+ * Ask `id` ended without Hangar's answer: the person answered in the
+ * terminal, or the turn is over. Hangar stops holding it, and so does its
+ * wait.
+ */
+async function settle($, id) {
+  if (!held.delete(id)) return
+  await send($, { kind: 'ask', phase: 'end', askId: id })
+}
+
+/** Ends the asks held for a call that ended: by its id, else by tool and input. */
+async function settleCall($, toolUseId, tool, input) {
+  const key = keyOf(input)
+  const ended = []
+  for (const [id, ask] of held) {
+    if (toolUseId && ask.toolUseId === toolUseId) ended.push(id)
+    else if (tool && ask.tool === tool && (!ask.toolUseId || !toolUseId) && ask.key === key) ended.push(id)
+  }
+  for (const id of ended) await settle($, id)
+}
+
+/** Ends every ask held: the turn they belonged to is over. */
+async function settleAll($) {
+  for (const id of [...held.keys()]) await settle($, id)
 }
 
 /**
@@ -323,6 +442,7 @@ export function register(on) {
     waiting = false
     continuing = false
     unread = []
+    await settleAll($)
     await send($, { kind: 'turn', phase: 'start' })
     return next(e)
   })
@@ -349,6 +469,7 @@ export function register(on) {
       // this one, and the row reaches the model with what they type next.
       const missed = e.reason === 'aborted' ? [] : unread
       unread = []
+      await settleAll($)
       await send($, {
         kind: 'turn',
         phase: 'end',
@@ -371,13 +492,46 @@ export function register(on) {
     return next(e)
   })
 
-  // The dialog is about to be shown, with what the call would do: the phone
-  // offers the same choice. Nothing reports its answer, so the state clears
-  // on what follows it: the tool's result, a denial, the turn's end — and on
-  // the Hangar side, the user typing into the pane.
+  // The dialog is about to be shown, with what the call would do: Hangar's
+  // chat and the phone offer the same choice, under the ask's id. Claude Code
+  // draws its dialog while this hook waits for their answer, and takes
+  // whichever comes first: this hook's decision closes the dialog; an answer
+  // in the terminal ends the call, and the ask with it (`settleCall`). A
+  // decision made beneath — a PermissionRequest hook of the user's settings —
+  // stands, and nothing is awaited. The state clears on what follows the
+  // dialog: Hangar's answer, the tool's result, a denial, the turn's end —
+  // and on the Hangar side, the user typing into the pane.
   on('classic.PermissionRequest', async ($, e, next) => {
-    await setWaiting($, true, { tool: e.tool_name, input: clipped(e.tool_input) })
-    return next(e)
+    if (!bridge) return next(e)
+    const id = 'ask-' + Date.now().toString(36) + '-' + ++asks
+    const toolUseId = callOf(e.tool_name, e.tool_input)
+    held.set(id, { tool: e.tool_name, key: keyOf(e.tool_input), toolUseId })
+    try {
+      await setWaiting($, true, {
+        tool: e.tool_name,
+        input: clipped(e.tool_input),
+        askId: id,
+        ...(toolUseId ? { toolUseId } : {}),
+      })
+      const result = await next(e)
+      if (result && result.decision) {
+        await settle($, id)
+        return result
+      }
+      const answer = await awaitDecision($, id)
+      const decision = answer ? decisionOf(e, answer) : null
+      if (!decision) {
+        await settle($, id)
+        return result
+      }
+      held.delete(id)
+      await setWaiting($, false)
+      return { ...result, decision }
+    } catch (err) {
+      // Hangar must not go on holding an ask nobody waits on here.
+      await settle($, id)
+      throw err
+    }
   })
 
   // Each call of the main loop, while it runs. The transcript holds a call
@@ -386,25 +540,32 @@ export function register(on) {
   on('tool.call', async ($, e, next) => {
     if (!bridge || e.agentId !== undefined || !e.tool_use_id) return next(e)
     const { tool, tool_use_id: toolUseId, consent, agentId, requestMeta, ...input } = e
+    running.set(toolUseId, { tool, key: keyOf(input) })
     await send($, { kind: 'tool', phase: 'start', toolUseId, tool, input: clipped(input) })
     try {
       return await next(e)
     } finally {
+      running.delete(toolUseId)
+      // Whatever its dialog came to, it is not up any more.
+      await settleCall($, toolUseId)
       await send($, { kind: 'tool', phase: 'end', toolUseId })
     }
   })
 
   on('classic.PostToolUse', async ($, e, next) => {
+    await settleCall($, e.tool_use_id, e.tool_name, e.tool_input)
     await setWaiting($, false)
     return next(e)
   })
 
   on('classic.PostToolUseFailure', async ($, e, next) => {
+    await settleCall($, e.tool_use_id, e.tool_name, e.tool_input)
     await setWaiting($, false)
     return next(e)
   })
 
   on('classic.PermissionDenied', async ($, e, next) => {
+    await settleCall($, e.tool_use_id, e.tool_name, e.tool_input)
     await setWaiting($, false)
     return next(e)
   })
@@ -428,6 +589,7 @@ export function register(on) {
   })
 
   on('session.end', async ($, e, next) => {
+    await settleAll($)
     await send($, { kind: 'end', reason: e.reason })
     return next(e)
   })

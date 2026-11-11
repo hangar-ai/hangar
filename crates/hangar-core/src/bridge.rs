@@ -9,7 +9,9 @@
 //! From then on the mod reports what the session does — turns, permission
 //! dialogs, context and plan usage, edits — to the API, which relays each
 //! report to the window as an `Event::BridgeEvent` (`bridge:event`). The mod also pulls prompts queued
-//! here for its pane, and submits them once its session is idle.
+//! here for its pane, and submits them once its session is idle, and holds
+//! what Claude Code is about to ask the person open for an answer from here
+//! ("Asks the mod holds open", below).
 //!
 //! Only Claude Code has mods. Every other agent, and a Claude Code that cannot
 //! load one (too old, mods turned off, a WSL shell the environment does not
@@ -343,8 +345,8 @@ pub fn take_next(host: &Host, pane_id: &str, labelled: bool) -> Option<Queued> {
     next
 }
 
-/// A pane closed for good takes its queue and its edits with it, and the
-/// window hears that nothing is queued for it any more.
+/// A pane closed for good takes its queue, its edits and its open asks with
+/// it, and the window hears that nothing is queued for it any more.
 ///
 /// Not for a pane that comes back under the same id — a restart, a role
 /// restart, a hibernation: what was queued for it is still for it, and
@@ -352,13 +354,267 @@ pub fn take_next(host: &Host, pane_id: &str, labelled: bool) -> Option<Queued> {
 pub fn forget(host: &Host, pane_id: &str) {
     inbox().cancel(pane_id, None);
     edits().forget(pane_id);
+    drop_asks(pane_id);
     queue_changed(host, pane_id, Vec::new());
 }
 
 /// A pane's shell ended: the files it edited are no longer being edited by
-/// it. Its queue stays, for the shell that comes back on its id.
+/// it, and the dialogs its session had open went with it. Its queue stays,
+/// for the shell that comes back on its id.
 pub fn release_edits(pane_id: &str) {
     edits().forget(pane_id);
+    drop_asks(pane_id);
+}
+
+// ---------------------------------------------------------------------------
+// Asks the mod holds open until someone answers them
+//
+// When Claude Code is about to ask the person something — a permission, an
+// AskUserQuestion, a plan to approve — the mod's PermissionRequest hook
+// reports it with an id of its own and then waits here (`await_decision`)
+// for an answer from Hangar's chat or from the phone. Claude Code draws its
+// own dialog in the terminal all the while, and whichever answers first wins:
+// the person can still answer there, and the mod then says the ask is over
+// (`settle_ask`).
+//
+// So the window answers with what the person chose (`answer_ask`) instead of
+// typing keys into the dialog and reading the screen back.
+// ---------------------------------------------------------------------------
+
+/// The asks one pane can hold at once: subagents asking side by side. Past
+/// it the oldest goes, so a mod that never says its asks ended cannot grow
+/// this without bound.
+const ASKS_PER_PANE: usize = 8;
+/// Longest an ask id may be: the mod makes them, short.
+const ASK_ID_MAX: usize = 128;
+/// The longest the mod's request for a decision is held open: within the 30 s
+/// a mod's `$.http.fetch` gets.
+pub const ASK_WAIT_MAX_MS: u64 = 25_000;
+
+/// What the mod reported Claude Code is about to ask the person.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct HeldAsk {
+    /// The mod's id for this ask.
+    pub id: String,
+    /// The tool asking (`Bash`, `AskUserQuestion`, `ExitPlanMode`).
+    pub tool: String,
+    /// The call it is about, when the mod could tell (the main loop's).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_use_id: Option<String>,
+    /// The call's input as the mod reported it (long texts cut).
+    pub input: serde_json::Value,
+    /// Hangar's answer, set and not yet taken by the mod.
+    #[serde(skip)]
+    decision: Option<serde_json::Value>,
+}
+
+#[derive(Default)]
+struct Asks {
+    by_pane: HashMap<String, Vec<HeldAsk>>,
+}
+
+impl Asks {
+    fn hold(&mut self, pane_id: &str, ask: HeldAsk) {
+        let held = self.by_pane.entry(pane_id.to_string()).or_default();
+        if let Some(same) = held.iter_mut().find(|held| held.id == ask.id) {
+            // Reported again: what it asks may have been filled in; an answer
+            // already given stands.
+            same.tool = ask.tool;
+            same.tool_use_id = ask.tool_use_id.or(same.tool_use_id.take());
+            same.input = ask.input;
+            return;
+        }
+        held.push(ask);
+        if held.len() > ASKS_PER_PANE {
+            held.remove(0);
+        }
+    }
+
+    fn settle(&mut self, pane_id: &str, id: &str) -> bool {
+        let Some(held) = self.by_pane.get_mut(pane_id) else {
+            return false;
+        };
+        let before = held.len();
+        held.retain(|ask| ask.id != id);
+        let gone = held.len() != before;
+        if held.is_empty() {
+            self.by_pane.remove(pane_id);
+        }
+        gone
+    }
+
+    fn find(&mut self, pane_id: &str, id: &str) -> Option<&mut HeldAsk> {
+        self.by_pane
+            .get_mut(pane_id)?
+            .iter_mut()
+            .find(|ask| ask.id == id)
+    }
+
+    /// The ask's answer, once Hangar gave one: the ask ends there.
+    fn take(&mut self, pane_id: &str, id: &str) -> AskPoll {
+        match self.find(pane_id, id) {
+            None => AskPoll::Gone,
+            Some(ask) => match ask.decision.take() {
+                Some(decision) => {
+                    self.settle(pane_id, id);
+                    AskPoll::Decision(decision)
+                }
+                None => AskPoll::Pending,
+            },
+        }
+    }
+}
+
+fn asks() -> MutexGuard<'static, Asks> {
+    static ASKS: OnceLock<Mutex<Asks>> = OnceLock::new();
+    ASKS.get_or_init(Mutex::default)
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+/// Wakes every request waiting for a decision: each looks at its own ask.
+fn asks_changed() -> &'static tokio::sync::Notify {
+    static CHANGED: OnceLock<tokio::sync::Notify> = OnceLock::new();
+    CHANGED.get_or_init(tokio::sync::Notify::new)
+}
+
+/// Takes in the ask a `permission` report carries (`askId`): one that opens,
+/// reported with its id. Anything else is not an ask of this kind.
+pub fn note_report(pane_id: &str, event: &serde_json::Value) {
+    let kind = event.get("kind").and_then(|v| v.as_str()).unwrap_or("");
+    let id = event
+        .get("askId")
+        .and_then(|v| v.as_str())
+        .filter(|id| !id.is_empty() && id.len() <= ASK_ID_MAX);
+    let Some(id) = id else {
+        return;
+    };
+    match kind {
+        "permission" if event.get("waiting").and_then(|v| v.as_bool()) == Some(true) => {
+            let tool = event.get("tool").and_then(|v| v.as_str()).unwrap_or("");
+            if tool.is_empty() {
+                return;
+            }
+            let tool_use_id = event
+                .get("toolUseId")
+                .and_then(|v| v.as_str())
+                .filter(|id| !id.is_empty())
+                .map(str::to_string);
+            let input = event
+                .get("input")
+                .cloned()
+                .unwrap_or(serde_json::Value::Null);
+            hold_ask(pane_id, id, tool, tool_use_id, input);
+        }
+        "ask" if event.get("phase").and_then(|v| v.as_str()) == Some("end") => {
+            settle_ask(pane_id, id);
+        }
+        _ => {}
+    }
+}
+
+pub fn hold_ask(
+    pane_id: &str,
+    id: &str,
+    tool: &str,
+    tool_use_id: Option<String>,
+    input: serde_json::Value,
+) {
+    asks().hold(
+        pane_id,
+        HeldAsk {
+            id: id.to_string(),
+            tool: tool.to_string(),
+            tool_use_id,
+            input,
+            decision: None,
+        },
+    );
+    asks_changed().notify_waiters();
+}
+
+/// The ask ended without Hangar: answered in the terminal, the turn over.
+pub fn settle_ask(pane_id: &str, id: &str) {
+    if asks().settle(pane_id, id) {
+        asks_changed().notify_waiters();
+    }
+}
+
+fn drop_asks(pane_id: &str) {
+    if asks().by_pane.remove(pane_id).is_some() {
+        asks_changed().notify_waiters();
+    }
+}
+
+/// What a pane's mod holds open now, oldest first.
+pub fn held_asks(pane_id: &str) -> Vec<HeldAsk> {
+    asks().by_pane.get(pane_id).cloned().unwrap_or_default()
+}
+
+/// Gives ask `id` of the pane its answer, for the mod to take. False when
+/// the ask is over, or already has one.
+///
+/// `decision` is what the person chose: `{ "behavior": "allow" }`, with
+/// `answers` for a question (question text → the labels and words chosen),
+/// or `{ "behavior": "deny", "message": "…", "interrupt": true }`.
+pub fn answer_ask(pane_id: &str, id: &str, decision: serde_json::Value) -> bool {
+    let answered = match asks().find(pane_id, id) {
+        Some(ask) if ask.decision.is_none() => {
+            ask.decision = Some(decision);
+            true
+        }
+        _ => false,
+    };
+    if answered {
+        asks_changed().notify_waiters();
+    }
+    answered
+}
+
+/// The ask still holds an answer the mod has not taken.
+pub fn answer_untaken(pane_id: &str, id: &str) -> bool {
+    asks()
+        .find(pane_id, id)
+        .is_some_and(|ask| ask.decision.is_some())
+}
+
+/// Takes an answer back before the mod took it (it was not there to): true
+/// when it was still there to take back.
+pub fn withdraw_answer(pane_id: &str, id: &str) -> bool {
+    asks()
+        .find(pane_id, id)
+        .and_then(|ask| ask.decision.take())
+        .is_some()
+}
+
+/// What the mod's wait for an answer comes to.
+#[derive(Debug, Clone, PartialEq)]
+pub enum AskPoll {
+    /// Hangar's answer: the ask is over here.
+    Decision(serde_json::Value),
+    /// None yet: ask again.
+    Pending,
+    /// Not held here (over, or never reported): stop waiting.
+    Gone,
+}
+
+/// Waits up to `wait` for ask `id` of the pane to be answered or to end.
+pub async fn await_decision(pane_id: &str, id: &str, wait: std::time::Duration) -> AskPoll {
+    let deadline = tokio::time::Instant::now() + wait;
+    loop {
+        // Listening before looking, so a change between the two is not lost.
+        let changed = asks_changed().notified();
+        tokio::pin!(changed);
+        changed.as_mut().enable();
+        match asks().take(pane_id, id) {
+            AskPoll::Pending => {}
+            done => return done,
+        }
+        if tokio::time::timeout_at(deadline, changed).await.is_err() {
+            return asks().take(pane_id, id);
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -578,6 +834,149 @@ mod tests {
             }
         }
         assert_eq!(last, Some(Vec::new()), "the window hears the queue emptied");
+    }
+
+    fn ask_report(id: &str, tool: &str) -> serde_json::Value {
+        serde_json::json!({
+            "kind": "permission",
+            "waiting": true,
+            "tool": tool,
+            "input": { "command": "npm test" },
+            "askId": id,
+            "toolUseId": "toolu_1",
+        })
+    }
+
+    #[test]
+    fn a_reported_ask_is_held_until_it_ends() {
+        let pane = "p-ask-held";
+        note_report(pane, &ask_report("a1", "Bash"));
+        let held = held_asks(pane);
+        assert_eq!(held.len(), 1);
+        assert_eq!(
+            (held[0].tool.as_str(), held[0].tool_use_id.as_deref()),
+            ("Bash", Some("toolu_1"))
+        );
+        note_report(
+            pane,
+            &serde_json::json!({ "kind": "ask", "phase": "end", "askId": "a1" }),
+        );
+        assert!(held_asks(pane).is_empty());
+    }
+
+    #[test]
+    fn a_report_without_an_id_or_a_tool_holds_nothing() {
+        let pane = "p-ask-none";
+        note_report(
+            pane,
+            &serde_json::json!({ "kind": "permission", "waiting": true, "tool": "Bash" }),
+        );
+        note_report(
+            pane,
+            &serde_json::json!({ "kind": "permission", "waiting": true, "askId": "x" }),
+        );
+        note_report(
+            pane,
+            &serde_json::json!({ "kind": "permission", "waiting": false, "tool": "Bash", "askId": "y" }),
+        );
+        assert!(held_asks(pane).is_empty());
+    }
+
+    #[test]
+    fn an_answer_is_given_once_and_taken_once() {
+        let pane = "p-ask-answer";
+        note_report(pane, &ask_report("a1", "Bash"));
+        let allow = serde_json::json!({ "behavior": "allow" });
+        assert!(answer_ask(pane, "a1", allow.clone()));
+        assert!(!answer_ask(
+            pane,
+            "a1",
+            serde_json::json!({ "behavior": "deny" })
+        ));
+        assert!(answer_untaken(pane, "a1"));
+        assert_eq!(asks().take(pane, "a1"), AskPoll::Decision(allow));
+        assert!(!answer_untaken(pane, "a1"));
+        assert_eq!(asks().take(pane, "a1"), AskPoll::Gone);
+        assert!(!answer_ask(
+            pane,
+            "a1",
+            serde_json::json!({ "behavior": "allow" })
+        ));
+    }
+
+    #[test]
+    fn an_answer_not_taken_can_be_taken_back() {
+        let pane = "p-ask-withdraw";
+        note_report(pane, &ask_report("a1", "Bash"));
+        assert!(answer_ask(
+            pane,
+            "a1",
+            serde_json::json!({ "behavior": "allow" })
+        ));
+        assert!(withdraw_answer(pane, "a1"));
+        assert!(!withdraw_answer(pane, "a1"));
+        assert_eq!(asks().take(pane, "a1"), AskPoll::Pending);
+    }
+
+    #[test]
+    fn a_pane_holds_a_bounded_number_of_asks() {
+        let pane = "p-ask-bounded";
+        for at in 0..(ASKS_PER_PANE + 3) {
+            note_report(pane, &ask_report(&format!("a{at}"), "Bash"));
+        }
+        let held = held_asks(pane);
+        assert_eq!(held.len(), ASKS_PER_PANE);
+        assert_eq!(held[0].id, "a3", "the oldest went first");
+    }
+
+    #[test]
+    fn a_shell_that_ends_drops_its_asks() {
+        let pane = "p-ask-shell";
+        note_report(pane, &ask_report("a1", "Bash"));
+        release_edits(pane);
+        assert!(held_asks(pane).is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_wait_ends_with_the_answer_as_soon_as_it_is_given() {
+        let pane = "p-ask-wait";
+        note_report(pane, &ask_report("a1", "AskUserQuestion"));
+        let waiting = tokio::spawn(async move {
+            await_decision(pane, "a1", std::time::Duration::from_secs(10)).await
+        });
+        tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+        let answer = serde_json::json!({ "behavior": "allow", "answers": { "Which?": "Blue" } });
+        assert!(answer_ask(pane, "a1", answer.clone()));
+        let polled = tokio::time::timeout(std::time::Duration::from_secs(2), waiting)
+            .await
+            .expect("the wait ends at once")
+            .unwrap();
+        assert_eq!(polled, AskPoll::Decision(answer));
+        assert!(held_asks(pane).is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_wait_ends_when_the_ask_does_or_times_out() {
+        let pane = "p-ask-ends";
+        note_report(pane, &ask_report("a1", "Bash"));
+        assert_eq!(
+            await_decision(pane, "a1", std::time::Duration::from_millis(20)).await,
+            AskPoll::Pending
+        );
+        let waiting = tokio::spawn(async move {
+            await_decision(pane, "a1", std::time::Duration::from_secs(10)).await
+        });
+        tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+        settle_ask(pane, "a1");
+        let polled = tokio::time::timeout(std::time::Duration::from_secs(2), waiting)
+            .await
+            .expect("the wait ends at once")
+            .unwrap();
+        assert_eq!(polled, AskPoll::Gone);
+        assert_eq!(
+            await_decision(pane, "never", std::time::Duration::from_secs(5)).await,
+            AskPoll::Gone
+        );
     }
 
     #[cfg(windows)]

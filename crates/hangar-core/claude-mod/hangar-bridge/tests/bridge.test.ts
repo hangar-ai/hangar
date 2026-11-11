@@ -127,18 +127,28 @@ test("a subagent's turn does not hand the pane back", async ($, on) => {
   expect(events(sent)).toEqual([])
 })
 
+/** The waits for an answer to an ask, by the mod. */
+const askWaits = (sent: Sent[]) => sent.filter((s) => s.url.includes('/ask/')).map((s) => s.url)
+
 test('a permission dialog is reported, and cleared by the tool result', async ($, on) => {
   const { sent } = setup(on)
   on('classic.PermissionRequest', () => ({}))
   on('classic.PostToolUse', () => ({}))
 
   await start($)
-  await $.classic.PermissionRequest({ tool_name: 'Bash', tool_input: { command: 'rm -rf build' } })
+  const out = await $.classic.PermissionRequest({ tool_name: 'Bash', tool_input: { command: 'rm -rf build' } })
   await $.classic.PostToolUse({ tool_name: 'Bash' })
 
+  // A Hangar that answers no ask (an older one) leaves the dialog to the terminal.
+  expect(out.decision).toBeUndefined()
+  const [opened] = events(sent)
   expect(events(sent)).toEqual([
-    { kind: 'permission', waiting: true, tool: 'Bash', input: { command: 'rm -rf build' } },
+    { kind: 'permission', waiting: true, tool: 'Bash', input: { command: 'rm -rf build' }, askId: expect.any(String) },
+    { kind: 'ask', phase: 'end', askId: opened.askId },
     { kind: 'permission', waiting: false },
+  ])
+  expect(askWaits(sent)).toEqual([
+    `http://127.0.0.1:4000/api/bridge/pane-1/ask/${opened.askId}?wait=20000`,
   ])
 })
 
@@ -153,11 +163,177 @@ test('a second dialog over the first is reported too: it is the one on screen', 
   await $.classic.PermissionDenied({ tool_name: 'Write', tool_input: {}, tool_use_id: 'u2', reason: 'no' })
   await $.classic.PermissionDenied({ tool_name: 'Write', tool_input: {}, tool_use_id: 'u2', reason: 'no' })
 
+  const asked = events(sent).filter((event) => event.kind === 'permission' && event.waiting)
+  expect(new Set(asked.map((event) => event.askId)).size).toBe(2)
   expect(events(sent)).toEqual([
-    { kind: 'permission', waiting: true, tool: 'Bash', input: { command: 'pnpm test' } },
-    { kind: 'permission', waiting: true, tool: 'Write', input: { file_path: '/repo/a.md', content: 'x'.repeat(4096) + '…' } },
+    { kind: 'permission', waiting: true, tool: 'Bash', input: { command: 'pnpm test' }, askId: asked[0].askId },
+    { kind: 'ask', phase: 'end', askId: asked[0].askId },
+    {
+      kind: 'permission',
+      waiting: true,
+      tool: 'Write',
+      input: { file_path: '/repo/a.md', content: 'x'.repeat(4096) + '…' },
+      askId: asked[1].askId,
+    },
+    { kind: 'ask', phase: 'end', askId: asked[1].askId },
     { kind: 'permission', waiting: false },
   ])
+})
+
+/**
+ * A Hangar that holds every ask: no answer for the first `waits` waits, then
+ * `answer` (a decision, or anything else a wait can come back with).
+ */
+function holding(waits: number, answer: unknown) {
+  let asked = 0
+  return () => (asked++ < waits ? { pending: true } : answer)
+}
+
+/** The fake Hangar's answer to every wait for an ask, whatever its id. */
+function setupAsks(on: On, answer: () => unknown) {
+  const answers: Record<string, Answer> = {}
+  const { sent } = setup(on, PANE_ENV, new Proxy(answers, {
+    get: (target, path: string) => (path.startsWith('ask-') ? answer : target[path]),
+  }))
+  return sent
+}
+
+test("Hangar's yes is the dialog's: the ask waits for it, however long, then clears", async ($, on) => {
+  const sent = setupAsks(on, holding(2, { decision: { behavior: 'allow' } }))
+  on('classic.PermissionRequest', () => ({}))
+
+  await start($)
+  const out = await $.classic.PermissionRequest({ tool_name: 'Bash', tool_input: { command: 'pnpm test' } })
+
+  expect(out.decision).toEqual({ behavior: 'allow' })
+  expect(askWaits(sent)).toHaveLength(3)
+  expect(events(sent)).toEqual([
+    { kind: 'permission', waiting: true, tool: 'Bash', input: { command: 'pnpm test' }, askId: expect.any(String) },
+    { kind: 'permission', waiting: false },
+  ])
+})
+
+test("Hangar's no is the model's error, and stops the turn when the person asked it to", async ($, on) => {
+  const sent = setupAsks(on, () => ({ decision: { behavior: 'deny', interrupt: true } }))
+  on('classic.PermissionRequest', () => ({}))
+
+  await start($)
+  const out = await $.classic.PermissionRequest({ tool_name: 'Bash', tool_input: { command: 'rm -rf /' } })
+
+  expect(out.decision).toEqual({
+    behavior: 'deny',
+    message: 'The person declined this from Hangar.',
+    interrupt: true,
+  })
+  expect(askWaits(sent)).toHaveLength(1)
+})
+
+test('a question answered in Hangar gets its answers in its input, as the dialog would give them', async ($, on) => {
+  const questions = [
+    {
+      question: 'Which color?',
+      header: 'Color',
+      multiSelect: false,
+      options: [
+        { label: 'Red', description: 'Warm' },
+        { label: 'Blue', description: 'Cold' },
+      ],
+    },
+  ]
+  setupAsks(on, () => ({ decision: { behavior: 'allow', answers: { 'Which color?': 'Blue' } } }))
+  on('classic.PermissionRequest', () => ({}))
+
+  await start($)
+  const out = await $.classic.PermissionRequest({ tool_name: 'AskUserQuestion', tool_input: { questions } })
+
+  expect(out.decision).toEqual({
+    behavior: 'allow',
+    updatedInput: { questions, answers: { 'Which color?': 'Blue' } },
+  })
+})
+
+test('a question is never answered with no answers: the dialog keeps it', async ($, on) => {
+  setupAsks(on, () => ({ decision: { behavior: 'allow' } }))
+  on('classic.PermissionRequest', () => ({}))
+
+  await start($)
+  const out = await $.classic.PermissionRequest({
+    tool_name: 'AskUserQuestion',
+    tool_input: { questions: [{ question: 'Q?', header: 'Q', multiSelect: false, options: [] }] },
+  })
+
+  expect(out.decision).toBeUndefined()
+})
+
+test('a plan approved in Hangar runs with the plan it was shown', async ($, on) => {
+  setupAsks(on, () => ({ decision: { behavior: 'allow' } }))
+  on('classic.PermissionRequest', () => ({}))
+  const input = { plan: '## Plan\n1. Do it', planFilePath: '/repo/.claude/plans/p.md' }
+
+  await start($)
+  const out = await $.classic.PermissionRequest({ tool_name: 'ExitPlanMode', tool_input: input })
+
+  expect(out.decision).toEqual({ behavior: 'allow', updatedInput: input })
+})
+
+test("a decision of the user's own PermissionRequest hook stands, and nothing waits", async ($, on) => {
+  const sent = setupAsks(on, () => ({ decision: { behavior: 'allow' } }))
+  on('classic.PermissionRequest', () => ({ decision: { behavior: 'deny', message: 'policy' } }))
+
+  await start($)
+  const out = await $.classic.PermissionRequest({ tool_name: 'Bash', tool_input: { command: 'curl x' } })
+
+  expect(out.decision).toEqual({ behavior: 'deny', message: 'policy' })
+  expect(askWaits(sent)).toEqual([])
+  const [opened] = events(sent)
+  expect(events(sent)[1]).toEqual({ kind: 'ask', phase: 'end', askId: opened.askId })
+})
+
+test('an ask answered in the terminal ends: Hangar stops holding it, and the wait with it', async ($, on) => {
+  let ended = false
+  const sent = setupAsks(on, () => (ended ? { gone: true } : { pending: true }))
+  on('classic.PermissionRequest', () => ({}))
+  on('classic.PostToolUse', () => ({}))
+
+  await start($)
+  const asking = $.classic.PermissionRequest({ tool_name: 'Bash', tool_input: { command: 'pnpm test' } })
+  await $.classic.PostToolUse({ tool_name: 'Bash', tool_input: { command: 'pnpm test' }, tool_use_id: 'u1' })
+  ended = true
+  const out = await asking
+
+  expect(out.decision).toBeUndefined()
+  const [opened] = events(sent)
+  expect(events(sent)).toContainEqual({ kind: 'ask', phase: 'end', askId: opened.askId })
+  expect(events(sent).filter((event) => event.kind === 'ask')).toHaveLength(1)
+})
+
+test("an ask names the main loop's call it is about", async ($, on) => {
+  const sent = setupAsks(on, () => ({ decision: { behavior: 'allow' } }))
+  on('classic.PermissionRequest', () => ({}))
+  let asked: any
+  on('tool.call', async () => {
+    asked = await $.classic.PermissionRequest({ tool_name: 'Bash', tool_input: { command: 'pnpm build' } })
+    return { result: 'ok' }
+  })
+
+  await start($)
+  await $.tool.call({ tool: 'Bash', command: 'pnpm build' })
+
+  expect(asked.decision).toEqual({ behavior: 'allow' })
+  const started = events(sent).find((event) => event.kind === 'tool')
+  const opened = events(sent).find((event) => event.kind === 'permission' && event.waiting)
+  expect(opened.toolUseId).toBe(started.toolUseId)
+})
+
+test('outside a Hangar pane an ask is left to the dialog', async ($, on) => {
+  const { sent } = setup(on, {})
+  on('classic.PermissionRequest', () => ({}))
+
+  await start($)
+  const out = await $.classic.PermissionRequest({ tool_name: 'Bash', tool_input: { command: 'ls' } })
+
+  expect(out.decision).toBeUndefined()
+  expect(sent).toEqual([])
 })
 
 test('a call of the main loop is reported as it starts, with its input, and as it ends', async ($, on) => {

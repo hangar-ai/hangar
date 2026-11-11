@@ -2018,3 +2018,219 @@ async fn desk_chat_merges_the_question_the_mod_reports_and_the_calls_running_int
         .unwrap();
     assert_eq!(older.items, items());
 }
+
+/* ── answered through the ask the mod holds open ─────────────── */
+
+use hangar_core::bridge::{self as core_bridge, AskPoll};
+use hangar_core::chat::Answer;
+
+/// A workspace of its own: the asks the mods hold are the process's, and
+/// every other test's pane is "w1".
+fn held_shop(pane: &str) -> Workspace {
+    workspace(
+        &format!("held-{pane}"),
+        "Held",
+        vec![Pane {
+            session_id: Some("sess-held".into()),
+            ..claude(pane, "Hal", Some(PaneRole::Worker))
+        }],
+    )
+}
+
+/// The pane's mod: it reports the dialog and the ask, as its
+/// PermissionRequest hook does.
+fn held_ask(r: &Rig, pane: &str, ask: &str, tool: &str, call: &str, input: Value) {
+    r.note(
+        pane,
+        BridgeEvent::Tool(ToolPhase::Start {
+            tool_use_id: call.into(),
+            tool: tool.into(),
+            input: input.clone(),
+        }),
+        5000,
+    );
+    r.note(
+        pane,
+        BridgeEvent::Permission {
+            waiting: true,
+            tool: Some(tool.into()),
+            input: Some(input.clone()),
+        },
+        0,
+    );
+    core_bridge::note_report(
+        pane,
+        &json!({ "kind": "permission", "waiting": true, "tool": tool, "input": input,
+                 "askId": ask, "toolUseId": call }),
+    );
+}
+
+/// The mod's wait for the answer, as its hook makes it.
+fn mod_waits(pane: &'static str, ask: &'static str) -> tokio::task::JoinHandle<AskPoll> {
+    tokio::spawn(core_bridge::await_decision(
+        pane,
+        ask,
+        std::time::Duration::from_secs(10),
+    ))
+}
+
+#[tokio::test]
+async fn desk_permit_answers_the_ask_the_mod_holds_and_types_nothing() {
+    const PANE: &str = "held-permit";
+    let r = rig(vec![held_shop(PANE)], vec![], true);
+    reads(&r, Some(page()));
+    held_ask(
+        &r,
+        PANE,
+        "ask-p1",
+        "Bash",
+        "toolu_h1",
+        json!({"command": "rm -rf build"}),
+    );
+    r.act(PANE, &format!("held-{PANE}"), AgentActivity::Waiting);
+    let waiting = mod_waits(PANE, "ask-p1");
+    let shown = match desk::chat(
+        &r.port,
+        &r.mobile,
+        &format!("held-{PANE}"),
+        PANE,
+        None,
+        None,
+    )
+    .await
+    .unwrap()
+    .pending
+    {
+        Some(ChatPending::Permission { prompt, .. }) => prompt,
+        other => panic!("no permission pending: {other:?}"),
+    };
+
+    let answered = desk::permit(
+        &r.port,
+        &r.mobile,
+        &format!("held-{PANE}"),
+        PANE,
+        false,
+        Some(&shown),
+    )
+    .await;
+
+    assert_eq!(
+        answered,
+        Ok(RemoteAnswered {
+            answered: true,
+            queued: None
+        })
+    );
+    // A no stops the turn, as Escape would have.
+    assert_eq!(
+        waiting.await.unwrap(),
+        AskPoll::Decision(json!({ "behavior": "deny", "interrupt": true }))
+    );
+    assert!(r.typed().is_empty());
+    assert!(core_bridge::held_asks(PANE).is_empty());
+}
+
+#[tokio::test]
+async fn desk_permit_types_the_key_when_no_mod_takes_the_answer() {
+    const PANE: &str = "held-untaken";
+    let r = rig(vec![held_shop(PANE)], vec![], true);
+    reads(&r, Some(page()));
+    held_ask(
+        &r,
+        PANE,
+        "ask-u1",
+        "Bash",
+        "toolu_u1",
+        json!({"command": "pnpm test"}),
+    );
+    r.act(PANE, &format!("held-{PANE}"), AgentActivity::Waiting);
+
+    let shown = match desk::chat(
+        &r.port,
+        &r.mobile,
+        &format!("held-{PANE}"),
+        PANE,
+        None,
+        None,
+    )
+    .await
+    .unwrap()
+    .pending
+    {
+        Some(ChatPending::Permission { prompt, .. }) => prompt,
+        other => panic!("no permission pending: {other:?}"),
+    };
+
+    // Nothing waits for the answer: the mod's hook was skipped.
+    let answered = desk::permit(
+        &r.port,
+        &r.mobile,
+        &format!("held-{PANE}"),
+        PANE,
+        true,
+        Some(&shown),
+    )
+    .await;
+
+    assert_eq!(
+        answered,
+        Ok(RemoteAnswered {
+            answered: true,
+            queued: None
+        })
+    );
+    // The answer was taken back, and the key typed after all.
+    assert!(!core_bridge::answer_untaken(PANE, "ask-u1"));
+    assert_eq!(r.typed(), [format!(r#"write:{PANE}:"\r""#)]);
+}
+
+#[tokio::test]
+async fn desk_answer_gives_the_held_question_its_answers_as_the_dialog_would() {
+    const PANE: &str = "held-question";
+    let r = rig(vec![held_shop(PANE)], vec![], true);
+    reads(&r, Some(page()));
+    let asked = json!({"questions": [
+        {"question": "Which color?", "header": "Color", "multiSelect": false,
+         "options": [{"label": "Red", "description": "Warm"}, {"label": "Blue", "description": "Cold"}]},
+        {"question": "Which sizes?", "header": "Sizes", "multiSelect": true,
+         "options": [{"label": "S", "description": ""}, {"label": "L", "description": ""}]}]});
+    held_ask(&r, PANE, "ask-q1", "AskUserQuestion", "toolu_q1", asked);
+    r.act(PANE, &format!("held-{PANE}"), AgentActivity::Waiting);
+    let waiting = mod_waits(PANE, "ask-q1");
+
+    let answered = desk::answer(
+        &r.port,
+        &r.mobile,
+        &format!("held-{PANE}"),
+        PANE,
+        "toolu_q1",
+        &[
+            Answer {
+                selected: vec!["Blue".into()],
+                other: None,
+            },
+            Answer {
+                selected: vec!["S".into(), "L".into()],
+                other: Some("and XL".into()),
+            },
+        ],
+    )
+    .await;
+
+    assert_eq!(
+        answered,
+        Ok(RemoteAnswered {
+            answered: true,
+            queued: None
+        })
+    );
+    assert_eq!(
+        waiting.await.unwrap(),
+        AskPoll::Decision(json!({
+            "behavior": "allow",
+            "answers": { "Which color?": "Blue", "Which sizes?": "S, L, and XL" },
+        }))
+    );
+    assert!(r.typed().is_empty());
+}

@@ -679,6 +679,8 @@ async fn bridge_event(
             crate::bridge::record_edit(&pane, name, file);
         }
     }
+    // An ask the mod holds open for an answer from here, or its end.
+    crate::bridge::note_report(&pane, &event);
     let _ = state.host.emit(Event::BridgeEvent {
         pane_id: pane,
         event,
@@ -726,6 +728,34 @@ async fn bridge_briefing(
             }
         })?;
     Ok(Json(json!({ "briefing": briefing })))
+}
+
+#[derive(Deserialize)]
+struct AskQuery {
+    /// How long to hold the request for an answer, in ms.
+    #[serde(default)]
+    wait: u64,
+}
+
+/// The mod's wait for Hangar's answer to an ask it reported (bridge.rs,
+/// "Asks the mod holds open"): `{ "decision": … }` once the person answered
+/// here, `{ "pending": true }` when the wait ran out first, `{ "gone": true }`
+/// when the ask is not held (over, or this Hangar never heard of it).
+async fn bridge_ask(
+    State(state): State<Arc<ApiState>>,
+    headers: HeaderMap,
+    Path((pane, id)): Path<(String, String)>,
+    Query(q): Query<AskQuery>,
+) -> ApiResult {
+    as_pane(&authorize(&state, &headers)?, &pane)?;
+    let wait = std::time::Duration::from_millis(q.wait.min(crate::bridge::ASK_WAIT_MAX_MS));
+    Ok(Json(
+        match crate::bridge::await_decision(&pane, &id, wait).await {
+            crate::bridge::AskPoll::Decision(decision) => json!({ "decision": decision }),
+            crate::bridge::AskPoll::Pending => json!({ "pending": true }),
+            crate::bridge::AskPoll::Gone => json!({ "gone": true }),
+        },
+    ))
 }
 
 #[derive(Deserialize)]
@@ -1050,6 +1080,7 @@ fn router(state: Arc<ApiState>, kit_tabs: KitTabRoute) -> Router {
         .route("/api/bridge/{pane}/next", get(bridge_next))
         .route("/api/bridge/{pane}/conflict", get(bridge_conflict))
         .route("/api/bridge/{pane}/briefing", get(bridge_briefing))
+        .route("/api/bridge/{pane}/ask/{id}", get(bridge_ask))
         .route("/api/control/{op}", post(control))
         .route("/api/phone/share", post(phone_share))
         .with_state(state)
@@ -1557,6 +1588,45 @@ mod tests {
         );
         assert_eq!(api.call("GET", own, &api.gus, None).await.0, StatusCode::OK);
         assert_eq!(api.call("GET", other, APP, None).await.0, StatusCode::OK);
+    }
+
+    /// The mod reports an ask, waits for it, and takes the person's answer;
+    /// an ask over, or another pane's, gives nothing.
+    #[tokio::test]
+    async fn a_mod_waits_for_the_answer_to_the_ask_it_reported() {
+        let api = api();
+        let report = json!({
+            "kind": "permission", "waiting": true, "tool": "Bash",
+            "input": { "command": "npm test" }, "askId": "ask-route",
+        });
+        let (status, _) = api
+            .call("POST", "/api/bridge/p-gus/event", &api.gus, Some(report))
+            .await;
+        assert_eq!(status, StatusCode::OK);
+        let wait = "/api/bridge/p-gus/ask/ask-route?wait=10";
+        assert_eq!(
+            api.call("GET", wait, &api.gus, None).await.1,
+            json!({ "pending": true })
+        );
+        assert_eq!(
+            api.call("GET", "/api/bridge/p-leo/ask/ask-route", &api.gus, None)
+                .await
+                .0,
+            StatusCode::FORBIDDEN
+        );
+        assert!(crate::bridge::answer_ask(
+            "p-gus",
+            "ask-route",
+            json!({ "behavior": "allow" })
+        ));
+        assert_eq!(
+            api.call("GET", wait, &api.gus, None).await.1,
+            json!({ "decision": { "behavior": "allow" } })
+        );
+        assert_eq!(
+            api.call("GET", wait, &api.gus, None).await.1,
+            json!({ "gone": true })
+        );
     }
 
     #[tokio::test]

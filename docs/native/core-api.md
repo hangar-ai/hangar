@@ -438,6 +438,21 @@ Invoked as `bridge_queue` from `src/lib/ipc.ts`. Now `hangar_core::bridge::bridg
 pub fn bridge_queue(pane_id: String) -> Vec<Queued>
 ```
 
+### hangar-bridge asks
+
+When Claude Code is about to ask the person something (a permission, an `AskUserQuestion`, a plan to approve), the mod's `classic.PermissionRequest` hook reports it with an id of its own (`{ kind: "permission", waiting: true, tool, input, askId, toolUseId? }`) and waits for Hangar's answer through `GET /api/bridge/{pane}/ask/{id}?wait=<ms>` (at most 25 s per request; it asks again until the ask ends). Claude Code draws its own dialog in the terminal meanwhile and takes whichever answer comes first, as it does for an Agent SDK host's `canUseTool`: an answer typed in the terminal ends the call, and the mod reports `{ kind: "ask", phase: "end", askId }`. A decision made by a `PermissionRequest` hook of the user's own settings stands, and nothing is awaited. Measured with Claude Code 2.1.322.
+
+The route answers `{ "decision": … }` once the person answered in Hangar, `{ "pending": true }` when the wait ran out, `{ "gone": true }` when the ask is not held (over, or never reported to this Hangar). Only the window gives an answer, in process: no route sets one, so no agent can approve anything.
+
+#### `answer_ask`
+
+```rust
+pub fn answer_ask(pane_id: &str, id: &str, decision: serde_json::Value) -> bool
+```
+
+- Note: `decision` is `{ "behavior": "allow" }`, with `answers` (question text → the labels chosen and the person's own words, comma-joined) for a question, or `{ "behavior": "deny", "interrupt": true }`, which stops the turn as Escape does. The mod turns it into Claude Code's `decision` (`updatedInput` with the answers, or the plan given back). False when the ask is over or already answered.
+- `held_asks(pane_id)`, `answer_untaken`, `withdraw_answer`: the window answers through these (`mobile::held`), and takes an answer back that no mod took within 3 s, typing the dialog's keys instead.
+
 ### Pane control
 
 #### `control_reply`

@@ -6,10 +6,12 @@
 //! as them, through P18's `pane_send` and `pane_read` run as the person:
 //! agents' pane control being turned off does not stop it.
 //!
-//! Claude Code's permission prompt takes one key: Enter accepts the
-//! highlighted "1. Yes", Escape is "No, and tell Claude what to do
-//! differently". The hangar-bridge mod reports what the call would do, never
-//! which choices the prompt offers, so those two keys are all that is sent.
+//! A permission the pane's hangar-bridge mod holds open is answered through
+//! it, as the decision itself (`held`). Otherwise Claude Code's permission
+//! prompt takes one key: Enter accepts the highlighted "1. Yes", Escape is
+//! "No, and tell Claude what to do differently". The mod reports what the
+//! call would do, never which choices the prompt offers, so those two keys
+//! are all that is sent.
 
 use serde_json::{Map, Value, json};
 
@@ -600,22 +602,25 @@ async fn shown_prompt(
     ws: &Workspace,
     pane: &Pane,
     shown: Option<&str>,
-) -> Result<(), String> {
+) -> Result<Option<ChatPending>, String> {
     let changed = || {
         format!(
             "What \"{}\" asks has changed since the phone showed it: look again. Nothing was sent.",
             pane.name
         )
     };
-    match pending_now(port, mobile, ws, pane).await? {
+    let pending = pending_now(port, mobile, ws, pane).await?;
+    let as_shown = matches!(&pending, Some(ChatPending::Permission { prompt, .. })
+        if shown == Some(prompt.as_str()));
+    match pending {
         Some(ChatPending::Question { .. }) => Err(format!(
             "\"{}\" waits on a question, not a permission: answer it in the chat. Nothing was sent.",
             pane.name
         )),
-        Some(ChatPending::Permission { prompt, .. }) if shown == Some(prompt.as_str()) => Ok(()),
+        Some(permission @ ChatPending::Permission { .. }) if as_shown => Ok(Some(permission)),
         Some(ChatPending::Permission { .. }) => Err(changed()),
         None if shown.is_some() => Err(changed()),
-        None => Ok(()),
+        None => Ok(None),
     }
 }
 
@@ -660,7 +665,21 @@ pub async fn permit_pane(
             pane.name
         ));
     }
-    shown_prompt(port, mobile, ws, pane, shown).await?;
+    let pending = shown_prompt(port, mobile, ws, pane, shown).await?;
+    // The ask the pane's mod holds open for this dialog takes the answer
+    // itself: no key to land anywhere else.
+    if let Some(ChatPending::Permission { tool, .. }) = &pending {
+        let input = mobile.book().chat.permission_input(&pane.id, tool);
+        let ask = super::held::permission(ws, pane, tool, input.as_ref());
+        if let Some(ask) = ask
+            && super::held::give(port, pane, &ask, super::held::permission_decision(allow)).await
+        {
+            return Ok(super::contract::RemoteAnswered {
+                answered: true,
+                queued: None,
+            });
+        }
+    }
     let key = if allow { "enter" } else { "escape" };
     let input = Input {
         keys: vec![key.into()],
