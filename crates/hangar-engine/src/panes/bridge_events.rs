@@ -11,7 +11,7 @@
 
 use std::collections::HashMap;
 
-use crate::state::live::{EpochMs, QueuedPrompt};
+use crate::live::{EpochMs, QueuedPrompt};
 
 /// Prompts queued for a pane that is restarting under a new id. The backend
 /// keeps the queue per id and drops it with the old pane, so the old pane
@@ -86,7 +86,7 @@ pub fn short_session_id(id: &str) -> String {
 
 /// The short id, with an ellipsis saying there is more of it
 /// (`sessionIdLabel`).
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 pub fn session_id_label(id: &str) -> String {
     let short = short_session_id(id);
     if short.chars().count() < id.chars().count() {

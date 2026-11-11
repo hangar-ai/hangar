@@ -28,7 +28,7 @@ use super::hibernate::{
     Awake, Blocker, Candidate, ForcedSleepInput, HibernateInput, PaneRest, StepAsideInput, Verdict,
     forced_sleep_verdict, hibernation_verdict, step_aside,
 };
-use crate::state::live::{AgentActivity, EpochMs};
+use crate::live::{AgentActivity, EpochMs};
 use crate::state::types::{AgentId, AppState, PaneId, Workspace, WsId};
 
 /// A workspace asleep: since when, and how many agents it stopped.
@@ -67,7 +67,7 @@ pub struct Hibernation {
 }
 
 /// Working or waiting for an answer: what keeps a workspace awake.
-pub(super) fn is_busy(activity: AgentActivity) -> bool {
+pub fn is_busy(activity: AgentActivity) -> bool {
     matches!(activity, AgentActivity::Working | AgentActivity::Waiting)
 }
 
@@ -477,12 +477,12 @@ pub fn finish(
 /// How a probe is made when it can be made on the spot: the environment (a
 /// probe takes time, and the answer can change what is read after it) and the
 /// shells to ask about; the ids with a process under them, or why it failed.
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 pub type Probe<'a> = &'a mut dyn FnMut(&mut dyn SleepEnv, &[PaneId]) -> Result<Vec<PaneId>, String>;
 
 /// Whether one workspace goes to sleep now: `begin`, the probe, `finish`.
 /// `None` when the workspace is gone.
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 pub fn decide(
     env: &mut dyn SleepEnv,
     workspace_id: &str,
@@ -532,7 +532,7 @@ pub struct Slept {
 }
 
 /// Every workspace, asked in turn; the ones put to sleep come back.
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 pub fn sweep(env: &mut dyn SleepEnv, delay_ms: u64, now: EpochMs, probe: Probe) -> Vec<Slept> {
     let mut slept = Vec::new();
     let ids: Vec<WsId> = env
@@ -622,7 +622,7 @@ pub fn settle_forced(env: &mut dyn SleepEnv, reading: Reading, now: EpochMs) -> 
 /// One workspace put to sleep because the person asked: decided like the
 /// sweep, without the clock, then put to sleep the same way. `None` when the
 /// workspace is gone.
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 pub fn force_sleep(
     env: &mut dyn SleepEnv,
     workspace_id: &str,

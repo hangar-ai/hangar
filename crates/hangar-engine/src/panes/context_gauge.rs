@@ -3,7 +3,7 @@
 
 use hangar_core::context::ContextUsage;
 
-use crate::state::live::ContextGauge;
+use crate::live::ContextGauge;
 
 /// Context-window sizes and compaction boundaries, as configuration rather
 /// than constants scattered through the code: they move with Claude Code and

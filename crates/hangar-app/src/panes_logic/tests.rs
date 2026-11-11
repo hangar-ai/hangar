@@ -8,7 +8,7 @@ use serde_json::json;
 
 use super::hibernate::PaneRest;
 use super::*;
-use crate::state::live::PaneEventDetail;
+use crate::state::live::{PaneEventDetail, PaneMcp, WorkspaceActivity};
 
 const NOW: EpochMs = 5_000_000;
 
@@ -248,7 +248,7 @@ fn activity_of(m: &Model) -> AgentActivity {
 #[test]
 fn a_turn_ends_idle_when_the_window_is_in_front_on_the_focused_pane() {
     let (mut m, main) = one_claude();
-    m.live.panes_logic.focused_window = Some(main);
+    m.ui.system_focus = Some(main);
     m.ui.focus_by_workspace.insert("w1".into(), "p1".into());
     end_turn(&mut m, NOW);
     assert_eq!(activity_of(&m), AgentActivity::Idle);
@@ -258,7 +258,7 @@ fn a_turn_ends_idle_when_the_window_is_in_front_on_the_focused_pane() {
 #[test]
 fn the_pane_that_has_the_keyboard_counts_as_the_focused_one() {
     let (mut m, main) = one_claude();
-    m.live.panes_logic.focused_window = Some(main);
+    m.ui.system_focus = Some(main);
     // The workspace remembers no focused pane, but the terminal has the keys.
     m.ui.focus = Some(Focus::Terminal("p1".into()));
     end_turn(&mut m, NOW);
@@ -284,7 +284,7 @@ fn a_turn_ends_yours_on_a_pane_the_person_is_not_on_or_a_workspace_off_screen() 
             pane("p2", "Bob", AgentId::Claude),
         ],
     )]);
-    m.live.panes_logic.focused_window = Some(main);
+    m.ui.system_focus = Some(main);
     m.ui.focus_by_workspace.insert("w1".into(), "p2".into());
     end_turn(&mut m, NOW);
     assert_eq!(activity_of(&m), AgentActivity::Yours);
@@ -294,14 +294,14 @@ fn a_turn_ends_yours_on_a_pane_the_person_is_not_on_or_a_workspace_off_screen() 
         workspace("w0", vec![pane("p0", "Zed", AgentId::Claude)]),
         workspace("w1", vec![pane("p1", "Ava", AgentId::Claude)]),
     ]);
-    m.live.panes_logic.focused_window = Some(main);
+    m.ui.system_focus = Some(main);
     m.ui.focus_by_workspace.insert("w1".into(), "p1".into());
     end_turn(&mut m, NOW);
     assert_eq!(activity_of(&m), AgentActivity::Yours);
 
     // The board is on screen, not the terminals.
     let (mut m, main) = one_claude();
-    m.live.panes_logic.focused_window = Some(main);
+    m.ui.system_focus = Some(main);
     m.ui.focus_by_workspace.insert("w1".into(), "p1".into());
     m.ui.view = View::Board;
     end_turn(&mut m, NOW);
@@ -319,11 +319,11 @@ fn a_workspace_in_a_window_of_its_own_is_looked_at_there() {
         .insert(own, WindowKind::Workspace("w1".into()));
     m.ui.focus_by_workspace.insert("w1".into(), "p1".into());
     // The main window has the focus, and does not draw this workspace.
-    m.live.panes_logic.focused_window = Some(main);
+    m.ui.system_focus = Some(main);
     end_turn(&mut m, NOW);
     assert_eq!(activity_of(&m), AgentActivity::Yours);
     // Its own window in front: seen at once.
-    m.live.panes_logic.focused_window = Some(own);
+    m.ui.system_focus = Some(own);
     end_turn(&mut m, NOW + 10);
     assert_eq!(activity_of(&m), AgentActivity::Idle);
 }
@@ -339,7 +339,7 @@ fn the_window_coming_back_to_the_front_takes_the_hand_back_of_the_pane_it_shows(
     refresh_attention(&mut m, None, NOW + 2);
     assert_eq!(activity_of(&m), AgentActivity::Yours);
     // The window comes back with the pane already the one looked at.
-    m.live.panes_logic.focused_window = Some(main);
+    m.ui.system_focus = Some(main);
     refresh_attention(&mut m, Some(main), NOW + 3);
     assert_eq!(activity_of(&m), AgentActivity::Idle);
     assert!(!m.live.panes_logic.needs_attention("p1"));

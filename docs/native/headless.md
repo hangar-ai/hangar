@@ -35,8 +35,9 @@ they are refused.
    where they were, so nothing else changes and every test passes after each
    move:
    1. the persisted state and its store (`state`): **done**;
-   2. what the panes are doing (`panes_logic`), its clock on tokio rather
-      than iced subscriptions;
+   2. what the panes are doing (`panes_logic`): its state machines and their
+      read-model, **done**; its clock (iced subscriptions) and the glue that
+      feeds it from the `Model` stay in the app until step 2;
    3. the agents' operations (`control`) and the model writes they ask for,
       applied by the engine to its own state;
    4. the orchestration engines (`orchestration`);
@@ -75,3 +76,16 @@ window's own state (`ui`, `live`) and delegates to it; hydrating mounts the
 active workspace and opens the model on the app's side. The default theme
 is spelled in the engine (`DEFAULT_THEME_ID`), a test holding it equal to
 hangar-theme's.
+
+## Step 1.2: what the panes are doing
+
+`hangar_engine::live`: the read-model types the engines share (activity,
+insight, the mod's reports, rate limits). `hangar_engine::panes`: the state
+machines (activity, insight, hibernation, sessions, branches, delivery
+stages) and their `Live`, which the app keeps as `Model.live.panes_logic`.
+The window's part of attention (which window has the system's focus) is
+`Model.ui.system_focus` now, not the engine's. `Live`'s fields are open to
+the host that drives it; the app's `panes_logic` package remains that host
+(its `update`, ticks and subscriptions) until the engine has a host of its
+own. Helpers that put the engine in a state for a test are behind the
+engine's `testing` feature, which the app's tests turn on.

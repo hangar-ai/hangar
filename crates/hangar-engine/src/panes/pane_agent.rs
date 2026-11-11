@@ -27,7 +27,7 @@ use super::agents::is_trust_prompt;
 use super::bridge_events::{
     EVENT_LINE_MAX, file_base_name, first_line, newly_queued, short_session_id,
 };
-use crate::state::live::{
+use crate::live::{
     AgentActivity, BridgeEvent, ContextGauge, EpochMs, ExitWhat, PaneActivity, PaneEventDetail,
     PaneStatus, QueuedPrompt, ToolPhase, TurnOutcome, TurnPhase,
 };
@@ -79,21 +79,21 @@ pub struct PaneAgent {
     /// The workspace and name the pane had when it mounted: a restart gives
     /// it a new id (and no longer finds the old one in the state), and its
     /// queue goes to the pane that has the same name.
-    pub(super) workspace_id: WsId,
-    pub(super) name: String,
+    pub workspace_id: WsId,
+    pub name: String,
     /// Where the agent stands, even when nobody reads it (a plain shell
     /// reports nothing, but a bell in it still hands back).
-    pub(super) activity: AgentActivity,
+    pub activity: AgentActivity,
     /// The pane's Claude Code loaded the hangar-bridge mod: its turns,
     /// dialogs and usage are reported rather than guessed from the output.
-    pub(super) bridged: bool,
+    pub bridged: bool,
     /// The pane handed control back while you were looking somewhere else.
-    pub(super) attention: bool,
-    pub(super) watcher: ActivityWatcher,
+    pub attention: bool,
+    pub watcher: ActivityWatcher,
     /// Claude Code is asking whether to trust the folder.
     trust_asked: bool,
     /// When to read the screen for that question, 600 ms after the last output.
-    pub(super) trust_look_at: Option<EpochMs>,
+    pub trust_look_at: Option<EpochMs>,
     /// Whether the pane was attended (focused and shown) the last time we
     /// looked, so that the attention is cleared when it becomes so and not
     /// held against a window that is not in front.
@@ -118,7 +118,7 @@ pub struct PaneAgent {
 /// segment (a message written for a human does not start with one) and
 /// left alone rather than badging the pane and popping up a notification
 /// reading `4;3;0`. The parser's handler answers `false` for `None`.
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 pub fn osc9_notification(data: &str) -> Option<String> {
     let digits = data.chars().take_while(char::is_ascii_digit).count();
     let numeric = digits > 0
@@ -135,7 +135,7 @@ pub fn osc9_notification(data: &str) -> Option<String> {
 /// Text of an OSC 777 `notify;title;body`, or `None` for any other kind.
 /// The body is the message, the title when there is no body; empty if both
 /// are.
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 pub fn osc777_notification(data: &str) -> Option<String> {
     let mut parts = data.split(';');
     if parts.next() != Some("notify") {
@@ -150,7 +150,7 @@ impl Live {
     // ----- lifecycle
 
     /// The pane's terminal exists (`notePaneMounted`).
-    pub(super) fn mount_pane(&mut self, pane: &str, workspace_id: &str, name: &str, now: EpochMs) {
+    pub fn mount_pane(&mut self, pane: &str, workspace_id: &str, name: &str, now: EpochMs) {
         self.hibernation.note_pane_mounted(pane, now);
         self.machines.insert(
             pane.to_string(),
@@ -166,7 +166,7 @@ impl Live {
     /// Closed, restarted under a new id, or taken over by another window: a
     /// pane moving to another window keeps its state, which that window
     /// reports from now on (`handing_over`).
-    pub(super) fn unmount_pane(&mut self, pane: &str, handing_over: bool) {
+    pub fn unmount_pane(&mut self, pane: &str, handing_over: bool) {
         if let Some(mut machine) = self.machines.remove(pane) {
             machine.watcher.dispose();
         }
@@ -252,7 +252,7 @@ impl Live {
 
     /// Whether the pane shows a context read from its transcript, which a
     /// clear would take away (a clear of nothing changes nothing).
-    pub(super) fn has_transcript_context(&self, pane: &str) -> bool {
+    pub fn has_transcript_context(&self, pane: &str) -> bool {
         self.machines
             .get(pane)
             .is_some_and(|machine| machine.transcript_context.is_some())
@@ -260,7 +260,7 @@ impl Live {
 
     /// What the transcript says of the pane's context (`None`: nothing to
     /// show, no gauge beats a made-up zero).
-    pub(super) fn set_transcript_context(&mut self, pane: &str, gauge: Option<ContextGauge>) {
+    pub fn set_transcript_context(&mut self, pane: &str, gauge: Option<ContextGauge>) {
         let Some(machine) = self.machines.get_mut(pane) else {
             return;
         };
@@ -318,8 +318,8 @@ impl Live {
     // ----- the guesses of a pane without the mod
 
     /// A chunk of output was printed (written to the terminal) at `now`.
-    #[cfg(test)]
-    pub(super) fn note_output(&mut self, pane: &str, now: EpochMs) {
+    #[cfg(any(test, feature = "testing"))]
+    pub fn note_output(&mut self, pane: &str, now: EpochMs) {
         self.note_printed(pane, now, now);
     }
 
@@ -328,7 +328,7 @@ impl Live {
     /// it settles. The moments are the reader thread's, not the look's: a
     /// pane off screen is looked at four times a second, and its burst is
     /// measured as one looked at every frame would be.
-    pub(super) fn note_printed(&mut self, pane: &str, first: EpochMs, last: EpochMs) {
+    pub fn note_printed(&mut self, pane: &str, first: EpochMs, last: EpochMs) {
         self.hibernation.note_pane_output(pane, last);
         if let Some(watch) = self.watches.get_mut(pane) {
             watch.note_output(last);
@@ -370,12 +370,7 @@ impl Live {
 
     /// The watcher's checks that came due (the host calls it once
     /// `next_check` is due, every `activity::TICK_MS` during a burst).
-    pub(super) fn poll_pane(
-        &mut self,
-        info: &PaneInfo,
-        idle_ms: u64,
-        amb: &Ambient,
-    ) -> Vec<Effect> {
+    pub fn poll_pane(&mut self, info: &PaneInfo, idle_ms: u64, amb: &Ambient) -> Vec<Effect> {
         let Some(machine) = self.machines.get_mut(&info.id) else {
             return Vec::new();
         };
@@ -385,7 +380,7 @@ impl Live {
 
     /// A bell is the agent asking for you outright, so it settles the pane
     /// without waiting out the silence.
-    pub(super) fn bell(&mut self, info: &PaneInfo, amb: &Ambient) -> Vec<Effect> {
+    pub fn bell(&mut self, info: &PaneInfo, amb: &Ambient) -> Vec<Effect> {
         let Some(machine) = self.machines.get_mut(&info.id) else {
             return Vec::new();
         };
@@ -400,7 +395,7 @@ impl Live {
     /// notification". The agent already wrote the message, so it is passed
     /// through instead of being guessed at. `message` is what
     /// `osc9_notification` or `osc777_notification` read.
-    pub(super) fn terminal_notification(
+    pub fn terminal_notification(
         &mut self,
         info: &PaneInfo,
         message: &str,
@@ -424,7 +419,7 @@ impl Live {
     /// burst the idle watcher never counts as work. The screen is read a
     /// moment after the last output instead: the pane is waiting for the
     /// person, and not done.
-    pub(super) fn trust_look_due(&self, pane: &str, now: EpochMs) -> bool {
+    pub fn trust_look_due(&self, pane: &str, now: EpochMs) -> bool {
         self.machines.get(pane).is_some_and(|machine| {
             !machine.bridged && machine.trust_look_at.is_some_and(|at| at <= now)
         })
@@ -434,7 +429,7 @@ impl Live {
     /// due, over every pane: the host sleeps until then (`None`: nothing to
     /// look at until a pane prints). A bridged pane's trust look is never due,
     /// so it waits for nothing.
-    pub(super) fn next_check(&self) -> Option<EpochMs> {
+    pub fn next_check(&self) -> Option<EpochMs> {
         self.machines
             .values()
             .flat_map(|machine| {
@@ -446,7 +441,7 @@ impl Live {
     }
 
     /// The screen, read when `trust_look_due`.
-    pub(super) fn look_for_trust_question(
+    pub fn look_for_trust_question(
         &mut self,
         info: &PaneInfo,
         screen: &str,
@@ -478,7 +473,7 @@ impl Live {
     /// A key pressed in the pane is you taking it back, or answering what it
     /// was waiting on. Keys rather than data: the terminal also answers the
     /// agent's own queries, and those are nobody's answer.
-    pub(super) fn key_pressed(&mut self, info: &PaneInfo, now: EpochMs) {
+    pub fn key_pressed(&mut self, info: &PaneInfo, now: EpochMs) {
         let Some(machine) = self.machines.get(&info.id) else {
             return;
         };
@@ -494,13 +489,7 @@ impl Live {
     /// focused one of its workspace and the workspace is shown. It acts when
     /// the pane becomes so, and (`window_back`) when its window comes back to
     /// the front with the pane already so.
-    pub(super) fn attend(
-        &mut self,
-        info: &PaneInfo,
-        attended: bool,
-        window_back: bool,
-        now: EpochMs,
-    ) {
+    pub fn attend(&mut self, info: &PaneInfo, attended: bool, window_back: bool, now: EpochMs) {
         let Some(machine) = self.machines.get_mut(&info.id) else {
             return;
         };
@@ -518,7 +507,7 @@ impl Live {
     /// The pane's shell ended by itself (`pty:exit`). A Claude Code killed
     /// mid-turn never says goodbye: its last report would otherwise hold the
     /// pane, and the sidebar, at "working" until a restart.
-    pub(super) fn shell_exited(&mut self, info: &PaneInfo, now: EpochMs) {
+    pub fn shell_exited(&mut self, info: &PaneInfo, now: EpochMs) {
         if !self.machines.contains_key(&info.id) {
             return;
         }
@@ -539,7 +528,7 @@ impl Live {
     /// The agent's command was typed into the shell: the session starts now
     /// and says so in the history. Only for the agents that have no mod to
     /// say it (`resumed` is the session the command resumes).
-    pub(super) fn launched(&mut self, info: &PaneInfo, resumed: Option<&str>, now: EpochMs) {
+    pub fn launched(&mut self, info: &PaneInfo, resumed: Option<&str>, now: EpochMs) {
         if !self.machines.contains_key(&info.id) {
             return;
         }
@@ -568,7 +557,7 @@ impl Live {
 
     /// The queue as the mod holds it, and a line for each prompt that joins
     /// it.
-    pub(super) fn queue_changed(&mut self, pane: &str, pending: Vec<QueuedPrompt>, now: EpochMs) {
+    pub fn queue_changed(&mut self, pane: &str, pending: Vec<QueuedPrompt>, now: EpochMs) {
         if !self.machines.contains_key(pane) {
             return;
         }
@@ -595,12 +584,7 @@ impl Live {
     /// A report of the mod, from inside this pane's Claude Code. The first
     /// report of any kind is proof the mod loaded, and from then on the
     /// guesses above stand down.
-    pub(super) fn on_bridge(
-        &mut self,
-        info: &PaneInfo,
-        event: BridgeEvent,
-        amb: &Ambient,
-    ) -> Vec<Effect> {
+    pub fn on_bridge(&mut self, info: &PaneInfo, event: BridgeEvent, amb: &Ambient) -> Vec<Effect> {
         if !self.machines.contains_key(&info.id) {
             return Vec::new();
         }

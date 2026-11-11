@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use hangar_core::delivery::{Kind, Stages};
 use hangar_i18n::{Key, Locale, Translator, args};
 
-use crate::state::live::EpochMs;
+use crate::live::EpochMs;
 
 /// How long an outcome stays on the pane once the delivery ended.
 pub const OUTCOME_SHOW_MS: EpochMs = 6_000;

@@ -10,7 +10,7 @@ use std::sync::LazyLock;
 
 use hangar_i18n::{Translator, args};
 
-use crate::state::live::{EpochMs, ExitWhat, PaneEvent, PaneEventDetail, PaneInsight, TurnOutcome};
+use crate::live::{EpochMs, ExitWhat, PaneEvent, PaneEventDetail, PaneInsight, TurnOutcome};
 use crate::state::types::PaneId;
 
 /// Enough history to read back over a coffee, not a transcript.
@@ -105,7 +105,7 @@ pub struct Insights {
 }
 
 impl Insights {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "testing"))]
     pub fn version(&self) -> u64 {
         self.version
     }
@@ -115,7 +115,7 @@ impl Insights {
         self.panes.get(pane).unwrap_or(&EMPTY_INSIGHT)
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "testing"))]
     pub fn contains(&self, pane: &str) -> bool {
         self.panes.contains_key(pane)
     }
@@ -169,7 +169,7 @@ impl Insights {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::live::ContextGauge;
+    use crate::live::ContextGauge;
     use hangar_i18n::{Key, Locale};
 
     fn en() -> Translator {

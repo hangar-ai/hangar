@@ -17,7 +17,7 @@
 
 use std::collections::HashMap;
 
-use crate::state::live::{
+use crate::live::{
     AgentActivity, AgentRoster, EpochMs, PaneActivity, PlanLimits, RateLimit, WorkspaceActivity,
 };
 use crate::state::types::{PaneId, WsId};
@@ -141,7 +141,7 @@ impl AgentStates {
             .map(|conflict| conflict.by.as_str())
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "testing"))]
     pub fn has_conflicts(&self) -> bool {
         !self.conflicts.is_empty()
     }

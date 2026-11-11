@@ -18,7 +18,7 @@ use crate::state::types::{AppState, Pane, PaneId, Workspace, WsId};
 /// What was built from one state: the place of every pane and workspace,
 /// and each pane's `PaneInfo`, made once and shared with the machines.
 #[derive(Debug, Default)]
-pub(super) struct PaneIndex {
+pub struct PaneIndex {
     /// The state it was built from: its revision, its address, its count of
     /// panes. `None` before the first build.
     built: Option<(u64, usize, usize)>,
@@ -44,7 +44,7 @@ fn stamp(state: &AppState, revision: u64) -> (u64, usize, usize) {
 impl PaneIndex {
     /// Rebuilds the index when `state` is not the one it was built from, and
     /// says which panes of the last build the state no longer has.
-    pub(super) fn refresh(&mut self, state: &AppState, revision: u64) -> Vec<PaneId> {
+    pub fn refresh(&mut self, state: &AppState, revision: u64) -> Vec<PaneId> {
         let stamp = stamp(state, revision);
         if self.built == Some(stamp) {
             return Vec::new();
@@ -70,7 +70,7 @@ impl PaneIndex {
 
     /// The workspace and the pane of `id`, and its `PaneInfo` when the one
     /// built is still what the state says.
-    pub(super) fn find<'a>(
+    pub fn find<'a>(
         &self,
         state: &'a AppState,
         id: &str,
@@ -92,7 +92,7 @@ impl PaneIndex {
 
     /// The `PaneInfo` of a pane already found, the shared one when it still
     /// describes it.
-    pub(super) fn info(&self, ws: &Workspace, pane: &Pane) -> Arc<PaneInfo> {
+    pub fn info(&self, ws: &Workspace, pane: &Pane) -> Arc<PaneInfo> {
         match self.panes.get(&pane.id) {
             Some(entry) if describes(&entry.info, ws, pane) => entry.info.clone(),
             _ => Arc::new(info_of(ws, pane)),
@@ -100,7 +100,7 @@ impl PaneIndex {
     }
 
     /// The workspace `id`.
-    pub(super) fn workspace<'a>(&self, state: &'a AppState, id: &str) -> Option<&'a Workspace> {
+    pub fn workspace<'a>(&self, state: &'a AppState, id: &str) -> Option<&'a Workspace> {
         if let Some(&w) = self.workspaces.get(id)
             && let Some(ws) = state.workspaces.get(w)
             && ws.id == id
@@ -120,7 +120,7 @@ fn describes(info: &PaneInfo, ws: &Workspace, pane: &Pane) -> bool {
         && info.session_id == pane.session_id
 }
 
-pub(super) fn info_of(ws: &Workspace, pane: &Pane) -> PaneInfo {
+pub fn info_of(ws: &Workspace, pane: &Pane) -> PaneInfo {
     PaneInfo {
         id: pane.id.clone(),
         workspace_id: ws.id.clone(),

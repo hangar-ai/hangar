@@ -52,7 +52,7 @@ pub struct ActivityWatcher {
 impl ActivityWatcher {
     /// Whether a burst is being followed, and so whether the host has to
     /// call `poll` every `TICK_MS`. False means no timer needs to run.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "testing"))]
     pub fn is_ticking(&self) -> bool {
         self.next_tick.is_some()
     }
@@ -64,7 +64,7 @@ impl ActivityWatcher {
     }
 
     /// The burst followed, from its first byte to its last.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "testing"))]
     pub fn burst(&self) -> Option<(EpochMs, EpochMs)> {
         self.next_tick
             .map(|_| (self.burst_started_at, self.last_output_at))

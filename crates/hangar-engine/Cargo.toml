@@ -18,3 +18,9 @@ hangar-i18n.workspace = true
 uuid.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+tokio.workspace = true
+
+[features]
+# What the hosts' tests need to put the engine in a state (seeding a pane's
+# activity, running a sweep by hand): off in a build, on for tests.
+testing = []

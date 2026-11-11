@@ -71,6 +71,7 @@ re_rav1d.workspace = true
 usvg.workspace = true
 
 [dev-dependencies]
+hangar-engine = { workspace = true, features = ["testing"] }
 # Scratch folders the tests make, removed when the test ends (panic included).
 tempfile = "3"
 # Draws a package's views without a window, for the snapshot tests packages keep

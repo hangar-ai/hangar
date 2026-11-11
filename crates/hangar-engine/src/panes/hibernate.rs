@@ -16,7 +16,7 @@ use std::collections::HashMap;
 
 use hangar_i18n::{Key, Translator, args};
 
-use crate::state::live::EpochMs;
+use crate::live::EpochMs;
 use crate::state::types::{AgentId, Pane, PaneId, PaneRole, WsId};
 
 /// What the window knows about one pane of the workspace.

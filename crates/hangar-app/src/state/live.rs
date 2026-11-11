@@ -43,6 +43,9 @@ pub struct Ui {
     pub focus: Option<Focus>,
     /// The window that last had the system's focus: where a command runs.
     pub focused_window: Option<window::Id>,
+    /// The window of the app that has the system's focus, if one does
+    /// (`panes_logic`'s attention: a pane in it is being watched).
+    pub system_focus: Option<window::Id>,
 
     /// What had the keyboard when the open drawer opened, to give it back
     /// when it closes on Escape (shell/drawer.rs).
