@@ -140,5 +140,5 @@ pub fn state_text(
     t: &Theme,
     state: crate::state::AgentActivity,
 ) -> impl Fn(&iced::Theme) -> iced::widget::text::Style + '_ {
-    style::text::state(t, state.into())
+    style::text::state(t, crate::state::live::agent_state(state))
 }

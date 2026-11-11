@@ -29,7 +29,7 @@ pub fn activity(m: &Model, pane: &PaneId) -> AgentActivity {
 /// The glyph of an agent's activity, for a state word or a count of panes in
 /// that state.
 pub fn activity_glyph(activity: AgentActivity) -> hangar_ui::glyph::GlyphState {
-    hangar_ui::glyph::GlyphState::from(hangar_theme::AgentState::from(activity))
+    hangar_ui::glyph::GlyphState::from(crate::state::live::agent_state(activity))
 }
 
 /// How many of a workspace's agents are working, waiting, or done

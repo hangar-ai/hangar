@@ -147,7 +147,7 @@ fn header<'a>(ctx: Ctx<'a>, pane: &'a Pane) -> Element<'a, Message> {
         AgentActivity::Yours => Key::PaneStateYoursShort,
         AgentActivity::Idle => Key::PaneStateIdle,
     };
-    let state = AgentState::from(activity);
+    let state = crate::state::live::agent_state(activity);
     let pill = container(
         row![
             dot(t.colors.state(state).fill, 7.0),

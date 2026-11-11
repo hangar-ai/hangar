@@ -3,6 +3,9 @@
 //! it; a Hangar with no window runs it alone.
 //!
 //! - `state`: the persisted state of the workspaces and the store through
-//!   which it changes.
+//!   which it changes;
+//! - `live`: what is kept of each pane and agent beside it (activity,
+//!   insight, the hangar-bridge mod's reports).
 
+pub mod live;
 pub mod state;

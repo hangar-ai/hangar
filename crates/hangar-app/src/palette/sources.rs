@@ -197,7 +197,7 @@ fn state_word(activity: AgentActivity) -> Key {
 }
 
 fn agent_state(activity: AgentActivity) -> AgentState {
-    activity.into()
+    crate::state::live::agent_state(activity)
 }
 
 fn glyph(activity: AgentActivity) -> Glyph {

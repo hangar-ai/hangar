@@ -91,7 +91,7 @@ fn pane_panel<'a>(
     let data = Data {
         insight: sources::insight(m, &pane.id),
         state: activity
-            .map(|activity| AgentState::from(activity.activity))
+            .map(|activity| crate::state::live::agent_state(activity.activity))
             .unwrap_or(AgentState::Idle),
         bridged: activity.is_some_and(|activity| activity.bridged),
         limits: sources::plan_limits(m).map(|plan| plan.limits.as_slice()),
