@@ -110,6 +110,32 @@ mod listing {
     use super::*;
 
     #[test]
+    fn two_commits_open_on_the_file_asked_for_then_keep_the_reader_s_choice() {
+        let (mut state, _) = DiffState::open_range(
+            "/work/app".into(),
+            Some("Search index".into()),
+            ("3f2a1bc4d5e6".into(), "9e8d7f0a1b2c".into()),
+            Some("b.rs".into()),
+            1,
+        );
+        let _ = state.update(DiffMsg::Setup(
+            1,
+            Box::new((info(true, true, Some("feat/x")), None)),
+        ));
+        // Nothing to compare with but the two commits.
+        assert_eq!(state.base, None);
+        let seq = state.load_seq;
+        let files = || vec![file("a.rs", "M"), file("b.rs", "A")];
+        let _ = state.update(DiffMsg::Listed(1, seq, Ok(changes(files()))));
+        assert_eq!(state.selected.as_deref(), Some("\u{0}b.rs"));
+        let _ = state.update(DiffMsg::Select("\u{0}a.rs".into()));
+        let _ = state.update(DiffMsg::Reload);
+        let seq = state.load_seq;
+        let _ = state.update(DiffMsg::Listed(1, seq, Ok(changes(files()))));
+        assert_eq!(state.selected.as_deref(), Some("\u{0}a.rs"));
+    }
+
+    #[test]
     fn the_first_file_is_selected_when_nothing_was() {
         let state = listed(vec![file("a.rs", "M"), file("b.rs", "A")]);
         assert_eq!(state.selected.as_deref(), Some("\u{0}a.rs"));

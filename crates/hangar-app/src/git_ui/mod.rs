@@ -118,6 +118,26 @@ fn open_diff(st: &mut State, m: &Model, ws: &WsId, pane: Option<&PaneId>) -> Tas
     first.map(wrap_diff)
 }
 
+/// What `to` brought over `from` in the workspace's repository: a delivery's
+/// changes, `file` shown first.
+fn open_changes(
+    st: &mut State,
+    m: &Model,
+    ws: &WsId,
+    range: (String, String),
+    label: Option<String>,
+    file: Option<String>,
+) -> Task<Message> {
+    let Some((cwd, _)) = diff_target(m, ws, None) else {
+        st.diff = None;
+        return Task::none();
+    };
+    st.generations += 1;
+    let (state, first) = DiffState::open_range(cwd, label, range, file, st.generations);
+    st.diff = Some(state);
+    first.map(wrap_diff)
+}
+
 fn open_worktrees(st: &mut State, m: &Model, ws: &WsId) -> Task<Message> {
     let Some(workspace) = m.workspace(ws) else {
         st.worktrees = None;
@@ -141,6 +161,20 @@ pub fn on_intent(
     let _ = sv;
     match intent {
         Intent::OpenDiff { ws, pane } => Some(open_diff(st, m, ws, pane.as_ref())),
+        Intent::OpenChanges {
+            ws,
+            from,
+            to,
+            label,
+            file,
+        } => Some(open_changes(
+            st,
+            m,
+            ws,
+            (from.clone(), to.clone()),
+            label.clone(),
+            file.clone(),
+        )),
         Intent::OpenWorktrees(ws) => Some(open_worktrees(st, m, ws)),
         Intent::OpenOverlay(Overlay::Diff { ws, pane }) => {
             Some(open_diff(st, m, ws, pane.as_ref()))

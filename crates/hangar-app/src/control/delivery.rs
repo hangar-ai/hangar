@@ -34,6 +34,7 @@ use hangar_core::delivery::{Cleanup, Delivery, Kind, Outcome, Plan, TaskBrief, T
 use hangar_core::shells::ShellInfo;
 
 use crate::accounts::{MAIN_ACCOUNT, launch_account_with};
+use crate::orchestration::heard;
 use crate::state::roles::{NEEDS_YOU_LABEL, READY_TO_LAND_LABEL, orchestration_of, workers_of};
 use crate::state::types::PaneRole;
 use crate::state::{Pane, Settings, Workspace, WsId};
@@ -280,6 +281,24 @@ pub fn headline(detail: &str) -> String {
         None => line.to_string(),
     };
     capped(sentence, 240)
+}
+
+/// What a delivery brings to the branch it lands on, as git names it: the
+/// head that branch had and the merge, which the orchestrator can diff, and
+/// the chat view reads back to list the files (`orchestration::heard`).
+pub fn changes_range(outcome: &Outcome) -> Option<String> {
+    let (base, merge) = (outcome.base.as_deref()?, outcome.merge.as_deref()?);
+    let abbrev = |sha: &str| sha.chars().take(12).collect::<String>();
+    (!base.is_empty() && !merge.is_empty() && base != merge)
+        .then(|| format!("{}{}..{}", heard::CHANGES, abbrev(base), abbrev(merge)))
+}
+
+/// `event_detail`, and what the delivery brings when it is on a branch.
+fn with_changes(detail: String, outcome: &Outcome) -> String {
+    match changes_range(outcome) {
+        Some(range) => format!("{}; {range}", capped(detail, 330)),
+        None => detail,
+    }
 }
 
 /// An outcome in one line for the orchestrator: the fact it acts on (the
@@ -1033,7 +1052,7 @@ async fn settle(
         delivery
             .board_comment(cwd, &task.id, HANGAR, &lines.join("\n"))
             .await?;
-        post(event_detail(outcome, target));
+        post(with_changes(event_detail(outcome, target), outcome));
         return Ok(());
     }
 
@@ -1058,7 +1077,7 @@ async fn settle(
         if let Some(worker) = worker {
             delivery.tell(&worker.id, &outcome.detail).await?;
         }
-        post(event_detail(outcome, target));
+        post(with_changes(event_detail(outcome, target), outcome));
         return Ok(());
     }
 

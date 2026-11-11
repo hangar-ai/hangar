@@ -159,6 +159,11 @@ pub struct DiffState {
     setup: Setup,
     /// `None` compares with HEAD; a branch name, with where this branch forked.
     base: Option<String>,
+    /// Two commits compared instead of the working tree: what a delivery
+    /// brought to the branch it landed on.
+    range: Option<(String, String)>,
+    /// The file to show first, once listed.
+    pick: Option<String>,
     changes: Option<Arc<Changes>>,
     error: Option<String>,
     loading: bool,
@@ -238,12 +243,37 @@ fn visible_range(scroll_y: f32, viewport: f32, rows: usize) -> (usize, usize) {
 impl DiffState {
     /// A modal for the changes of `cwd`, and the first thing it asks.
     pub fn open(cwd: String, label: Option<String>, generation: u64) -> (DiffState, Task<DiffMsg>) {
+        Self::opened(cwd, label, None, None, generation)
+    }
+
+    /// A modal for what `to` changes from `from` in the repository of
+    /// `cwd`, `file` shown first when it is one of them.
+    pub fn open_range(
+        cwd: String,
+        label: Option<String>,
+        (from, to): (String, String),
+        file: Option<String>,
+        generation: u64,
+    ) -> (DiffState, Task<DiffMsg>) {
+        Self::opened(cwd, label, Some((from, to)), file, generation)
+    }
+
+    fn opened(
+        cwd: String,
+        label: Option<String>,
+        range: Option<(String, String)>,
+        pick: Option<String>,
+        generation: u64,
+    ) -> (DiffState, Task<DiffMsg>) {
+        let ranged = range.is_some();
         let state = DiffState {
             cwd: cwd.clone(),
             label,
             generation,
             setup: Setup::Loading,
             base: None,
+            range,
+            pick,
             changes: None,
             error: None,
             loading: false,
@@ -256,7 +286,7 @@ impl DiffState {
             diff_scroll: Scroll::default(),
             char_width: Cell::new(None),
         };
-        let asked = Task::perform(setup(cwd), move |found| {
+        let asked = Task::perform(setup(cwd, ranged), move |found| {
             DiffMsg::Setup(generation, Box::new(found))
         });
         (state, asked)
@@ -295,9 +325,15 @@ impl DiffState {
         self.error = None;
         self.cache.clear();
         let (generation, seq) = (self.generation, self.load_seq);
-        let (cwd, base) = (self.cwd.clone(), self.base.clone());
+        let (cwd, base, range) = (self.cwd.clone(), self.base.clone(), self.range.clone());
         Task::perform(
-            async move { git::git_changes(cwd, base).await.map(Arc::new) },
+            async move {
+                match range {
+                    Some((from, to)) => git::git_range_changes(cwd, from, to).await,
+                    None => git::git_changes(cwd, base).await,
+                }
+                .map(Arc::new)
+            },
             move |answer| DiffMsg::Listed(generation, seq, answer),
         )
     }
@@ -329,17 +365,31 @@ impl DiffState {
         }
         self.shown = None;
         let (generation, seq) = (self.generation, self.load_seq);
-        let (cwd, base) = (self.cwd.clone(), self.base.clone());
+        let (cwd, base, range) = (self.cwd.clone(), self.base.clone(), self.range.clone());
         let asked = Task::perform(
             async move {
-                git::git_file_diff(
-                    cwd,
-                    file.path.clone(),
-                    file.old_path.clone(),
-                    file.status == "?",
-                    base,
-                )
-                .await
+                match range {
+                    Some((from, to)) => {
+                        git::git_range_file_diff(
+                            cwd,
+                            file.path.clone(),
+                            file.old_path.clone(),
+                            from,
+                            to,
+                        )
+                        .await
+                    }
+                    None => {
+                        git::git_file_diff(
+                            cwd,
+                            file.path.clone(),
+                            file.old_path.clone(),
+                            file.status == "?",
+                            base,
+                        )
+                        .await
+                    }
+                }
                 .map(Arc::new)
             },
             move |answer| DiffMsg::FileRead(generation, seq, key.clone(), answer),
@@ -411,7 +461,15 @@ impl DiffState {
                             .as_ref()
                             .filter(|key| next.files.iter().any(|file| &file_key(file) == *key))
                             .cloned();
-                        self.selected = keep.or_else(|| next.files.first().map(file_key));
+                        // The file asked for when it opened, the first time.
+                        let picked = self.pick.take().and_then(|path| {
+                            next.files
+                                .iter()
+                                .find(|file| file.path == path)
+                                .map(file_key)
+                        });
+                        self.selected =
+                            keep.or(picked).or_else(|| next.files.first().map(file_key));
                         self.changes = Some(next);
                         self.error = None;
                     }
@@ -496,11 +554,11 @@ impl DiffState {
 }
 
 /// What the setup learns: the folder's repository and, for a linked worktree,
-/// the branch to compare with.
-async fn setup(cwd: String) -> (RepoInfo, Option<String>) {
+/// the branch to compare with (not for two commits: nothing to choose).
+async fn setup(cwd: String, ranged: bool) -> (RepoInfo, Option<String>) {
     let info = git::git_repo_info(cwd.clone()).await;
     let mut comparable = None;
-    if info.is_repo && info.is_linked_worktree {
+    if info.is_repo && info.is_linked_worktree && !ranged {
         let worktrees = git::git_worktree_list(cwd).await.unwrap_or_default();
         let main_branch = worktrees
             .iter()
@@ -670,7 +728,16 @@ fn bar<'a>(ds: &'a DiffState, ctx: Ctx<'a>, wrap: Wrap) -> Element<'a, Message> 
     .spacing(space::LG)
     .align_y(Alignment::Center);
 
-    if let Some(branch) = info.and_then(|info| info.branch.clone()) {
+    // Two commits: their range in place of the branch checked out now.
+    let branch = match &ds.range {
+        Some((from, to)) => Some(format!(
+            "{}..{}",
+            from.chars().take(7).collect::<String>(),
+            to.chars().take(7).collect::<String>()
+        )),
+        None => info.and_then(|info| info.branch.clone()),
+    };
+    if let Some(branch) = branch {
         let fill = c.line;
         line = line.push(
             container(

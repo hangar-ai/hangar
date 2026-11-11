@@ -798,7 +798,8 @@ async fn a_landed_delivery_finishes_the_task_and_lets_the_worker_go() {
         s.events(),
         vec![
             json!({"kind": "delivery", "taskId": "t1", "title": "Add the export button",
-                    "worker": "Bo", "outcome": "landed", "detail": "landed on main (abcdef1)"})
+                    "worker": "Bo", "outcome": "landed",
+                    "detail": "landed on main (abcdef1); changes: git diff 1234567abcde..abcdef123456"})
         ]
     );
 }
@@ -965,7 +966,8 @@ async fn one_that_passed_waits_for_the_person_and_lands_when_they_say_so() {
     contains(&s.line("tell:p2:"), "Automatic landing is off");
     matches(
         &s.events()[0],
-        json!({"outcome": "ready", "detail": "ready to land on main"}),
+        // What it brings, for the orchestrator to diff and the chat to list.
+        json!({"outcome": "ready", "detail": "ready to land on main; changes: git diff 1234567abcde..abcdef123456"}),
     );
     assert!(s.fake.logged("close:").is_empty());
 
@@ -1240,7 +1242,8 @@ async fn with_new_commits_replaces_it_and_takes_the_whole_way_again_only_the_new
     assert_eq!(events.len(), 1);
     matches(
         &events[0],
-        json!({"kind": "delivery", "outcome": "ready", "detail": "ready to land on main"}),
+        json!({"kind": "delivery", "outcome": "ready",
+               "detail": "ready to land on main; changes: git diff 1234567abcde..fedcba987654"}),
     );
 
     s.now(Kind::Landed, "landed", |answer| {

@@ -19,6 +19,9 @@ pub enum Heard {
         task: String,
         worker: String,
         outcome: DeliveryOutcome,
+        /// What it brings to the branch it lands on: two commits to diff
+        /// (`CHANGES`), when it went that far.
+        changes: Option<Range>,
     },
     NeedsYou {
         task: String,
@@ -69,6 +72,31 @@ pub enum Heard {
         minutes: u64,
         task: Option<String>,
     },
+}
+
+/// Two commits: what the second brings over the first.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Range {
+    pub from: String,
+    pub to: String,
+}
+
+/// How a delivery's line names what it brings, before the range
+/// (`control::delivery::changes_range` writes it).
+pub const CHANGES: &str = "changes: git diff ";
+
+/// The range after `CHANGES` in `text`: two abbreviated commits, nothing
+/// else (a line read back names nothing git would take for an option).
+fn range_in(text: &str) -> Option<Range> {
+    let at = text.rfind(CHANGES)? + CHANGES.len();
+    let token = text[at..].split_whitespace().next()?;
+    let token = token.trim_end_matches(['.', ',', ';', ')']);
+    let (from, to) = token.split_once("..")?;
+    let sha = |s: &str| (7..=64).contains(&s.len()) && s.chars().all(|c| c.is_ascii_hexdigit());
+    (sha(from) && sha(to)).then(|| Range {
+        from: from.to_string(),
+        to: to.to_string(),
+    })
 }
 
 /// How each outcome reads after "Delivery of … by …": `describe_event`'s
@@ -152,6 +180,7 @@ pub fn read_line(line: &str) -> Option<Heard> {
             task: task_of(task)?,
             worker: worker.to_string(),
             outcome,
+            changes: range_in(&rest[at..]),
         });
     }
     if let Some((task, reason)) = line.split_once(" needs the person: ") {
@@ -285,12 +314,58 @@ mod tests {
                     Some(Heard::Delivery {
                         task: task(),
                         worker: "Ada".into(),
-                        outcome
+                        outcome,
+                        changes: None,
                     }),
                     "{outcome:?} {detail:?}"
                 );
             }
         }
+    }
+
+    #[test]
+    fn a_delivery_on_a_branch_reads_back_with_what_it_brings() {
+        let mut outcome = hangar_core::delivery::Outcome {
+            outcome: hangar_core::delivery::Kind::Landed,
+            detail: "worker/t1 landed on main.".into(),
+            files: vec![],
+            in_checkout: false,
+            changed: vec![],
+            outside_owns: vec![],
+            check: None,
+            check_skipped: None,
+            review: None,
+            merge: Some("9e8d7f0a1b2c3d4e5f60718293a4b5c6d7e8f901".into()),
+            base: Some("3f2a1bc4d5e6f708192a3b4c5d6e7f8091a2b3c4".into()),
+            landed_in: None,
+        };
+        let detail = crate::control::delivery::changes_range(&outcome).expect("a range");
+        assert_eq!(detail, "changes: git diff 3f2a1bc4d5e6..9e8d7f0a1b2c");
+        let heard = read(E::Delivery {
+            task_id: "t1".into(),
+            title: "Search box".into(),
+            worker: "Ada".into(),
+            outcome: DeliveryOutcome::Landed,
+            detail: format!("landed on main (9e8d7f0); {detail}"),
+        });
+        assert_eq!(
+            heard,
+            Some(Heard::Delivery {
+                task: task(),
+                worker: "Ada".into(),
+                outcome: DeliveryOutcome::Landed,
+                changes: Some(Range {
+                    from: "3f2a1bc4d5e6".into(),
+                    to: "9e8d7f0a1b2c".into(),
+                }),
+            })
+        );
+        // Nothing merged, nothing to show.
+        outcome.base = outcome.merge.clone();
+        assert_eq!(crate::control::delivery::changes_range(&outcome), None);
+        // Words that are not two commits are not a range.
+        assert_eq!(range_in("changes: git diff --output=x..HEAD"), None);
+        assert_eq!(range_in("changes: git diff main..feature"), None);
     }
 
     #[test]

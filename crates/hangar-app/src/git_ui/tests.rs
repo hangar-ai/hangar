@@ -100,6 +100,22 @@ mod opening {
     }
 
     #[test]
+    fn a_delivery_s_changes_open_on_the_workspace_s_repository() {
+        let (m, mut st) = (model(), State::default());
+        let _ = open_changes(
+            &mut st,
+            &m,
+            &"w".to_string(),
+            ("3f2a1bc4d5e6".into(), "9e8d7f0a1b2c".into()),
+            Some("Search index".into()),
+            Some("src/a.ts".into()),
+        );
+        let diff = st.diff.as_ref().unwrap();
+        assert_eq!(diff.cwd, "/work/storefront");
+        assert_eq!(diff.label.as_deref(), Some("Search index"));
+    }
+
+    #[test]
     fn a_workspace_that_is_gone_opens_nothing() {
         let (m, mut st) = (model(), State::default());
         let _ = open_diff(&mut st, &m, &"nobody".to_string(), None);

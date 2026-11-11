@@ -931,6 +931,21 @@ pub async fn git_file_diff(
 
 The unified diff of one file of `git_changes`, read-only.
 
+#### `git_range_changes`, `git_range_file_diff`
+
+```rust
+pub async fn git_range_changes(path: String, from: String, to: String) -> Result<Changes, String>
+pub async fn git_range_file_diff(
+    path: String,
+    file: String,
+    old_path: Option<String>,
+    from: String,
+    to: String,
+) -> Result<FileDiff, String>
+```
+
+The same between two commits instead of against the working tree: what a delivery brought to the branch it lands on (`base..merge`, which the delivery's event names as `changes: git diff <base>..<merge>`). Nothing untracked; each revision must name a commit, and one starting with `-` is refused.
+
 ### Cloning a repository
 
 #### `git_repo_parse`

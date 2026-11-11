@@ -44,6 +44,7 @@ impl App {
             Intent::OpenWorktrees(ws) => self.open_overlay(Overlay::Worktrees(ws)),
             Intent::OpenKitsDialog(ws) => self.open_overlay(Overlay::KitsDialog(ws)),
             Intent::OpenDiff { ws, pane } => self.open_overlay(Overlay::Diff { ws, pane }),
+            Intent::OpenChanges { ws, .. } => self.open_overlay(Overlay::Diff { ws, pane: None }),
             Intent::OpenSessions { ws, pane } => {
                 self.open_overlay(Overlay::SessionPicker { ws, pane })
             }

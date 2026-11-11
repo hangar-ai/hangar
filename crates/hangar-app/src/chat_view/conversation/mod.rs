@@ -50,7 +50,8 @@ use iced::widget::scrollable::Viewport;
 use iced::widget::text_editor;
 use iced::{Subscription, Task};
 
-use hangar_core::chat::{Answer, Body, Question};
+use hangar_core::chat::{Answer, Body, Question, Sender};
+use hangar_core::git::{self, Changes};
 
 use crate::control::port::{BoxFuture, Port};
 use crate::message::{Intent, Message};
@@ -58,6 +59,7 @@ use crate::mobile::chat_live::PLAN_TOOL;
 use crate::mobile::contract::{ChatPending, RemoteAnswered, RemoteSent};
 use crate::mobile::desk::{self, ChatView};
 use crate::mobile::engine::Mobile;
+use crate::orchestration::heard::{Heard, Range};
 use crate::preview::highlight::Lines;
 use crate::preview::markdown::highlight_blocks;
 use crate::services::{CoreEvent, Services};
@@ -120,6 +122,18 @@ pub enum Call {
         feedback: Option<String>,
         prompt: Option<String>,
     },
+    /// The files a delivery brought, read from git (not through the desk).
+    Changes(Range),
+}
+
+/// The files a delivery brought, as far as they are read.
+#[derive(Debug, Clone)]
+pub enum Changed {
+    Reading,
+    Read(Arc<Changes>),
+    /// Not to be read here (a workspace on a node, history rewritten): the
+    /// line stays as it is.
+    Failed,
 }
 
 /// What Hangar Mobile's state says of the pane's input, looked at on each
@@ -159,6 +173,9 @@ pub struct Chat {
     code: HashMap<u64, Arc<Lines>>,
     /// The calls shown with their detail, and Hangar's messages shown whole.
     expanded: HashSet<String>,
+    /// The files of the deliveries the conversation tells of, by their
+    /// range of commits.
+    changes: HashMap<Range, Changed>,
     draft: text_editor::Content,
     form: Form,
     /// An answer or a permission is on its way.
@@ -201,6 +218,7 @@ impl Chat {
             prose: HashMap::new(),
             code: HashMap::new(),
             expanded: HashSet::new(),
+            changes: HashMap::new(),
             draft: text_editor::Content::new(),
             form: Form::default(),
             deciding: false,
@@ -351,6 +369,19 @@ pub enum Msg {
     },
     /// A call's detail, or a message of Hangar's, shown or folded.
     Toggle(WsId, String),
+    /// The files of a delivery, read.
+    Changes {
+        ws: WsId,
+        range: Range,
+        result: Result<Arc<Changes>, String>,
+    },
+    /// The "Changes" overlay on a delivery, a file of it shown first.
+    OpenChanges {
+        ws: WsId,
+        range: Range,
+        task: String,
+        file: Option<String>,
+    },
     Pick {
         ws: WsId,
         question: usize,
@@ -630,6 +661,67 @@ fn sync_prose(chat: &mut Chat, ws: &str) -> Task<Message> {
     )
 }
 
+/// The deliveries the conversation tells of that went onto a branch, whose
+/// files are not read yet: each is marked as being read.
+fn wanted_changes(chat: &mut Chat) -> Vec<Range> {
+    let mut wanted = Vec::new();
+    for item in &chat.thread.items {
+        let Body::User {
+            text,
+            from: Sender::Hangar,
+            ..
+        } = &item.body
+        else {
+            continue;
+        };
+        let hangar::Note::News(lines) = hangar::note(text) else {
+            continue;
+        };
+        for line in lines {
+            if let hangar::Line::Heard(Heard::Delivery {
+                changes: Some(range),
+                ..
+            }) = line
+                && !chat.changes.contains_key(&range)
+            {
+                chat.changes.insert(range.clone(), Changed::Reading);
+                wanted.push(range);
+            }
+        }
+    }
+    wanted
+}
+
+/// Reads what each delivery brought from the workspace's repository.
+fn read_changes(st: &mut State, m: &Model, ws: &str, ranges: Vec<Range>) -> Task<Message> {
+    let Some(cwd) = m.workspace(ws).map(|found| found.cwd.clone()) else {
+        return Task::none();
+    };
+    let mut reads = Vec::new();
+    for range in ranges {
+        #[cfg(test)]
+        st.calls
+            .push((ws.to_string(), Call::Changes(range.clone())));
+        let (ws, cwd) = (ws.to_string(), cwd.clone());
+        let asked = git::git_range_changes(cwd, range.from.clone(), range.to.clone());
+        reads.push(Task::perform(asked, move |result| {
+            msg(Msg::Changes {
+                ws: ws.clone(),
+                range: range.clone(),
+                result: result.map(Arc::new),
+            })
+        }));
+    }
+    #[cfg(not(test))]
+    let _ = st;
+    Task::batch(reads)
+}
+
+/// The key a delivery's files are shown under, unfolded.
+pub(super) fn changes_key(range: &Range) -> String {
+    format!("changes:{}..{}", range.from, range.to)
+}
+
 /// Where the plan a prompt presents is kept with Claude's messages.
 pub(super) fn plan_key(prompt: &str) -> String {
     format!("plan:{prompt}")
@@ -682,6 +774,7 @@ fn touches(msg_: &Msg) -> Option<&str> {
         Msg::Read { ws, .. }
         | Msg::Sent { ws, .. }
         | Msg::Toggle(ws, _)
+        | Msg::Changes { ws, .. }
         | Msg::SubmitAnswer(ws)
         | Msg::Permit(ws, _)
         | Msg::Plan(ws, _)
@@ -700,6 +793,7 @@ fn touches(msg_: &Msg) -> Option<&str> {
         | Msg::Stop(_)
         | Msg::Stopped { .. }
         | Msg::PlanFeedback(..)
+        | Msg::OpenChanges { .. }
         | Msg::Link(_) => None,
     }
 }
@@ -740,13 +834,15 @@ fn route(st: &mut State, m: &mut Model, msg_: Msg) -> Task<Message> {
                 }
             }
             let colour = sync_prose(chat, &ws);
+            let wanted = wanted_changes(chat);
             let again = !older && std::mem::take(&mut chat.again);
             let next = if again {
                 refresh(st, m, &ws)
             } else {
                 Task::none()
             };
-            Task::batch([colour, next])
+            let changes = read_changes(st, m, &ws, wanted);
+            Task::batch([colour, next, changes])
         }
         Msg::Tick => {
             let due: Vec<WsId> = shown(m)
@@ -796,6 +892,28 @@ fn route(st: &mut State, m: &mut Model, msg_: Msg) -> Task<Message> {
             }
             refresh(st, m, &ws)
         }
+        Msg::Changes { ws, range, result } => {
+            if let Some(chat) = st.chats.get_mut(&ws) {
+                let read = match result {
+                    Ok(changes) => Changed::Read(changes),
+                    Err(_) => Changed::Failed,
+                };
+                chat.changes.insert(range, read);
+            }
+            Task::none()
+        }
+        Msg::OpenChanges {
+            ws,
+            range,
+            task,
+            file,
+        } => Task::done(Message::Intent(Intent::OpenChanges {
+            ws,
+            from: range.from,
+            to: range.to,
+            label: Some(task),
+            file,
+        })),
         Msg::Toggle(ws, id) => {
             if let Some(chat) = st.chats.get_mut(&ws)
                 && !chat.expanded.remove(&id)

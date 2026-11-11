@@ -170,6 +170,15 @@ pub enum Intent {
         ws: WsId,
         pane: Option<PaneId>,
     },
+    /// The "Changes" overlay on what `to` brought over `from` in the
+    /// workspace's repository (a delivery's changes), `file` shown first.
+    OpenChanges {
+        ws: WsId,
+        from: String,
+        to: String,
+        label: Option<String>,
+        file: Option<String>,
+    },
     OpenWorktrees(WsId),
     OpenKitsDialog(WsId),
     OpenMcpInstall,

@@ -120,7 +120,8 @@ mod tests {
                 Line::Heard(Heard::Delivery {
                     task: "Search box".into(),
                     worker: "Ada".into(),
-                    outcome: DeliveryOutcome::Landed
+                    outcome: DeliveryOutcome::Landed,
+                    changes: None,
                 }),
                 Line::Heard(Heard::Started {
                     worker: "Bo".into(),

@@ -19,6 +19,7 @@ use crate::navigator::testing::{ctx, model_of, pane, simulate, workspace};
 use crate::settings::experiments;
 use crate::state::types::{AppState, PaneRole};
 use crate::state::{Patch, Settings, StoreAction};
+use hangar_core::git::ChangedFile;
 
 const WS: &str = "conv";
 const LEO: &str = "leo";
@@ -878,6 +879,121 @@ fn a_permission_card_allows_or_denies_the_prompt_it_shows() {
     );
 }
 
+/* ── what a delivery brought ───────────────────────────────────── */
+
+fn delivered_range() -> Range {
+    Range {
+        from: "3f2a1bc4d5e6".into(),
+        to: "9e8d7f0a1b2c".into(),
+    }
+}
+
+fn changed(path: &str, status: &str, added: u32, deleted: u32) -> ChangedFile {
+    ChangedFile {
+        path: path.into(),
+        old_path: None,
+        status: status.into(),
+        additions: Some(added),
+        deletions: Some(deleted),
+        binary: false,
+    }
+}
+
+/// What "Search index" brought, as git lists it.
+fn delivered_files() -> Msg {
+    Msg::Changes {
+        ws: WS.into(),
+        range: delivered_range(),
+        result: Ok(Arc::new(Changes {
+            root: "/dev/shop".into(),
+            base: Some("3f2a1bc".into()),
+            files: vec![
+                changed("src/search/Box.tsx", "A", 64, 0),
+                changed("src/search/index.ts", "M", 48, 9),
+                changed("src/search/legacy.ts", "D", 0, 5),
+            ],
+            truncated: false,
+        })),
+    }
+}
+
+#[test]
+fn a_delivery_on_a_branch_shows_its_files_and_opens_them_in_changes() {
+    let mut m = shop(true);
+    let mut st = State::default();
+    read_into(&mut st, &mut m, busy_page(None));
+    // Read once, however often the page is read again.
+    read_into(&mut st, &mut m, busy_page(None));
+    assert_eq!(
+        calls(&st)
+            .into_iter()
+            .filter(|call| matches!(call, Call::Changes(_)))
+            .collect::<Vec<_>>(),
+        [Call::Changes(delivered_range())]
+    );
+    let line = "Ada delivered “Search index”: merged, task done";
+    assert_eq!(shown_texts(&st, &m, &[line, "3 files"]), [line]);
+
+    apply(&mut st, &mut m, vec![delivered_files()]);
+    assert_eq!(
+        shown_texts(
+            &st,
+            &m,
+            &[line, "3 files", "+112", "−14", "src/search/index.ts"]
+        ),
+        [line, "3 files", "+112", "−14"],
+        "folded: the count and the lines, no file"
+    );
+    let unfolded = clicks(&st, &m, &["3 files"]);
+    apply(&mut st, &mut m, unfolded);
+    assert_eq!(
+        shown_texts(
+            &st,
+            &m,
+            &[
+                "src/search/Box.tsx",
+                "src/search/index.ts",
+                "src/search/legacy.ts",
+                "See them in Changes"
+            ]
+        )
+        .len(),
+        4
+    );
+    let opened = clicks(&st, &m, &["src/search/index.ts"]);
+    assert!(
+        matches!(
+            opened.as_slice(),
+            [Msg::OpenChanges { range, task, file: Some(file), .. }]
+                if *range == delivered_range() && task == "Search index" && file == "src/search/index.ts"
+        ),
+        "{opened:?}"
+    );
+    let all = clicks(&st, &m, &["See them in Changes"]);
+    assert!(matches!(
+        all.as_slice(),
+        [Msg::OpenChanges { file: None, .. }]
+    ));
+}
+
+#[test]
+fn a_delivery_whose_files_cannot_be_read_stays_one_line() {
+    let mut m = shop(true);
+    let mut st = State::default();
+    read_into(&mut st, &mut m, busy_page(None));
+    apply(
+        &mut st,
+        &mut m,
+        vec![Msg::Changes {
+            ws: WS.into(),
+            range: delivered_range(),
+            result: Err("'9e8d7f0a1b2c' is not a commit of this repository".into()),
+        }],
+    );
+    let line = "Ada delivered “Search index”: merged, task done";
+    assert_eq!(shown_texts(&st, &m, &[line, "3 files"]), [line]);
+}
+
 /* ── plans ─────────────────────────────────────────────────────── */
 
 const PLAN: &str = "## Search box\n\n\
@@ -1314,7 +1430,7 @@ fn busy_page(pending: Option<ChatPending>) -> ChatView {
                 "h1",
                 Body::User {
                     text: "[Hangar] Event — not typed by the person.\n\n3 updates in workspace \"Shop\":\n\
-                        - Delivery of \"Search index\" [t1] by Ada landed: merged on the branch, task done\n\
+                        - Delivery of \"Search index\" [t1] by Ada landed: merged on the branch, task done — landed on main (9e8d7f0); changes: git diff 3f2a1bc4d5e6..9e8d7f0a1b2c\n\
                         - Bo started on \"Filters\" [t2]\n\
                         - Cy has been waiting for the person for 4 min on \"Checkout\" [t3]: a permission or a question in its pane, which only the person can answer\n\
                         Ready to start: \"Filters\" [t2].".into(),
@@ -1487,6 +1603,18 @@ fn the_permission_and_question_cards_are_drawn() {
     let mut st = State::default();
     read_into(&mut st, &mut m, busy_page(Some(planning("plan-1"))));
     picture("plan", &st, &m, "graphite");
+
+    let mut st = State::default();
+    read_into(&mut st, &mut m, busy_page(None));
+    apply(
+        &mut st,
+        &mut m,
+        vec![
+            delivered_files(),
+            Msg::Toggle(WS.into(), super::changes_key(&delivered_range())),
+        ],
+    );
+    picture("delivered", &st, &m, "graphite");
 
     let mut st = State::default();
     read_into(

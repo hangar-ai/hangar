@@ -9,8 +9,10 @@
 //! works, a line that says so at the bottom.
 
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::sync::Arc;
 
 use hangar_core::chat::{Answer, Body, CallResult, CallState, ChatItem, Question, Sender};
+use hangar_core::git::{ChangedFile, Changes};
 use hangar_i18n::{Key, args};
 use hangar_theme::{AgentState, Theme, fonts, style, tokens};
 use hangar_ui::{Icon, button as ui_button, empty, icon};
@@ -33,9 +35,9 @@ use super::calls::{self, Kind, Piece};
 use super::hangar;
 use super::settled::settled;
 use super::thread::{Outgoing, Sent};
-use super::{Blocked, Chat, Msg, State, blocked, msg, plan_key, rich, titles};
+use super::{Blocked, Changed, Chat, Msg, State, blocked, msg, plan_key, rich, titles};
 use crate::orchestration::events::DeliveryOutcome;
-use crate::orchestration::heard::Heard;
+use crate::orchestration::heard::{Heard, Range};
 
 /// The widest the column of messages gets: lines longer than this read badly.
 const COLUMN_WIDTH: f32 = 760.0;
@@ -606,6 +608,7 @@ fn heard_line(ctx: Ctx<'_>, heard: &Heard) -> (Icon, Color, String) {
             task,
             worker,
             outcome,
+            ..
         } => {
             let (glyph, colour, key) = match outcome {
                 DeliveryOutcome::Landed => (Icon::Check, c.success, Key::ChatConvHeardLanded),
@@ -777,6 +780,178 @@ fn note_line<'a>(
         .into()
 }
 
+/// The most files of a delivery listed under its line; the rest are in the
+/// "Changes" overlay.
+const DELIVERY_FILES: usize = 8;
+
+/// The +/− of a list of files, as the "Changes" overlay counts them.
+fn line_counts(files: &[ChangedFile]) -> (u32, u32) {
+    files.iter().fold((0, 0), |(added, deleted), file| {
+        (
+            added + file.additions.unwrap_or(0),
+            deleted + file.deletions.unwrap_or(0),
+        )
+    })
+}
+
+/// "+12 −3", each side in its colour; a side that is nothing is left out.
+fn counts<'a>(t: &'a Theme, added: u32, deleted: u32) -> Element<'a, Message> {
+    let mut both = row![].spacing(tokens::space::SM);
+    if added > 0 {
+        both = both.push(
+            text(format!("+{added}"))
+                .size(tokens::font_size::CAPTION)
+                .font(fonts::mono())
+                .style(style::text::success(t)),
+        );
+    }
+    if deleted > 0 {
+        both = both.push(
+            text(format!("−{deleted}"))
+                .size(tokens::font_size::CAPTION)
+                .font(fonts::mono())
+                .style(style::text::danger(t)),
+        );
+    }
+    both.into()
+}
+
+/// A delivery that went onto a branch: its line, with how many files it
+/// brought and their +/−, unfolding into the files, each of which opens
+/// the "Changes" overlay on it.
+fn delivery_note<'a>(
+    ctx: Ctx<'a>,
+    ws: &'a Workspace,
+    chat: &'a Chat,
+    (glyph, colour, words): (Icon, Color, String),
+    task: String,
+    range: Range,
+    changes: Arc<Changes>,
+) -> Element<'a, Message> {
+    let t = ctx.theme;
+    let key = super::changes_key(&range);
+    let open = chat.expanded.contains(&key);
+    let (added, deleted) = line_counts(&changes.files);
+    let head = button(
+        row![
+            container(icon(glyph, CALL_ICON).color(colour))
+                .width(CALL_ICON)
+                .center_x(CALL_ICON),
+            text(words)
+                .size(tokens::font_size::CAPTION)
+                .width(Length::Fill)
+                .style(style::text::secondary(t)),
+            text(
+                ctx.i18n
+                    .tn(Key::DiffFiles, changes.files.len(), &[])
+                    .into_owned()
+            )
+            .size(tokens::font_size::CAPTION)
+            .style(style::text::muted(t)),
+            counts(t, added, deleted),
+            icon(
+                if open {
+                    Icon::ChevronDown
+                } else {
+                    Icon::ChevronRight
+                },
+                11.0,
+            )
+            .color(t.colors.fg_subtle),
+        ]
+        .spacing(tokens::space::MD)
+        .align_y(Alignment::Center),
+    )
+    .padding([tokens::space::XS, tokens::space::SM])
+    .width(Length::Fill)
+    .style(style::button::row(t, false))
+    .on_press(msg(Msg::Toggle(ws.id.clone(), key)));
+    if !open {
+        return head.into();
+    }
+    let open_at = |file: Option<String>| {
+        msg(Msg::OpenChanges {
+            ws: ws.id.clone(),
+            range: range.clone(),
+            task: task.clone(),
+            file,
+        })
+    };
+    let mut files = column![].spacing(tokens::space::XXS);
+    for file in changes.files.iter().take(DELIVERY_FILES) {
+        let c = &t.colors;
+        let (mark, tone) = match file.status.as_str() {
+            "A" | "C" => ("A", c.success),
+            "D" => ("D", c.danger),
+            "R" => ("R", c.accent),
+            _ => ("M", c.warning),
+        };
+        let shown = match &file.old_path {
+            Some(old) if file.status == "R" => format!("{old} → {}", file.path),
+            _ => file.path.clone(),
+        };
+        files = files.push(
+            button(
+                row![
+                    container(
+                        text(mark)
+                            .size(tokens::font_size::MICRO)
+                            .font(fonts::mono())
+                            .color(tone)
+                    )
+                    .width(CALL_ICON)
+                    .center_x(CALL_ICON),
+                    text(shown)
+                        .size(tokens::font_size::CAPTION)
+                        .font(fonts::mono())
+                        .width(Length::Fill)
+                        .style(style::text::secondary(t)),
+                    counts(t, file.additions.unwrap_or(0), file.deletions.unwrap_or(0)),
+                ]
+                .spacing(tokens::space::MD)
+                .align_y(Alignment::Center),
+            )
+            .padding([tokens::space::XXS, tokens::space::SM])
+            .width(Length::Fill)
+            .style(style::button::row(t, false))
+            .on_press(open_at(Some(file.path.clone()))),
+        );
+    }
+    let rest = changes.files.len().saturating_sub(DELIVERY_FILES);
+    let all = if rest > 0 {
+        ctx.i18n
+            .tn(Key::ChatConvChangesMore, rest, &[])
+            .into_owned()
+    } else {
+        ctx.t(Key::ChatConvChangesAll).into_owned()
+    };
+    files = files.push(
+        container(
+            button(
+                text(all)
+                    .size(tokens::font_size::CAPTION)
+                    .style(style::text::accent(t)),
+            )
+            .padding([tokens::space::XXS, tokens::space::SM])
+            .style(style::button::row(t, false))
+            .on_press(open_at(None)),
+        )
+        .padding(Padding {
+            left: CALL_ICON + tokens::space::MD,
+            ..Padding::ZERO
+        }),
+    );
+    column![
+        head,
+        container(files).padding(Padding {
+            left: CALL_ICON + tokens::space::MD,
+            bottom: tokens::space::SM,
+            ..Padding::ZERO
+        }),
+    ]
+    .into()
+}
+
 /// A message Hangar put in the orchestrator's conversation, compact: a line
 /// per thing that happened in the workspace, in the person's words; or one
 /// line for a message from another agent, the state of the work handed to a
@@ -801,7 +976,25 @@ fn hangar_message<'a>(
                         (Icon::Broadcast, t.colors.fg_muted, words.clone())
                     }
                 };
-                list = list.push(note_line(t, glyph, colour, words, None));
+                let delivered = match line {
+                    hangar::Line::Heard(Heard::Delivery {
+                        task,
+                        changes: Some(range),
+                        ..
+                    }) => match chat.changes.get(range) {
+                        Some(Changed::Read(changes)) if !changes.files.is_empty() => {
+                            Some((task.clone(), range.clone(), changes.clone()))
+                        }
+                        _ => None,
+                    },
+                    _ => None,
+                };
+                list = list.push(match delivered {
+                    Some((task, range, changes)) => {
+                        delivery_note(ctx, ws, chat, (glyph, colour, words), task, range, changes)
+                    }
+                    None => note_line(t, glyph, colour, words, None),
+                });
             }
             return list.into();
         }

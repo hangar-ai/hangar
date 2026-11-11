@@ -2592,6 +2592,125 @@ fn file_diff(
     Ok(cap_diff(run_git(&root, &args)?))
 }
 
+/// A commit named by the caller, checked: an option is not a revision, and
+/// a name git cannot find as a commit is refused before it reaches a diff.
+fn commit_of(root: &Path, rev: &str) -> Result<String, GitError> {
+    let rev = rev.trim();
+    if rev.is_empty() || rev.starts_with('-') {
+        return Err(GitError::Failed(format!("'{rev}' is not a commit")));
+    }
+    let sha = run_git(
+        root,
+        &[
+            "rev-parse",
+            "--verify",
+            "--quiet",
+            &format!("{rev}^{{commit}}"),
+        ],
+    )
+    .map_err(|_| GitError::Failed(format!("'{rev}' is not a commit of this repository")))?;
+    Ok(sha.trim().to_string())
+}
+
+/// What `to` changes from `from`, two commits: what a delivery brought to
+/// the branch it landed on. Nothing untracked: only commits are compared.
+fn range_changes(dir: &Path, from: &str, to: &str) -> Result<Changes, GitError> {
+    let root = work_root(dir)?;
+    let (from, to) = (commit_of(&root, from)?, commit_of(&root, to)?);
+    let diff = run_git(
+        &root,
+        &[
+            "diff",
+            "--no-ext-diff",
+            "--no-color",
+            "-M",
+            "--raw",
+            "--numstat",
+            "-z",
+            &from,
+            &to,
+            "--",
+        ],
+    )?;
+    let (mut files, stats) = parse_raw_numstat(&diff);
+    for file in &mut files {
+        if let Some((added, deleted)) = stats.get(&file.path) {
+            file.additions = *added;
+            file.deletions = *deleted;
+            file.binary = added.is_none() && deleted.is_none();
+        }
+    }
+    files.sort_by(|a, b| a.path.cmp(&b.path));
+    let truncated = files.len() > MAX_CHANGED_FILES;
+    files.truncate(MAX_CHANGED_FILES);
+    let base = run_git(&root, &["rev-parse", "--short", &from])
+        .ok()
+        .map(|sha| sha.trim().to_string());
+    Ok(Changes {
+        root: display(&root),
+        base,
+        files,
+        truncated,
+    })
+}
+
+/// The unified diff of one file of `range_changes`.
+fn range_file_diff(
+    dir: &Path,
+    file: &str,
+    old_path: Option<&str>,
+    from: &str,
+    to: &str,
+) -> Result<FileDiff, GitError> {
+    if !is_safe_entry(file) || old_path.is_some_and(|old| !is_safe_entry(old)) {
+        return Err(GitError::Failed(format!(
+            "'{file}' is not a path inside the working tree"
+        )));
+    }
+    let root = work_root(dir)?;
+    let (from, to) = (commit_of(&root, from)?, commit_of(&root, to)?);
+    let mut args = vec![
+        "diff",
+        "--no-ext-diff",
+        "--no-color",
+        "-M",
+        from.as_str(),
+        to.as_str(),
+        "--",
+        file,
+    ];
+    if let Some(old) = old_path {
+        args.push(old);
+    }
+    Ok(cap_diff(run_git(&root, &args)?))
+}
+
+/// What `to` changes from `from` in the repository holding `path`: the files
+/// a delivery brought, with their line counts.
+pub async fn git_range_changes(path: String, from: String, to: String) -> Result<Changes, String> {
+    off_thread(move || Ok(range_changes(Path::new(&path), &from, &to)?)).await
+}
+
+/// The unified diff of one file of `git_range_changes`, read-only.
+pub async fn git_range_file_diff(
+    path: String,
+    file: String,
+    old_path: Option<String>,
+    from: String,
+    to: String,
+) -> Result<FileDiff, String> {
+    off_thread(move || {
+        Ok(range_file_diff(
+            Path::new(&path),
+            &file,
+            old_path.as_deref(),
+            &from,
+            &to,
+        )?)
+    })
+    .await
+}
+
 /// What changed in the working tree holding `path`: tracked changes against
 /// HEAD — or against where `base` forked, to take in the branch's commits too —
 /// plus the untracked files.
@@ -3593,6 +3712,70 @@ mod tests {
         assert!(branch.files.iter().any(|f| f.path == "keep.txt"));
         assert!(changes(&dir, Some("--output=x")).is_err());
         assert_eq!(empty_tree(&dir), EMPTY_TREE_SHA1);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Two commits compared, as a delivery's changes are: what the second
+    /// brings, whatever the working tree holds now.
+    #[test]
+    fn a_range_lists_what_its_last_commit_brings_over_its_first() {
+        let dir = temp_dir("range");
+        if !fixture_git(&dir, &["init", "-q"]) {
+            let _ = std::fs::remove_dir_all(&dir);
+            return;
+        }
+        std::fs::write(dir.join(".git/info/exclude"), ".fixture-gitconfig\n").expect("exclude");
+        for (key, value) in [("user.name", "t"), ("user.email", "t@example.com")] {
+            assert!(fixture_git(&dir, &["config", key, value]));
+        }
+        write(&dir, "keep.txt", "a\nb\n");
+        write(&dir, "move.txt", "same content\nover a few\nlines\n");
+        assert!(fixture_git(&dir, &["add", "."]));
+        assert!(fixture_git(&dir, &["commit", "-q", "-m", "base"]));
+        let rev = |name: &str| {
+            String::from_utf8(
+                std::process::Command::new("git")
+                    .args(["rev-parse", name])
+                    .current_dir(&dir)
+                    .output()
+                    .expect("rev-parse")
+                    .stdout,
+            )
+            .expect("utf-8")
+            .trim()
+            .to_string()
+        };
+        let base = rev("HEAD");
+        write(&dir, "keep.txt", "a\nB\nc\n");
+        assert!(fixture_git(&dir, &["mv", "move.txt", "moved.txt"]));
+        write(&dir, "src/new.rs", "fn main() {}\n");
+        assert!(fixture_git(&dir, &["add", "-A"]));
+        assert!(fixture_git(&dir, &["commit", "-q", "-m", "work"]));
+        let merge = rev("HEAD");
+        // Left in the working tree afterwards: not part of the range.
+        write(&dir, "later.txt", "not delivered\n");
+        write(&dir, "keep.txt", "changed again\n");
+
+        let range = range_changes(&dir, &base[..12], &merge).expect("range");
+        let listed: Vec<(&str, &str, Option<u32>, Option<u32>)> = range
+            .files
+            .iter()
+            .map(|f| (f.path.as_str(), f.status.as_str(), f.additions, f.deletions))
+            .collect();
+        assert_eq!(
+            listed,
+            [
+                ("keep.txt", "M", Some(2), Some(1)),
+                ("moved.txt", "R", Some(0), Some(0)),
+                ("src/new.rs", "A", Some(1), Some(0)),
+            ]
+        );
+        let diff = range_file_diff(&dir, "keep.txt", None, &base, &merge).expect("diff");
+        assert!(diff.text.contains("-b\n+B\n+c\n"), "{}", diff.text);
+        assert!(!diff.text.contains("changed again"));
+        assert!(range_changes(&dir, "--output=x", &merge).is_err());
+        assert!(range_changes(&dir, "0123456789ab", &merge).is_err());
 
         let _ = std::fs::remove_dir_all(&dir);
     }

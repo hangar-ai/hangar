@@ -346,6 +346,10 @@ pub enum Key {
     ChatConvCallsSearches,
     /// `chatConv.calls.tasks`
     ChatConvCallsTasks,
+    /// `chatConv.changes.all`
+    ChatConvChangesAll,
+    /// `chatConv.changes.more`
+    ChatConvChangesMore,
     /// `chatConv.context`
     ChatConvContext,
     /// `chatConv.disabled.answering`
@@ -4033,7 +4037,7 @@ pub enum Key {
 }
 
 /// How many keys there are.
-pub const KEY_COUNT: usize = 2008;
+pub const KEY_COUNT: usize = 2010;
 
 impl Key {
     /// Every key, in the order of their ids.
@@ -4204,6 +4208,8 @@ impl Key {
         Key::ChatConvCallsRunning,
         Key::ChatConvCallsSearches,
         Key::ChatConvCallsTasks,
+        Key::ChatConvChangesAll,
+        Key::ChatConvChangesMore,
         Key::ChatConvContext,
         Key::ChatConvDisabledAnswering,
         Key::ChatConvDisabledLoading,
@@ -6217,6 +6223,8 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "chatConv.calls.running", en: Text::plain("{n} running"), fr: Text::plain("{n} en cours") },
     Message { id: "chatConv.calls.searches", en: Text::plural("{n} search", "{n} searches"), fr: Text::plural("{n} recherche", "{n} recherches") },
     Message { id: "chatConv.calls.tasks", en: Text::plural("{n} task created", "{n} tasks created"), fr: Text::plural("{n} tâche créée", "{n} tâches créées") },
+    Message { id: "chatConv.changes.all", en: Text::plain("See them in Changes"), fr: Text::plain("Les voir dans Modifications") },
+    Message { id: "chatConv.changes.more", en: Text::plural("{n} more file: see them all in Changes", "{n} more files: see them all in Changes"), fr: Text::plural("{n} autre fichier\u{202f}: tout voir dans Modifications", "{n} autres fichiers\u{202f}: tout voir dans Modifications") },
     Message { id: "chatConv.context", en: Text::plain("{pct}% context"), fr: Text::plain("contexte {pct}\u{202f}%") },
     Message { id: "chatConv.disabled.answering", en: Text::plain("An answer is being typed into {name}: wait for it."), fr: Text::plain("Une réponse est en cours de saisie dans {name}\u{202f}: attendez qu’elle finisse.") },
     Message { id: "chatConv.disabled.loading", en: Text::plain("Hangar is starting: wait a moment."), fr: Text::plain("Hangar démarre\u{202f}: patientez un instant.") },
