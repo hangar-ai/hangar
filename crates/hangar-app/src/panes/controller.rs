@@ -59,6 +59,18 @@ use crate::nodes::remote::{self, RemoteMcp, RemoteSpawn, Started};
 /// never measured, as a hidden xterm.js was never fitted.
 pub const MEASURE_WAIT: Duration = Duration::from_millis(250);
 
+/// The size a terminal starts at when nothing is going to measure it (its
+/// workspace is the chat view): wide and tall enough for Claude Code to draw
+/// a long question whole. At 80×24 its dialog scrolled, and an answer typed
+/// into it, checked on the screen, was refused.
+pub const UNSEEN_SIZE: (u16, u16) = (160, 50);
+
+/// The size a pane's terminal starts at: 80×24 until its first measure, or
+/// [`UNSEEN_SIZE`] when no measure is coming.
+fn start_size(measured: bool) -> (u16, u16) {
+    if measured { (80, 24) } else { UNSEEN_SIZE }
+}
+
 /// A pane, while it is mounted.
 pub struct PaneRt {
     pub ws: WsId,
@@ -367,7 +379,8 @@ pub fn mount(
 ) -> (PaneRt, Task<Message>) {
     let settings = m.settings();
     let look = look::look(settings, ws, pane.agent);
-    let mut terminal = Terminal::new(look.config.clone(), 80, 24);
+    let (columns, rows) = start_size(measured);
+    let mut terminal = Terminal::new(look.config.clone(), columns, rows);
     terminal.set_palette(look.palette.clone());
     terminal.set_font(look.font.clone());
     let link = PaneLink::new(
@@ -1385,6 +1398,16 @@ mod tests {
             .build()
             .expect("runtime")
             .block_on(future)
+    }
+
+    /// A terminal nothing will measure (the chat view's) starts wide and tall
+    /// enough for Claude Code to draw a long question whole; one that will be
+    /// measured starts at 80×24 and takes its size at the measure.
+    #[test]
+    fn a_terminal_nothing_measures_starts_big_enough_for_a_long_question() {
+        assert_eq!(start_size(true), (80, 24));
+        let (columns, rows) = start_size(false);
+        assert!(columns >= 160 && rows >= 50, "{columns}×{rows}");
     }
 
     /// The messages a mount sends, in order, each with when it came.

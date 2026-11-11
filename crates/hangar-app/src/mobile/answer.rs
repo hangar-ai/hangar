@@ -292,9 +292,17 @@ pub fn steps_for(question: &Question, choice: &Choice) -> Vec<AnswerStep> {
 
 /* ── Reading the dialog off the screen ────────────────────────── */
 
+/// Text as compared with the screen: no whitespace, and none of the bar
+/// Claude Code (2.1.32x) draws down the left of a question's lines — a long
+/// question wraps, and the bar of each line would land in the middle of it.
 fn squash(text: &str) -> String {
-    text.chars().filter(|c| !c.is_whitespace()).collect()
+    text.chars()
+        .filter(|c| !c.is_whitespace() && *c != GUTTER)
+        .collect()
 }
+
+/// The bar down the left of a question's lines.
+const GUTTER: char = '│';
 
 /// A numbered row, or the unnumbered one that moves on ("Next", "Submit").
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1070,6 +1078,45 @@ mod replay {
             !untouched(&lines, &questions[0]),
             "someone moved the cursor"
         );
+    }
+
+    /// Claude Code 2.1.322 draws a bar down the left of a question's lines,
+    /// read from a 160-column pane. A question long enough to wrap had a bar
+    /// in the middle of its words, and was taken for one someone was
+    /// answering at the PC: no answer typed, to any long question.
+    #[test]
+    fn a_wrapped_question_behind_its_bar_is_found_as_drawn() {
+        let questions = questions();
+        let screen = [
+            "❯ Mon serveur GMod rame",
+            "",
+            "────────────────────────────────────────────────────────────────────",
+            "←  ☐ Approche  ☐ Plateforme  ☐ Priorité  ✔ Submit  →",
+            "",
+            "│ Le moteur d'un serveur GMod (srcds) et son Lua tournent sur un seul thread, et le jeu ne peut pas être rendu entièrement multithread sans réécrire le moteur.",
+            "│ Quelle approche veux-tu ?",
+            "",
+            "❯ 1. Module workers Lua (Recommandé)",
+            "     Module binaire C++ (gmsv_*.dll/.so) : un pool de threads, chacun avec son propre état Lua isolé, qui échange des messages avec le thread principal (comme",
+            "     les Web Workers). Les addons y délèguent les calculs lourds. Faisable et stable.",
+            "  2. Opérations async natives",
+            "     Module C++ qui exécute certaines opérations lentes sur des threads (fichiers, SQL, HTTP, JSON, compression) et rappelle un callback Lua. Plus simple, mais",
+            "     limité à ces opérations.",
+            "  3. Les deux",
+            "     Les workers Lua plus une bibliothèque d'opérations async. Plus long.",
+            "  4. Patch du moteur",
+            "     Hooker srcds pour paralléliser la physique ou les Think des entités. Il faut faire du reverse engineering, c'est très instable et ça casse à chaque mise à",
+            "     jour de GMod. Déconseillé.",
+            "  5. Type something.",
+            "────────────────────────────────────────────────────────────────────",
+            "  6. Chat about this",
+            "",
+            "Enter to select · Tab/Arrow keys to navigate · Esc to cancel",
+        ]
+        .join("\n");
+        let lines = dialog_of(&screen, &questions).expect("the dialog under its tab bar");
+        assert!(untouched(&lines, &questions[0]));
+        assert!(!untouched(&lines, &questions[1]));
     }
 
     #[tokio::test]
