@@ -248,6 +248,6 @@ The official documentation, read from
 
 ## Mockups
 
-`docs/images/discord/mockups.html` draws the six screens above in a page
+`docs/images/discord/mockups.html` draws the seven screens above in a page
 styled after Discord's dark theme; `node docs/images/discord/shoot.cjs` turns
 them into the PNGs. They are mockups, not screenshots of Discord.
