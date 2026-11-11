@@ -1,0 +1,32 @@
+[package]
+name = "hangar-discord"
+description = "The Discord connector: a Discord server as one more surface of a Hangar, drawn with Components V2"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+edition = "2024"
+
+# docs/native/discord-connector.md. It runs where the engine runs: in a node
+# with no desktop (hangar-node), its workspaces' channels on the person's
+# server. A thin client of Discord's own: the REST calls the cards need and
+# the gateway's events, with Components V2 written as JSON.
+[dependencies]
+hangar-engine = { path = "../hangar-engine" }
+hangar-core = { path = "../hangar-core", default-features = false }
+hangar-i18n.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+uuid.workspace = true
+# The REST calls, on the blocking pool: the HTTP client the rest of Hangar
+# uses, its TLS through rustls.
+ureq = { version = "3.3", default-features = false, features = ["json", "rustls", "rustls-webpki-roots"] }
+# The gateway: a WebSocket, TLS through rustls as the rest.
+tokio-tungstenite = { version = "0.29", features = ["rustls-tls-webpki-roots"] }
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+
+[dev-dependencies]
+# A Discord of the tests' own: its REST routes and its gateway.
+axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "query", "tokio", "ws"] }
+tempfile = "3"

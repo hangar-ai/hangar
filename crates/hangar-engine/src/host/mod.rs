@@ -463,6 +463,54 @@ impl EngineHost {
         outcome
     }
 
+    /// A workspace in folder `cwd` (absolute, existing) with one Claude Code
+    /// pane, its orchestrator unless `orchestrator` is false: how a server's
+    /// workspace is made, from its command line or a connector. An empty
+    /// name is the folder's.
+    pub fn add_workspace(&self, name: &str, cwd: &str, orchestrator: bool) -> Result<WsId, String> {
+        let path = Path::new(cwd);
+        if !path.is_absolute() {
+            return Err(format!("{cwd}: a workspace's folder is an absolute path"));
+        }
+        if !path.is_dir() {
+            return Err(format!("{cwd} is not a folder here"));
+        }
+        let name = if name.trim().is_empty() {
+            path.file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "Workspace".into())
+        } else {
+            name.trim().to_string()
+        };
+        let made = self.edit(StoreAction::AddWorkspace(crate::state::WorkspaceDraft {
+            name,
+            cwd: cwd.to_string(),
+            layout: 1,
+            agents: vec![crate::state::types::AgentId::Claude],
+            ..Default::default()
+        }));
+        let ws = made.workspace.ok_or("the workspace could not be made")?;
+        if orchestrator {
+            let first = self
+                .snapshot()
+                .state
+                .workspaces
+                .iter()
+                .find(|w| w.id == ws)
+                .and_then(|w| w.panes.first().map(|p| p.id.clone()));
+            if let Some(pane) = first {
+                self.edit(StoreAction::UpdatePane {
+                    ws: ws.clone(),
+                    pane,
+                    patch: PanePatch::new(|pane: &mut Pane| {
+                        pane.role = Some(crate::state::types::PaneRole::Orchestrator);
+                    }),
+                });
+            }
+        }
+        Ok(ws)
+    }
+
     /// The snapshot published again, the saver and the panes told.
     fn changed(&self) {
         let snapshot = Arc::new({

@@ -58,7 +58,8 @@ they are refused.
    node's card; the remote workspaces it drives itself stay as they were
    (moving them to the node is still to do).
 4. **The Discord connector in the engine** (discord-connector.md): it runs
-   where the engine runs, on the node for its workspaces with the PC off.
+   where the engine runs, on the node for its workspaces with the PC off:
+   **done** (`crates/hangar-discord`).
 5. **A node that starts on its own**: its settings (the bot's token among
    them) on the server, `hangar-node serve` with no desktop, workspaces
    created from Discord.

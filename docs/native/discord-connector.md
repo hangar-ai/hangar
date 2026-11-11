@@ -7,8 +7,10 @@ stay out of the way: a line when one starts or delivers, their card when
 they need the person, and a thread of their own only when the person opens
 it with a button. A bot of the person's own reports what happens and
 carries what the person says and decides back to the panes; only the person
-is heard. Workspaces on nodes work the same. Nothing here is built yet: this is
-the design, the research it rests on, and mockups of every card.
+is heard. It runs where the engine runs: in a node with no desktop
+(`hangar-node`), its workspaces on the person's server. Built in
+`crates/hangar-discord`; this is its design, the research it rests on, and
+mockups of every card.
 
 Experiment: `discord-connector`.
 
@@ -16,35 +18,18 @@ Experiment: `discord-connector`.
 
 ## Where it runs
 
-The state of the workspaces, the orchestration, the boards and the
-deliveries live in `hangar-app`; `hangar-node` only runs terminals for a
-desktop (nodes.md). So the bot runs inside the desktop app, as Hangar Mobile
-does, and is one more client of `mobile::desk`: the calls the chat view and
-the phone already make (read the conversation, send, answer a question,
-allow a permission, approve a plan, queue and take back, stop, land or send
-back a delivery). Every answer goes through the hangar-bridge mod as the
-chat view's do.
+Beside an engine host (`hangar_engine::host`, headless.md): the connector
+reads the host's snapshot, follows core's events (the mod's reports) and
+the orchestration's journal, and acts through the desk (`mobile::desk`), the
+chat view's and the phone's own calls: send, queue, answer a question,
+allow a permission, approve a plan, stop, land or send back a delivery.
+Every answer goes through the hangar-bridge mod as the chat view's do.
 
-### Nodes
-
-A workspace on a node is a channel like any other: the desktop already
-reads its conversation, its board and its deliveries through the node, and
-`mobile::desk` reaches its panes the same way. What the connector needs from
-nodes:
-
-- taking a prompt back from the queue of a pane on a node (`Port::unqueue`
-  refuses it today: a route on the node API, `bridge_cancel` there);
-- with that, the queue and the model / effort / plan settings for such panes
-  (the chat view leaves them out for now);
-- answers to a node's panes are typed as keys (the held asks live in the
-  node's core); answering them through the node's mod is a later step.
-
-The desktop drives its nodes over SSH, and the orchestration (events to the
-orchestrator, workers started, state of the workspaces) runs in the desktop.
-So the bot answers while Hangar runs on the PC, window closed or not. A
-Hangar entirely on a server, the PC off, needs the orchestration on the node
-first (nodes.md, "Later"); the connector is written against `mobile::desk`
-so that it can move there with it.
+The host is a node's (`hangar-node serve`, headless.md step 3): the
+workspaces the node runs itself are the server's channels, and they keep
+running with the PC off. The desktop's own workspaces, and the remote ones
+it drives on a node, are not on Discord: a connector in the desktop app
+would be another host of the same crate.
 
 ## Mapping
 
@@ -217,26 +202,49 @@ means something.
 
 ## Implementation
 
-[twilight](https://github.com/twilight-rs/twilight) 0.18 (November 2026):
-gateway, HTTP with its rate limiter, and a model with Components V2, Label,
-File Upload, Checkbox Group and Checkbox (no Radio Group yet). serenity 0.12.5,
-the latest stable release, has no Components V2. TLS through rustls, as the
-rest of Hangar.
+`crates/hangar-discord`, a thin client of Discord's own rather than a
+library: the REST calls the cards need (ureq, rustls) and the gateway
+(tokio-tungstenite), with Components V2 written as JSON, so every component
+Discord has (Label, Radio Group…) is there the day it is documented, and the
+whole bot runs against a fake server in the tests. (twilight 0.18 has no
+Radio Group; serenity 0.12.5 no Components V2.)
 
-Steps, each behind the experiment:
+- `rest.rs`: the calls, as the bot or as a webhook; a 429 waited out and a
+  spent route waited for (`X-RateLimit-Remaining: 0`).
+- `gateway.rs`: Hello, Identify (guilds, guild messages, DMs, message
+  content), heartbeats, Resume after a cut, a fresh session when Discord
+  asks; a refused token or intent stops it with why.
+- `cards.rs`: the turn, the answer (cut under ~3800 characters at
+  paragraphs, a code block closed and reopened across a cut), the
+  permission, the questions (one: a section per option; several: a modal of
+  selects), the plan (an excerpt and `plan.md` past 3000 characters), the
+  settled card, the worker's line with « Ouvrir le fil » / « Voir le fil »,
+  the delivery, the dashboard. `ids.rs`: what a click acts on, in its
+  `custom_id`.
+- `bot.rs`: the server's structure (a category per folder, made with the
+  bot's own access; a channel and a webhook per workspace; the dashboard,
+  pinned), the slash commands on the guild. `follow.rs`: the turns, the
+  answers read whole from the transcript, the asks (`desk::pending_now`),
+  the journal (workers, deliveries ready, tasks that need the person).
+  `act.rs`: messages, clicks, modals, commands, the workers' threads.
+- `words.rs`: French or English, after the settings' language.
+- Its files beside the node's state: `discord.json` (token, server, owner,
+  pairing code; 0600) and `discord-layout.json` (categories, channels,
+  webhooks, dashboards, workers' lines and threads).
 
-1. Settings: the bot token, the guild, pairing the person's account.
-2. A channel per workspace: the orchestrator's conversation both ways, and
-   the permission, question and plan cards, the workers' included.
-3. Deliveries with Land / Send back; the queue (⏳, delete, edit); a
-   worker's thread, opened with its button.
-4. Following the structure (folders, workspaces created, renamed, closed),
-   the dashboard and the slash commands.
-5. Nodes: taking back what waits in a node pane's queue, and the settings
-   of its panes.
+Tested against a fake Discord (`tests/discord.rs`: its REST routes and its
+gateway): the bot identifies, makes the category, the channel, the webhook
+and the pinned dashboard, is paired by the code, carries the owner's
+message to the orchestrator and ignores anyone else's, shows a turn (card,
+call, folded, the answer under the agent's name), posts a permission that
+calls the owner, refuses a stranger's click and acknowledges the owner's,
+shows a worker's line, opens its thread on that line and links to it,
+carries a message in the thread to the worker, archives the thread when the
+worker stops, and makes a workspace from `/workspace`. A real run needs the
+person's bot.
 
-Tested against a fake gateway and HTTP server; a real run needs the person's
-bot.
+Still to do: an edited or deleted message changing what waits in the queue
+(⏳ is shown), a worker on a node the desktop drives, the per-agent avatars.
 
 ## Sources
 

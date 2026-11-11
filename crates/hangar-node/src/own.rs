@@ -22,8 +22,7 @@ use hangar_core::pty::{PtyEvent, PtyManager};
 use hangar_engine::host::screen::Screen;
 use hangar_engine::host::terminals::{COLUMNS, ROWS};
 use hangar_engine::host::{EngineHost, Spawn, TermEvent, TermSink, Terminals};
-use hangar_engine::state::types::{AgentId, PaneRole};
-use hangar_engine::state::{PanePatch, StoreAction, WorkspaceDraft};
+use hangar_engine::state::StoreAction;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -225,45 +224,7 @@ fn yes() -> bool {
 /// A workspace of the node's own, in folder `cwd`, with one Claude Code
 /// pane, its orchestrator unless asked otherwise.
 pub fn add(own: &EngineHost, name: &str, cwd: &str, orchestrator: bool) -> Result<String, String> {
-    let path = std::path::Path::new(cwd);
-    if !path.is_absolute() {
-        return Err("a workspace's folder is an absolute path on the node".into());
-    }
-    if !path.is_dir() {
-        return Err(format!("{cwd} is not a folder on the node"));
-    }
-    let name = if name.trim().is_empty() {
-        path.file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "Workspace".into())
-    } else {
-        name.trim().to_string()
-    };
-    let made = own.edit(StoreAction::AddWorkspace(WorkspaceDraft {
-        name,
-        cwd: cwd.to_string(),
-        layout: 1,
-        agents: vec![AgentId::Claude],
-        ..WorkspaceDraft::default()
-    }));
-    let ws = made.workspace.ok_or("the workspace could not be made")?;
-    if orchestrator {
-        let first = own
-            .snapshot()
-            .state
-            .workspaces
-            .iter()
-            .find(|w| w.id == ws)
-            .and_then(|w| w.panes.first().map(|p| p.id.clone()));
-        if let Some(pane) = first {
-            own.edit(StoreAction::UpdatePane {
-                ws: ws.clone(),
-                pane,
-                patch: PanePatch::new(|pane| pane.role = Some(PaneRole::Orchestrator)),
-            });
-        }
-    }
-    Ok(ws)
+    own.add_workspace(name, cwd, orchestrator)
 }
 
 pub async fn create(State(node): State<Shared>, Json(body): Json<AddBody>) -> Response {
