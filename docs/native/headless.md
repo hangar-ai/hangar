@@ -49,8 +49,9 @@ they are refused.
       stay in the app.
 2. **A host for the engine without a window**: the store and the
    read-models in one place, saved to disk on tokio's clock, the core's
-   events fed to it, the writes applied there. The app becomes one such host
-   with a window around it.
+   events fed to it, the writes applied there (`hangar_engine::host`):
+   **done**. The orchestration runtime is one, shared: the app hosts it with
+   its window's ports, the engine's host with its own.
 3. **The node runs the engine for its own workspaces** and is their
    authority: their state saved on the node, its agents' control requests
    answered there. A desktop that connects shows and drives them as a
@@ -133,3 +134,50 @@ With this, step 1 is done: what runs the workspaces no longer depends on the
 window. What remains in the app around each package is its host: the ports
 over its services, the writes applied to its `Model`, its runtime and its
 iced glue. Step 2 makes a host of the engine's own.
+
+## Step 2: a host with no window
+
+`hangar_engine::orchestration::runtime`: the tokio task that drives the
+orchestration engines, generic over what hosts it (`RuntimeHost` makes the
+ports its engines read and act through). The app's `AppRuntime` makes its
+`LivePort`s over the window's services, on a workspace's node when it lives
+on one; the engine's host makes its own. The engine's hook on the control
+bus (`OrchestrationHooks`) is the runtime's handle.
+
+`hangar_engine::host::EngineHost`: the engine with no window.
+
+- **State.** Loaded from its file (`read_state_file`, lenient as the app's
+  boot; a file it cannot read is an error, never an empty state), saved
+  400 ms after the last change (`SAVE_DEBOUNCE`), whole, to a temporary file
+  renamed over it, and once more on the way out (`shutdown`).
+- **Writes.** The engines' `ModelCmd`s applied to the store at once
+  (`host/writes.rs`): panes added, closed, restarted and laid out again as
+  on the desktop; deliveries counted; workspaces created and removed. What
+  only a window does (detach, bring back, a palette command) is refused;
+  showing a pane is nothing to do. An agent's announcement is `News`.
+- **Panes.** Every workspace is open, and every pane of it has a shell
+  (`host/launch.rs`): started through `Terminals` with the bridge mod, the
+  account, the build cache's variables and, for a workspace that chose its
+  MCP servers or a pane with a role, core's `--mcp-config` file; the agent's
+  command typed once the shell has printed and fallen quiet, with its
+  session resumed when its transcript is there and the orchestration's
+  permission mode for a role. A pane removed from the state is killed; a
+  shell that ends stays down until the pane is restarted (a new id).
+  `CorePtys` runs them through core's PTY manager, each with a screen
+  (`host/screen.rs`: alacritty's emulator, no widget) that answers what a
+  program asks of its terminal, and that `pane_read` and the trust question
+  read.
+- **Events.** The mod's reports, the queue and the deliveries' stages go to
+  the panes' state machines; the reports, the shells' ends and the boards
+  written to the orchestration runtime. A machine's notification is `News`.
+- **Requests.** `answer(op, args, internal)` runs an agent's request through
+  the engine's dispatch over `HostPort`, and Hangar's own (a briefing, a
+  phone's call); `serve_control` answers every request core is asked, for a
+  host alone on its machine.
+- **Ports.** `HostPort` (the control port: no preview, no window, no node),
+  `HostPorts` (the orchestration's: boards, git, memory and the queue on
+  this machine).
+
+What stays the app's own around the engine is the window: its terminals'
+widgets, the hub, the preview, the windows and their focus, notifications;
+and what reaches its nodes.

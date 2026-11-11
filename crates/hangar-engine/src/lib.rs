@@ -13,10 +13,14 @@
 //!   out;
 //! - `control`: the agents' operations; `orchestration`: the workers, the
 //!   events to the orchestrator, the briefings; `preview`: what reaching the
-//!   workspaces' previews takes.
+//!   workspaces' previews takes;
+//! - `mobile`: the desk, what a surface away from the window asks of the
+//!   panes; `stats`: the statistics;
+//! - `host`: the engine hosted with no window (a server).
 
 pub mod accounts;
 pub mod control;
+pub mod host;
 pub mod live;
 pub mod mobile;
 pub mod nodes;
