@@ -9,6 +9,7 @@ const shots = {
   s4: '4-plan',
   s5: '5-delivery-dashboard',
   s6: '6-node-worker',
+  s7: '7-worker-thread',
 };
 
 (async () => {

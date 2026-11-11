@@ -3,8 +3,9 @@
 A Discord server as another surface of Hangar, for whoever would rather not
 open the app: a category per folder, a channel per workspace (the
 conversation with its orchestrator, as the chat view has it). The workers
-stay out of sight: a line when one starts or delivers, and their card when
-they need the person. A bot of the person's own reports what happens and
+stay out of the way: a line when one starts or delivers, their card when
+they need the person, and a thread of their own only when the person opens
+it with a button. A bot of the person's own reports what happens and
 carries what the person says and decides back to the panes; only the person
 is heard. Workspaces on nodes work the same. Nothing here is built yet: this is
 the design, the research it rests on, and mockups of every card.
@@ -51,13 +52,13 @@ so that it can move there with it.
 |---|---|
 | Folder | Category (up to 50 channels each) |
 | Workspace, local or on a node | Text channel: the orchestrator's conversation |
-| Worker | Nothing of its own: a line when it starts or delivers, and its permission, question or plan card in the workspace's channel when it needs the person, under its name |
+| Worker | A line when it starts or delivers, and its permission, question or plan card in the workspace's channel when it needs the person, under its name. Its own thread, opened on demand: an « Ouvrir le fil » button on its line and on the dashboard |
 | Agent (Leo, Ada…) | The bot's own webhook in the channel, with the agent's name and a generated avatar per message |
 | Hangar's news | Short lines with Hangar's icons, as in the chat view |
 | State of the workspace | One pinned dashboard card per channel, edited as it changes |
 
-Decided with the person: no thread per worker; only the paired account is
-heard; workspaces on nodes are in.
+Decided with the person: a worker's thread only when opened with its
+button; only the paired account is heard; workspaces on nodes are in.
 
 ## Messages: Components V2
 
@@ -122,8 +123,9 @@ lines green and `-` lines red), the check and the review, the branches, the
 a green one-line card.
 
 **The dashboard.** Pinned, edited at most every ~5 s: the orchestrator and
-each worker with its state and since when, a link to the card of whoever
-waits on the person, and the counts of the board.
+each worker with its state and since when, « Ouvrir le fil » or « Voir le
+fil » beside each worker, a link to the card of whoever waits on the person,
+and the counts of the board.
 
 ![Delivery and dashboard](../images/discord/5-delivery-dashboard.png)
 
@@ -133,9 +135,27 @@ one; answered there like the orchestrator's.
 
 ![A worker on a node that needs the person](../images/discord/6-node-worker.png)
 
+**A worker's thread, opened on demand.** Nothing is opened by itself. A
+worker's « started » line carries « Ouvrir le fil »; clicking it starts a
+public thread on that line (`POST /channels/{id}/messages/{id}/threads`, the
+thread's id is the line's), named after the worker and its task
+(`ada · search-index`). The thread is filled with the worker's work since
+its start, the way the chat view reads a transcript (its answers, one
+folded card per turn), then follows it live; the line's button becomes
+« Voir le fil » (a link button to the thread), and so does the
+dashboard's. What the person writes in the thread goes to that worker (its
+queue while it works), and the commands there are for it (`/stop`,
+`/model`…). Its permission, question and plan cards still come in the
+workspace's channel, where the person is called. When the worker's work
+ends (landed, stopped, closed) the thread gets a last line and is archived;
+opened again from the dashboard, it is unarchived. A worker on a node opens
+the same way.
+
+![A worker's thread, opened with its button](../images/discord/7-worker-thread.png)
+
 **Commands.** Registered on the guild only (so they show at once):
 `/stop`, `/model`, `/effort`, `/plan`, `/status` (ephemeral), for the
-channel's orchestrator.
+channel's orchestrator, or in a worker's thread for that worker.
 
 ## What the person writes
 
@@ -165,9 +185,11 @@ means something.
 - The person creates the Discord application and its bot, and the server: bots
   cannot create guilds since July 2025. Hangar gives the invite link with the
   scopes `bot applications.commands` and the permissions it needs (Manage
-  Channels, Manage Webhooks, Send Messages, Embed Links, Attach Files, Read
-  Message History, Add Reactions, Use External Emojis, Pin Messages, a
-  separate permission since February 2026).
+  Channels, Manage Webhooks, Send Messages, Create Public Threads, Send
+  Messages in Threads, Embed Links, Attach Files, Read Message History, Add
+  Reactions, Use External Emojis, Pin Messages, a separate permission since
+  February 2026). The bot archives the threads it started without Manage
+  Threads: their creator may.
 - The bot token stays on the PC with Hangar's other secrets.
 - Pairing: Hangar shows a code, the person sends it to the bot; only that
   Discord account is heard afterwards. A private server is recommended: a
@@ -186,6 +208,10 @@ means something.
 - Renaming a channel is heavily limited (about twice per
   10 minutes, community knowledge, not in the docs): no state in names; the
   state lives in the cards and the dashboard.
+- Threads archive after inactivity (60, 1440, 4320 or 10080 minutes): a
+  worker's thread is opened with 10080 (a week) and a webhook message with
+  `thread_id` unarchives it; the guild's active threads are limited (1000),
+  which threads opened by hand stay far from.
 - Webhook names cannot contain `clyde` or `discord`; a webhook the
   application created can send interactive components, others cannot.
 
@@ -202,7 +228,8 @@ Steps, each behind the experiment:
 1. Settings: the bot token, the guild, pairing the person's account.
 2. A channel per workspace: the orchestrator's conversation both ways, and
    the permission, question and plan cards, the workers' included.
-3. Deliveries with Land / Send back; the queue (⏳, delete, edit).
+3. Deliveries with Land / Send back; the queue (⏳, delete, edit); a
+   worker's thread, opened with its button.
 4. Following the structure (folders, workspaces created, renamed, closed),
    the dashboard and the slash commands.
 5. Nodes: taking back what waits in a node pane's queue, and the settings

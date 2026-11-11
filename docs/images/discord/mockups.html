@@ -84,6 +84,9 @@ h2{font-size:20px}h3{font-size:16px}
 .btn{height:32px;border-radius:8px;padding:0 14px;display:inline-flex;align-items:center;gap:6px;color:#fff;font-weight:500;font-size:14px;background:var(--grey)}
 .btn.primary{background:var(--blurple)}.btn.success{background:var(--green)}.btn.danger{background:var(--red)}
 .btn svg{width:16px;height:16px}
+.btn.sm{height:28px;padding:0 10px;font-size:13px;gap:5px}
+.btn.sm svg{width:14px;height:14px}
+.line .btn{flex:none}
 .section{display:flex;gap:16px;align-items:center;justify-content:space-between;padding:4px 0}
 .section .t{flex:1;min-width:0}
 .line{display:flex;align-items:center;gap:8px;line-height:24px;font-size:14px}
@@ -192,6 +195,7 @@ h2{font-size:20px}h3{font-size:16px}
       <div class="ch" style="margin-top:6px"><span class="hash">#</span>hangar</div>
       <div class="cat"><svg><use href="#i-chev"/></svg>Clients</div>
       <div class="ch" data-ch="shop"><span class="hash">#</span>shop</div>
+      <div class="th" data-th="ada"><span class="dot" style="background:var(--working)"></span>ada · search-index</div>
       <div class="ch" data-ch="billing"><span class="hash">#</span>api-billing</div>
       <div class="cat"><svg><use href="#i-chev"/></svg>Perso</div>
       <div class="ch" data-ch="blog"><span class="hash">#</span>blog</div>
@@ -204,7 +208,7 @@ h2{font-size:20px}h3{font-size:16px}
 
 <!-- 1. La conversation avec l'orchestrateur -->
 <section class="shot" id="s1">
-<div class="window" data-sel="shop">
+<div class="window tall" data-sel="shop">
   <div class="main">
     <div class="top"><span class="hash">#</span><b>shop</b><span class="topic">Orchestrateur : Leo · Opus 5.5 · 3 workers · ~/dev/shop</span>
       <div class="tools"><svg><use href="#i-thread"/></svg><svg><use href="#i-pin"/></svg><svg><use href="#i-people"/></svg></div></div>
@@ -218,6 +222,9 @@ h2{font-size:20px}h3{font-size:16px}
       <div class="msg"><div class="av" style="background:#3a3c42;color:#b5bac1"><svg><use href="#i-hangar"/></svg></div><div class="body">
         <div class="name"><b>Hangar</b><span class="tag">APP</span><time>Aujourd’hui à 14:03</time></div>
         <div class="line"><span class="ic" style="color:var(--working)"><svg><use href="#i-play"/></svg></span><span class="w">Ada a démarré « Search index »</span></div>
+        <div class="thread" style="margin:2px 0 6px 26px"><div class="tn"><svg width="16" height="16" style="color:#b5bac1"><use href="#i-thread"/></svg>ada · search-index<small>14 messages ›</small></div>
+          <div class="last"><b style="color:#dbdee1">Ada</b> : Index branché sur <code>products.tags</code>, je lance les tests…</div></div>
+        <div class="line"><span class="ic" style="color:var(--working)"><svg><use href="#i-play"/></svg></span><span class="w">Bo a démarré « Filters »</span><span class="btn sm"><svg><use href="#i-thread"/></svg>Ouvrir le fil</span></div>
       </div></div>
 
       <div class="msg cont"><div class="av"></div><div class="body">
@@ -382,9 +389,9 @@ h2{font-size:20px}h3{font-size:16px}
         <div class="box accent">
           <h3 style="margin-top:0">shop — où en est le travail</h3>
           <div class="section"><div class="t line"><span class="ic run"><svg><use href="#i-orch"/></svg></span><span class="w"><b style="color:var(--head)">Leo</b> · orchestrateur — <span class="run">travaille</span> <span class="sub">depuis 3 minutes</span></span></div></div>
-          <div class="section"><div class="t line"><span class="ic run"><svg><use href="#i-play"/></svg></span><span class="w"><b style="color:var(--head)">Ada</b> · Search index — <span class="run">travaille</span> <span class="sub">depuis 12 minutes</span></span></div></div>
+          <div class="section"><div class="t line"><span class="ic run"><svg><use href="#i-play"/></svg></span><span class="w"><b style="color:var(--head)">Ada</b> · Search index — <span class="run">travaille</span> <span class="sub">depuis 12 minutes</span></span></div><span class="btn sm"><svg><use href="#i-thread"/></svg>Voir le fil</span></div>
           <div class="section"><div class="t line"><span class="ic wait"><svg><use href="#i-bell"/></svg></span><span class="w"><b style="color:var(--head)">Cy</b> · Checkout — <span class="wait">vous attend</span> <span class="sub">depuis 4 minutes</span></span></div><span class="btn primary">Voir sa demande</span></div>
-          <div class="section"><div class="t line"><span class="ic"><svg><use href="#i-pause"/></svg></span><span class="w"><b style="color:var(--head)">Bo</b> · Filters — inactif <span class="sub">depuis 20 minutes</span></span></div></div>
+          <div class="section"><div class="t line"><span class="ic"><svg><use href="#i-pause"/></svg></span><span class="w"><b style="color:var(--head)">Bo</b> · Filters — inactif <span class="sub">depuis 20 minutes</span></span></div><span class="btn sm"><svg><use href="#i-thread"/></svg>Ouvrir le fil</span></div>
           <div class="sep"></div>
           <div class="sub">2 tâches à faire · 1 à fusionner · 4 terminées aujourd’hui</div>
         </div>
@@ -440,6 +447,46 @@ h2{font-size:20px}h3{font-size:16px}
       </div></div>
     </div>
     <div class="composer"><span class="plus">+</span>Envoyer un message dans #render-farm</div>
+  </div>
+</div>
+</section>
+
+<section class="shot" id="s7">
+<div class="window" data-sel="ada">
+  <div class="main">
+    <div class="top"><svg width="22" height="22" style="color:#80848e"><use href="#i-thread"/></svg><b>ada · search-index</b><span class="topic">Tâche « Search index » · branche ada/search-index · Sonnet 5.5</span></div>
+    <div class="feed">
+      <div class="msg"><div class="av" style="background:#3a3c42;color:#b5bac1"><svg><use href="#i-hangar"/></svg></div><div class="body">
+        <div class="name"><b>Hangar</b><span class="tag">APP</span><time>Aujourd’hui à 14:11</time></div>
+        <div class="line"><span class="ic"><svg><use href="#i-thread"/></svg></span><span class="w">Fil ouvert par <span class="mention">@toi</span> : le travail d’Ada depuis son début, puis en direct</span></div>
+      </div></div>
+      <div class="msg"><div class="av" style="background:#2f9e5b">A</div><div class="body">
+        <div class="name"><b>Ada</b><span class="tag">APP</span><time>Aujourd’hui à 14:09</time></div>
+        <div class="text">Index branché sur <code>products.tags</code>. Les titres sont normalisés (accents, casse) avant l’indexation, pour que « Écran » trouve « ecran ».</div>
+        <div class="box done">
+          <div class="line"><span class="sub">12 actions · 6 minutes</span></div>
+          <div class="line"><span class="ic"><svg><use href="#i-search"/></svg></span><span class="w">Cherché « products.tags » · 8 résultats</span></div>
+          <div class="line"><span class="ic"><svg><use href="#i-edit"/></svg></span><span class="w">Modifié <code>src/search/index.ts</code> et 2 autres fichiers</span></div>
+          <div class="line"><span class="ic ok"><svg><use href="#i-term"/></svg></span><span class="w"><code>pnpm test</code></span><span class="st ok">réussi</span></div>
+        </div>
+      </div></div>
+      <div class="msg"><div class="av" style="background:#c06b3e">T</div><div class="body">
+        <div class="name"><b>toi</b><time>Aujourd’hui à 14:12</time></div>
+        <div class="text">Pense aux noms de marque avec un tiret</div>
+        <div class="reacts"><span class="react">✅ <b>1</b></span></div>
+      </div></div>
+      <div class="msg"><div class="av" style="background:#2f9e5b">A</div><div class="body">
+        <div class="name"><b>Ada</b><span class="tag">APP</span><time>Aujourd’hui à 14:13</time></div>
+        <div class="box working">
+          <div class="line" style="margin-bottom:4px"><span class="ic run"><svg><use href="#i-play"/></svg></span><span class="w"><b style="color:var(--head)">Ada travaille</b> <span class="sub">· depuis 40 secondes</span></span></div>
+          <div class="line"><span class="ic"><svg><use href="#i-search"/></svg></span><span class="w">Cherché « - » dans <code>fixtures/brands.json</code></span></div>
+          <div class="line"><span class="ic run"><svg><use href="#i-edit"/></svg></span><span class="w">Modifie <code>src/search/normalize.ts</code></span><span class="st run">en cours</span></div>
+          <div class="row"><span class="btn danger"><svg><use href="#i-stop"/></svg>Arrêter</span></div>
+        </div>
+      </div></div>
+    </div>
+    <div class="typing"><span class="dots"><i></i><i></i><i></i></span><b>Ada</b> est en train d’écrire…</div>
+    <div class="composer"><span class="plus">+</span>Envoyer un message à Ada</div>
   </div>
 </div>
 </section>
