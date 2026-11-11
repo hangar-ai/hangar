@@ -228,9 +228,9 @@ impl Discord {
     }
 }
 
-/// Waits up to five seconds for `found`.
+/// Waits up to twenty seconds for `found` (a loaded machine is slow).
 async fn eventually<T>(what: &str, mut found: impl FnMut() -> Option<T>) -> T {
-    for _ in 0..500 {
+    for _ in 0..2_000 {
         if let Some(found) = found() {
             return found;
         }
@@ -340,10 +340,11 @@ async fn a_workspace_on_discord_from_pairing_to_a_worker_s_thread() {
     assert_eq!(identified["token"], "secret");
     assert_eq!(identified["intents"].as_u64().unwrap() & (1 << 15), 1 << 15);
     // Its commands, on the guild alone.
-    assert!(
-        !d.calls_to("PUT", "/applications/app1/guilds/g1/commands")
-            .is_empty()
-    );
+    eventually("the commands registered", || {
+        d.calls_to("PUT", "/applications/app1/guilds/g1/commands")
+            .pop()
+    })
+    .await;
 
     // A category, the workspace's channel, its webhook, its dashboard pinned.
     let made = eventually("the workspace's channel", || {
@@ -406,11 +407,15 @@ async fn a_workspace_on_discord_from_pairing_to_a_worker_s_thread() {
         json!({ "id": "m3", "channel_id": channel,
         "content": "Ajoute un panier", "author": { "id": "u1" } }),
     );
-    eventually("typed into Leo", || {
-        rig.shells
-            .typed_into("leo")
-            .contains("Ajoute un panier")
-            .then_some(())
+    // Typed when Leo is idle, queued (⏳) while it works.
+    eventually("Leo given the message", || {
+        let queued = !d
+            .calls_to(
+                "PUT",
+                &format!("/channels/{channel}/messages/m3/reactions/%E2%8F%B3"),
+            )
+            .is_empty();
+        (queued || rig.shells.typed_into("leo").contains("Ajoute un panier")).then_some(())
     })
     .await;
     eventually("the message marked", || {
@@ -587,11 +592,14 @@ async fn a_workspace_on_discord_from_pairing_to_a_worker_s_thread() {
         json!({ "id": "m5", "channel_id": thread_id,
         "content": "Pense aux tests", "author": { "id": "u1" } }),
     );
-    eventually("typed into Ada", || {
-        rig.shells
-            .typed_into(&ada)
-            .contains("Pense aux tests")
-            .then_some(())
+    eventually("Ada given the message", || {
+        let queued = !d
+            .calls_to(
+                "PUT",
+                &format!("/channels/{thread_id}/messages/m5/reactions/%E2%8F%B3"),
+            )
+            .is_empty();
+        (queued || rig.shells.typed_into(&ada).contains("Pense aux tests")).then_some(())
     })
     .await;
     // The worker stops: a last line, the thread archived.

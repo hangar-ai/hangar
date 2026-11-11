@@ -401,10 +401,8 @@ pub async fn run(host: EngineHost, options: Options) -> Result<(), String> {
             ..State::default()
         }),
     }));
-    bot.register_commands().await;
-    bot.mark_journals_seen();
-    bot.sync().await;
-
+    // The gateway first: the events of the moments the structure takes to
+    // make wait in the channel rather than go unheard.
     let (events, mut dispatches) = mpsc::unbounded_channel::<Dispatch>();
     let (fatal_tx, mut fatal) = mpsc::unbounded_channel::<String>();
     tokio::spawn(async move {
@@ -412,6 +410,9 @@ pub async fn run(host: EngineHost, options: Options) -> Result<(), String> {
             let _ = fatal_tx.send(why);
         }
     });
+    bot.register_commands().await;
+    bot.mark_journals_seen();
+    bot.sync().await;
     let mut core = host.core().subscribe();
     let mut news = host.news();
     let mut tick = tokio::time::interval(TICK);
