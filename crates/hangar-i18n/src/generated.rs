@@ -370,6 +370,56 @@ pub enum Key {
     ChatConvEmptyTitle,
     /// `chatConv.hangar`
     ChatConvHangar,
+    /// `chatConv.heard.blocked`
+    ChatConvHeardBlocked,
+    /// `chatConv.heard.blockedByYou`
+    ChatConvHeardBlockedByYou,
+    /// `chatConv.heard.briefing`
+    ChatConvHeardBriefing,
+    /// `chatConv.heard.changesRequested`
+    ChatConvHeardChangesRequested,
+    /// `chatConv.heard.checkFailed`
+    ChatConvHeardCheckFailed,
+    /// `chatConv.heard.commented`
+    ChatConvHeardCommented,
+    /// `chatConv.heard.commentedByYou`
+    ChatConvHeardCommentedByYou,
+    /// `chatConv.heard.conflict`
+    ChatConvHeardConflict,
+    /// `chatConv.heard.dirty`
+    ChatConvHeardDirty,
+    /// `chatConv.heard.done`
+    ChatConvHeardDone,
+    /// `chatConv.heard.exited`
+    ChatConvHeardExited,
+    /// `chatConv.heard.failed`
+    ChatConvHeardFailed,
+    /// `chatConv.heard.idle`
+    ChatConvHeardIdle,
+    /// `chatConv.heard.landed`
+    ChatConvHeardLanded,
+    /// `chatConv.heard.message`
+    ChatConvHeardMessage,
+    /// `chatConv.heard.moved`
+    ChatConvHeardMoved,
+    /// `chatConv.heard.needsYou`
+    ChatConvHeardNeedsYou,
+    /// `chatConv.heard.ready`
+    ChatConvHeardReady,
+    /// `chatConv.heard.recheck`
+    ChatConvHeardRecheck,
+    /// `chatConv.heard.stale`
+    ChatConvHeardStale,
+    /// `chatConv.heard.started`
+    ChatConvHeardStarted,
+    /// `chatConv.heard.startedOn`
+    ChatConvHeardStartedOn,
+    /// `chatConv.heard.stopped`
+    ChatConvHeardStopped,
+    /// `chatConv.heard.unblocked`
+    ChatConvHeardUnblocked,
+    /// `chatConv.heard.waiting`
+    ChatConvHeardWaiting,
     /// `chatConv.images`
     ChatConvImages,
     /// `chatConv.inputHint`
@@ -472,6 +522,8 @@ pub enum Key {
     ChatConvToolSearchMemory,
     /// `chatConv.tool.sendPane`
     ChatConvToolSendPane,
+    /// `chatConv.tool.sendPaneText`
+    ChatConvToolSendPaneText,
     /// `chatConv.tool.showPreview`
     ChatConvToolShowPreview,
     /// `chatConv.tool.spawnAnyWorker`
@@ -3973,7 +4025,7 @@ pub enum Key {
 }
 
 /// How many keys there are.
-pub const KEY_COUNT: usize = 1978;
+pub const KEY_COUNT: usize = 2004;
 
 impl Key {
     /// Every key, in the order of their ids.
@@ -4156,6 +4208,31 @@ impl Key {
         Key::ChatConvEmptyStart,
         Key::ChatConvEmptyTitle,
         Key::ChatConvHangar,
+        Key::ChatConvHeardBlocked,
+        Key::ChatConvHeardBlockedByYou,
+        Key::ChatConvHeardBriefing,
+        Key::ChatConvHeardChangesRequested,
+        Key::ChatConvHeardCheckFailed,
+        Key::ChatConvHeardCommented,
+        Key::ChatConvHeardCommentedByYou,
+        Key::ChatConvHeardConflict,
+        Key::ChatConvHeardDirty,
+        Key::ChatConvHeardDone,
+        Key::ChatConvHeardExited,
+        Key::ChatConvHeardFailed,
+        Key::ChatConvHeardIdle,
+        Key::ChatConvHeardLanded,
+        Key::ChatConvHeardMessage,
+        Key::ChatConvHeardMoved,
+        Key::ChatConvHeardNeedsYou,
+        Key::ChatConvHeardReady,
+        Key::ChatConvHeardRecheck,
+        Key::ChatConvHeardStale,
+        Key::ChatConvHeardStarted,
+        Key::ChatConvHeardStartedOn,
+        Key::ChatConvHeardStopped,
+        Key::ChatConvHeardUnblocked,
+        Key::ChatConvHeardWaiting,
         Key::ChatConvImages,
         Key::ChatConvInputHint,
         Key::ChatConvLoading,
@@ -4207,6 +4284,7 @@ impl Key {
         Key::ChatConvToolReadPane,
         Key::ChatConvToolSearchMemory,
         Key::ChatConvToolSendPane,
+        Key::ChatConvToolSendPaneText,
         Key::ChatConvToolShowPreview,
         Key::ChatConvToolSpawnAnyWorker,
         Key::ChatConvToolSpawnWorker,
@@ -6139,6 +6217,31 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "chatConv.empty.start", en: Text::plain("Start the orchestrator"), fr: Text::plain("Lancer l’orchestrateur") },
     Message { id: "chatConv.empty.title", en: Text::plain("No orchestrator in this workspace"), fr: Text::plain("Pas d’orchestrateur dans cet espace") },
     Message { id: "chatConv.hangar", en: Text::plain("Hangar"), fr: Text::plain("Hangar") },
+    Message { id: "chatConv.heard.blocked", en: Text::plain("{who} put “{task}” on hold: {reason}"), fr: Text::plain("{who} a mis «\u{202f}{task}\u{202f}» en attente\u{202f}: {reason}") },
+    Message { id: "chatConv.heard.blockedByYou", en: Text::plain("You put “{task}” on hold: {reason}"), fr: Text::plain("Vous avez mis «\u{202f}{task}\u{202f}» en attente\u{202f}: {reason}") },
+    Message { id: "chatConv.heard.briefing", en: Text::plain("Hangar brought {name} up to date"), fr: Text::plain("Hangar a fait le point avec {name}") },
+    Message { id: "chatConv.heard.changesRequested", en: Text::plain("“{task}” by {worker}: the review asks for changes"), fr: Text::plain("«\u{202f}{task}\u{202f}» de {worker}\u{202f}: la relecture demande des changements") },
+    Message { id: "chatConv.heard.checkFailed", en: Text::plain("“{task}” by {worker}: the check failed, sent back to fix"), fr: Text::plain("«\u{202f}{task}\u{202f}» de {worker}\u{202f}: la vérification a échoué, renvoyé à corriger") },
+    Message { id: "chatConv.heard.commented", en: Text::plain("{who} commented on “{task}”: {text}"), fr: Text::plain("{who} a commenté «\u{202f}{task}\u{202f}»\u{202f}: {text}") },
+    Message { id: "chatConv.heard.commentedByYou", en: Text::plain("You commented on “{task}”: {text}"), fr: Text::plain("Vous avez commenté «\u{202f}{task}\u{202f}»\u{202f}: {text}") },
+    Message { id: "chatConv.heard.conflict", en: Text::plain("“{task}” by {worker}: merge conflict, sent back to fix"), fr: Text::plain("«\u{202f}{task}\u{202f}» de {worker}\u{202f}: conflit de fusion, renvoyé à corriger") },
+    Message { id: "chatConv.heard.dirty", en: Text::plain("“{task}” by {worker}: held back by uncommitted changes"), fr: Text::plain("«\u{202f}{task}\u{202f}» de {worker}\u{202f}: bloqué par des changements non commités") },
+    Message { id: "chatConv.heard.done", en: Text::plain("{worker} delivered “{task}”: task done"), fr: Text::plain("{worker} a livré «\u{202f}{task}\u{202f}»\u{202f}: tâche terminée") },
+    Message { id: "chatConv.heard.exited", en: Text::plain("{worker}’s session ended"), fr: Text::plain("La session de {worker}\u{a0}s’est terminée") },
+    Message { id: "chatConv.heard.failed", en: Text::plain("“{task}” by {worker}: the delivery failed"), fr: Text::plain("«\u{202f}{task}\u{202f}» de {worker}\u{202f}: la livraison a échoué") },
+    Message { id: "chatConv.heard.idle", en: Text::plain("{worker} stopped without delivering"), fr: Text::plain("{worker}\u{a0}s’est arrêté sans livrer") },
+    Message { id: "chatConv.heard.landed", en: Text::plain("{worker} delivered “{task}”: merged, task done"), fr: Text::plain("{worker} a livré «\u{202f}{task}\u{202f}»\u{202f}: intégré, tâche terminée") },
+    Message { id: "chatConv.heard.message", en: Text::plain("{from}: “{text}”"), fr: Text::plain("{from}\u{202f}: «\u{202f}{text}\u{202f}»") },
+    Message { id: "chatConv.heard.moved", en: Text::plain("“{task}”: {from} → {to}"), fr: Text::plain("«\u{202f}{task}\u{202f}»\u{202f}: {from} → {to}") },
+    Message { id: "chatConv.heard.needsYou", en: Text::plain("“{task}” needs you: {reason}"), fr: Text::plain("«\u{202f}{task}\u{202f}» a besoin de vous\u{202f}: {reason}") },
+    Message { id: "chatConv.heard.ready", en: Text::plain("{worker} delivered “{task}”: checked and reviewed, ready for you to land"), fr: Text::plain("{worker} a livré «\u{202f}{task}\u{202f}»\u{202f}: vérifié et relu, prêt à être intégré") },
+    Message { id: "chatConv.heard.recheck", en: Text::plain("“{task}” stays on hold until you lift it"), fr: Text::plain("«\u{202f}{task}\u{202f}» reste en attente jusqu’à ce que vous la débloquiez") },
+    Message { id: "chatConv.heard.stale", en: Text::plain("“{task}” by {worker}: changed since its review, to hand in again"), fr: Text::plain("«\u{202f}{task}\u{202f}» de {worker}\u{202f}: modifié depuis la relecture, à rendre de nouveau") },
+    Message { id: "chatConv.heard.started", en: Text::plain("{worker} started"), fr: Text::plain("{worker} a démarré") },
+    Message { id: "chatConv.heard.startedOn", en: Text::plain("{worker} started on “{task}”"), fr: Text::plain("{worker} a commencé «\u{202f}{task}\u{202f}»") },
+    Message { id: "chatConv.heard.stopped", en: Text::plain("{worker} was stopped"), fr: Text::plain("{worker} a été arrêté") },
+    Message { id: "chatConv.heard.unblocked", en: Text::plain("“{task}” is off hold"), fr: Text::plain("«\u{202f}{task}\u{202f}» n’est plus en attente") },
+    Message { id: "chatConv.heard.waiting", en: Text::plain("{worker} has been waiting for you for {minutes}\u{a0}min"), fr: Text::plain("{worker} vous attend depuis {minutes}\u{a0}min") },
     Message { id: "chatConv.images", en: Text::plural("{n} image", "{n} images"), fr: Text::plural("{n} image", "{n} images") },
     Message { id: "chatConv.inputHint", en: Text::plain("Enter to send, Shift+Enter for a new line"), fr: Text::plain("Entrée pour envoyer, Maj+Entrée pour aller à la ligne") },
     Message { id: "chatConv.loading", en: Text::plain("Loading the conversation…"), fr: Text::plain("Chargement de la conversation…") },
@@ -6190,6 +6293,7 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "chatConv.tool.readPane", en: Text::plain("Read {name}’s screen"), fr: Text::plain("Écran de {name} lu") },
     Message { id: "chatConv.tool.searchMemory", en: Text::plain("Searched the memory for “{query}”"), fr: Text::plain("Recherche «\u{202f}{query}\u{202f}» dans la mémoire") },
     Message { id: "chatConv.tool.sendPane", en: Text::plain("Sent a message to {name}"), fr: Text::plain("Message envoyé à {name}") },
+    Message { id: "chatConv.tool.sendPaneText", en: Text::plain("To {name}: “{text}”"), fr: Text::plain("À {name}\u{202f}: «\u{202f}{text}\u{202f}»") },
     Message { id: "chatConv.tool.showPreview", en: Text::plain("Showed a preview"), fr: Text::plain("Aperçu affiché") },
     Message { id: "chatConv.tool.spawnAnyWorker", en: Text::plain("Started a worker on “{task}”"), fr: Text::plain("Worker lancé sur «\u{202f}{task}\u{202f}»") },
     Message { id: "chatConv.tool.spawnWorker", en: Text::plain("Started worker {name} on “{task}”"), fr: Text::plain("Worker {name} lancé sur «\u{202f}{task}\u{202f}»") },

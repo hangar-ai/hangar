@@ -29,9 +29,12 @@ use crate::state::roles::orchestrator_of;
 use crate::state::{AgentActivity, Pane, Workspace};
 
 use super::calls::{self, Kind, Piece};
+use super::hangar;
 use super::settled::settled;
 use super::thread::{Outgoing, Sent};
 use super::{Blocked, Chat, Msg, State, blocked, msg, rich, titles};
+use crate::orchestration::events::DeliveryOutcome;
+use crate::orchestration::heard::Heard;
 
 /// The widest the column of messages gets: lines longer than this read badly.
 const COLUMN_WIDTH: f32 = 760.0;
@@ -39,8 +42,6 @@ const COLUMN_WIDTH: f32 = 760.0;
 const BUBBLE_WIDTH: f32 = 580.0;
 /// The roundness of a bubble and of the composer.
 const SOFT: f32 = 16.0;
-/// The lines of a message of Hangar's shown before « Show all ».
-const HANGAR_LINES: usize = 3;
 /// The lines of a call's detail or result shown expanded, at most.
 const DETAIL_LINES: usize = 40;
 /// A call's icon, and how far its words sit from the row's edge.
@@ -579,8 +580,206 @@ fn mine<'a>(
     row![Space::new().width(Length::Fill), bubble].into()
 }
 
-/// A message Hangar sent the orchestrator (a briefing, a worker's news):
-/// discreet, its first lines until shown whole.
+/// How long the first line of a message gets in its one line.
+const NOTE_WORDS: usize = 140;
+
+/// A line of the workspace's news in the person's words: its icon and its
+/// colour, by what it says.
+fn heard_line(ctx: Ctx<'_>, heard: &Heard) -> (Icon, Color, String) {
+    let t = ctx.theme;
+    let c = &t.colors;
+    let say = |key: Key, args: &[(&str, &str)]| {
+        let list: Vec<(&str, hangar_i18n::Arg)> = args
+            .iter()
+            .map(|(name, value)| (*name, hangar_i18n::Arg::from(*value)))
+            .collect();
+        ctx.i18n.t_with(key, &list).into_owned()
+    };
+    let column = |id: &str| {
+        crate::board::model::Column::from_id(id)
+            .map(|column| ctx.t(column.label_key()).into_owned())
+            .unwrap_or_else(|| id.to_string())
+    };
+    match heard {
+        Heard::Delivery {
+            task,
+            worker,
+            outcome,
+        } => {
+            let (glyph, colour, key) = match outcome {
+                DeliveryOutcome::Landed => (Icon::Check, c.success, Key::ChatConvHeardLanded),
+                DeliveryOutcome::Done => (Icon::Check, c.success, Key::ChatConvHeardDone),
+                DeliveryOutcome::Ready => (Icon::Merge, c.accent_hi, Key::ChatConvHeardReady),
+                DeliveryOutcome::Conflict => (Icon::Alert, c.warning, Key::ChatConvHeardConflict),
+                DeliveryOutcome::CheckFailed => {
+                    (Icon::Alert, c.warning, Key::ChatConvHeardCheckFailed)
+                }
+                DeliveryOutcome::ChangesRequested => {
+                    (Icon::Alert, c.warning, Key::ChatConvHeardChangesRequested)
+                }
+                DeliveryOutcome::Dirty => (Icon::Alert, c.warning, Key::ChatConvHeardDirty),
+                DeliveryOutcome::Stale => (Icon::Alert, c.warning, Key::ChatConvHeardStale),
+                DeliveryOutcome::Error => (Icon::Alert, c.danger, Key::ChatConvHeardFailed),
+            };
+            (
+                glyph,
+                colour,
+                say(key, &[("worker", worker.as_str()), ("task", task.as_str())]),
+            )
+        }
+        Heard::NeedsYou { task, reason } => (
+            Icon::Bell,
+            c.state_waiting,
+            say(
+                Key::ChatConvHeardNeedsYou,
+                &[("task", task.as_str()), ("reason", reason.as_str())],
+            ),
+        ),
+        Heard::Blocked { task, by, reason } => {
+            let words = match by {
+                Some(who) => say(
+                    Key::ChatConvHeardBlocked,
+                    &[
+                        ("who", who.as_str()),
+                        ("task", task.as_str()),
+                        ("reason", reason.as_str()),
+                    ],
+                ),
+                None => say(
+                    Key::ChatConvHeardBlockedByYou,
+                    &[("task", task.as_str()), ("reason", reason.as_str())],
+                ),
+            };
+            (Icon::Lock, c.warning, words)
+        }
+        Heard::Unblocked { task } => (
+            Icon::Lock,
+            c.fg_muted,
+            say(Key::ChatConvHeardUnblocked, &[("task", task.as_str())]),
+        ),
+        Heard::RecheckDue { task } => (
+            Icon::Clock,
+            c.warning,
+            say(Key::ChatConvHeardRecheck, &[("task", task.as_str())]),
+        ),
+        Heard::Commented { task, by, text } => {
+            let words = match by {
+                Some(who) => say(
+                    Key::ChatConvHeardCommented,
+                    &[
+                        ("who", who.as_str()),
+                        ("task", task.as_str()),
+                        ("text", text.as_str()),
+                    ],
+                ),
+                None => say(
+                    Key::ChatConvHeardCommentedByYou,
+                    &[("task", task.as_str()), ("text", text.as_str())],
+                ),
+            };
+            (Icon::Bubble, c.fg_muted, words)
+        }
+        Heard::Moved { task, from, to } => (
+            Icon::ArrowRight,
+            c.fg_muted,
+            say(
+                Key::ChatConvHeardMoved,
+                &[
+                    ("task", task.as_str()),
+                    ("from", &column(from)),
+                    ("to", &column(to)),
+                ],
+            ),
+        ),
+        Heard::Started { worker, task } => {
+            let words = match task {
+                Some(task) => say(
+                    Key::ChatConvHeardStartedOn,
+                    &[("worker", worker.as_str()), ("task", task.as_str())],
+                ),
+                None => say(Key::ChatConvHeardStarted, &[("worker", worker.as_str())]),
+            };
+            (Icon::Play, c.state_working, words)
+        }
+        Heard::Stopped { worker, .. } => (
+            Icon::Stop,
+            c.fg_muted,
+            say(Key::ChatConvHeardStopped, &[("worker", worker.as_str())]),
+        ),
+        Heard::Exited { worker, .. } => (
+            Icon::Close,
+            c.fg_muted,
+            say(Key::ChatConvHeardExited, &[("worker", worker.as_str())]),
+        ),
+        Heard::Waiting {
+            worker, minutes, ..
+        } => (
+            Icon::Bell,
+            c.state_waiting,
+            say(
+                Key::ChatConvHeardWaiting,
+                &[
+                    ("worker", worker.as_str()),
+                    ("minutes", &minutes.to_string()),
+                ],
+            ),
+        ),
+        Heard::Idle { worker, .. } => (
+            Icon::Pause,
+            c.warning,
+            say(Key::ChatConvHeardIdle, &[("worker", worker.as_str())]),
+        ),
+    }
+}
+
+/// One line of what Hangar said: an icon, the words, and when there is more
+/// to read, the chevron that opens it.
+fn note_line<'a>(
+    t: &'a Theme,
+    glyph: Icon,
+    colour: Color,
+    words: String,
+    toggle: Option<(bool, Message)>,
+) -> Element<'a, Message> {
+    let mut line = row![
+        container(icon(glyph, CALL_ICON).color(colour))
+            .width(CALL_ICON)
+            .center_x(CALL_ICON),
+        text(words)
+            .size(tokens::font_size::CAPTION)
+            .width(Length::Fill)
+            .style(style::text::secondary(t)),
+    ]
+    .spacing(tokens::space::MD)
+    .align_y(Alignment::Center);
+    let Some((open, press)) = toggle else {
+        return container(line)
+            .padding([tokens::space::XS, tokens::space::SM])
+            .into();
+    };
+    line = line.push(
+        icon(
+            if open {
+                Icon::ChevronDown
+            } else {
+                Icon::ChevronRight
+            },
+            11.0,
+        )
+        .color(t.colors.fg_subtle),
+    );
+    button(line)
+        .padding([tokens::space::XS, tokens::space::SM])
+        .width(Length::Fill)
+        .style(style::button::row(t, false))
+        .on_press(press)
+        .into()
+}
+
+/// A message Hangar put in the orchestrator's conversation, compact: a line
+/// per thing that happened in the workspace, in the person's words; or one
+/// line for a message from another agent, the state of the work handed to a
+/// conversation that starts, or anything else, the whole of it a click away.
 fn hangar_message<'a>(
     ctx: Ctx<'a>,
     ws: &'a Workspace,
@@ -589,62 +788,83 @@ fn hangar_message<'a>(
     words: &'a str,
 ) -> Element<'a, Message> {
     let t = ctx.theme;
-    let whole = chat.expanded.contains(&item.id);
-    let lines = words.lines().count();
-    let shown = if whole || lines <= HANGAR_LINES {
-        words.to_string()
-    } else {
-        let mut head: Vec<&str> = words.lines().take(HANGAR_LINES).collect();
-        if let Some(last) = head.last_mut() {
-            *last = last.trim_end();
+    let open = chat.expanded.contains(&item.id);
+    let toggle = || (open, msg(Msg::Toggle(ws.id.clone(), item.id.clone())));
+    let (head, whole): (Element<'a, Message>, Option<String>) = match hangar::note(words) {
+        hangar::Note::News(lines) => {
+            let mut list = column![].spacing(tokens::space::XXS);
+            for line in &lines {
+                let (glyph, colour, words) = match line {
+                    hangar::Line::Heard(heard) => heard_line(ctx, heard),
+                    hangar::Line::Said(words) => {
+                        (Icon::Broadcast, t.colors.fg_muted, words.clone())
+                    }
+                };
+                list = list.push(note_line(t, glyph, colour, words, None));
+            }
+            return list.into();
         }
-        format!("{}…", head.join("\n"))
-    };
-    let mut stack = column![
-        row![
-            icon(Icon::Broadcast, 11.0).color(t.colors.fg_subtle),
-            text(ctx.t(Key::ChatConvHangar))
-                .size(tokens::font_size::MICRO)
-                .font(fonts::ui_semibold())
-                .style(style::text::subtle(t)),
-        ]
-        .spacing(tokens::space::SM)
-        .align_y(Alignment::Center),
-        text(shown)
-            .size(tokens::font_size::CAPTION)
-            .line_height(tokens::line_height::BODY)
-            .style(style::text::muted(t)),
-    ]
-    .spacing(tokens::space::XS);
-    if lines > HANGAR_LINES {
-        let label = if whole {
-            Key::ChatConvShowLess
-        } else {
-            Key::ChatConvShowMore
-        };
-        stack = stack.push(
-            button(
-                text(ctx.t(label))
-                    .size(tokens::font_size::CAPTION)
-                    .style(style::text::accent(t)),
+        hangar::Note::Agent { from, text: said } => {
+            let line = hangar::first_line(&said, NOTE_WORDS);
+            let more = said.trim() != line;
+            let words = ctx
+                .i18n
+                .t_with(
+                    Key::ChatConvHeardMessage,
+                    &args!("from" => from.as_str(), "text" => line.as_str()),
+                )
+                .into_owned();
+            (
+                note_line(t, Icon::Bubble, t.colors.fg_muted, words, more.then(toggle)),
+                more.then_some(said),
             )
-            .padding(0)
-            .style(style::button::link(t))
-            .on_press(msg(Msg::Toggle(ws.id.clone(), item.id.clone()))),
-        );
+        }
+        hangar::Note::Briefing(state) => {
+            let name = orchestrator_of(ws).map_or("", |pane| pane.name.as_str());
+            let words = ctx
+                .i18n
+                .t_with(Key::ChatConvHeardBriefing, &args!("name" => name))
+                .into_owned();
+            let more = !state.trim().is_empty();
+            (
+                note_line(t, Icon::Board, t.colors.fg_muted, words, more.then(toggle)),
+                more.then_some(state),
+            )
+        }
+        hangar::Note::Other(said) => {
+            let line = hangar::first_line(&said, NOTE_WORDS);
+            let more = said.trim() != line;
+            (
+                note_line(
+                    t,
+                    Icon::Broadcast,
+                    t.colors.fg_muted,
+                    line,
+                    more.then(toggle),
+                ),
+                more.then_some(said),
+            )
+        }
+    };
+    match whole.filter(|_| open) {
+        Some(whole) => column![
+            head,
+            container(
+                text(whole)
+                    .size(tokens::font_size::CAPTION)
+                    .line_height(tokens::line_height::BODY)
+                    .style(style::text::muted(t)),
+            )
+            .padding(Padding {
+                top: 0.0,
+                right: tokens::space::SM,
+                bottom: tokens::space::SM,
+                left: CALL_INDENT,
+            })
+        ]
+        .into(),
+        None => head,
     }
-    container(stack)
-        .padding([tokens::space::MD, tokens::space::LG])
-        .width(Length::Fill)
-        .style(move |_| container::Style {
-            background: Some(Background::Color(tint(t.colors.fg, 0.035))),
-            border: Border {
-                radius: tokens::radius::LG.into(),
-                ..Border::default()
-            },
-            ..container::Style::default()
-        })
-        .into()
 }
 
 struct Action<'b> {

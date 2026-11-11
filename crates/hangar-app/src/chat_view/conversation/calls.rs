@@ -22,7 +22,9 @@ impl Piece<'_> {
     }
 }
 
-/// The items as shown: two calls or more in a row are a run.
+/// The items as shown: two calls or more in a row are a run. A message to
+/// another agent is never folded: it is the orchestrator talking to its
+/// workers, which the person follows line by line.
 pub fn pieces<'a>(items: impl IntoIterator<Item = &'a ChatItem>) -> Vec<Piece<'a>> {
     let mut pieces = Vec::new();
     let mut run: Vec<&ChatItem> = Vec::new();
@@ -32,7 +34,9 @@ pub fn pieces<'a>(items: impl IntoIterator<Item = &'a ChatItem>) -> Vec<Piece<'a
         _ => pieces.push(Piece::Run(std::mem::take(run))),
     };
     for item in items {
-        if matches!(item.body, Body::Action { .. }) {
+        let message =
+            matches!(&item.body, Body::Action { tool, .. } if kind(tool) == Kind::Message);
+        if matches!(item.body, Body::Action { .. }) && !message {
             run.push(item);
         } else {
             flush(&mut run, &mut pieces);

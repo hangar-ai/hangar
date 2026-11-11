@@ -18,6 +18,7 @@ Every release, with its installers, is on the
 ### Changed
 
 - **The chat view reads like a chat.** Claude's words sit open on the page, your messages in rounded bubbles on the right; its calls are quiet lines with an icon for what they do (a command, an edit, a read, a search, a task), folded in runs as before. While it works, a line at the bottom says so and for how long, and the header gives the model and how full its context is. The input is one rounded composer; while a question or a permission waits, its card takes the composer's place, with only the question being asked (no recap of the answers given before: Back goes to them).
+- **The orchestrator's exchanges with its workers, short and in your language.** What Hangar tells the orchestrator about the workspace shows as one line per thing that happened, with an icon and a colour for what it means (Ada delivered “Search index”: merged, task done; Bo started on “Filters”; Cy has been waiting for you for 4 min) instead of the block written for the model. A worker's message to the orchestrator and the orchestrator's message to a worker each show as one line with their first words (Bo: “…”, To Bo: “…”), the whole message a click away, and a message is never folded into a run of calls. The state of the work handed to a conversation that starts is one line too.
 
 ### Fixed
 

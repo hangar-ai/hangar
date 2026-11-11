@@ -25,6 +25,7 @@
 pub mod brief;
 pub mod brief_text;
 pub mod events;
+pub mod heard;
 pub mod live;
 pub mod manager_feed;
 pub mod port;

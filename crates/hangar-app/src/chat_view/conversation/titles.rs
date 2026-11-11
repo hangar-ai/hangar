@@ -13,6 +13,8 @@ use serde_json::Value;
 
 /// The prefix of Hangar's own tools as Claude Code names them.
 const HANGAR: &str = "mcp__hangar__";
+/// How much of a message to another agent its title shows.
+const SAID_WORDS: usize = 90;
 
 /// The words of a call's title: the readable one for Hangar's tools, the
 /// core's otherwise. `task_title` looks a task up by id.
@@ -117,7 +119,28 @@ fn readable(
         }
         "worker_stop" => with_name(Key::ChatConvToolStopWorker, &field("worker")?),
         "worker_list" => Some(i18n.t(Key::ChatConvToolListWorkers).into_owned()),
-        "pane_send" => with_name(Key::ChatConvToolSendPane, &field("pane")?),
+        // What was said, its first words: the person follows the
+        // orchestrator's exchanges with its workers without opening each.
+        "pane_send" | "project_send" => {
+            let to = field(if name == "pane_send" {
+                "pane"
+            } else {
+                "workspace"
+            })?;
+            match field("text") {
+                Some(said) => {
+                    let said = super::hangar::first_line(&said, SAID_WORDS);
+                    Some(
+                        i18n.t_with(
+                            Key::ChatConvToolSendPaneText,
+                            &args!("name" => to.as_str(), "text" => said.as_str()),
+                        )
+                        .into_owned(),
+                    )
+                }
+                None => with_name(Key::ChatConvToolSendPane, &to),
+            }
+        }
         "pane_read" => with_name(Key::ChatConvToolReadPane, &field("pane")?),
         "pane_create" => match field("name") {
             Some(pane) => with_name(Key::ChatConvToolCreatePane, &pane),
@@ -239,6 +262,28 @@ mod tests {
             "Used it"
         );
         assert_eq!(of("mcp__hangar__board_create_task", Some("{}")), "Used it");
+    }
+
+    #[test]
+    fn a_message_to_a_worker_is_titled_with_its_first_words() {
+        assert_eq!(
+            of(
+                "mcp__hangar__pane_send",
+                Some(r#"{"pane":"Ada","text":"Rebase on main, then run the tests.\nThanks"}"#)
+            ),
+            "To Ada: “Rebase on main, then run the tests.”"
+        );
+        assert_eq!(
+            of("mcp__hangar__pane_send", Some(r#"{"pane":"Ada"}"#)),
+            "Sent a message to Ada"
+        );
+        assert_eq!(
+            of(
+                "mcp__hangar__project_send",
+                Some(r#"{"workspace":"Shop","text":"Ship the search box"}"#)
+            ),
+            "To Shop: “Ship the search box”"
+        );
     }
 
     #[test]

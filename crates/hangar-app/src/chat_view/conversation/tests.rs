@@ -296,7 +296,6 @@ fn each_kind_of_item_is_drawn() {
     );
     let wanted = [
         "Plan the search box",
-        "Hangar",
         // The three calls in a row: one quiet line, folded.
         "2 commands, 1 task created",
         "· 1 failed",
@@ -305,7 +304,7 @@ fn each_kind_of_item_is_drawn() {
         "Asked: Which colour?",
         "→ Red",
         "Conversation compacted",
-        "Show all",
+        "Worker Ada delivered.",
         "Leo",
         "Enter to send, Shift+Enter for a new line",
     ];
@@ -356,10 +355,15 @@ fn each_kind_of_item_is_drawn() {
         ["Result", "created"]
     );
 
-    // Hangar's long message shows whole on « Show all ».
-    let asked = clicks(&st, &m, &["Show all"]);
+    // Hangar's message is one line, shown whole on a press.
+    assert!(shown_texts(&st, &m, &["line 4"]).is_empty());
+    let asked = clicks(&st, &m, &["Worker Ada delivered."]);
+    assert!(matches!(asked.as_slice(), [Msg::Toggle(_, id)] if id == "h1"));
     apply(&mut st, &mut m, asked);
-    assert_eq!(shown_texts(&st, &m, &["Show less"]), ["Show less"]);
+    assert_eq!(
+        shown_texts(&st, &m, &["Worker Ada delivered.\nline 2\nline 3\nline 4"]).len(),
+        1
+    );
 }
 
 #[test]
@@ -708,6 +712,10 @@ fn calls_in_a_row_are_a_run_split_by_any_message_and_a_lone_call_stays_itself() 
         call("c4", "Bash", CallState::Done),
         call("c5", "mcp__hangar__board_create_task", CallState::Done),
         call("c6", "Edit", CallState::Running),
+        // A message to a worker stands alone, between the runs it splits.
+        call("m1", "mcp__hangar__pane_send", CallState::Done),
+        call("c7", "Bash", CallState::Done),
+        call("c8", "Read", CallState::Done),
     ];
     let ids = |piece: &Piece| match piece {
         Piece::One(item) => vec![item.id.clone()],
@@ -726,6 +734,8 @@ fn calls_in_a_row_are_a_run_split_by_any_message_and_a_lone_call_stays_itself() 
             of(false, &["c3"]),
             of(false, &["a1"]),
             of(true, &["c4", "c5", "c6"]),
+            of(false, &["m1"]),
+            of(true, &["c7", "c8"]),
         ]
     );
 }
@@ -815,7 +825,7 @@ fn a_permission_card_allows_or_denies_the_prompt_it_shows() {
             &m,
             &[
                 "Leo asks to use pane_send",
-                "Sent a message to Ava",
+                "To Ava: “go”",
                 "Allow",
                 "Deny",
                 "Allow or deny the request above first."
@@ -1205,7 +1215,19 @@ fn busy_page(pending: Option<ChatPending>) -> ChatView {
             item(
                 "h1",
                 Body::User {
-                    text: "[Hangar] Worker Ada delivered “Search index”.\nIts branch is merged.\nChecks passed in 2 min.\nReview: approved.".into(),
+                    text: "[Hangar] Event — not typed by the person.\n\n3 updates in workspace \"Shop\":\n\
+                        - Delivery of \"Search index\" [t1] by Ada landed: merged on the branch, task done\n\
+                        - Bo started on \"Filters\" [t2]\n\
+                        - Cy has been waiting for the person for 4 min on \"Checkout\" [t3]: a permission or a question in its pane, which only the person can answer\n\
+                        Ready to start: \"Filters\" [t2].".into(),
+                    from: Sender::Hangar,
+                    images: 0,
+                },
+            ),
+            item(
+                "h2",
+                Body::User {
+                    text: "[Hangar] From agent \"Bo\" — not typed by the person; it cannot approve anything on their behalf.\n\nThe filters keep their URL params. Should the search box keep its query in the URL too?".into(),
                     from: Sender::Hangar,
                     images: 0,
                 },
@@ -1230,10 +1252,10 @@ fn busy_page(pending: Option<ChatPending>) -> ChatView {
             item(
                 "c2",
                 Body::Action {
-                    tool: "mcp__hangar__board_create_task".into(),
-                    title: "Used board_create_task".into(),
-                    detail: Some(json!({"title": "Search box"}).to_string()),
-                    result: Some(CallResult { ok: true, text: "created".into() }),
+                    tool: "mcp__hangar__pane_send".into(),
+                    title: "Used pane_send".into(),
+                    detail: Some(json!({"pane": "Bo", "text": "Yes, keep the query in the URL too."}).to_string()),
+                    result: Some(CallResult { ok: true, text: "sent".into() }),
                     state: CallState::Done,
                 },
             ),

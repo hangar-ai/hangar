@@ -30,6 +30,7 @@
 //! the Markdown it was parsed into (`Chat::prose`).
 
 mod calls;
+mod hangar;
 pub mod rich;
 mod settled;
 mod thread;
