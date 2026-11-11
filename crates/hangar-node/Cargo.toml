@@ -20,6 +20,8 @@ path = "src/main.rs"
 hangar-core = { path = "../hangar-core", default-features = false }
 # The workspaces the node runs itself (own.rs, docs/native/headless.md).
 hangar-engine = { path = "../hangar-engine" }
+# The Discord connector, beside them (discord.rs, docs/native/discord-connector.md).
+hangar-discord = { path = "../hangar-discord" }
 # `ws` for this crate alone: the panes' streams and the events are WebSockets.
 axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "query", "tokio", "ws"] }
 tokio = { workspace = true }

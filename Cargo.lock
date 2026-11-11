@@ -3327,6 +3327,7 @@ dependencies = [
  "dirs 6.0.0",
  "futures-util",
  "hangar-core",
+ "hangar-discord",
  "hangar-engine",
  "http-body-util",
  "hyper",

@@ -320,7 +320,7 @@ pub(crate) fn channel_name(name: &str) -> String {
 /// What the bot gives itself on the categories it makes, so that it keeps
 /// seeing them once channels it cannot view are hidden from it (November
 /// 2026): view, send, history, files, reactions, webhooks, threads, pins.
-pub(crate) const BOT_ALLOW: u64 = (1 << 4)
+pub const BOT_ALLOW: u64 = (1 << 4)
     | (1 << 6)
     | (1 << 10)
     | (1 << 11)

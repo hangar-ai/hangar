@@ -12,7 +12,11 @@
 //!   panes start, as `hangar-ai --mcp` is on the desktop;
 //! - `hangar-node workspaces`, `workspace add <folder>`, `workspace remove
 //!   <id>` and `send <pane> <text>` show and change the workspaces the node
-//!   runs itself (own.rs, cli.rs), through the running daemon.
+//!   runs itself (own.rs, cli.rs), through the running daemon;
+//! - `hangar-node discord setup --guild <id>`, `discord status` and
+//!   `discord off` set up the Discord connector the daemon runs beside them
+//!   (discord.rs); `hangar-node service install` makes the daemon a systemd
+//!   user service, for a node that runs with no desktop (service.rs).
 //!
 //! Linux only: built for another system, the binary says so and exits.
 
@@ -20,12 +24,14 @@ mod api;
 mod cli;
 mod control;
 mod daemon;
+mod discord;
 mod engine;
 mod events;
 mod files;
 mod own;
 mod panes;
 mod proxy;
+mod service;
 mod state;
 mod transcripts;
 
@@ -50,7 +56,9 @@ pub const TARGET: &str = env!("HANGAR_NODE_TARGET");
 #[cfg(target_os = "linux")]
 const USAGE: &str = "usage: hangar-node version | serve [--detach [--if-version <v>]] | --mcp
        hangar-node workspaces | workspace add <folder> [--name <name>] [--no-orchestrator]
-       hangar-node workspace remove <id> | send <pane> <text…>";
+       hangar-node workspace remove <id> | send <pane> <text…>
+       hangar-node discord setup --guild <id> | discord status | discord off
+       hangar-node service install";
 
 /// What `serve --detach --if-version` exits with when this is another
 /// version: nothing was started.
@@ -83,6 +91,10 @@ fn run(args: &[String]) -> i32 {
         ["workspace", "add", rest @ ..] => report(cli::add(rest)),
         ["workspace", "remove", id] => report(cli::remove(id)),
         ["send", pane, words @ ..] if !words.is_empty() => report(cli::send(pane, words)),
+        ["discord", "setup", rest @ ..] => report(discord::setup(rest)),
+        ["discord", "status"] => report(discord::print_status()),
+        ["discord", "off"] => report(discord::off()),
+        ["service", "install"] => report(service::install()),
         ["help"] | ["--help"] | ["-h"] => {
             println!("{USAGE}");
             0

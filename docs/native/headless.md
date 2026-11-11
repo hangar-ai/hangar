@@ -62,7 +62,7 @@ they are refused.
    **done** (`crates/hangar-discord`).
 5. **A node that starts on its own**: its settings (the bot's token among
    them) on the server, `hangar-node serve` with no desktop, workspaces
-   created from Discord.
+   created from Discord: **done**.
 
 ## Rules for the moves
 
@@ -219,3 +219,44 @@ typed in it (a script standing in for it) whose request through Hangar's
 MCP server the node answers with no desktop, the state kept across a
 restart, and the workspace removed with its shell; the same from the
 command line.
+
+## Step 4: the Discord connector
+
+`crates/hangar-discord` (discord-connector.md): a bot beside an engine
+host, run by the node's daemon for the workspaces it runs itself.
+
+## Step 5: a node on its own
+
+On a Linux server, with nothing else than the binary:
+
+```sh
+hangar-node service install          # or: hangar-node serve --detach
+claude                               # once: sign Claude Code in on the server
+hangar-node discord setup --guild <server id>   # the token on standard input
+#   prints the invite link, and the code to send: `pair <code>`
+hangar-node workspace add ~/projects/shop       # or /workspace on Discord
+```
+
+- **The settings on the server.** `~/.local/state/hangar-node/discord.json`
+  (0600): the token, read from `HANGAR_DISCORD_TOKEN` or standard input,
+  never an argument; the server; who is paired and the pairing code.
+  Another server or another token unpairs. `hangar-node discord status`
+  says what is set and whether the bot runs; `hangar-node discord off`
+  forgets the token. The invite link names the bot's id, read from its
+  token, with the scopes and permissions the connector needs.
+- **The daemon runs the bot** beside its own workspaces as soon as the
+  settings are complete, and again when they change (`POST
+  /node/discord/reload`, which `setup` and `off` call); a bot that stops
+  (Discord out of reach, a token refused) is tried again, waiting longer
+  each time, up to five minutes.
+- **A service.** `hangar-node service install` writes a systemd user unit
+  running `hangar-node serve`, restarted when it stops, and enables it;
+  `loginctl enable-linger` keeps it after the person logs out.
+- **Workspaces from Discord.** `/workspace folder:<path> name:<name>` makes
+  one in a folder of the server, with its orchestrator, and its channel
+  follows.
+
+Still to do: the remote workspaces a desktop drives on a node moving to the
+node (the desktop then their client), the desktop's own workspaces on
+Discord (the connector in the app, as another host), and a phone reaching a
+node with no desktop.

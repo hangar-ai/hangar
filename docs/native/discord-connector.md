@@ -168,16 +168,20 @@ means something.
 ## Setup and security
 
 - The person creates the Discord application and its bot, and the server: bots
-  cannot create guilds since July 2025. Hangar gives the invite link with the
+  cannot create guilds since July 2025. `hangar-node discord setup --guild
+  <id>` takes the token (from `HANGAR_DISCORD_TOKEN` or standard input) and
+  gives the invite link with the
   scopes `bot applications.commands` and the permissions it needs (Manage
   Channels, Manage Webhooks, Send Messages, Create Public Threads, Send
   Messages in Threads, Embed Links, Attach Files, Read Message History, Add
   Reactions, Use External Emojis, Pin Messages, a separate permission since
   February 2026). The bot archives the threads it started without Manage
   Threads: their creator may.
-- The bot token stays on the PC with Hangar's other secrets.
-- Pairing: Hangar shows a code, the person sends it to the bot; only that
-  Discord account is heard afterwards. A private server is recommended: a
+- The bot token stays on the server, in `discord.json` (0600) beside the
+  node's state.
+- Pairing: `setup` prints a code (`hangar-node discord status` again), the
+  person sends `pair <code>` in a channel the bot sees; only that Discord
+  account is heard afterwards. A private server is recommended: a
   message there can run commands on the PC.
 - Channel obfuscation (mandatory from November 16, 2026): a bot no longer
   sees channels it cannot view, so Hangar gives itself explicit access on the

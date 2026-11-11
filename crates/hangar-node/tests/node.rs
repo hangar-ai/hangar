@@ -1429,3 +1429,75 @@ fn the_node_s_own_workspaces_from_the_command_line() {
     let (_, out, _) = run(&["workspaces"]);
     assert!(out.contains("No workspace"), "{out}");
 }
+
+/// The Discord connector set up on the server: its settings private, the
+/// running daemon told, the status said, and turned off. Discord itself is
+/// a port nothing listens on: the bot keeps trying, as it would offline.
+#[test]
+fn discord_is_set_up_on_the_server_and_run_by_the_daemon() {
+    let home = tempfile::tempdir().unwrap();
+    let status = command(home.path())
+        .env("HANGAR_DISCORD_API", "http://127.0.0.1:9/api")
+        .args(["serve", "--detach"])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    let node = Node::found(home);
+    let (_, said) = node.get("/node/discord");
+    assert_eq!(said["configured"], false);
+
+    // "123456789012345678" in base64: the bot's id, from its token.
+    let out = command(node.home())
+        .env(
+            "HANGAR_DISCORD_TOKEN",
+            "MTIzNDU2Nzg5MDEyMzQ1Njc4.GAbcde.xyz",
+        )
+        .args(["discord", "setup", "--guild", "42"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(stdout.contains("client_id=123456789012345678"), "{stdout}");
+    assert!(stdout.contains("pair "), "{stdout}");
+    let file = state_dir(node.home()).join("discord.json");
+    let mode = std::fs::metadata(&file).unwrap().permissions().mode();
+    assert_eq!(mode & 0o777, 0o600);
+    let settings: Value = serde_json::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+    assert_eq!(settings["guild"], "42");
+    assert!(settings["pairing"].is_string());
+
+    let (_, said) = node.get("/node/discord");
+    assert_eq!(said["configured"], true);
+    assert_eq!(said["paired"], false);
+    assert_eq!(said["running"], true);
+    let out = command(node.home())
+        .args(["discord", "status"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("server 42") && stdout.contains("Not paired"),
+        "{stdout}"
+    );
+
+    // A bad server id is refused before anything is written.
+    let out = command(node.home())
+        .env("HANGAR_DISCORD_TOKEN", "x")
+        .args(["discord", "setup", "--guild", "my-server"])
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+
+    let out = command(node.home())
+        .args(["discord", "off"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let (_, said) = node.get("/node/discord");
+    assert_eq!(said["configured"], false);
+    assert_eq!(said["running"], false);
+}

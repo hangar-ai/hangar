@@ -15,7 +15,7 @@ use serde_json::{json, Value};
 use crate::state;
 
 /// One request to the running daemon: its status and JSON answer.
-fn call(method: &str, path: &str, body: Option<Value>) -> Result<(u16, Value), String> {
+pub(crate) fn call(method: &str, path: &str, body: Option<Value>) -> Result<(u16, Value), String> {
     let dir = state::dir()?;
     let node = state::running(&dir)
         .ok_or("hangar-node is not running here: start it with `hangar-node serve --detach`")?;

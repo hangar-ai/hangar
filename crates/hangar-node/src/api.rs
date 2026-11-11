@@ -63,6 +63,8 @@ pub struct Node {
     pub drivers: Arc<crate::control::Drivers>,
     /// The workspaces the node runs itself (own.rs).
     pub own: Option<hangar_engine::host::EngineHost>,
+    /// The Discord connector beside them (discord.rs).
+    pub discord: crate::discord::Connector,
 }
 
 impl Node {
@@ -82,6 +84,7 @@ impl Node {
             home: dirs::home_dir().unwrap_or_else(|| PathBuf::from("/")),
             drivers: Arc::default(),
             own,
+            discord: crate::discord::Connector::default(),
         }
     }
 
@@ -116,6 +119,8 @@ pub fn router(node: Shared) -> Router {
         .route("/node/own/workspaces", post(crate::own::create))
         .route("/node/own/workspaces/{id}", delete(crate::own::remove))
         .route("/node/own/panes/{id}/send", post(crate::own::send))
+        .route("/node/discord", get(crate::discord::get_status))
+        .route("/node/discord/reload", post(crate::discord::reload))
         .route(
             "/node/worktree",
             post(crate::engine::worktree_add).delete(crate::engine::worktree_remove),
