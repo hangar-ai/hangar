@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Hangar sur Discord — maquettes</title>
+<style>
+:root{
+  --guilds:#1e1f22; --side:#2b2d31; --chat:#313338; --hover:#2e3035; --input:#383a40;
+  --text:#dbdee1; --head:#f2f3f5; --muted:#949ba4; --faint:#6d6f78; --line:#3f4147;
+  --card:#2b2d31; --card-line:#3a3c42; --code:#1e1f22;
+  --blurple:#5865f2; --grey:#4e5058; --green:#248046; --red:#da373c;
+  --working:#5fd27f; --waiting:#e7c06b; --accent:#3e8bff; --danger:#f2696b; --done:#80848e;
+  --link:#00a8fc; --mention:rgba(88,101,242,.3); --mention-text:#c9cdfb;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#111214;font-family:Inter,"Noto Color Emoji",sans-serif;font-size:15px;color:var(--text);-webkit-font-smoothing:antialiased}
+.shot{width:1280px;margin:0 0 40px}
+.window{display:flex;width:1280px;height:820px;overflow:hidden;background:var(--chat);position:relative}
+.guilds{width:72px;background:var(--guilds);display:flex;flex-direction:column;align-items:center;padding-top:12px;gap:8px;flex:none}
+.g{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;font-weight:700;color:#fff;background:#313338;font-size:16px}
+.g.on{border-radius:16px;background:#3e8bff;position:relative}
+.g.on::before{content:"";position:absolute;left:-12px;width:4px;height:40px;border-radius:0 4px 4px 0;background:#fff}
+.g.sep{width:32px;height:2px;border-radius:1px;background:#35363c}
+.side{width:240px;background:var(--side);flex:none;display:flex;flex-direction:column}
+.side .server{height:48px;border-bottom:1px solid #1f2023;display:flex;align-items:center;padding:0 16px;font-weight:700;color:var(--head);font-size:15px;justify-content:space-between}
+.side .list{padding:8px 8px;flex:1}
+.cat{display:flex;align-items:center;gap:2px;color:var(--muted);font-size:12px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;margin:16px 0 4px 2px}
+.cat svg{width:12px;height:12px}
+.ch{display:flex;align-items:center;gap:6px;height:32px;padding:0 8px;border-radius:4px;color:var(--muted);font-size:15px;font-weight:500;position:relative}
+.ch .hash{font-size:20px;font-weight:400;color:#80848e;width:20px;text-align:center}
+.ch.sel{background:#404249;color:#fff}
+.ch.unread{color:#f2f3f5;font-weight:600}
+.ch.unread::before{content:"";position:absolute;left:-8px;width:4px;height:8px;border-radius:0 4px 4px 0;background:#f2f3f5}
+.ch .badge{margin-left:auto;background:var(--red);color:#fff;font-size:12px;font-weight:700;border-radius:8px;padding:0 5px;line-height:16px}
+.th{display:flex;align-items:center;height:28px;padding-left:34px;color:var(--muted);font-size:14px;position:relative;border-radius:4px;margin-left:8px}
+.th::before{content:"";position:absolute;left:18px;top:-6px;width:12px;height:20px;border-left:1px solid #4e5058;border-bottom:1px solid #4e5058;border-bottom-left-radius:8px}
+.th.sel{background:#404249;color:#fff}
+.th .dot{width:8px;height:8px;border-radius:50%;margin-right:7px;flex:none}
+.me{height:52px;background:#232428;display:flex;align-items:center;gap:8px;padding:0 8px}
+.me .av{width:32px;height:32px}
+.me b{font-size:14px;color:var(--head);display:block}
+.me small{font-size:12px;color:var(--muted)}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;position:relative}
+.window.tall{height:960px}
+.top{height:48px;border-bottom:1px solid #26272b;display:flex;align-items:center;padding:0 16px;gap:8px;flex:none;box-shadow:0 1px 0 rgba(0,0,0,.2)}
+.top .hash{font-size:24px;color:#80848e;font-weight:400}
+.top b{color:var(--head);font-size:16px}
+.top .topic{color:var(--muted);font-size:14px;border-left:1px solid var(--line);padding-left:10px;margin-left:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .tools{margin-left:auto;display:flex;gap:16px;color:#b5bac1}
+.top .tools svg{width:22px;height:22px}
+.feed{flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:6px}
+.msg{display:flex;gap:16px;padding:2px 48px 2px 16px;margin-top:16px;position:relative}
+.msg.cont{margin-top:0}
+.msg.cont .av{visibility:hidden;height:0}
+.msg.ping{background:rgba(240,177,50,.08)}
+.msg.ping::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:#f0b132}
+.av{width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:700;color:#fff;font-size:15px}
+.av svg{width:22px;height:22px}
+.body{min-width:0;flex:1}
+.name{display:flex;align-items:center;gap:6px;line-height:22px}
+.name b{color:var(--head);font-weight:600;font-size:15px}
+.tag{background:var(--blurple);color:#fff;font-size:10px;font-weight:700;border-radius:3px;padding:0 4px;line-height:15px;display:inline-flex;align-items:center;gap:2px}
+.name time{color:var(--muted);font-size:12px;margin-left:2px}
+.text{line-height:22px}
+.text p{margin:0 0 4px}
+.text ol,.text ul{margin:2px 0 4px;padding-left:24px}
+.text li{margin:2px 0}
+.sub{color:var(--muted);font-size:13px;line-height:18px}
+code{font-family:"JetBrains Mono",monospace;font-size:13px;background:var(--code);border-radius:4px;padding:1px 4px}
+pre{font-family:"JetBrains Mono",monospace;font-size:13px;line-height:19px;background:var(--code);border:1px solid #1a1b1e;border-radius:4px;padding:8px 10px;margin:6px 0;white-space:pre;overflow:hidden}
+.k{color:#c678dd}.f{color:#61afef}.s{color:#98c379}.n{color:#d19a66}.c{color:#7f848e}
+.add{color:#5fd27f}.del{color:#f2696b}.meta{color:#b5bac1}
+.mention{background:var(--mention);color:var(--mention-text);border-radius:3px;padding:0 2px;font-weight:500}
+h2,h3{margin:4px 0 6px;color:var(--head)}
+h2{font-size:20px}h3{font-size:16px}
+/* Components V2 */
+.box{position:relative;background:var(--card);border:1px solid var(--card-line);border-radius:8px;padding:14px 16px 14px 20px;margin:6px 0 2px;max-width:620px;overflow:hidden}
+.box::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--bar,transparent)}
+.box.working{--bar:var(--working)}.box.waiting{--bar:var(--waiting)}.box.accent{--bar:var(--accent)}.box.danger{--bar:var(--danger)}.box.done{--bar:var(--done)}
+.box pre{background:#1e1f22}
+.sep{height:1px;background:var(--line);margin:12px 0}
+.sp{height:8px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.btn{height:32px;border-radius:8px;padding:0 14px;display:inline-flex;align-items:center;gap:6px;color:#fff;font-weight:500;font-size:14px;background:var(--grey)}
+.btn.primary{background:var(--blurple)}.btn.success{background:var(--green)}.btn.danger{background:var(--red)}
+.btn svg{width:16px;height:16px}
+.section{display:flex;gap:16px;align-items:center;justify-content:space-between;padding:4px 0}
+.section .t{flex:1;min-width:0}
+.line{display:flex;align-items:center;gap:8px;line-height:24px;font-size:14px}
+.line .ic{width:18px;height:18px;flex:none;color:#b5bac1}
+.line .ic svg{width:18px;height:18px}
+.line .w{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.line .st{font-size:13px}
+.ok{color:var(--working)}.bad{color:var(--danger)}.run{color:var(--working)}.wait{color:var(--waiting)}
+.file{display:flex;align-items:center;gap:10px;background:#1e1f22;border:1px solid #1a1b1e;border-radius:8px;padding:10px 12px;margin-top:10px;max-width:420px}
+.file svg{width:28px;height:28px;color:#b5bac1}
+.file b{color:var(--link);font-weight:500;font-size:14px;display:block}
+.file small{color:var(--muted);font-size:12px}
+.reacts{display:flex;gap:4px;margin-top:4px}
+.react{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 8px;border-radius:8px;background:#2b2d31;border:1px solid transparent;font-size:13px;color:#b5bac1}
+.thread{display:flex;flex-direction:column;gap:2px;margin-top:6px;max-width:460px;background:var(--card);border-radius:8px;padding:10px 12px;border:1px solid var(--card-line)}
+.thread .tn{display:flex;align-items:center;gap:8px;color:var(--head);font-weight:600;font-size:14px}
+.thread .tn small{color:var(--link);font-weight:500;margin-left:auto}
+.thread .last{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.typing{height:24px;padding-left:16px;font-size:13px;color:#b5bac1;display:flex;align-items:center;gap:6px}
+.typing .dots{display:inline-flex;gap:3px}
+.typing .dots i{width:6px;height:6px;border-radius:50%;background:#b5bac1;opacity:.8}
+.typing b{color:var(--head)}
+.composer{margin:0 16px 22px;height:44px;border-radius:8px;background:var(--input);display:flex;align-items:center;gap:12px;padding:0 16px;color:var(--faint);flex:none;position:relative}
+.composer .plus{width:24px;height:24px;border-radius:50%;background:#b5bac1;color:var(--input);display:grid;place-items:center;font-weight:700}
+.composer.typed{color:var(--text)}
+.pin{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;margin-bottom:2px}
+.pin svg{width:14px;height:14px}
+.divider{display:flex;align-items:center;gap:8px;margin:20px 16px 0;color:var(--muted);font-size:12px;font-weight:600}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
+/* modal */
+.veil{position:absolute;inset:0;background:rgba(0,0,0,.72);display:grid;place-items:center}
+.modal{width:480px;background:var(--chat);border-radius:8px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+.modal .mh{padding:20px 16px 8px;display:flex;align-items:center;gap:10px}
+.modal .mh .av{width:24px;height:24px;font-size:11px}
+.modal .mh small{color:var(--muted);font-size:13px}
+.modal h1{font-size:20px;color:var(--head);margin:0 16px 16px}
+.modal .mb{padding:0 16px 8px;max-height:560px}
+.label{margin-bottom:18px}
+.label b{display:block;color:var(--head);font-size:14px;font-weight:600;margin-bottom:2px}
+.label b i{color:#f23f42;font-style:normal;margin-left:2px}
+.label small{display:block;color:var(--muted);font-size:13px;margin-bottom:8px}
+.radio,.check{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:6px;background:#2b2d31;margin-bottom:6px}
+.radio .o{width:18px;height:18px;border-radius:50%;border:2px solid #80848e;flex:none;margin-top:1px}
+.radio.on .o{border:5px solid var(--blurple)}
+.check .o{width:18px;height:18px;border-radius:4px;border:2px solid #80848e;flex:none;margin-top:1px;display:grid;place-items:center}
+.check.on .o{background:var(--blurple);border-color:var(--blurple)}
+.check.on .o::after{content:"✓";color:#fff;font-size:12px;font-weight:700}
+.radio span,.check span{font-size:14px;color:var(--text)}
+.radio em,.check em{display:block;font-style:normal;font-size:12px;color:var(--muted)}
+.ta{background:#1e1f22;border-radius:6px;padding:10px;min-height:72px;color:var(--text);font-size:14px}
+.ta.empty{color:var(--faint)}
+.modal .mf{background:#2b2d31;padding:16px;display:flex;justify-content:flex-end;gap:8px}
+.modal .mf .btn.ghost{background:transparent}
+/* slash popup */
+.popup{position:absolute;left:16px;right:16px;bottom:74px;background:#2b2d31;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.45);padding:8px 0;border:1px solid #1f2023}
+.popup .ph{display:flex;align-items:center;gap:8px;padding:4px 16px 8px;color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase}
+.popup .ph .av{width:20px;height:20px;font-size:10px}
+.cmd{display:flex;align-items:baseline;gap:10px;padding:8px 16px}
+.cmd.sel{background:#35373c}
+.cmd b{color:var(--head);font-weight:600;font-size:14px}
+.cmd span{color:var(--muted);font-size:13px}
+.cmd i{margin-left:auto;color:var(--faint);font-style:normal;font-size:12px}
+.used{display:flex;align-items:center;gap:6px;margin:16px 0 0 72px;font-size:13px;color:var(--muted);position:relative}
+.used b{color:#dbdee1;font-weight:500}
+.used .curve{position:absolute;left:-36px;top:9px;width:30px;height:10px;border-left:2px solid #4e5058;border-top:2px solid #4e5058;border-top-left-radius:6px}
+.av.mini{width:16px;height:16px;font-size:9px}
+.caption{color:#b5bac1;font-size:14px;margin:0 0 10px 4px}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="i-term" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+    <symbol id="i-read" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-bubble" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8Z"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></symbol>
+    <symbol id="i-merge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6M18 15V9a6 6 0 0 0-6-6H9"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+    <symbol id="i-orch" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M12 7.5v4M12 11.5 6.5 17M12 11.5l5.5 5.5"/></symbol>
+    <symbol id="i-hangar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20V10l9-6 9 6v10"/><path d="M7 20v-6h10v6"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M9 3h6l-1 5 3 4H7l3-4Z"/></symbol>
+    <symbol id="i-thread" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 10h10M7 15h13M7 20h9"/></symbol>
+    <symbol id="i-people" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 20a6.5 6.5 0 0 0-2.5-5.1"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></symbol>
+  </defs>
+</svg>
+
+<template id="frame">
+  <div class="guilds">
+    <div class="g" style="background:#5865f2">✦</div>
+    <div class="g sep"></div>
+    <div class="g on"><svg width="26" height="26" style="color:#fff"><use href="#i-hangar"/></svg></div>
+    <div class="g">Pr</div>
+  </div>
+  <div class="side">
+    <div class="server">Hangar <svg width="18" height="18" style="color:#b5bac1"><use href="#i-chev"/></svg></div>
+    <div class="list">
+      <div class="ch" style="margin-top:6px"><span class="hash">#</span>hangar</div>
+      <div class="cat"><svg><use href="#i-chev"/></svg>Clients</div>
+      <div class="ch" data-ch="shop"><span class="hash">#</span>shop</div>
+      <div class="th" data-th="ada"><span class="dot" style="background:var(--working)"></span>ada · search-index</div>
+      <div class="th" data-th="bo"><span class="dot" style="background:#80848e"></span>bo · filters</div>
+      <div class="th" data-th="cy"><span class="dot" style="background:var(--waiting)"></span>cy · checkout</div>
+      <div class="ch" data-ch="billing"><span class="hash">#</span>api-billing</div>
+      <div class="cat"><svg><use href="#i-chev"/></svg>Perso</div>
+      <div class="ch" data-ch="blog"><span class="hash">#</span>blog</div>
+      <div class="ch" data-ch="dotfiles"><span class="hash">#</span>dotfiles</div>
+    </div>
+    <div class="me"><div class="av" style="background:#c06b3e">T</div><div><b>toi</b><small>En ligne</small></div></div>
+  </div>
+</template>
+
+<!-- 1. La conversation avec l'orchestrateur -->
+<section class="shot" id="s1">
+<div class="window" data-sel="shop">
+  <div class="main">
+    <div class="top"><span class="hash">#</span><b>shop</b><span class="topic">Orchestrateur : Leo · Opus 5.5 · 3 workers · ~/dev/shop</span>
+      <div class="tools"><svg><use href="#i-thread"/></svg><svg><use href="#i-pin"/></svg><svg><use href="#i-people"/></svg></div></div>
+    <div class="feed">
+      <div class="msg"><div class="av" style="background:#3e8bff"><svg><use href="#i-orch"/></svg></div><div class="body">
+        <div class="name"><b>Leo</b><span class="tag">APP</span><time>Aujourd’hui à 14:02</time></div>
+        <div class="text"><p>Je découpe en deux : un <b>index</b> que la barre interroge, puis la barre elle-même.</p>
+          <ol><li>Indexer les titres et les tags des produits — <b>Ada</b></li><li>Ajouter la barre à <code>Catalogue.tsx</code>, avec un délai de 200 ms — <b>Bo</b></li></ol></div>
+      </div></div>
+
+      <div class="msg"><div class="av" style="background:#3a3c42;color:#b5bac1"><svg><use href="#i-hangar"/></svg></div><div class="body">
+        <div class="name"><b>Hangar</b><span class="tag">APP</span><time>Aujourd’hui à 14:03</time></div>
+        <div class="line"><span class="ic" style="color:var(--working)"><svg><use href="#i-play"/></svg></span><span class="w">Ada a démarré « Search index »</span></div>
+        <div class="thread"><div class="tn"><svg width="16" height="16" style="color:#b5bac1"><use href="#i-thread"/></svg>ada · search-index<small>14 messages ›</small></div>
+          <div class="last"><b style="color:#dbdee1">Ada</b> : Index branché sur <code>products.tags</code>, je lance les tests…</div></div>
+      </div></div>
+
+      <div class="msg cont"><div class="av"></div><div class="body">
+        <div class="line"><span class="ic" style="color:var(--working)"><svg><use href="#i-check"/></svg></span><span class="w">Ada a livré « Search index » : fusionné, tâche terminée</span><span class="sub">3 fichiers · <span class="ok">+112</span> <span class="bad">−14</span></span></div>
+        <div class="line"><span class="ic" style="color:var(--waiting)"><svg><use href="#i-bell"/></svg></span><span class="w">Cy vous attend depuis 4 min dans <span style="color:var(--link)">cy · checkout</span></span></div>
+        <div class="line"><span class="ic"><svg><use href="#i-bubble"/></svg></span><span class="w">Bo : « Les filtres gardent leurs paramètres d’URL. La recherche aussi ? »</span></div>
+      </div></div>
+
+      <div class="msg"><div class="av" style="background:#3e8bff"><svg><use href="#i-orch"/></svg></div><div class="body">
+        <div class="name"><b>Leo</b><span class="tag">APP</span><time>Aujourd’hui à 14:16</time></div>
+        <div class="box working">
+          <div class="line" style="margin-bottom:4px"><span class="ic run"><svg><use href="#i-orch"/></svg></span><span class="w"><b style="color:var(--head)">Leo travaille</b> <span class="sub">· depuis 1 minute</span></span></div>
+          <div class="line"><span class="ic"><svg><use href="#i-read"/></svg></span><span class="w">Lu <code>src/catalogue/Catalogue.tsx</code></span></div>
+          <div class="line"><span class="ic"><svg><use href="#i-bubble"/></svg></span><span class="w">À Bo : « Oui, garde la requête dans l’URL aussi. »</span></div>
+          <div class="line"><span class="ic bad"><svg><use href="#i-term"/></svg></span><span class="w"><code>pnpm test</code></span><span class="st bad">échec</span></div>
+          <div class="line"><span class="ic run"><svg><use href="#i-edit"/></svg></span><span class="w">Modifie <code>src/search/index.ts</code></span><span class="st run">en cours</span></div>
+          <div class="sep"></div>
+          <div class="sub">Opus 5.5 · 32 % du contexte · effort élevé</div>
+          <div class="row"><span class="btn danger"><svg><use href="#i-stop"/></svg>Arrêter</span></div>
+        </div>
+      </div></div>
+
+      <div class="msg"><div class="av" style="background:#c06b3e">T</div><div class="body">
+        <div class="name"><b>toi</b><time>Aujourd’hui à 14:17</time></div>
+        <div class="text">Ajoute aussi des tests pour une recherche vide</div>
+        <div class="reacts"><span class="react">⏳ <b>1</b></span></div>
+      </div></div>
+    </div>
+    <div class="typing"><span class="dots"><i></i><i></i><i></i></span><b>Leo</b> est en train d’écrire…</div>
+    <div class="composer"><span class="plus">+</span>Envoyer un message dans #shop</div>
+  </div>
+</div>
+</section>
+
+<!-- 2. Permission et question -->
+<section class="shot" id="s2">
+<div class="window tall" data-sel="shop">
+  <div class="main">
+    <div class="top"><span class="hash">#</span><b>shop</b><span class="topic">Orchestrateur : Leo · Opus 5.5 · 3 workers · ~/dev/shop</span>
+      <div class="tools"><svg><use href="#i-thread"/></svg><svg><use href="#i-pin"/></svg><svg><use href="#i-people"/></svg></div></div>
+    <div class="feed">
+      <div class="msg"><div class="av" style="background:#3e8bff"><svg><use href="#i-orch"/></svg></div><div class="body">
+        <div class="name"><b>Leo</b><span class="tag">APP</span><time>Aujourd’hui à 14:20</time></div>
+        <div class="box done">
+          <div class="line"><span class="ic"><svg><use href="#i-term"/></svg></span><span class="w"><b style="color:var(--head)">Leo a demandé à lancer une commande</b></span></div>
+          <pre>git push origin search-box</pre>
+          <div class="sub">✅ Autorisé par <span class="mention">@toi</span> · il y a 2 minutes</div>
+        </div>
+      </div></div>
+
+      <div class="msg ping"><div class="av" style="background:#3e8bff"><svg><use href="#i-orch"/></svg></div><div class="body">
+        <div class="name"><b>Leo</b><span class="tag">APP</span><time>Aujourd’hui à 14:22</time></div>
+        <div class="box waiting">
+          <div class="line"><span class="ic wait"><svg><use href="#i-bell"/></svg></span><span class="w"><b style="color:var(--head)">Leo demande à lancer une commande</b> <span class="mention">@toi</span></span></div>
+          <pre>rm -rf dist &amp;&amp; pnpm build</pre>
+          <div class="sub">Bash · dans <code>~/dev/shop</code> · attend depuis quelques secondes</div>
+          <div class="row"><span class="btn success"><svg><use href="#i-check"/></svg>Autoriser</span><span class="btn danger">Refuser</span></div>
+        </div>
+      </div></div>
+
+      <div class="msg ping"><div class="av" style="background:#3e8bff"><svg><use href="#i-orch"/></svg></div><div class="body">
+        <div class="name"><b>Leo</b><span class="tag">APP</span><time>Aujourd’hui à 14:24</time></div>
+        <div class="box waiting">
+          <div class="line"><span class="ic wait"><svg><use href="#i-bell"/></svg></span><span class="w"><b style="color:var(--head)">Leo vous pose une question</b> <span class="sub">· 1 sur 2</span> <span class="mention">@toi</span></span></div>
+          <div class="sp"></div>
+          <div class="text"><span class="sub" style="background:#1e1f22;border-radius:4px;padding:1px 6px">Couleur</span>&nbsp; Quelle couleur pour la bordure de la barre de recherche ?</div>
+          <div class="sep"></div>
+          <div class="section"><div class="t"><b style="color:var(--head)">Accent</b><div class="sub">La couleur d’accent du thème, comme les boutons</div></div><span class="btn">Choisir</span></div>
+          <div class="section"><div class="t"><b style="color:var(--head)">Neutre</b><div class="sub">Le gris des autres champs du catalogue</div></div><span class="btn">Choisir</span></div>
+          <div class="section"><div class="t"><b style="color:var(--head)">Aucune</b><div class="sub">Pas de bordure, seulement un fond plus clair</div></div><span class="btn">Choisir</span></div>
+          <div class="sep"></div>
+          <div class="row" style="margin-top:0"><span class="btn">Autre réponse…</span><span class="btn primary">Répondre aux 2 questions…</span></div>
+        </div>
+      </div></div>
+    </div>
+    <div class="composer"><span class="plus">+</span>Envoyer un message dans #shop</div>
+  </div>
+</div>
+</section>
+
+<!-- 3. Plusieurs questions : la fenêtre -->
+<section class="shot" id="s3">
+<div class="window" data-sel="shop">
+  <div class="main">
+    <div class="top"><span class="hash">#</span><b>shop</b><span class="topic">Orchestrateur : Leo · Opus 5.5 · 3 workers · ~/dev/shop</span></div>
+    <div class="feed"></div>
+    <div class="composer"><span class="plus">+</span>Envoyer un message dans #shop</div>
+  </div>
+  <div class="veil"><div class="modal">
+    <div class="mh"><div class="av" style="background:#3e8bff"><svg width="14" height="14"><use href="#i-orch"/></svg></div><small>Hangar</small></div>
+    <h1>Leo vous pose 2 questions</h1>
+    <div class="mb">
+      <div class="label"><b>Couleur<i>*</i></b><small>Quelle couleur pour la bordure de la barre ?</small>
+        <div class="radio on"><span class="o"></span><span>Accent<em>La couleur d’accent du thème, comme les boutons</em></span></div>
+        <div class="radio"><span class="o"></span><span>Neutre<em>Le gris des autres champs du catalogue</em></span></div>
+        <div class="radio"><span class="o"></span><span>Aucune<em>Pas de bordure, seulement un fond plus clair</em></span></div>
+      </div>
+      <div class="label"><b>Tailles<i>*</i></b><small>Quelles tailles de vignettes dans les résultats ?</small>
+        <div class="check on"><span class="o"></span><span>S</span></div>
+        <div class="check on"><span class="o"></span><span>L</span></div>
+        <div class="check"><span class="o"></span><span>XL</span></div>
+      </div>
+      <div class="label" style="margin-bottom:8px"><b>Autre chose ?</b><small>Ajouté à vos réponses, mot pour mot</small>
+        <div class="ta empty">Vos propres mots (facultatif)</div>
+      </div>
+    </div>
+    <div class="mf"><span class="btn ghost">Annuler</span><span class="btn primary">Envoyer</span></div>
+  </div></div>
+</div>
+</section>
+
+<!-- 4. Un plan à approuver -->
+<section class="shot" id="s4">
+<div class="window" data-sel="shop">
+  <div class="main">
+    <div class="top"><span class="hash">#</span><b>shop</b><span class="topic">Orchestrateur : Leo · Opus 5.5 · mode plan · ~/dev/shop</span></div>
+    <div class="feed">
+      <div class="used"><span class="curve"></span><span class="av mini" style="background:#c06b3e">T</span><b>toi</b> a utilisé <span style="color:var(--link)">/plan</span></div>
+      <div class="msg" style="margin-top:2px"><div class="av" style="background:#3a3c42;color:#b5bac1"><svg><use href="#i-hangar"/></svg></div><div class="body">
+        <div class="name"><b>Hangar</b><span class="tag">APP</span><time>Aujourd’hui à 14:28</time></div>
+        <div class="line"><span class="ic wait"><svg><use href="#i-read"/></svg></span><span class="w">Leo passe en mode plan : il propose un plan avant de modifier quoi que ce soit</span></div>
+      </div></div>
+      <div class="msg"><div class="av" style="background:#c06b3e">T</div><div class="body">
+        <div class="name"><b>toi</b><time>Aujourd’hui à 14:28</time></div>
+        <div class="text">Ajoute une barre de recherche au catalogue, et garde les filtres comme ils sont.</div>
+        <div class="reacts"><span class="react">✅ <b>1</b></span></div>
+      </div></div>
+      <div class="msg ping"><div class="av" style="background:#3e8bff"><svg><use href="#i-orch"/></svg></div><div class="body">
+        <div class="name"><b>Leo</b><span class="tag">APP</span><time>Aujourd’hui à 14:31</time></div>
+        <div class="box waiting" style="max-width:680px">
+          <div class="line"><span class="ic wait"><svg><use href="#i-bell"/></svg></span><span class="w"><b style="color:var(--head)">Leo propose un plan</b> <span class="mention">@toi</span></span></div>
+          <div class="text" style="margin-top:6px">
+            <h2>Barre de recherche</h2>
+            <ol><li>Indexer les titres et les tags des produits dans <code>src/search/index.ts</code></li>
+              <li>Ajouter la barre à <code>Catalogue.tsx</code>, avec un délai de 200 ms</li>
+              <li>Garder la requête dans l’URL, comme les filtres</li></ol>
+<pre><span class="k">export function</span> <span class="f">search</span>(q: <span class="k">string</span>) {
+  <span class="k">return</span> index.<span class="f">query</span>(q).<span class="f">slice</span>(<span class="n">0</span>, <span class="n">20</span>)
+}</pre>
+            <p>Tests : une recherche vide montre tout ; une recherche sans résultat le dit.</p>
+          </div>
+          <div class="file"><svg><use href="#i-file"/></svg><div><b>plan.md</b><small>Le plan entier · 3,2 Ko</small></div></div>
+          <div class="row"><span class="btn success"><svg><use href="#i-check"/></svg>Approuver le plan</span><span class="btn">Continuer à planifier…</span></div>
+        </div>
+      </div></div>
+    </div>
+    <div class="composer"><span class="plus">+</span>Envoyer un message dans #shop</div>
+  </div>
+</div>
+</section>
+
+<!-- 5. Livraison et tableau de bord -->
+<section class="shot" id="s5">
+<div class="window tall" data-sel="shop">
+  <div class="main">
+    <div class="top"><span class="hash">#</span><b>shop</b><span class="topic">Orchestrateur : Leo · Opus 5.5 · 3 workers · ~/dev/shop</span>
+      <div class="tools"><svg><use href="#i-thread"/></svg><svg><use href="#i-pin"/></svg><svg><use href="#i-people"/></svg></div></div>
+    <div class="feed">
+      <div class="msg"><div class="av" style="background:#3a3c42;color:#b5bac1"><svg><use href="#i-hangar"/></svg></div><div class="body">
+        <div class="pin"><svg><use href="#i-pin"/></svg>Épinglé · mis à jour il y a quelques secondes</div>
+        <div class="name"><b>Hangar</b><span class="tag">APP</span></div>
+        <div class="box accent">
+          <h3 style="margin-top:0">shop — où en est le travail</h3>
+          <div class="section"><div class="t line"><span class="ic run"><svg><use href="#i-orch"/></svg></span><span class="w"><b style="color:var(--head)">Leo</b> · orchestrateur — <span class="run">travaille</span> <span class="sub">depuis 3 minutes</span></span></div></div>
+          <div class="section"><div class="t line"><span class="ic run"><svg><use href="#i-play"/></svg></span><span class="w"><b style="color:var(--head)">Ada</b> · Search index — <span class="run">travaille</span> <span class="sub">depuis 12 minutes</span></span></div><span class="btn">Ouvrir le fil</span></div>
+          <div class="section"><div class="t line"><span class="ic wait"><svg><use href="#i-bell"/></svg></span><span class="w"><b style="color:var(--head)">Cy</b> · Checkout — <span class="wait">vous attend</span> <span class="sub">depuis 4 minutes</span></span></div><span class="btn primary">Répondre</span></div>
+          <div class="section"><div class="t line"><span class="ic"><svg><use href="#i-pause"/></svg></span><span class="w"><b style="color:var(--head)">Bo</b> · Filters — inactif <span class="sub">depuis 20 minutes</span></span></div><span class="btn">Ouvrir le fil</span></div>
+          <div class="sep"></div>
+          <div class="sub">2 tâches à faire · 1 à fusionner · 4 terminées aujourd’hui</div>
+        </div>
+      </div></div>
+
+      <div class="divider">Aujourd’hui</div>
+
+      <div class="msg ping"><div class="av" style="background:#2f9e5b">A</div><div class="body">
+        <div class="name"><b>Ada</b><span class="tag">APP</span><time>Aujourd’hui à 15:04</time></div>
+        <div class="box waiting" style="max-width:640px">
+          <div class="line"><span class="ic wait"><svg><use href="#i-merge"/></svg></span><span class="w"><b style="color:var(--head)">Ada a livré « Search filters »</b> — vérifié et relu, attend votre accord <span class="mention">@toi</span></span></div>
+<pre><span class="add">+ src/search/Box.tsx              +64</span>
+<span class="meta">~ src/search/index.ts             +48   −9</span>
+<span class="del">- src/search/legacy.ts                  −5</span></pre>
+          <div class="sub">✓ <code>pnpm test</code> réussi en 42 s · ✓ revue (Sonnet) : approuvé · <code>ada/search-filters</code> → <code>main</code></div>
+          <div class="file"><svg><use href="#i-file"/></svg><div><b>search-filters.diff</b><small>3 fichiers · +112 −14</small></div></div>
+          <div class="row"><span class="btn success"><svg><use href="#i-merge"/></svg>Fusionner</span><span class="btn">Renvoyer à Ada…</span></div>
+        </div>
+      </div></div>
+
+      <div class="msg"><div class="av" style="background:#3a3c42;color:#b5bac1"><svg><use href="#i-hangar"/></svg></div><div class="body">
+        <div class="name"><b>Hangar</b><span class="tag">APP</span><time>Aujourd’hui à 15:06</time></div>
+        <div class="box working">
+          <div class="line"><span class="ic ok"><svg><use href="#i-check"/></svg></span><span class="w"><b style="color:var(--head)">« Search filters » fusionné sur main</b> par <span class="mention">@toi</span></span></div>
+          <div class="sub" style="margin-top:4px">Ada a fini · son worktree et sa branche sont supprimés</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="composer"><span class="plus">+</span>Envoyer un message dans #shop</div>
+  </div>
+</div>
+</section>
+
+<!-- 6. Le fil d'un worker et les commandes -->
+<section class="shot" id="s6">
+<div class="window" data-sel="ada">
+  <div class="main">
+    <div class="top"><svg width="22" height="22" style="color:#80848e"><use href="#i-thread"/></svg><b>ada · search-index</b><span class="topic">Tâche « Search index » · branche ada/search-index · Sonnet 5.5</span></div>
+    <div class="feed">
+      <div class="msg"><div class="av" style="background:#3a3c42;color:#b5bac1"><svg><use href="#i-hangar"/></svg></div><div class="body">
+        <div class="name"><b>Hangar</b><span class="tag">APP</span><time>Aujourd’hui à 14:03</time></div>
+        <div class="line"><span class="ic run"><svg><use href="#i-play"/></svg></span><span class="w">Ada a démarré « Search index », demandé par Leo</span></div>
+      </div></div>
+      <div class="msg"><div class="av" style="background:#2f9e5b">A</div><div class="body">
+        <div class="name"><b>Ada</b><span class="tag">APP</span><time>Aujourd’hui à 14:09</time></div>
+        <div class="text">Index branché sur <code>products.tags</code>. Les titres sont normalisés (accents, casse) avant l’indexation, pour que « Écran » trouve « ecran ».</div>
+        <div class="box done">
+          <div class="line"><span class="sub">12 actions · 6 minutes</span></div>
+          <div class="line"><span class="ic"><svg><use href="#i-search"/></svg></span><span class="w">Cherché « products.tags » · 8 résultats</span></div>
+          <div class="line"><span class="ic"><svg><use href="#i-edit"/></svg></span><span class="w">Modifié <code>src/search/index.ts</code> et 2 autres fichiers</span></div>
+          <div class="line"><span class="ic ok"><svg><use href="#i-term"/></svg></span><span class="w"><code>pnpm test</code></span><span class="st ok">réussi</span></div>
+        </div>
+      </div></div>
+      <div class="msg"><div class="av" style="background:#c06b3e">T</div><div class="body">
+        <div class="name"><b>toi</b><time>Aujourd’hui à 14:12</time></div>
+        <div class="text">Pense aux noms de marque avec un tiret</div>
+        <div class="reacts"><span class="react">✅ <b>1</b></span></div>
+      </div></div>
+    </div>
+    <div class="popup">
+      <div class="ph"><div class="av" style="background:#3a3c42;color:#b5bac1"><svg width="12" height="12"><use href="#i-hangar"/></svg></div>Hangar</div>
+      <div class="cmd sel"><b>/stop</b><span>Arrête le tour en cours d’Ada</span><i>Hangar</i></div>
+      <div class="cmd"><b>/model</b><span>Opus · Sonnet · Haiku · Fable</span><i>Hangar</i></div>
+      <div class="cmd"><b>/effort</b><span>Faible · Moyen · Élevé · Très élevé · Max</span><i>Hangar</i></div>
+      <div class="cmd"><b>/plan</b><span>Planifier d’abord : propose un plan avant de modifier</span><i>Hangar</i></div>
+      <div class="cmd"><b>/statut</b><span>Où en est ce pane, en privé</span><i>Hangar</i></div>
+    </div>
+    <div class="composer typed"><span class="plus">+</span>/</div>
+  </div>
+</div>
+</section>
+
+<script>
+const frame = document.getElementById('frame');
+for (const w of document.querySelectorAll('.window')) {
+  const parts = frame.content.cloneNode(true);
+  const sel = w.dataset.sel;
+  parts.querySelectorAll('[data-ch="' + sel + '"], [data-th="' + sel + '"]').forEach(e => e.classList.add('sel'));
+  parts.querySelectorAll('[data-ch="billing"]').forEach(e => { e.classList.add('unread'); e.insertAdjacentHTML('beforeend', '<span class="badge">1</span>'); });
+  w.prepend(parts);
+}
+</script>
+</body>
+</html>
