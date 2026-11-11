@@ -377,6 +377,11 @@ pub enum PaneMcpMode {
 pub struct PaneInsight {
     /// The model the agent runs, as the mod or the transcript names it.
     pub model: Option<String>,
+    /// Its Claude Code's permission mode (`default`, `plan`, `acceptEdits`,
+    /// `auto`…), as the mod last reported it.
+    pub permission_mode: Option<String>,
+    /// Its effort level (`low` … `max`), as the mod last reported it.
+    pub effort: Option<String>,
     /// The agent's own version, from the mod's hello.
     pub agent_version: Option<String>,
     /// When this pane's current session started or was resumed.
@@ -448,6 +453,15 @@ pub enum BridgeEvent {
         text: String,
         #[serde(default, deserialize_with = "text")]
         reason: String,
+    },
+    /// How the session runs, when that changed: what the report knows of it.
+    Settings {
+        #[serde(default)]
+        model: Option<String>,
+        #[serde(default)]
+        mode: Option<String>,
+        #[serde(default)]
+        effort: Option<String>,
     },
     End {
         #[serde(default, deserialize_with = "text")]
@@ -544,6 +558,16 @@ mod tests {
     /// read is a report lost, a hello among them.
     #[test]
     fn bridge_reports_read_what_the_mod_really_sends() {
+        let settings =
+            json!({"kind": "settings", "model": "claude-opus-5-5", "mode": null, "effort": "high"});
+        assert_eq!(
+            BridgeEvent::parse(&settings),
+            Some(BridgeEvent::Settings {
+                model: Some("claude-opus-5-5".into()),
+                mode: None,
+                effort: Some("high".into()),
+            })
+        );
         let hello = json!({"kind": "hello", "sessionId": "s1", "model": null, "version": "2.1"});
         assert_eq!(
             BridgeEvent::parse(&hello),

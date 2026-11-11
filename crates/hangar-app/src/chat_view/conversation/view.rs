@@ -1830,6 +1830,176 @@ fn round<'a>(
 /// The composer: the input, and under it what to know before sending, Stop
 /// while the orchestrator works, Send; or, while a question or a permission
 /// waits, its card instead.
+/// A small button of the input's settings: on, or not.
+fn chip<'a>(
+    t: &'a Theme,
+    words: String,
+    open: Option<bool>,
+    on: bool,
+    press: Option<Message>,
+) -> Element<'a, Message> {
+    let mut inside = row![text(words).size(tokens::font_size::CAPTION)]
+        .spacing(tokens::space::XS)
+        .align_y(Alignment::Center);
+    if let Some(open) = open {
+        inside = inside.push(
+            icon(
+                if open {
+                    Icon::ChevronUp
+                } else {
+                    Icon::ChevronDown
+                },
+                10.0,
+            )
+            .color(t.colors.fg_subtle),
+        );
+    }
+    button(inside)
+        .padding([tokens::space::XXS, tokens::space::SM])
+        .style(style::button::toggle(t, on))
+        .on_press_maybe(press)
+        .into()
+}
+
+/// The words of an effort level.
+fn effort_words(ctx: Ctx<'_>, level: &str) -> String {
+    let key = match level {
+        "low" => Key::ChatConvTuneLow,
+        "medium" => Key::ChatConvTuneMedium,
+        "high" => Key::ChatConvTuneHigh,
+        "xhigh" => Key::ChatConvTuneXhigh,
+        "max" => Key::ChatConvTuneMax,
+        other => return other.to_string(),
+    };
+    ctx.t(key).into_owned()
+}
+
+/// The session's model, its effort and plan mode, by the input: each opens
+/// its choices above it (Plan is one click), and a choice is the command
+/// that sets it, run through the session's queue.
+fn settings_chips<'a>(
+    ctx: Ctx<'a>,
+    ws: &'a Workspace,
+    pane: &'a Pane,
+    chat: &'a Chat,
+) -> Element<'a, Message> {
+    let t = ctx.theme;
+    let insight = ctx.model.live.panes_logic.insight(&pane.id);
+    let picker = |which: super::Picker| msg(Msg::Picker(ws.id.clone(), Some(which)));
+    let model = insight
+        .model
+        .as_deref()
+        .map(crate::stats::model::model_label)
+        .unwrap_or_else(|| ctx.t(Key::ChatConvTuneModel).into_owned());
+    let effort = match insight.effort.as_deref() {
+        Some(level) => ctx
+            .i18n
+            .t_with(
+                Key::ChatConvTuneEffort,
+                &args!("level" => effort_words(ctx, level)),
+            )
+            .into_owned(),
+        None => ctx.t(Key::ChatConvTuneEffortUnknown).into_owned(),
+    };
+    let planning = insight.permission_mode.as_deref() == Some("plan");
+    let model_open = chat.picker == Some(super::Picker::Model);
+    let effort_open = chat.picker == Some(super::Picker::Effort);
+    let plan_hint = if planning {
+        Key::ChatConvTunePlanOnHint
+    } else {
+        Key::ChatConvTunePlanHint
+    };
+    row![
+        hangar_ui::tip::over(
+            t,
+            chip(
+                t,
+                model,
+                Some(model_open),
+                model_open,
+                Some(picker(super::Picker::Model))
+            ),
+            ctx.t(Key::ChatConvTuneModelHint).into_owned(),
+        ),
+        chip(
+            t,
+            effort,
+            Some(effort_open),
+            effort_open,
+            Some(picker(super::Picker::Effort))
+        ),
+        hangar_ui::tip::over(
+            t,
+            chip(
+                t,
+                ctx.t(Key::ChatConvTunePlan).into_owned(),
+                None,
+                planning,
+                (!planning).then(|| msg(Msg::Tune(ws.id.clone(), "/plan".into()))),
+            ),
+            ctx.t(plan_hint).into_owned(),
+        ),
+    ]
+    .spacing(tokens::space::XS)
+    .align_y(Alignment::Center)
+    .into()
+}
+
+/// The choices of the setting opened by the input, the current one on.
+fn choices<'a>(
+    ctx: Ctx<'a>,
+    ws: &'a Workspace,
+    pane: &'a Pane,
+    picker: super::Picker,
+) -> Element<'a, Message> {
+    let t = ctx.theme;
+    let insight = ctx.model.live.panes_logic.insight(&pane.id);
+    let tune = |command: String| Some(msg(Msg::Tune(ws.id.clone(), command)));
+    let options: Vec<Element<'a, Message>> = match picker {
+        super::Picker::Model => super::MODELS
+            .iter()
+            .map(|(alias, name)| {
+                let on = insight
+                    .model
+                    .as_deref()
+                    .is_some_and(|model| model.contains(alias));
+                chip(
+                    t,
+                    (*name).to_string(),
+                    None,
+                    on,
+                    tune(format!("/model {alias}")),
+                )
+            })
+            .collect(),
+        super::Picker::Effort => super::EFFORTS
+            .iter()
+            .map(|level| {
+                let on = insight.effort.as_deref() == Some(*level);
+                chip(
+                    t,
+                    effort_words(ctx, level),
+                    None,
+                    on,
+                    tune(format!("/effort {level}")),
+                )
+            })
+            .collect(),
+    };
+    container(
+        iced::widget::Row::with_children(options)
+            .spacing(tokens::space::XS)
+            .align_y(Alignment::Center),
+    )
+    .padding(Padding {
+        top: tokens::space::MD,
+        right: tokens::space::MD,
+        bottom: 0.0,
+        left: tokens::space::XL,
+    })
+    .into()
+}
+
 /// The longest a prompt waiting in the queue is shown, on one line.
 const QUEUED_WORDS: usize = 120;
 
@@ -1972,9 +2142,12 @@ fn composer<'a>(
             .size(tokens::font_size::CAPTION)
             .style(style::text::subtle(t)),
     };
-    let mut footer = row![container(under).width(Length::Fill)]
-        .spacing(tokens::space::MD)
-        .align_y(Alignment::Center);
+    let mut footer = row![].spacing(tokens::space::MD).align_y(Alignment::Center);
+    let tunable = super::tunable(ctx.model, pane);
+    if tunable {
+        footer = footer.push(settings_chips(ctx, ws, pane, chat));
+    }
+    footer = footer.push(container(under).width(Length::Fill));
     let works = ctx.model.live.panes_logic.activity_or_idle(&pane.id) == AgentActivity::Working;
     if works && chat.thread.pending.is_none() {
         let stop = round(
@@ -2007,6 +2180,13 @@ fn composer<'a>(
                     container(rule::horizontal(tokens::BORDER_WIDTH).style(style::rule::sep(t)))
                         .padding([0.0, tokens::space::XL]),
                 );
+            }
+            if let Some(choices) = chat
+                .picker
+                .filter(|_| tunable)
+                .map(|picker| choices(ctx, ws, pane, picker))
+            {
+                parts = parts.push(choices);
             }
             parts
                 .push(crate::keymap::guard(ctx, editor))

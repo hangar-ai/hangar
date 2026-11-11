@@ -1219,6 +1219,96 @@ fn without_the_mod_what_is_sent_while_it_works_is_typed_as_before() {
     assert_eq!(calls(&st).last(), Some(&Call::Send { text: "go".into() }));
 }
 
+/* ── model, effort, plan ─────────────────────────────────────── */
+
+/// Leo's Claude Code reports `events`, after its hello.
+fn leo_reports(m: &mut Model, events: &[serde_json::Value]) {
+    let now = crate::control::types::now_ms();
+    crate::panes_logic::mount_for_test(m, LEO, WS, "Leo", now - 600_000);
+    let hello = json!({"kind": "hello", "sessionId": "s1", "model": "claude-opus-5-5", "version": "2.1.322"});
+    for event in std::iter::once(&hello).chain(events) {
+        let event = crate::services::CoreEvent::Bridge {
+            pane: LEO.into(),
+            event: event.clone(),
+        };
+        let _ = crate::panes_logic::reduce_for_test(m, &event, now - 10_000);
+    }
+}
+
+#[test]
+fn the_model_effort_and_plan_mode_are_set_from_the_input() {
+    let mut m = shop(true);
+    leo_reports(&mut m, &[]);
+    let mut st = State::default();
+    read_into(&mut st, &mut m, page(vec![], None));
+    assert_eq!(
+        shown_texts(&st, &m, &["Opus 5.5", "Effort", "Plan", "Sonnet"]),
+        ["Opus 5.5", "Effort", "Plan"],
+        "the choices stay folded"
+    );
+    // The header names the model too: the chip is opened by its message.
+    apply(
+        &mut st,
+        &mut m,
+        vec![Msg::Picker(WS.into(), Some(Picker::Model))],
+    );
+    assert_eq!(
+        shown_texts(&st, &m, &["Opus", "Sonnet", "Haiku", "Fable"]).len(),
+        4
+    );
+    let chosen = clicks(&st, &m, &["Sonnet"]);
+    apply(&mut st, &mut m, chosen);
+    assert_eq!(
+        calls(&st).last(),
+        Some(&Call::Queue {
+            text: "/model sonnet".into()
+        })
+    );
+    assert_eq!(st.chat(WS).unwrap().picker, None, "closed once chosen");
+
+    // Plan: one click.
+    let planned = clicks(&st, &m, &["Plan"]);
+    apply(&mut st, &mut m, planned);
+    assert_eq!(
+        calls(&st).last(),
+        Some(&Call::Queue {
+            text: "/plan".into()
+        })
+    );
+
+    // What the session says it runs with now.
+    leo_reports(
+        &mut m,
+        &[
+            json!({"kind": "settings", "model": "claude-sonnet-5-5", "mode": "plan", "effort": "high"}),
+        ],
+    );
+    assert_eq!(
+        shown_texts(&st, &m, &["Sonnet 5.5", "Effort: High"]).len(),
+        2
+    );
+    let effort = clicks(&st, &m, &["Effort: High"]);
+    apply(&mut st, &mut m, effort);
+    let chosen = clicks(&st, &m, &["Max"]);
+    apply(&mut st, &mut m, chosen);
+    assert_eq!(
+        calls(&st).last(),
+        Some(&Call::Queue {
+            text: "/effort max".into()
+        })
+    );
+    // In plan mode, Plan is on and leads nowhere: approving the plan ends it.
+    assert!(clicks(&st, &m, &["Plan"]).is_empty());
+}
+
+#[test]
+fn without_the_mod_the_input_offers_no_settings() {
+    let mut m = shop(true);
+    let mut st = State::default();
+    read_into(&mut st, &mut m, page(vec![], None));
+    assert!(shown_texts(&st, &m, &["Effort", "Plan"]).is_empty());
+}
+
 /* ── plans ─────────────────────────────────────────────────────── */
 
 const PLAN: &str = "## Search box\n\n\
@@ -1857,6 +1947,22 @@ fn the_permission_and_question_cards_are_drawn() {
     let mut st = State::default();
     read_into(&mut st, &mut m, busy_page(None));
     picture("queue", &st, &m, "graphite");
+
+    let mut m = shop(true);
+    leo_reports(
+        &mut m,
+        &[
+            json!({"kind": "settings", "model": "claude-opus-5-5", "mode": "default", "effort": "high"}),
+        ],
+    );
+    let mut st = State::default();
+    read_into(&mut st, &mut m, busy_page(None));
+    apply(
+        &mut st,
+        &mut m,
+        vec![Msg::Picker(WS.into(), Some(Picker::Effort))],
+    );
+    picture("settings", &st, &m, "graphite");
 
     let mut st = State::default();
     read_into(

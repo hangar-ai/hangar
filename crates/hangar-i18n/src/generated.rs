@@ -564,6 +564,30 @@ pub enum Key {
     ChatConvToolUpdateTask,
     /// `chatConv.tool.writeMemory`
     ChatConvToolWriteMemory,
+    /// `chatConv.tune.effort`
+    ChatConvTuneEffort,
+    /// `chatConv.tune.effortUnknown`
+    ChatConvTuneEffortUnknown,
+    /// `chatConv.tune.high`
+    ChatConvTuneHigh,
+    /// `chatConv.tune.low`
+    ChatConvTuneLow,
+    /// `chatConv.tune.max`
+    ChatConvTuneMax,
+    /// `chatConv.tune.medium`
+    ChatConvTuneMedium,
+    /// `chatConv.tune.model`
+    ChatConvTuneModel,
+    /// `chatConv.tune.modelHint`
+    ChatConvTuneModelHint,
+    /// `chatConv.tune.plan`
+    ChatConvTunePlan,
+    /// `chatConv.tune.planHint`
+    ChatConvTunePlanHint,
+    /// `chatConv.tune.planOnHint`
+    ChatConvTunePlanOnHint,
+    /// `chatConv.tune.xhigh`
+    ChatConvTuneXhigh,
     /// `chatConv.working`
     ChatConvWorking,
     /// `chatConv.workingFor`
@@ -4049,7 +4073,7 @@ pub enum Key {
 }
 
 /// How many keys there are.
-pub const KEY_COUNT: usize = 2016;
+pub const KEY_COUNT: usize = 2028;
 
 impl Key {
     /// Every key, in the order of their ids.
@@ -4329,6 +4353,18 @@ impl Key {
         Key::ChatConvToolUnblockTask,
         Key::ChatConvToolUpdateTask,
         Key::ChatConvToolWriteMemory,
+        Key::ChatConvTuneEffort,
+        Key::ChatConvTuneEffortUnknown,
+        Key::ChatConvTuneHigh,
+        Key::ChatConvTuneLow,
+        Key::ChatConvTuneMax,
+        Key::ChatConvTuneMedium,
+        Key::ChatConvTuneModel,
+        Key::ChatConvTuneModelHint,
+        Key::ChatConvTunePlan,
+        Key::ChatConvTunePlanHint,
+        Key::ChatConvTunePlanOnHint,
+        Key::ChatConvTuneXhigh,
         Key::ChatConvWorking,
         Key::ChatConvWorkingFor,
         Key::ChatViewChat,
@@ -6350,6 +6386,18 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "chatConv.tool.unblockTask", en: Text::plain("Took “{task}” off hold"), fr: Text::plain("«\u{202f}{task}\u{202f}» sortie de l’attente") },
     Message { id: "chatConv.tool.updateTask", en: Text::plain("Updated “{task}”"), fr: Text::plain("«\u{202f}{task}\u{202f}» modifiée") },
     Message { id: "chatConv.tool.writeMemory", en: Text::plain("Saved to the memory"), fr: Text::plain("Enregistré dans la mémoire") },
+    Message { id: "chatConv.tune.effort", en: Text::plain("Effort: {level}"), fr: Text::plain("Effort\u{202f}: {level}") },
+    Message { id: "chatConv.tune.effortUnknown", en: Text::plain("Effort"), fr: Text::plain("Effort") },
+    Message { id: "chatConv.tune.high", en: Text::plain("High"), fr: Text::plain("Élevé") },
+    Message { id: "chatConv.tune.low", en: Text::plain("Low"), fr: Text::plain("Faible") },
+    Message { id: "chatConv.tune.max", en: Text::plain("Max"), fr: Text::plain("Max") },
+    Message { id: "chatConv.tune.medium", en: Text::plain("Medium"), fr: Text::plain("Moyen") },
+    Message { id: "chatConv.tune.model", en: Text::plain("Model"), fr: Text::plain("Modèle") },
+    Message { id: "chatConv.tune.modelHint", en: Text::plain("The model of this session; /model also makes it the default for new sessions"), fr: Text::plain("Le modèle de cette session\u{202f}; /model en fait aussi le modèle par défaut des nouvelles sessions") },
+    Message { id: "chatConv.tune.plan", en: Text::plain("Plan"), fr: Text::plain("Plan") },
+    Message { id: "chatConv.tune.planHint", en: Text::plain("Plan first: Claude proposes a plan and waits for your approval before changing anything"), fr: Text::plain("Planifier d’abord\u{202f}: Claude propose un plan et attend votre accord avant de modifier quoi que ce soit") },
+    Message { id: "chatConv.tune.planOnHint", en: Text::plain("In plan mode: approving its plan ends it"), fr: Text::plain("En mode plan\u{202f}: approuver son plan le termine") },
+    Message { id: "chatConv.tune.xhigh", en: Text::plain("Extra high"), fr: Text::plain("Très élevé") },
     Message { id: "chatConv.working", en: Text::plain("Working…"), fr: Text::plain("Au travail…") },
     Message { id: "chatConv.workingFor", en: Text::plain("Working · {time}"), fr: Text::plain("Au travail · {time}") },
     Message { id: "chatView.chat", en: Text::plain("Chat"), fr: Text::plain("Chat") },

@@ -16,7 +16,12 @@ type Answer = unknown | ((url: string) => unknown)
  * request and answers by the last segment of its path. Registered before the
  * test's first call on `$`, as the kit requires.
  */
-function setup(on: On, env: Record<string, string> = PANE_ENV, answers: Record<string, Answer> = {}) {
+function setup(
+  on: On,
+  env: Record<string, string> = PANE_ENV,
+  answers: Record<string, Answer> = {},
+  model: () => string = () => 'claude-opus-5-5',
+) {
   const clock = mock.clock(on)
   mock.env(on, env)
   const sent: Sent[] = []
@@ -33,7 +38,7 @@ function setup(on: On, env: Record<string, string> = PANE_ENV, answers: Record<s
   })
   on('session.start', () => ({ cwd: '/repo' }))
   on('session.id', () => ({ value: 'session-1' }))
-  on('session.model', () => ({ value: 'claude-opus-5-5' }))
+  on('session.model', () => ({ value: model() }))
   on('session.version', () => ({ value: { version: '2.1.288', base: '2.1.288' } }))
   return { clock, sent }
 }
@@ -41,9 +46,18 @@ function setup(on: On, env: Record<string, string> = PANE_ENV, answers: Record<s
 const start = ($: any, isInteractive = true) =>
   $.session.start({ surface: isInteractive ? 'terminal' : null, isInteractive, cwd: '/repo' })
 
-/** What the mod reported, without the hello every started session sends. */
+/** Every report of the mod, as sent. */
+const reports = (sent: Sent[]) => sent.filter((s) => s.url.endsWith('/event')).map((s) => s.body)
+
+/**
+ * What the mod reported, without the hello every started session sends and
+ * the settings reported along the way (`settingsReported`).
+ */
 const events = (sent: Sent[]) =>
-  sent.filter((s) => s.url.endsWith('/event') && s.body.kind !== 'hello').map((s) => s.body)
+  reports(sent).filter((event) => event.kind !== 'hello' && event.kind !== 'settings')
+
+/** How the session runs, each time the mod reported it. */
+const settingsReported = (sent: Sent[]) => reports(sent).filter((event) => event.kind === 'settings')
 
 /** The same, less the calls reported as they run. */
 const besideCalls = (sent: Sent[]) => events(sent).filter((event) => event.kind !== 'tool')
@@ -530,6 +544,43 @@ test('a queued slash command runs as a command, not as words for the model', asy
 
   expect(commands).toEqual([{ command: 'compact', args: 'keep the plan' }])
   expect(prompts).toEqual(['then continue'])
+})
+
+test('how the session runs is reported as it changes, and only then', async ($, on) => {
+  const { sent } = setup(on)
+  on('classic.UserPromptSubmit', () => ({}))
+  on('classic.Stop', () => ({}))
+
+  await start($)
+  await $.classic.UserPromptSubmit({ prompt: 'hi', permission_mode: 'default' })
+  await $.classic.UserPromptSubmit({ prompt: 'again', permission_mode: 'default' })
+  await $.classic.Stop({ permission_mode: 'plan', effort: { level: 'high' } })
+
+  expect(settingsReported(sent)).toEqual([
+    { kind: 'settings', model: 'claude-opus-5-5', mode: 'default', effort: null },
+    { kind: 'settings', model: 'claude-opus-5-5', mode: 'plan', effort: 'high' },
+  ])
+})
+
+test('a /model or /plan queued from Hangar runs, and what it changed is reported', async ($, on) => {
+  let model = 'claude-opus-5-5'
+  const { clock, sent } = setup(on, PANE_ENV, { next: queueOf('/model haiku', '/effort max', '/plan') }, () => model)
+  const commands: string[] = []
+  on('command.run', ($, e) => {
+    commands.push(`${e.command} ${e.args}`.trim())
+    if (e.command === 'model') model = 'claude-haiku-5-5'
+    return { text: '' }
+  })
+
+  await start($)
+  for (let tick = 0; tick < 4; tick++) await clock.advance(1500)
+
+  expect(commands).toEqual(['model haiku', 'effort max', 'plan'])
+  expect(settingsReported(sent)).toEqual([
+    { kind: 'settings', model: 'claude-haiku-5-5', mode: null, effort: null },
+    { kind: 'settings', model: 'claude-haiku-5-5', mode: null, effort: 'max' },
+    { kind: 'settings', model: 'claude-haiku-5-5', mode: 'plan', effort: 'max' },
+  ])
 })
 
 test('a prompt a hook drops is reported and does not stall the queue', async ($, on) => {

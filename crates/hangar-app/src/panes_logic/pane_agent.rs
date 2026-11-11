@@ -634,6 +634,9 @@ impl Live {
                     insight.agent_version = Some(version).filter(|version| !version.is_empty());
                     insight.session_since = Some(now);
                     insight.turn_started_at = None;
+                    // A session starts in its own mode, until it says.
+                    insight.permission_mode = None;
+                    insight.effort = None;
                 });
                 self.record(&info.id, session_event(&session_id, resumed), now);
                 effects.extend(self.capture_session(info, &session_id));
@@ -792,6 +795,35 @@ impl Live {
             // The TerminalPane has nothing to do with a call as it starts or
             // ends; the transcript has it with its result.
             BridgeEvent::Tool(ToolPhase::Start { .. } | ToolPhase::End { .. }) => {}
+            // How the session runs: its model (which the gauge names), its
+            // mode and its effort, each as far as the report knows it.
+            BridgeEvent::Settings {
+                model,
+                mode,
+                effort,
+            } => {
+                let known = |value: Option<String>| value.filter(|value| !value.is_empty());
+                let model = known(model);
+                if let (Some(model), Some(machine)) = (&model, self.machines.get_mut(&info.id)) {
+                    machine.bridge_model = Some(model.clone());
+                    if let Some(gauge) = machine.bridge_context.as_mut() {
+                        gauge.model = Some(model.clone());
+                    }
+                }
+                self.refresh_gauge(&info.id);
+                let (mode, effort) = (known(mode), known(effort));
+                self.insights.update(&info.id, |insight| {
+                    if let Some(model) = model {
+                        insight.model = Some(model);
+                    }
+                    if let Some(mode) = mode {
+                        insight.permission_mode = Some(mode);
+                    }
+                    if let Some(effort) = effort {
+                        insight.effort = Some(effort);
+                    }
+                });
+            }
             // Claude Code exited; whatever runs in the pane next is a shell.
             BridgeEvent::End { .. } => {
                 self.hibernation.note_agent_exited(&info.id, true);

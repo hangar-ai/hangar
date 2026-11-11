@@ -75,6 +75,8 @@ impl ChatLive {
             | BridgeEvent::End { .. } => {
                 self.panes.remove(pane);
             }
+            // How the session runs: nothing of its calls or dialogs.
+            BridgeEvent::Settings { .. } => {}
             BridgeEvent::Permission {
                 waiting,
                 tool,

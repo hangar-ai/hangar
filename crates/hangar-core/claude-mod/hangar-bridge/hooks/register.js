@@ -56,6 +56,11 @@ const held = new Map()
 const running = new Map()
 /** Makes each ask's id unique within this process. */
 let asks = 0
+/**
+ * What was last reported of how the session runs: `{ model, mode, effort }`,
+ * each as Claude Code names it. Reported again only when one changes.
+ */
+let settings = {}
 
 /** How recent another pane's edit must be to count as "editing it". */
 const CONFLICT_WINDOW_MS = 15 * 60 * 1000
@@ -302,7 +307,11 @@ function deliver($, message) {
       : $.prompt.submit({ text, asUser: true })
   void run.then(
     (result) => {
-      if (slash) busy = false
+      if (slash) {
+        busy = false
+        // This module's own command.run hook does not see a command it ran.
+        void reportSettings($, settingsAfter(slash[1], slash[2]))
+      }
       // A hook refused the prompt: no turn starts, so nothing else would.
       if (result && result.drop) {
         busy = false
@@ -372,6 +381,50 @@ async function refreshBriefing($) {
 function briefingContext() {
   if (!bridge || !briefing || !briefing.context.trim()) return null
   return '[Hangar] Briefing — not typed by the person.\n\n' + briefing.context
+}
+
+/**
+ * Reports how the session runs when that changed: its model, its permission
+ * mode (`default`, `plan`, `acceptEdits`, `auto`…) and its effort level, as
+ * far as the hook at hand knows them (`mode` and `effort` come with the
+ * classic hooks' input, the model from the session). Hangar shows them by the
+ * chat's input, and sets them with `/model`, `/effort` and `/plan`.
+ */
+async function reportSettings($, known) {
+  if (!bridge) return
+  const next = { ...settings }
+  try {
+    next.model = await $.session.model()
+  } catch {
+    // Read again at the next hook.
+  }
+  if (typeof known.mode === 'string' && known.mode) next.mode = known.mode
+  if (typeof known.effort === 'string' && known.effort) next.effort = known.effort
+  if (next.model === settings.model && next.mode === settings.mode && next.effort === settings.effort) {
+    return
+  }
+  settings = next
+  await send($, { kind: 'settings', model: next.model ?? null, mode: next.mode ?? null, effort: next.effort ?? null })
+}
+
+/** The mode and the effort a classic hook's input carries. */
+function settingsOf(e) {
+  return { mode: e.permission_mode, effort: e.effort && e.effort.level }
+}
+
+/** The effort levels `/effort` takes. */
+const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
+
+/**
+ * What a command that ran says of how the session runs now: `/plan` enters
+ * plan mode, `/effort <level>` sets the level (no hook outside a tool's
+ * reports it); the model is read from the session anyway.
+ */
+function settingsAfter(command, args) {
+  const level = String(args || '').trim()
+  if (command === 'plan') return { mode: 'plan' }
+  if (command === 'effort' && EFFORTS.includes(level)) return { effort: level }
+  return {}
 }
 
 export function register(on) {
@@ -558,7 +611,27 @@ export function register(on) {
   on('classic.PostToolUse', async ($, e, next) => {
     await settleCall($, e.tool_use_id, e.tool_name, e.tool_input)
     await setWaiting($, false)
+    if (e.agent_id === undefined) await reportSettings($, settingsOf(e))
     return next(e)
+  })
+
+  // How the session runs, as each prompt and each end of turn finds it.
+  on('classic.UserPromptSubmit', async ($, e, next) => {
+    await reportSettings($, settingsOf(e))
+    return next(e)
+  })
+
+  on('classic.Stop', async ($, e, next) => {
+    await reportSettings($, settingsOf(e))
+    return next(e)
+  })
+
+  // A command can change the model (`/model`, `/fast`, `/config`) or the
+  // mode (`/plan`): what it changed is reported as it ends.
+  on('command.run', async ($, e, next) => {
+    const result = await next(e)
+    await reportSettings($, settingsAfter(e.command, e.args))
+    return result
   })
 
   on('classic.PostToolUseFailure', async ($, e, next) => {

@@ -136,6 +136,24 @@ pub enum Call {
     },
 }
 
+/// A setting of the orchestrator's session, chosen by the input.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Picker {
+    Model,
+    Effort,
+}
+
+/// The models offered, by the alias `/model` takes, and their names.
+pub const MODELS: [(&str, &str); 4] = [
+    ("opus", "Opus"),
+    ("sonnet", "Sonnet"),
+    ("haiku", "Haiku"),
+    ("fable", "Fable"),
+];
+
+/// The effort levels `/effort` takes, least first.
+pub const EFFORTS: [&str; 5] = ["low", "medium", "high", "xhigh", "max"];
+
 /// The files a delivery brought, as far as they are read.
 #[derive(Debug, Clone)]
 pub enum Changed {
@@ -196,6 +214,8 @@ pub struct Chat {
     plan_feedback: String,
     /// Prompts taken back from the queue, hidden until the queue says so.
     taken_back: HashSet<String>,
+    /// The setting whose choices are shown above the input, if any.
+    picker: Option<Picker>,
     /// A stop is on its way.
     stopping: bool,
     /// Why the last stop was refused.
@@ -237,6 +257,7 @@ impl Chat {
             refusal: None,
             plan_feedback: String::new(),
             taken_back: HashSet::new(),
+            picker: None,
             stopping: false,
             stop_error: None,
             at_bottom: true,
@@ -407,6 +428,12 @@ pub enum Msg {
         id: String,
         result: Result<(), String>,
     },
+    /// The choices of a setting shown, or hidden (`None`).
+    Picker(WsId, Option<Picker>),
+    /// A setting of the session changed, as the command that changes it
+    /// (`/model sonnet`, `/effort high`, `/plan`): through its queue, run
+    /// as soon as its turn allows.
+    Tune(WsId, String),
     /// The "Changes" overlay on a delivery, a file of it shown first.
     OpenChanges {
         ws: WsId,
@@ -833,6 +860,8 @@ fn touches(msg_: &Msg) -> Option<&str> {
         | Msg::Stopped { .. }
         | Msg::PlanFeedback(..)
         | Msg::OpenChanges { .. }
+        | Msg::Picker(..)
+        | Msg::Tune(..)
         | Msg::Unqueue { .. }
         | Msg::Unqueued { .. }
         | Msg::Link(_) => None,
@@ -961,6 +990,13 @@ fn route(st: &mut State, m: &mut Model, msg_: Msg) -> Task<Message> {
             Task::none()
         }
         Msg::Unqueue { ws, id, edit } => unqueue(st, m, &ws, id, edit),
+        Msg::Picker(ws, picker) => {
+            if let Some(chat) = st.chats.get_mut(&ws) {
+                chat.picker = picker.filter(|picker| chat.picker != Some(*picker));
+            }
+            Task::none()
+        }
+        Msg::Tune(ws, command) => tune(st, m, &ws, command),
         Msg::Unqueued { ws, id, result } => {
             if let (Some(chat), Err(error)) = (st.chats.get_mut(&ws), result) {
                 // Too late, or refused: it is shown again, with why.
@@ -1339,6 +1375,50 @@ pub(super) fn waiting<'a>(m: &'a Model, chat: &'a Chat) -> impl Iterator<Item = 
         .iter()
         .filter(|queued| queued.from.as_deref().is_none_or(str::is_empty))
         .filter(|queued| !chat.taken_back.contains(&queued.id))
+}
+
+/// Whether the orchestrator's model, effort and mode can be set from the
+/// input: its Claude Code runs the mod, which runs the commands that set
+/// them, and the queue they go through is this window's.
+pub(super) fn tunable(m: &Model, pane: &Pane) -> bool {
+    m.live.panes_logic.bridged_count([&pane.id]) == 1
+        && m.settings().claude_bridge
+        && crate::nodes::away::pane_node(pane).is_none()
+}
+
+/// Sends the command that sets a setting through the queue: run at once
+/// when the session is idle, at the end of its turn otherwise.
+fn tune(st: &mut State, m: &Model, ws: &str, command: String) -> Task<Message> {
+    let Some(pane) = m.workspace(ws).and_then(orchestrator_of).cloned() else {
+        return Task::none();
+    };
+    if !tunable(m, &pane) {
+        return Task::none();
+    }
+    let chat = chat_of(st, ws, &pane.id);
+    chat.picker = None;
+    let (ws_id, at, words) = (ws.to_string(), now_ms(), command.clone());
+    call(
+        st,
+        m,
+        ws,
+        &pane.id,
+        Call::Queue { text: command },
+        move |result| {
+            msg(Msg::Queued {
+                ws: ws_id,
+                text: words,
+                at,
+                result,
+            })
+        },
+        |port, _, ws, pane, call| {
+            let Call::Queue { text } = call else {
+                unreachable!("a queue")
+            };
+            Box::pin(async move { desk::queue(&port, &ws, &pane, &text).await })
+        },
+    )
 }
 
 /// Takes a prompt back from the queue; with `edit`, into the input (after
