@@ -2,9 +2,11 @@
 
 A Discord server as another surface of Hangar, for whoever would rather not
 open the app: a category per folder, a channel per workspace (the
-conversation with its orchestrator, as the chat view has it), a thread per
-worker. A bot of the person's own reports what happens and carries what the
-person says and decides back to the panes. Nothing here is built yet: this is
+conversation with its orchestrator, as the chat view has it). The workers
+stay out of sight: a line when one starts or delivers, and their card when
+they need the person. A bot of the person's own reports what happens and
+carries what the person says and decides back to the panes; only the person
+is heard. Workspaces on nodes work the same. Nothing here is built yet: this is
 the design, the research it rests on, and mockups of every card.
 
 Experiment: `discord-connector`.
@@ -20,24 +22,42 @@ does, and is one more client of `mobile::desk`: the calls the chat view and
 the phone already make (read the conversation, send, answer a question,
 allow a permission, approve a plan, queue and take back, stop, land or send
 back a delivery). Every answer goes through the hangar-bridge mod as the
-chat view's do. A Hangar with no window at all (`hangar-ai --headless` on a
-server) is a later, separate project.
+chat view's do.
+
+### Nodes
+
+A workspace on a node is a channel like any other: the desktop already
+reads its conversation, its board and its deliveries through the node, and
+`mobile::desk` reaches its panes the same way. What the connector needs from
+nodes:
+
+- taking a prompt back from the queue of a pane on a node (`Port::unqueue`
+  refuses it today: a route on the node API, `bridge_cancel` there);
+- with that, the queue and the model / effort / plan settings for such panes
+  (the chat view leaves them out for now);
+- answers to a node's panes are typed as keys (the held asks live in the
+  node's core); answering them through the node's mod is a later step.
+
+The desktop drives its nodes over SSH, and the orchestration (events to the
+orchestrator, workers started, state of the workspaces) runs in the desktop.
+So the bot answers while Hangar runs on the PC, window closed or not. A
+Hangar entirely on a server, the PC off, needs the orchestration on the node
+first (nodes.md, "Later"); the connector is written against `mobile::desk`
+so that it can move there with it.
 
 ## Mapping
 
 | Hangar | Discord |
 |---|---|
 | Folder | Category (up to 50 channels each) |
-| Workspace | Text channel: the orchestrator's conversation |
-| Worker / session | Public thread in that channel, started from its "started" line |
+| Workspace, local or on a node | Text channel: the orchestrator's conversation |
+| Worker | Nothing of its own: a line when it starts or delivers, and its permission, question or plan card in the workspace's channel when it needs the person, under its name |
 | Agent (Leo, Ada…) | The bot's own webhook in the channel, with the agent's name and a generated avatar per message |
 | Hangar's news | Short lines with Hangar's icons, as in the chat view |
 | State of the workspace | One pinned dashboard card per channel, edited as it changes |
 
-To decide with the person: this mapping or category = workspace and a
-channel per pane; who may talk (the paired account only, or a list or a
-role, who could then approve commands on the PC); whether the headless mode
-comes with it.
+Decided with the person: no thread per worker; only the paired account is
+heard; workspaces on nodes are in.
 
 ## Messages: Components V2
 
@@ -102,17 +122,20 @@ lines green and `-` lines red), the check and the review, the branches, the
 a green one-line card.
 
 **The dashboard.** Pinned, edited at most every ~5 s: the orchestrator and
-each worker with its state, since when, and the button that matters (Open
-the thread, Answer), and the counts of the board.
+each worker with its state and since when, a link to the card of whoever
+waits on the person, and the counts of the board.
 
 ![Delivery and dashboard](../images/discord/5-delivery-dashboard.png)
 
-**A worker's thread.** Its own turns and answers; what the person writes
-there goes to that worker. Slash commands, registered on the guild only (so
-they show at once): `/stop`, `/model`, `/effort`, `/plan`, `/status`
-(ephemeral).
+**A worker that needs the person.** Its card in the workspace's channel,
+under its own name, saying which task it works on and, on a node, which
+one; answered there like the orchestrator's.
 
-![A worker's thread and the commands](../images/discord/6-worker-thread-commands.png)
+![A worker on a node that needs the person](../images/discord/6-node-worker.png)
+
+**Commands.** Registered on the guild only (so they show at once):
+`/stop`, `/model`, `/effort`, `/plan`, `/status` (ephemeral), for the
+channel's orchestrator.
 
 ## What the person writes
 
@@ -120,7 +143,8 @@ Read with the `MESSAGE_CONTENT` intent (privileged; a toggle in the
 Developer Portal under 10,000 users). Sent while the agent works, it waits
 in the bridge queue: the bot reacts ⏳, then ✅ when it is taken. Deleting
 the Discord message takes it back from the queue; editing it changes what
-waits. Only the paired account is heard.
+waits. Only the paired account is heard: anyone else's messages are
+ignored, and their clicks get an ephemeral "only … can answer here".
 
 ## Interactions
 
@@ -141,10 +165,9 @@ means something.
 - The person creates the Discord application and its bot, and the server: bots
   cannot create guilds since July 2025. Hangar gives the invite link with the
   scopes `bot applications.commands` and the permissions it needs (Manage
-  Channels, Manage Webhooks, Manage Threads, Send Messages, Send Messages in
-  Threads, Create Public Threads, Embed Links, Attach Files, Read Message
-  History, Add Reactions, Use External Emojis, Pin Messages, a separate
-  permission since February 2026).
+  Channels, Manage Webhooks, Send Messages, Embed Links, Attach Files, Read
+  Message History, Add Reactions, Use External Emojis, Pin Messages, a
+  separate permission since February 2026).
 - The bot token stays on the PC with Hangar's other secrets.
 - Pairing: Hangar shows a code, the person sends it to the bot; only that
   Discord account is heard afterwards. A private server is recommended: a
@@ -160,11 +183,9 @@ means something.
   10 minutes ban the IP for a while.
 - No streaming: a message per answer of Claude's, the turn card edited in
   batches.
-- Renaming a channel or a thread is heavily limited (about twice per
+- Renaming a channel is heavily limited (about twice per
   10 minutes, community knowledge, not in the docs): no state in names; the
   state lives in the cards and the dashboard.
-- Threads archive after inactivity (60, 1440, 4320 or 10080 minutes); a
-  webhook message with `thread_id` unarchives its thread.
 - Webhook names cannot contain `clyde` or `discord`; a webhook the
   application created can send interactive components, others cannot.
 
@@ -180,10 +201,12 @@ Steps, each behind the experiment:
 
 1. Settings: the bot token, the guild, pairing the person's account.
 2. A channel per workspace: the orchestrator's conversation both ways, and
-   the permission, question and plan cards.
-3. Threads per worker, deliveries with Land / Send back.
+   the permission, question and plan cards, the workers' included.
+3. Deliveries with Land / Send back; the queue (⏳, delete, edit).
 4. Following the structure (folders, workspaces created, renamed, closed),
    the dashboard and the slash commands.
+5. Nodes: taking back what waits in a node pane's queue, and the settings
+   of its panes.
 
 Tested against a fake gateway and HTTP server; a real run needs the person's
 bot.
@@ -194,7 +217,7 @@ The official documentation, read from
 [discord/discord-api-docs](https://github.com/discord/discord-api-docs)
 (commit `36adecb`, November 10, 2026): `components/reference`,
 `change-log`, `resources/message`, `resources/webhook`, `resources/channel`,
-`topics/threads`, `topics/rate-limits`, `interactions/receiving-and-responding`.
+`topics/rate-limits`, `interactions/receiving-and-responding`.
 
 ## Mockups
 

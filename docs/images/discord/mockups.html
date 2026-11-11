@@ -192,13 +192,11 @@ h2{font-size:20px}h3{font-size:16px}
       <div class="ch" style="margin-top:6px"><span class="hash">#</span>hangar</div>
       <div class="cat"><svg><use href="#i-chev"/></svg>Clients</div>
       <div class="ch" data-ch="shop"><span class="hash">#</span>shop</div>
-      <div class="th" data-th="ada"><span class="dot" style="background:var(--working)"></span>ada · search-index</div>
-      <div class="th" data-th="bo"><span class="dot" style="background:#80848e"></span>bo · filters</div>
-      <div class="th" data-th="cy"><span class="dot" style="background:var(--waiting)"></span>cy · checkout</div>
       <div class="ch" data-ch="billing"><span class="hash">#</span>api-billing</div>
       <div class="cat"><svg><use href="#i-chev"/></svg>Perso</div>
       <div class="ch" data-ch="blog"><span class="hash">#</span>blog</div>
       <div class="ch" data-ch="dotfiles"><span class="hash">#</span>dotfiles</div>
+      <div class="ch" data-ch="render"><span class="hash">#</span>render-farm</div>
     </div>
     <div class="me"><div class="av" style="background:#c06b3e">T</div><div><b>toi</b><small>En ligne</small></div></div>
   </div>
@@ -220,13 +218,11 @@ h2{font-size:20px}h3{font-size:16px}
       <div class="msg"><div class="av" style="background:#3a3c42;color:#b5bac1"><svg><use href="#i-hangar"/></svg></div><div class="body">
         <div class="name"><b>Hangar</b><span class="tag">APP</span><time>Aujourd’hui à 14:03</time></div>
         <div class="line"><span class="ic" style="color:var(--working)"><svg><use href="#i-play"/></svg></span><span class="w">Ada a démarré « Search index »</span></div>
-        <div class="thread"><div class="tn"><svg width="16" height="16" style="color:#b5bac1"><use href="#i-thread"/></svg>ada · search-index<small>14 messages ›</small></div>
-          <div class="last"><b style="color:#dbdee1">Ada</b> : Index branché sur <code>products.tags</code>, je lance les tests…</div></div>
       </div></div>
 
       <div class="msg cont"><div class="av"></div><div class="body">
         <div class="line"><span class="ic" style="color:var(--working)"><svg><use href="#i-check"/></svg></span><span class="w">Ada a livré « Search index » : fusionné, tâche terminée</span><span class="sub">3 fichiers · <span class="ok">+112</span> <span class="bad">−14</span></span></div>
-        <div class="line"><span class="ic" style="color:var(--waiting)"><svg><use href="#i-bell"/></svg></span><span class="w">Cy vous attend depuis 4 min dans <span style="color:var(--link)">cy · checkout</span></span></div>
+        <div class="line"><span class="ic" style="color:var(--waiting)"><svg><use href="#i-bell"/></svg></span><span class="w">Cy vous attend depuis 4 min : <span style="color:var(--link)">sa demande ↓</span></span></div>
         <div class="line"><span class="ic"><svg><use href="#i-bubble"/></svg></span><span class="w">Bo : « Les filtres gardent leurs paramètres d’URL. La recherche aussi ? »</span></div>
       </div></div>
 
@@ -386,9 +382,9 @@ h2{font-size:20px}h3{font-size:16px}
         <div class="box accent">
           <h3 style="margin-top:0">shop — où en est le travail</h3>
           <div class="section"><div class="t line"><span class="ic run"><svg><use href="#i-orch"/></svg></span><span class="w"><b style="color:var(--head)">Leo</b> · orchestrateur — <span class="run">travaille</span> <span class="sub">depuis 3 minutes</span></span></div></div>
-          <div class="section"><div class="t line"><span class="ic run"><svg><use href="#i-play"/></svg></span><span class="w"><b style="color:var(--head)">Ada</b> · Search index — <span class="run">travaille</span> <span class="sub">depuis 12 minutes</span></span></div><span class="btn">Ouvrir le fil</span></div>
-          <div class="section"><div class="t line"><span class="ic wait"><svg><use href="#i-bell"/></svg></span><span class="w"><b style="color:var(--head)">Cy</b> · Checkout — <span class="wait">vous attend</span> <span class="sub">depuis 4 minutes</span></span></div><span class="btn primary">Répondre</span></div>
-          <div class="section"><div class="t line"><span class="ic"><svg><use href="#i-pause"/></svg></span><span class="w"><b style="color:var(--head)">Bo</b> · Filters — inactif <span class="sub">depuis 20 minutes</span></span></div><span class="btn">Ouvrir le fil</span></div>
+          <div class="section"><div class="t line"><span class="ic run"><svg><use href="#i-play"/></svg></span><span class="w"><b style="color:var(--head)">Ada</b> · Search index — <span class="run">travaille</span> <span class="sub">depuis 12 minutes</span></span></div></div>
+          <div class="section"><div class="t line"><span class="ic wait"><svg><use href="#i-bell"/></svg></span><span class="w"><b style="color:var(--head)">Cy</b> · Checkout — <span class="wait">vous attend</span> <span class="sub">depuis 4 minutes</span></span></div><span class="btn primary">Voir sa demande</span></div>
+          <div class="section"><div class="t line"><span class="ic"><svg><use href="#i-pause"/></svg></span><span class="w"><b style="color:var(--head)">Bo</b> · Filters — inactif <span class="sub">depuis 20 minutes</span></span></div></div>
           <div class="sep"></div>
           <div class="sub">2 tâches à faire · 1 à fusionner · 4 terminées aujourd’hui</div>
         </div>
@@ -424,39 +420,26 @@ h2{font-size:20px}h3{font-size:16px}
 
 <!-- 6. Le fil d'un worker et les commandes -->
 <section class="shot" id="s6">
-<div class="window" data-sel="ada">
+<div class="window" data-sel="render">
   <div class="main">
-    <div class="top"><svg width="22" height="22" style="color:#80848e"><use href="#i-thread"/></svg><b>ada · search-index</b><span class="topic">Tâche « Search index » · branche ada/search-index · Sonnet 5.5</span></div>
+    <div class="top"><span class="hash">#</span><b>render-farm</b><span class="topic">Orchestrateur : Nova · Sonnet 5.5 · 2 workers · sur le node gpu-box · ~/render</span></div>
     <div class="feed">
       <div class="msg"><div class="av" style="background:#3a3c42;color:#b5bac1"><svg><use href="#i-hangar"/></svg></div><div class="body">
-        <div class="name"><b>Hangar</b><span class="tag">APP</span><time>Aujourd’hui à 14:03</time></div>
-        <div class="line"><span class="ic run"><svg><use href="#i-play"/></svg></span><span class="w">Ada a démarré « Search index », demandé par Leo</span></div>
+        <div class="name"><b>Hangar</b><span class="tag">APP</span><time>Aujourd’hui à 16:40</time></div>
+        <div class="line"><span class="ic run"><svg><use href="#i-play"/></svg></span><span class="w">Kai a démarré « Bake textures »</span></div>
+        <div class="line"><span class="ic run"><svg><use href="#i-play"/></svg></span><span class="w">Mia a démarré « Encode previews »</span></div>
       </div></div>
-      <div class="msg"><div class="av" style="background:#2f9e5b">A</div><div class="body">
-        <div class="name"><b>Ada</b><span class="tag">APP</span><time>Aujourd’hui à 14:09</time></div>
-        <div class="text">Index branché sur <code>products.tags</code>. Les titres sont normalisés (accents, casse) avant l’indexation, pour que « Écran » trouve « ecran ».</div>
-        <div class="box done">
-          <div class="line"><span class="sub">12 actions · 6 minutes</span></div>
-          <div class="line"><span class="ic"><svg><use href="#i-search"/></svg></span><span class="w">Cherché « products.tags » · 8 résultats</span></div>
-          <div class="line"><span class="ic"><svg><use href="#i-edit"/></svg></span><span class="w">Modifié <code>src/search/index.ts</code> et 2 autres fichiers</span></div>
-          <div class="line"><span class="ic ok"><svg><use href="#i-term"/></svg></span><span class="w"><code>pnpm test</code></span><span class="st ok">réussi</span></div>
+      <div class="msg ping"><div class="av" style="background:#b4570f">K</div><div class="body">
+        <div class="name"><b>Kai</b><span class="tag">APP</span><time>Aujourd’hui à 16:52</time></div>
+        <div class="box waiting">
+          <div class="line"><span class="ic wait"><svg><use href="#i-bell"/></svg></span><span class="w"><b style="color:var(--head)">Kai demande à lancer une commande</b> <span class="mention">@toi</span></span></div>
+          <pre>sudo apt-get install -y libvulkan1</pre>
+          <div class="sub">Worker de « Bake textures » · sur <code>gpu-box</code> · attend depuis 1 minute</div>
+          <div class="row"><span class="btn success"><svg><use href="#i-check"/></svg>Autoriser</span><span class="btn danger">Refuser</span></div>
         </div>
       </div></div>
-      <div class="msg"><div class="av" style="background:#c06b3e">T</div><div class="body">
-        <div class="name"><b>toi</b><time>Aujourd’hui à 14:12</time></div>
-        <div class="text">Pense aux noms de marque avec un tiret</div>
-        <div class="reacts"><span class="react">✅ <b>1</b></span></div>
-      </div></div>
     </div>
-    <div class="popup">
-      <div class="ph"><div class="av" style="background:#3a3c42;color:#b5bac1"><svg width="12" height="12"><use href="#i-hangar"/></svg></div>Hangar</div>
-      <div class="cmd sel"><b>/stop</b><span>Arrête le tour en cours d’Ada</span><i>Hangar</i></div>
-      <div class="cmd"><b>/model</b><span>Opus · Sonnet · Haiku · Fable</span><i>Hangar</i></div>
-      <div class="cmd"><b>/effort</b><span>Faible · Moyen · Élevé · Très élevé · Max</span><i>Hangar</i></div>
-      <div class="cmd"><b>/plan</b><span>Planifier d’abord : propose un plan avant de modifier</span><i>Hangar</i></div>
-      <div class="cmd"><b>/statut</b><span>Où en est ce pane, en privé</span><i>Hangar</i></div>
-    </div>
-    <div class="composer typed"><span class="plus">+</span>/</div>
+    <div class="composer"><span class="plus">+</span>Envoyer un message dans #render-farm</div>
   </div>
 </div>
 </section>

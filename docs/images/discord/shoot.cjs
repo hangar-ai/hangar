@@ -8,7 +8,7 @@ const shots = {
   s3: '3-questions-modal',
   s4: '4-plan',
   s5: '5-delivery-dashboard',
-  s6: '6-worker-thread-commands',
+  s6: '6-node-worker',
 };
 
 (async () => {
