@@ -1194,7 +1194,7 @@ impl Windows {
                 let report = self
                     .by_window(window)
                     .filter(|win| !new_window && matches!(win.kind, Kind::Video | Kind::Audio))
-                    .and_then(|win| read_media_report(url).map(|report| (win, report)));
+                    .zip(read_media_report(url));
                 match report {
                     Some((win, report)) => win.media_error = report,
                     None => handled.link = Some(url.clone()),
