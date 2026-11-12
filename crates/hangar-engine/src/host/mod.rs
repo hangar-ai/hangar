@@ -98,16 +98,6 @@ pub enum News {
     },
 }
 
-/// What becomes of a pane's shell.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Life {
-    Starting,
-    Running,
-    /// It ended by itself: it stays so until it is restarted (a respawn
-    /// gives it a new id).
-    Exited,
-}
-
 /// The state and the panes' read-model, behind one lock.
 #[derive(Debug, Default)]
 struct Model {
@@ -201,8 +191,13 @@ struct Inner {
     /// The desk: what the chat view, the phone and a connector call.
     desk: OnceLock<Arc<Mobile>>,
     news: broadcast::Sender<News>,
-    /// The shells this host started, by pane.
-    shells: Mutex<HashMap<PaneId, Life>>,
+    /// The shells this host started or is starting, by pane: the launch
+    /// that holds each (a pane put to sleep and woken is launched again
+    /// under the same id; an exited one stays held until it is restarted,
+    /// under a new id).
+    shells: Mutex<HashMap<PaneId, u64>>,
+    /// The launches so far.
+    launches: std::sync::atomic::AtomicU64,
     /// What each pane printed since the panes were last looked at.
     printed: Mutex<HashMap<PaneId, Arc<Printed>>>,
     started: AtomicBool,
@@ -291,7 +286,10 @@ pub fn write_state_file(file: &Path, value: &Value) -> Result<(), String> {
         }
         let mut out = options.open(&temporary)?;
         out.write_all(&body)?;
-        Ok(())
+        // On disk before it takes the state's name: renamed first, a power
+        // cut can leave the name on an empty file (and a write a network
+        // disk refused shows here, not after the old state is gone).
+        out.sync_all()
     };
     if let Err(first) = write() {
         // The folder is missing on the first save alone.
@@ -304,7 +302,15 @@ pub fn write_state_file(file: &Path, value: &Value) -> Result<(), String> {
             _ => return Err(format!("{}: {first}", temporary.display())),
         }
     }
-    std::fs::rename(&temporary, file).map_err(|err| format!("{}: {err}", file.display()))
+    std::fs::rename(&temporary, file).map_err(|err| format!("{}: {err}", file.display()))?;
+    // The rename itself, on disk: a folder's entries are its own to flush.
+    #[cfg(unix)]
+    if let Some(dir) = file.parent()
+        && let Ok(dir) = std::fs::File::open(dir)
+    {
+        let _ = dir.sync_all();
+    }
+    Ok(())
 }
 
 impl EngineHost {
@@ -336,6 +342,7 @@ impl EngineHost {
             desk: OnceLock::new(),
             news,
             shells: Mutex::new(HashMap::new()),
+            launches: std::sync::atomic::AtomicU64::new(0),
             printed: Mutex::new(HashMap::new()),
             started: AtomicBool::new(false),
             stopping: AtomicBool::new(false),
@@ -356,7 +363,9 @@ impl EngineHost {
         self.install_mobile(Arc::new(DeskHook(desk.clone())));
         let _ = self.0.desk.set(desk);
         tokio::spawn(follow_events(self.clone(), events));
-        tokio::spawn(save_loop(self.clone()));
+        // Listening from now, not from the task's first turn: a change in
+        // between would be told to nobody.
+        tokio::spawn(save_loop(self.clone(), self.news()));
         tokio::spawn(panes_loop(self.clone()));
         tokio::spawn(tick_loop(self.clone()));
         self.0.changed.notify_one();
@@ -496,23 +505,7 @@ impl EngineHost {
     /// A store action of the person's (a connector creating a workspace,
     /// renaming one), applied as the window applies its own.
     pub fn edit(&self, action: StoreAction) -> StoreOutcome {
-        let outcome = {
-            let mut model = locked(&self.0.model);
-            let outcome = model.store.apply(action);
-            if let Some(ws) = &outcome.workspace {
-                model.opened.insert(ws.clone());
-            }
-            let live: HashSet<WsId> = model
-                .store
-                .state()
-                .workspaces
-                .iter()
-                .map(|ws| ws.id.clone())
-                .collect();
-            model.opened.retain(|ws| live.contains(ws));
-            model.index();
-            outcome
-        };
+        let outcome = edited(&mut locked(&self.0.model), action);
         self.changed();
         outcome
     }
@@ -536,32 +529,46 @@ impl EngineHost {
         } else {
             name.trim().to_string()
         };
-        let made = self.edit(StoreAction::AddWorkspace(crate::state::WorkspaceDraft {
-            name,
-            cwd: cwd.to_string(),
-            layout: 1,
-            agents: vec![crate::state::types::AgentId::Claude],
-            ..Default::default()
-        }));
-        let ws = made.workspace.ok_or("the workspace could not be made")?;
-        if orchestrator {
-            let first = self
-                .snapshot()
-                .state
-                .workspaces
-                .iter()
-                .find(|w| w.id == ws)
+        // The workspace and its orchestrator's role in one change: told of
+        // the pane before its role, the panes would start it as a plain
+        // Claude Code, without Hangar's tools, and nothing here repairs a
+        // pane that runs.
+        let ws = {
+            let mut model = locked(&self.0.model);
+            let made = edited(
+                &mut model,
+                StoreAction::AddWorkspace(crate::state::WorkspaceDraft {
+                    name,
+                    cwd: cwd.to_string(),
+                    layout: 1,
+                    agents: vec![crate::state::types::AgentId::Claude],
+                    ..Default::default()
+                }),
+            );
+            let Some(ws) = made.workspace else {
+                drop(model);
+                self.changed();
+                return Err("the workspace could not be made".into());
+            };
+            let first = model
+                .store
+                .workspace(&ws)
                 .and_then(|w| w.panes.first().map(|p| p.id.clone()));
-            if let Some(pane) = first {
-                self.edit(StoreAction::UpdatePane {
-                    ws: ws.clone(),
-                    pane,
-                    patch: PanePatch::new(|pane: &mut Pane| {
-                        pane.role = Some(crate::state::types::PaneRole::Orchestrator);
-                    }),
-                });
+            if let Some(pane) = first.filter(|_| orchestrator) {
+                edited(
+                    &mut model,
+                    StoreAction::UpdatePane {
+                        ws: ws.clone(),
+                        pane,
+                        patch: PanePatch::new(|pane: &mut Pane| {
+                            pane.role = Some(crate::state::types::PaneRole::Orchestrator);
+                        }),
+                    },
+                );
             }
-        }
+            ws
+        };
+        self.changed();
         Ok(ws)
     }
 
@@ -570,11 +577,17 @@ impl EngineHost {
     /// workspaces are up, did; nobody when nothing did (a report of the mod
     /// that moved no agent's activity changes nothing the engines read).
     fn changed(&self) {
-        let (snapshot, panes_moved) = {
+        let panes_moved = {
             let mut model = locked(&self.0.model);
             // Nobody announces a respawn here: the panes follow the state.
             model.store.take_respawns();
-            model.store.take_removed();
+            // A workspace removed takes its delivery check worktree with
+            // it, as on the desktop: git forgets it, the disk lets it go.
+            for removed in model.store.take_removed() {
+                off_thread(move || {
+                    hangar_core::delivery::remove_workspace_check(&removed.ws, &removed.cwd, None);
+                });
+            }
             let published = self.snapshot();
             let state_moved = !Arc::ptr_eq(&published.state, &model.store.state_arc());
             let up_moved = published.opened != model.opened
@@ -584,13 +597,16 @@ impl EngineHost {
             if !(state_moved || up_moved || live_moved) {
                 return;
             }
-            (Arc::new(model.snapshot()), state_moved || up_moved)
+            // Published while the model is held: two changes side by side
+            // publish in the order they were made, never the older one
+            // over the newer.
+            *self
+                .0
+                .snapshot
+                .write()
+                .unwrap_or_else(PoisonError::into_inner) = Arc::new(model.snapshot());
+            state_moved || up_moved
         };
-        *self
-            .0
-            .snapshot
-            .write()
-            .unwrap_or_else(PoisonError::into_inner) = snapshot;
         if panes_moved {
             self.0.changed.notify_one();
         }
@@ -641,16 +657,7 @@ impl EngineHost {
                 self.printed_of(&pane).note(wall_clock_ms());
             }
             TermEvent::Exit(pane) => {
-                let mine = {
-                    let mut shells = locked(&self.0.shells);
-                    match shells.get_mut(&pane) {
-                        Some(life) => {
-                            *life = Life::Exited;
-                            true
-                        }
-                        None => false,
-                    }
-                };
+                let mine = locked(&self.0.shells).contains_key(&pane);
                 if !mine {
                     return;
                 }
@@ -772,7 +779,7 @@ impl EngineHost {
             .filter(up)
             .flat_map(|ws| ws.panes.iter().map(|pane| pane.id.as_str()))
             .collect();
-        let (gone, new): (Vec<PaneId>, Vec<(Workspace, Pane)>) = {
+        let (gone, new): (Vec<PaneId>, Vec<(Workspace, Pane, u64)>) = {
             let mut shells = locked(&self.0.shells);
             let gone: Vec<PaneId> = shells
                 .keys()
@@ -783,17 +790,20 @@ impl EngineHost {
                 shells.remove(pane);
             }
             // Only a pane to start takes a copy of its workspace.
-            let new: Vec<(Workspace, Pane)> = snapshot
+            let new: Vec<(Workspace, Pane, u64)> = snapshot
                 .state
                 .workspaces
                 .iter()
                 .filter(up)
                 .flat_map(|ws| ws.panes.iter().map(move |pane| (ws, pane)))
                 .filter(|(_, pane)| !shells.contains_key(&pane.id))
-                .map(|(ws, pane)| (ws.clone(), pane.clone()))
+                .map(|(ws, pane)| {
+                    let launch = self.0.launches.fetch_add(1, Ordering::Relaxed) + 1;
+                    (ws.clone(), pane.clone(), launch)
+                })
                 .collect();
-            for (_, pane) in &new {
-                shells.insert(pane.id.clone(), Life::Starting);
+            for (_, pane, launch) in &new {
+                shells.insert(pane.id.clone(), *launch);
             }
             (gone, new)
         };
@@ -804,9 +814,15 @@ impl EngineHost {
                 let _ = terminals.kill(&pane);
             });
         }
-        for (ws, pane) in new {
-            tokio::spawn(launch::start(self.clone(), ws, pane));
+        for (ws, pane, launch) in new {
+            tokio::spawn(launch::start(self.clone(), ws, pane, launch));
         }
+    }
+
+    /// Whether `launch` still holds `pane`: not once the pane left the
+    /// state (or its workspace went to sleep) while its shell was starting.
+    fn held_by(&self, pane: &str, launch: u64) -> bool {
+        locked(&self.0.shells).get(pane) == Some(&launch)
     }
 
     /// A pane's shell is about to start: its machine exists, so no report
@@ -817,6 +833,12 @@ impl EngineHost {
             let mut model = locked(&self.0.model);
             model.index();
             model.panes.mount_pane(&pane.id, &ws.id, &pane.name, now);
+            // What was queued for it before it had a machine to hear of it
+            // (a worker's brief is queued the moment its pane is added).
+            let waiting = hangar_core::bridge::bridge_queue(pane.id.clone());
+            if !waiting.is_empty() {
+                model.panes.queue_changed(&pane.id, waiting, now);
+            }
             model
                 .panes
                 .status
@@ -843,11 +865,6 @@ impl EngineHost {
             if model.panes.machines.contains_key(pane) {
                 model.panes.status.insert(pane.to_string(), status);
             }
-        }
-        if status == PaneStatus::Running
-            && let Some(life) = locked(&self.0.shells).get_mut(pane)
-        {
-            *life = Life::Running;
         }
         self.live_changed();
     }
@@ -1041,22 +1058,66 @@ async fn follow_events(host: EngineHost, mut events: broadcast::Receiver<Event>)
     }
 }
 
-/// Saves [`SAVE_DEBOUNCE`] after a change, the latest state each time.
-async fn save_loop(host: EngineHost) {
-    let mut news = host.news();
+/// Saves [`SAVE_DEBOUNCE`] after a change, the latest state each time; a
+/// save that failed (the disk full) is tried again by itself, where the
+/// newest state would otherwise wait for another change or the shutdown.
+async fn save_loop(host: EngineHost, mut news: broadcast::Receiver<News>) {
+    // What changed before the host started is saved first.
+    let mut due = true;
     loop {
-        match news.recv().await {
-            Ok(News::Changed) | Err(broadcast::error::RecvError::Lagged(_)) => {}
-            Ok(_) => continue,
-            Err(broadcast::error::RecvError::Closed) => break,
+        if !due {
+            match news.recv().await {
+                Ok(News::Changed) | Err(broadcast::error::RecvError::Lagged(_)) => {}
+                Ok(_) => continue,
+                Err(broadcast::error::RecvError::Closed) => break,
+            }
+            // Whatever else changes in the meantime is in the same save.
+            tokio::time::sleep(SAVE_DEBOUNCE).await;
+            while news.try_recv().is_ok() {}
         }
-        // Whatever else changes in the meantime is in the same save.
-        tokio::time::sleep(SAVE_DEBOUNCE).await;
-        while news.try_recv().is_ok() {}
+        due = false;
         if let Err(error) = host.save().await {
             eprintln!("the state could not be saved: {error}");
+            tokio::time::sleep(SAVE_RETRY).await;
+            due = true;
         }
     }
+}
+
+/// How long after a save failed it is tried again.
+const SAVE_RETRY: Duration = Duration::from_secs(5);
+
+/// `work` off the caller's thread: on tokio's blocking pool when there is
+/// a runtime, on a thread of its own otherwise (a host edited before it is
+/// started).
+fn off_thread(work: impl FnOnce() + Send + 'static) {
+    match tokio::runtime::Handle::try_current() {
+        Ok(runtime) => {
+            runtime.spawn_blocking(work);
+        }
+        Err(_) => {
+            std::thread::spawn(work);
+        }
+    }
+}
+
+/// `action` applied to the model, the workspaces that are up and the
+/// panes' index kept with it (`EngineHost::edit`, under the model's lock).
+fn edited(model: &mut Model, action: StoreAction) -> StoreOutcome {
+    let outcome = model.store.apply(action);
+    if let Some(ws) = &outcome.workspace {
+        model.opened.insert(ws.clone());
+    }
+    let live: HashSet<WsId> = model
+        .store
+        .state()
+        .workspaces
+        .iter()
+        .map(|ws| ws.id.clone())
+        .collect();
+    model.opened.retain(|ws| live.contains(ws));
+    model.index();
+    outcome
 }
 
 /// The panes follow the state.

@@ -100,6 +100,10 @@ impl hangar_discord::Hangar for NodeHangar {
         self.own.snapshot()
     }
 
+    fn make_workspace(&self, name: &str, folder: &str) -> Option<Result<String, String>> {
+        hangar_discord::Hangar::make_workspace(&self.own, name, folder)
+    }
+
     /// Its own bot, it leads; the desktop's, only once the desktop that
     /// lent it stopped saying it runs it.
     fn leads(&self) -> bool {

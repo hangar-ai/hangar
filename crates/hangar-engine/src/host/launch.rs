@@ -14,7 +14,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use super::terminals::{Spawn, TermEvent, TermSink};
-use super::{EngineHost, Life, locked};
+use super::{EngineHost, locked};
 use crate::live::PaneStatus;
 use crate::panes::agents::{LaunchOptions, launch_command};
 use crate::panes::wall_clock_ms;
@@ -139,15 +139,22 @@ fn write_scope(
     }
 }
 
-/// Starts `pane` of `ws`: its machine, its shell, then its agent.
-pub(super) async fn start(host: EngineHost, ws: Workspace, pane: Pane) {
+/// Starts `pane` of `ws`: its machine, its shell, then its agent. `launch`
+/// is what holds the pane for this start: a pane that left the state (a
+/// worker's start undone, a workspace removed or put to sleep) while its
+/// shell was starting is no longer held by it, and the shell is taken
+/// down again, which nothing else would do.
+pub(super) async fn start(host: EngineHost, ws: Workspace, pane: Pane, launch: u64) {
+    if !host.held_by(&pane.id, launch) {
+        return;
+    }
     host.mounted(&pane, &ws);
     let prepared = {
         let (host, ws, pane) = (host.clone(), ws.clone(), pane.clone());
         tokio::task::spawn_blocking(move || prepare(&host, &ws, &pane)).await
     };
     let Ok(prepared) = prepared else {
-        return failed(&host, &pane, "the launch stopped");
+        return failed(&host, &pane, launch, "the launch stopped");
     };
     let terminals = host.terminals().clone();
     // What the pane prints is noted where its reader thread stands, with
@@ -163,9 +170,21 @@ pub(super) async fn start(host: EngineHost, ws: Workspace, pane: Pane) {
     let spawn = prepared.spawn.clone();
     let started = tokio::task::spawn_blocking(move || terminals.spawn(spawn, sink)).await;
     match started {
+        Ok(Ok(())) if !host.held_by(&pane.id, launch) => {
+            // Removed meanwhile: the kill that came with the removal found
+            // no shell yet.
+            let (terminals, id) = (host.terminals().clone(), pane.id.clone());
+            let _ = tokio::task::spawn_blocking(move || terminals.kill(&id)).await;
+            // Unless another launch holds the pane since (a workspace woken
+            // again): its machine is that launch's.
+            if !locked(&host.0.shells).contains_key(&pane.id) {
+                host.unmounted(&pane.id);
+            }
+            return;
+        }
         Ok(Ok(())) => host.set_status(&pane.id, PaneStatus::Running),
-        Ok(Err(error)) => return failed(&host, &pane, &error),
-        Err(error) => return failed(&host, &pane, &error.to_string()),
+        Ok(Err(error)) => return failed(&host, &pane, launch, &error),
+        Err(error) => return failed(&host, &pane, launch, &error.to_string()),
     }
     let snapshot = host.snapshot();
     let Some(ws) = snapshot.state.workspaces.iter().find(|w| w.id == ws.id) else {
@@ -239,11 +258,12 @@ async fn settle(host: &EngineHost, pane: &str) {
     }
 }
 
-/// The shell could not start: the pane says so and stays down.
-fn failed(host: &EngineHost, pane: &Pane, error: &str) {
-    eprintln!("pane {} ({}) could not start: {error}", pane.id, pane.name);
-    if let Some(life) = locked(&host.0.shells).get_mut(&pane.id) {
-        *life = Life::Exited;
+/// The shell could not start: the pane says so and stays down. Not when
+/// the pane is no longer this launch's (it left the state meanwhile).
+fn failed(host: &EngineHost, pane: &Pane, launch: u64, error: &str) {
+    if !host.held_by(&pane.id, launch) {
+        return;
     }
+    eprintln!("pane {} ({}) could not start: {error}", pane.id, pane.name);
     host.set_status(&pane.id, PaneStatus::Exited);
 }

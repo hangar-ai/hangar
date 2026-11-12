@@ -58,6 +58,15 @@ pub trait Hangar: Send + Sync + 'static {
     fn others(&self) -> HashSet<String> {
         HashSet::new()
     }
+
+    /// A workspace in `folder` with its orchestrator, made in one change
+    /// where the Hangar can (a host with no window: nothing there repairs a
+    /// pane started before its role was known). `None`: made through the
+    /// port's writes, as the window makes it ([`add_workspace`]).
+    fn make_workspace(&self, name: &str, folder: &str) -> Option<Result<String, String>> {
+        let _ = (name, folder);
+        None
+    }
 }
 
 /// A node's own workspaces.
@@ -88,6 +97,10 @@ impl Hangar for EngineHost {
 
     fn snapshot(&self) -> Arc<Snapshot> {
         EngineHost::snapshot(self)
+    }
+
+    fn make_workspace(&self, name: &str, folder: &str) -> Option<Result<String, String>> {
+        Some(EngineHost::add_workspace(self, name, folder.trim(), true))
     }
 }
 

@@ -24,6 +24,8 @@ struct Shells {
     alive: Mutex<HashSet<PaneId>>,
     killed: Mutex<Vec<PaneId>>,
     sinks: Mutex<Vec<(PaneId, TermSink)>>,
+    /// How long a shell takes to start.
+    slow: Mutex<Duration>,
 }
 
 impl Shells {
@@ -55,6 +57,8 @@ impl Shells {
 impl Terminals for Shells {
     fn spawn(&self, spawn: Spawn, sink: TermSink) -> Result<(), String> {
         let id = spawn.id.clone();
+        let slow = *locked(&self.slow);
+        std::thread::sleep(slow);
         locked(&self.alive).insert(id.clone());
         locked(&self.spawned).push(spawn);
         locked(&self.sinks).push((id.clone(), sink.clone()));
@@ -539,6 +543,99 @@ async fn a_workspace_made_by_the_person_opens_and_its_panes_start() {
     let panes = rig.host.snapshot().state.workspaces[0].panes.len();
     assert_eq!(panes, 1);
     eventually("its pane started", || rig.shells.spawned().len() == 1).await;
+}
+
+/// A workspace made with its orchestrator: the pane is never started as a
+/// plain Claude Code, before its role was known. Its role is what gives it
+/// Hangar's tools (the `--mcp-config` file the shell is handed), and
+/// nothing gives them to a pane that already runs.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_new_workspace_s_orchestrator_starts_with_its_role() {
+    let rig = rig(None);
+    rig.host.start();
+    for n in 0..24 {
+        let folder = scratch("engine-host-ws");
+        let ws = rig
+            .host
+            .add_workspace(&format!("Project {n}"), folder.to_str().unwrap(), true)
+            .unwrap();
+        let snapshot = rig.host.snapshot();
+        let made = snapshot.state.workspaces.iter().find(|w| w.id == ws);
+        let role = made.and_then(|w| w.panes.first()).and_then(|p| p.role);
+        assert_eq!(role, Some(crate::state::types::PaneRole::Orchestrator));
+    }
+    eventually("every orchestrator started", || {
+        rig.shells.spawned().len() == 24
+    })
+    .await;
+    for spawn in locked(&rig.shells.spawned).iter() {
+        assert!(
+            spawn.mcp_config.is_some(),
+            "{} started without Hangar's tools",
+            spawn.name
+        );
+    }
+}
+
+/// A pane that leaves the state while its shell is starting (a worker's
+/// start undone, a workspace removed right after it was made): the kill
+/// that comes with the removal finds no shell yet, so the launch takes
+/// down the one it started.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_pane_removed_while_its_shell_starts_is_not_left_running() {
+    let rig = rig(Some(shop()));
+    rig.host.start();
+    eventually("the panes started", || rig.shells.spawned().len() == 2).await;
+    *locked(&rig.shells.slow) = Duration::from_millis(250);
+    let added = rig
+        .host
+        .apply(ModelCmd::AddPane {
+            ws: "shop".into(),
+            agent: Some(AgentId::Shell),
+            near: None,
+            dir: None,
+            cwd: None,
+            name: Some("Ada".into()),
+            init: None,
+        })
+        .unwrap();
+    let ada = added.pane.expect("a pane");
+    tokio::time::sleep(Duration::from_millis(60)).await;
+    assert!(!rig.shells.alive(&ada), "its shell is still starting");
+    rig.host
+        .apply(ModelCmd::ClosePane {
+            ws: "shop".into(),
+            pane: ada.clone(),
+        })
+        .unwrap();
+    eventually("the shell started all the same", || {
+        rig.shells.spawned().contains(&ada)
+    })
+    .await;
+    eventually("and was taken down", || !rig.shells.alive(&ada)).await;
+    // Its neighbours were left alone.
+    assert!(rig.shells.alive("p1") && rig.shells.alive("p2"));
+}
+
+/// What was queued for a pane before it had a machine (a worker's brief is
+/// queued the moment its pane is added, its machine made two task hops
+/// later) is known once it has one.
+#[tokio::test(flavor = "multi_thread")]
+async fn what_was_queued_before_a_pane_was_mounted_is_not_lost() {
+    let rig = rig(Some(shop()));
+    hangar_core::bridge::bridge_enqueue(&rig.core, "p1".into(), "the brief".into(), None);
+    rig.host.start();
+    eventually("the pane's queue is known", || {
+        locked(&rig.host.0.model)
+            .panes
+            .insights
+            .get("p1")
+            .queue
+            .len()
+            == 1
+    })
+    .await;
+    hangar_core::bridge::bridge_cancel(&rig.core, "p1".into(), None);
 }
 
 #[tokio::test(flavor = "multi_thread")]
