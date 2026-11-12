@@ -302,16 +302,14 @@ impl Bot {
 
     /// The journal's entries since the last look, as lines and cards.
     pub(crate) async fn read_journals(&self) {
-        let Some(runtime) = self.host().orchestration().cloned() else {
-            return;
-        };
         let snapshot = self.host().snapshot();
         for ws in &snapshot.state.workspaces {
             let Some(place) = self.place(&ws.id) else {
                 continue;
             };
             let seen = self.state().seen.get(&ws.id).copied().unwrap_or(0);
-            let fresh: Vec<_> = runtime
+            let fresh: Vec<_> = self
+                .host()
                 .journal(&ws.id)
                 .into_iter()
                 .filter(|entry| entry.at > seen)
@@ -426,7 +424,6 @@ impl Bot {
 
     fn task_title(&self, ws: &str, task: &str) -> Option<String> {
         self.host()
-            .orchestration()?
             .tasks(ws)
             .into_iter()
             .find(|t| t.id == task)

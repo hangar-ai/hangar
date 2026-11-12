@@ -299,7 +299,7 @@ async fn rig() -> Rig {
     };
     let bot_host = host.clone();
     tokio::spawn(async move {
-        if let Err(error) = hangar_discord::run(bot_host, options).await {
+        if let Err(error) = hangar_discord::run(Arc::new(bot_host), options).await {
             panic!("the connector stopped: {error}");
         }
     });

@@ -99,6 +99,7 @@ pub const PANE_SCOPES: &str = "pane-scopes";
 /// Machines reached over SSH that run `hangar-node` (`nodes`, and the
 /// Settings › Nodes page). Every desktop has an `ssh` to reach them with.
 pub const NODES: &str = "nodes";
+pub const DISCORD_CONNECTOR: &str = "discord-connector";
 
 /// Newest last.
 pub const EXPERIMENTS: &[Experiment] = &[
@@ -122,6 +123,13 @@ pub const EXPERIMENTS: &[Experiment] = &[
         title: Key::ExperimentsNodesTitle,
         hint: Key::ExperimentsNodesHint,
         platforms: Some(&[Platform::Linux, Platform::Macos, Platform::Windows]),
+    },
+    Experiment {
+        id: DISCORD_CONNECTOR,
+        stage: Stage::Experimental,
+        title: Key::ExperimentsDiscordConnectorTitle,
+        hint: Key::ExperimentsDiscordConnectorHint,
+        platforms: None,
     },
 ];
 

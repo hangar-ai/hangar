@@ -22,7 +22,7 @@ use hangar_ui::shortcut::Platform as KeyboardPlatform;
 
 use super::change::{Target, cursor_style_id, voice_engine_id};
 use super::experiments::{
-    Experiment, NODES, Platform, available_experiments, is_experiment_enabled,
+    DISCORD_CONNECTOR, Experiment, NODES, Platform, available_experiments, is_experiment_enabled,
 };
 use super::format::{num, plain};
 use crate::commands::CommandId;
@@ -102,6 +102,9 @@ pub enum Block {
     Shortcuts,
     /// The `nodes` package's (`nodes::settings_page`).
     Nodes,
+    /// The `discord` package's: the connector's setup and state
+    /// (`discord::settings_page`).
+    DiscordBot,
 }
 
 /// What a row is made of.
@@ -1165,73 +1168,88 @@ fn voice(ctx: &Context, keymap: &KeymapIndex) -> Category {
 fn discord(ctx: &Context) -> Category {
     let Context { t, settings, .. } = *ctx;
     let tx = |key: Key| t.t(key).into_owned();
+    // Hangar on Discord, first, while its experiment is on.
+    let on = is_experiment_enabled(settings, DISCORD_CONNECTOR, ctx.experiments, ctx.platform);
+    let block = item(
+        "discordBot",
+        None,
+        Kind::Custom {
+            bare: true,
+            block: Block::DiscordBot,
+        },
+    )
+    .keywords("discord bot serveur server connecteur connector channel salon appairer pair");
+    let connector = on.then(|| section("discordBot", tx(Key::DiscordBotTitle), vec![block]));
     Category {
         id: SettingsCategory::Discord,
         label: tx(Key::SettingsCatDiscord),
         icon: Icon::Gamepad,
-        sections: vec![
-            section(
-                "discordPreview",
-                tx(Key::SettingsPreview),
-                vec![
-                    item(
-                        "discordCard",
-                        None,
-                        Kind::Custom {
-                            bare: true,
-                            block: Block::DiscordCard,
-                        },
-                    )
-                    .keywords("discord rich presence statut status carte card"),
-                ],
-            ),
-            section(
-                "discord",
-                tx(Key::SettingsDiscord),
-                vec![
-                    toggle(
-                        "discordPresence",
-                        tx(Key::SettingsDiscordEnable),
-                        settings.discord_presence,
-                        Target::DiscordPresence,
-                    )
-                    .hint(tx(Key::SettingsDiscordEnableHint))
-                    .keywords("discord presence rpc"),
-                    toggle(
-                        "discordShowWorkspace",
-                        tx(Key::SettingsDiscordWorkspace),
-                        settings.discord_show_workspace,
-                        Target::DiscordShowWorkspace,
-                    )
-                    .hint(tx(Key::SettingsDiscordWorkspaceHint)),
-                    toggle(
-                        "discordShowAgents",
-                        tx(Key::SettingsDiscordAgents),
-                        settings.discord_show_agents,
-                        Target::DiscordShowAgents,
-                    )
-                    .hint(tx(Key::SettingsDiscordAgentsHint)),
-                ],
-            )
-            .hint(tx(Key::SettingsDiscordHint)),
-            section(
-                "discordApp",
-                tx(Key::SettingsDiscordApp),
-                vec![
-                    item(
-                        "discordAppId",
-                        Some(tx(Key::SettingsDiscordAppId)),
-                        Kind::Input {
-                            value: settings.discord_app_id.clone(),
-                            placeholder: t.t(Key::SettingsDiscordAppIdPlaceholder),
-                            target: Target::DiscordAppId,
-                        },
-                    )
-                    .hint(tx(Key::SettingsDiscordAppIdHint))
-                    .keywords("discord application id client"),
-                ],
-            ),
-        ],
+        sections: connector
+            .into_iter()
+            .chain([
+                section(
+                    "discordPreview",
+                    tx(Key::SettingsPreview),
+                    vec![
+                        item(
+                            "discordCard",
+                            None,
+                            Kind::Custom {
+                                bare: true,
+                                block: Block::DiscordCard,
+                            },
+                        )
+                        .keywords("discord rich presence statut status carte card"),
+                    ],
+                ),
+                section(
+                    "discord",
+                    tx(Key::SettingsDiscord),
+                    vec![
+                        toggle(
+                            "discordPresence",
+                            tx(Key::SettingsDiscordEnable),
+                            settings.discord_presence,
+                            Target::DiscordPresence,
+                        )
+                        .hint(tx(Key::SettingsDiscordEnableHint))
+                        .keywords("discord presence rpc"),
+                        toggle(
+                            "discordShowWorkspace",
+                            tx(Key::SettingsDiscordWorkspace),
+                            settings.discord_show_workspace,
+                            Target::DiscordShowWorkspace,
+                        )
+                        .hint(tx(Key::SettingsDiscordWorkspaceHint)),
+                        toggle(
+                            "discordShowAgents",
+                            tx(Key::SettingsDiscordAgents),
+                            settings.discord_show_agents,
+                            Target::DiscordShowAgents,
+                        )
+                        .hint(tx(Key::SettingsDiscordAgentsHint)),
+                    ],
+                )
+                .hint(tx(Key::SettingsDiscordHint)),
+                section(
+                    "discordApp",
+                    tx(Key::SettingsDiscordApp),
+                    vec![
+                        item(
+                            "discordAppId",
+                            Some(tx(Key::SettingsDiscordAppId)),
+                            Kind::Input {
+                                value: settings.discord_app_id.clone(),
+                                placeholder: t.t(Key::SettingsDiscordAppIdPlaceholder),
+                                target: Target::DiscordAppId,
+                            },
+                        )
+                        .hint(tx(Key::SettingsDiscordAppIdHint))
+                        .keywords("discord application id client"),
+                    ],
+                ),
+            ])
+            .collect(),
     }
 }
 

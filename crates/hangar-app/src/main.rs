@@ -20,6 +20,7 @@ mod board;
 mod chat_view;
 mod consent_card;
 mod control;
+mod discord;
 mod git_flow;
 mod git_ui;
 mod inspector;

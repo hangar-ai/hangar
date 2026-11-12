@@ -256,7 +256,9 @@ hangar-node workspace add ~/projects/shop       # or /workspace on Discord
   one in a folder of the server, with its orchestrator, and its channel
   follows.
 
+The desktop runs the same connector for its own workspaces
+(discord-connector.md, "Where it runs").
+
 Still to do: the remote workspaces a desktop drives on a node moving to the
-node (the desktop then their client), the desktop's own workspaces on
-Discord (the connector in the app, as another host), and a phone reaching a
-node with no desktop.
+node (the desktop then their client), and a phone reaching a node with no
+desktop.

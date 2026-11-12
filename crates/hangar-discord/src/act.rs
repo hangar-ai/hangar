@@ -632,7 +632,7 @@ impl Bot {
         let said = if name == "workspace" {
             let folder = option("folder").unwrap_or_default();
             let named = option("name").unwrap_or_default();
-            match self.host().add_workspace(&named, &folder, true) {
+            match crate::hangar::add_workspace(&self.host().port(), &named, &folder).await {
                 Ok(ws) => {
                     self.sync().await;
                     match self.place(&ws) {

@@ -73,6 +73,7 @@ macro_rules! packages {
             mobile: Mobile,
             chat_view: ChatView,
             nodes: Nodes,
+            discord: Discord,
         }
     };
 }
@@ -557,6 +558,7 @@ impl App {
         // The tunnels are child processes: killed here, they do not outlive
         // the window as orphans holding their ports.
         crate::nodes::shutdown(&mut self.pkg.nodes);
+        crate::discord::shutdown(&mut self.pkg.discord);
         self.services.core().shutdown();
         iced::exit()
     }

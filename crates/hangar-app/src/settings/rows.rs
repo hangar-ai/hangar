@@ -219,6 +219,7 @@ fn block<'a>(ctx: Ctx<'a>, st: &'a State, block: Block) -> Element<'a, Message> 
         Block::DiscordCard => super::discord_card::view(&st.discord, ctx, st.launched_at),
         Block::Shortcuts => super::shortcuts::view(&st.shortcuts, ctx),
         Block::Nodes => crate::nodes::settings_page(&ctx.pkg.nodes, ctx),
+        Block::DiscordBot => crate::discord::settings_page(&ctx.pkg.discord, ctx),
     }
 }
 

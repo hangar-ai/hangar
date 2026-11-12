@@ -20,6 +20,8 @@ path = "src/main.rs"
 [dependencies]
 hangar-core.workspace = true
 hangar-engine.workspace = true
+# The Discord connector, run beside Hangar Mobile (discord/).
+hangar-discord = { path = "../hangar-discord" }
 hangar-theme.workspace = true
 hangar-i18n.workspace = true
 hangar-term.workspace = true

@@ -17,7 +17,6 @@
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, PoisonError};
-use std::time::Duration;
 
 use axum::extract::State;
 use axum::response::{IntoResponse, Response};
@@ -28,9 +27,6 @@ use serde_json::{json, Value};
 use tokio::task::JoinHandle;
 
 use crate::api::Shared;
-
-/// The longest wait between two tries of a bot that stopped.
-const RETRY_MAX: Duration = Duration::from_secs(300);
 
 /// The bot the daemon runs, when its settings are complete.
 #[derive(Default)]
@@ -63,25 +59,16 @@ impl Connector {
     }
 }
 
-/// The bot, tried again after a while when it stops (Discord down, the
-/// network cut, a token refused until the person fixes it).
+/// The bot, against discord.com or the Discord the environment names (a
+/// fake one, in the tests).
 async fn keep_running(own: EngineHost, dir: PathBuf) {
-    let mut wait = Duration::from_secs(5);
-    loop {
-        // Another Discord than discord.com: a fake one, in the tests.
-        let named = |var: &str| std::env::var(var).ok().filter(|v| !v.trim().is_empty());
-        let options = hangar_discord::Options {
-            api: named("HANGAR_DISCORD_API").unwrap_or_else(|| hangar_discord::rest::API.into()),
-            gateway: named("HANGAR_DISCORD_GATEWAY"),
-            dir: dir.clone(),
-        };
-        match hangar_discord::run(own.clone(), options).await {
-            Ok(()) => return,
-            Err(why) => eprintln!("discord: {why}; trying again in {}s", wait.as_secs()),
-        }
-        tokio::time::sleep(wait).await;
-        wait = (wait * 2).min(RETRY_MAX);
-    }
+    let named = |var: &str| std::env::var(var).ok().filter(|v| !v.trim().is_empty());
+    let options = hangar_discord::Options {
+        api: named("HANGAR_DISCORD_API").unwrap_or_else(|| hangar_discord::rest::API.into()),
+        gateway: named("HANGAR_DISCORD_GATEWAY"),
+        dir,
+    };
+    hangar_discord::keep_running(std::sync::Arc::new(own), options).await;
 }
 
 /// What `status` and `GET /node/discord` say.
@@ -121,51 +108,6 @@ pub async fn reload(State(node): State<Shared>) -> Response {
     }
 }
 
-/// The bot's user id, read from its token: the token's first part is that
-/// id in base64. An application's bot shares its id, which the invite link
-/// names.
-pub fn bot_id(token: &str) -> Option<String> {
-    let first = token.trim().split('.').next()?;
-    let bytes = base64_decode(first)?;
-    let id = String::from_utf8(bytes).ok()?;
-    id.chars().all(|c| c.is_ascii_digit()).then_some(id)
-}
-
-fn base64_decode(text: &str) -> Option<Vec<u8>> {
-    let value = |c: u8| -> Option<u32> {
-        Some(match c {
-            b'A'..=b'Z' => c - b'A',
-            b'a'..=b'z' => c - b'a' + 26,
-            b'0'..=b'9' => c - b'0' + 52,
-            b'+' | b'-' => 62,
-            b'/' | b'_' => 63,
-            _ => return None,
-        } as u32)
-    };
-    let mut out = Vec::new();
-    let mut buffer = 0u32;
-    let mut bits = 0;
-    for c in text.bytes().filter(|c| *c != b'=') {
-        buffer = (buffer << 6) | value(c)?;
-        bits += 6;
-        if bits >= 8 {
-            bits -= 8;
-            out.push((buffer >> bits) as u8);
-            buffer &= (1 << bits) - 1;
-        }
-    }
-    Some(out)
-}
-
-/// The link that adds the bot to a server, with the scopes and permissions
-/// it needs (discord-connector.md, "Setup and security").
-pub fn invite(bot: &str) -> String {
-    format!(
-        "https://discord.com/oauth2/authorize?client_id={bot}&scope=bot%20applications.commands&permissions={}",
-        hangar_discord::bot::BOT_ALLOW
-    )
-}
-
 /// `hangar-node discord setup --guild <id>`.
 pub fn setup(args: &[&str]) -> Result<(), String> {
     let mut guild = None;
@@ -183,7 +125,7 @@ pub fn setup(args: &[&str]) -> Result<(), String> {
         }
     }
     let guild = guild.ok_or("discord setup wants --guild <the server's id>")?;
-    if guild.is_empty() || !guild.chars().all(|c| c.is_ascii_digit()) {
+    if !hangar_discord::setup::is_guild_id(&guild) {
         return Err(
             "a server's id is digits: Discord › Server Settings › Widget, or Copy Server ID".into(),
         );
@@ -215,8 +157,11 @@ pub fn setup(args: &[&str]) -> Result<(), String> {
     settings.token = token.clone();
     let code = settings.pairing_code();
     settings.save(&dir)?;
-    if let Some(bot) = bot_id(&token) {
-        println!("Add the bot to your server: {}", invite(&bot));
+    if let Some(bot) = hangar_discord::setup::bot_id(&token) {
+        println!(
+            "Add the bot to your server: {}",
+            hangar_discord::setup::invite(&bot)
+        );
     }
     match code {
         Some(code) => {
@@ -281,17 +226,6 @@ fn reload_running() {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn the_bot_s_id_is_read_from_its_token() {
-        // "123456789012345678" in base64, as Discord writes it.
-        let token = "MTIzNDU2Nzg5MDEyMzQ1Njc4.GAbcde.xyz";
-        assert_eq!(bot_id(token).as_deref(), Some("123456789012345678"));
-        assert_eq!(bot_id("not-a-token"), None);
-        let link = invite("123");
-        assert!(link.contains("client_id=123"));
-        assert!(link.contains("scope=bot%20applications.commands"));
-    }
 
     #[test]
     fn the_status_says_what_is_missing() {

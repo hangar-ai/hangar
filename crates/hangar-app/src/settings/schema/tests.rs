@@ -847,3 +847,40 @@ fn the_nodes_page_exists_only_while_its_experiment_is_on() {
         }
     ));
 }
+
+#[test]
+fn hangar_on_discord_opens_the_discord_page_while_its_experiment_is_on() {
+    let registry = crate::settings::experiments::EXPERIMENTS;
+    let has_block = |categories: &[Category]| {
+        items(category(categories, SettingsCategory::Discord))
+            .iter()
+            .any(|item| {
+                matches!(
+                    item.kind,
+                    Kind::Custom {
+                        block: Block::DiscordBot,
+                        ..
+                    }
+                )
+            })
+    };
+    let off = with_experiments(Settings::default(), registry);
+    assert!(!has_block(&off));
+
+    let on = with_experiments(
+        Settings {
+            experiments: vec![crate::settings::experiments::DISCORD_CONNECTOR.into()],
+            ..Settings::default()
+        },
+        registry,
+    );
+    assert!(has_block(&on));
+    // First on the page, before the Rich Presence card.
+    assert!(matches!(
+        items(category(&on, SettingsCategory::Discord))[0].kind,
+        Kind::Custom {
+            block: Block::DiscordBot,
+            ..
+        }
+    ));
+}

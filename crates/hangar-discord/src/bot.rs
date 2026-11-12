@@ -17,7 +17,7 @@ use std::time::{Duration, Instant};
 use serde_json::{Value, json};
 use tokio::sync::{broadcast, mpsc};
 
-use hangar_engine::host::{EngineHost, News};
+use crate::hangar::Hangar;
 use hangar_engine::mobile::contract::ChatPending;
 use hangar_engine::state::types::{AppState, Pane, PaneRole, Workspace};
 
@@ -83,12 +83,14 @@ pub(crate) struct State {
     pub delivered: HashSet<String>,
     /// Each dashboard's last body, and when it was drawn.
     pub drawn: HashMap<String, (String, Instant)>,
-    /// The state changed since the structure was last looked at.
+    /// The structure is to be looked at again.
     pub dirty: bool,
+    /// The state the structure was last looked at for.
+    pub synced: Option<Arc<AppState>>,
 }
 
 pub(crate) struct Inner {
-    pub host: EngineHost,
+    pub host: Arc<dyn Hangar>,
     pub http: Http,
     pub dir: PathBuf,
     pub state: Mutex<State>,
@@ -103,8 +105,8 @@ impl Bot {
         self.0.state.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    pub(crate) fn host(&self) -> &EngineHost {
-        &self.0.host
+    pub(crate) fn host(&self) -> &dyn Hangar {
+        self.0.host.as_ref()
     }
 
     pub(crate) fn http(&self) -> &Http {
@@ -355,7 +357,7 @@ pub(crate) fn commands(words: Words) -> Value {
 
 /// Runs the connector beside `host` until the gateway refuses it for good
 /// (the error) or the host stops.
-pub async fn run(host: EngineHost, options: Options) -> Result<(), String> {
+pub async fn run(host: Arc<dyn Hangar>, options: Options) -> Result<(), String> {
     let mut settings = Settings::load(&options.dir)?;
     if !settings.ready() {
         return Err(
@@ -413,8 +415,7 @@ pub async fn run(host: EngineHost, options: Options) -> Result<(), String> {
     bot.register_commands().await;
     bot.mark_journals_seen();
     bot.sync().await;
-    let mut core = host.core().subscribe();
-    let mut news = host.news();
+    let mut core = host.events();
     let mut tick = tokio::time::interval(TICK);
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     loop {
@@ -432,13 +433,6 @@ pub async fn run(host: EngineHost, options: Options) -> Result<(), String> {
                     bot.on_bridge(&pane_id, &event).await;
                 }
                 Ok(_) | Err(broadcast::error::RecvError::Lagged(_)) => {}
-                Err(broadcast::error::RecvError::Closed) => return Ok(()),
-            },
-            said = news.recv() => match said {
-                Ok(News::Changed) | Err(broadcast::error::RecvError::Lagged(_)) => {
-                    bot.state().dirty = true;
-                }
-                Ok(_) => {}
                 Err(broadcast::error::RecvError::Closed) => return Ok(()),
             },
             _ = tick.tick() => bot.tick().await,
@@ -467,13 +461,15 @@ impl Bot {
 
     /// What the journals hold already is not news.
     fn mark_journals_seen(&self) {
-        let Some(runtime) = self.host().orchestration() else {
-            return;
-        };
         let snapshot = self.host().snapshot();
         let mut state = self.state();
         for ws in &snapshot.state.workspaces {
-            let last = runtime.journal(&ws.id).last().map(|e| e.at).unwrap_or(0);
+            let last = self
+                .host()
+                .journal(&ws.id)
+                .last()
+                .map(|e| e.at)
+                .unwrap_or(0);
             state.seen.insert(ws.id.clone(), last);
         }
     }
@@ -481,6 +477,19 @@ impl Bot {
     /// What is due: the structure after a change, the turn cards, the
     /// asks, the journals, the dashboards.
     pub(crate) async fn tick(&self) {
+        // The state changed since the structure was last looked at.
+        let now = self.host().snapshot().state.clone();
+        {
+            let mut state = self.state();
+            let changed = state
+                .synced
+                .as_ref()
+                .is_none_or(|synced| !Arc::ptr_eq(synced, &now));
+            if changed {
+                state.synced = Some(now);
+                state.dirty = true;
+            }
+        }
         let dirty = std::mem::take(&mut self.state().dirty);
         if dirty {
             self.sync().await;
@@ -659,10 +668,7 @@ impl Bot {
                 worker,
             });
         }
-        let board = self
-            .host()
-            .orchestration()
-            .map(|runtime| runtime.tasks(&ws.id))
+        let board = Some(self.host().tasks(&ws.id))
             .filter(|tasks| !tasks.is_empty())
             .map(|tasks| {
                 let mut columns: Vec<(String, usize)> = Vec::new();

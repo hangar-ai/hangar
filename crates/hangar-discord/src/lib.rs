@@ -5,8 +5,9 @@
 //! button; cards for what waits on the person; only the paired account is
 //! heard.
 //!
-//! It runs beside an engine host (`hangar_engine::host`), wherever that
-//! runs: a node with no desktop (`hangar-node serve`).
+//! It serves whichever Hangar runs it (`Hangar`): the desktop app, where it
+//! reaches the same workspaces as the phone, local and on nodes; or a node
+//! with no desktop (`hangar-node serve`), its own workspaces.
 //!
 //! - `rest`, `gateway`: the thin client of Discord's own it speaks with;
 //! - `cards`: the messages, as Components V2; `ids`: what a click acts on;
@@ -19,9 +20,13 @@ pub mod cards;
 pub mod config;
 mod follow;
 pub mod gateway;
+pub mod hangar;
 pub mod ids;
 pub mod rest;
+pub mod setup;
 pub mod words;
 
 pub use bot::{Options, run};
 pub use config::Settings;
+pub use hangar::Hangar;
+pub use setup::keep_running;

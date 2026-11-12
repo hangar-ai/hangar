@@ -7,30 +7,40 @@ stay out of the way: a line when one starts or delivers, their card when
 they need the person, and a thread of their own only when the person opens
 it with a button. A bot of the person's own reports what happens and
 carries what the person says and decides back to the panes; only the person
-is heard. It runs where the engine runs: in a node with no desktop
-(`hangar-node`), its workspaces on the person's server. Built in
+is heard. It runs in the desktop app, beside Hangar Mobile, for the
+workspaces the phone reaches (local, and those it drives on nodes); and in a
+node with no desktop, for the workspaces the node runs itself. Built in
 `crates/hangar-discord`; this is its design, the research it rests on, and
 mockups of every card.
 
-Experimental: on a node, it runs once `hangar-node discord setup` is done
-(headless.md, step 5).
+Experiment: `discord-connector` (Settings › Experimental), then Settings ›
+Discord; on a node, `hangar-node discord setup` (headless.md, step 5).
 
 ![The orchestrator's channel](../images/discord/1-conversation.png)
 
 ## Where it runs
 
-Beside an engine host (`hangar_engine::host`, headless.md): the connector
-reads the host's snapshot, follows core's events (the mod's reports) and
+Beside a Hangar, whichever runs it (`hangar_discord::Hangar`): the
+connector reads its snapshot, follows core's events (the mods' reports) and
 the orchestration's journal, and acts through the desk (`mobile::desk`), the
 chat view's and the phone's own calls: send, queue, answer a question,
 allow a permission, approve a plan, stop, land or send back a delivery.
 Every answer goes through the hangar-bridge mod as the chat view's do.
 
-The host is a node's (`hangar-node serve`, headless.md step 3): the
-workspaces the node runs itself are the server's channels, and they keep
-running with the PC off. The desktop's own workspaces, and the remote ones
-it drives on a node, are not on Discord: a connector in the desktop app
-would be another host of the same crate.
+- **The desktop app** (`hangar-app/src/discord/`), behind the
+  `discord-connector` experiment: the same port, desk and orchestration
+  runtime as Hangar Mobile, so the server's channels are the workspaces the
+  phone reaches, local and on the nodes the desktop drives. Settings ›
+  Discord takes the bot's token and the server's id, shows the pairing code
+  and the invite link; the settings are in the app's data folder
+  (`discord/discord.json`, 0600). The bot answers while Hangar runs on the
+  PC, window closed or not.
+- **A node with no desktop** (`hangar-node serve`, headless.md step 3): the
+  workspaces the node runs itself, with the PC off; set up with `hangar-node
+  discord setup`.
+
+One bot token serves one Hangar: a desktop and a node each need their own
+bot (two Discord applications), on the same server or not.
 
 ## Mapping
 
@@ -249,7 +259,7 @@ worker stops, and makes a workspace from `/workspace`. A real run needs the
 person's bot.
 
 Still to do: an edited or deleted message changing what waits in the queue
-(⏳ is shown), a worker on a node the desktop drives, the per-agent avatars.
+(⏳ is shown), the per-agent avatars.
 
 ## Sources
 

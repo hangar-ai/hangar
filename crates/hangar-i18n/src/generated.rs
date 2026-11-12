@@ -1012,6 +1012,42 @@ pub enum Key {
     DiscordTagline,
     /// `discord.working`
     DiscordWorking,
+    /// `discordBot.connect`
+    DiscordBotConnect,
+    /// `discordBot.disconnect`
+    DiscordBotDisconnect,
+    /// `discordBot.errorGuild`
+    DiscordBotErrorGuild,
+    /// `discordBot.errorToken`
+    DiscordBotErrorToken,
+    /// `discordBot.guild`
+    DiscordBotGuild,
+    /// `discordBot.guildHint`
+    DiscordBotGuildHint,
+    /// `discordBot.guildPlaceholder`
+    DiscordBotGuildPlaceholder,
+    /// `discordBot.howTo`
+    DiscordBotHowTo,
+    /// `discordBot.intro`
+    DiscordBotIntro,
+    /// `discordBot.invite`
+    DiscordBotInvite,
+    /// `discordBot.pair`
+    DiscordBotPair,
+    /// `discordBot.paired`
+    DiscordBotPaired,
+    /// `discordBot.running`
+    DiscordBotRunning,
+    /// `discordBot.starting`
+    DiscordBotStarting,
+    /// `discordBot.title`
+    DiscordBotTitle,
+    /// `discordBot.token`
+    DiscordBotToken,
+    /// `discordBot.tokenHint`
+    DiscordBotTokenHint,
+    /// `discordBot.tokenPlaceholder`
+    DiscordBotTokenPlaceholder,
     /// `drop.paste`
     DropPaste,
     /// `editor.failed`
@@ -1026,6 +1062,10 @@ pub enum Key {
     ExperimentsChatViewHint,
     /// `experiments.chatView.title`
     ExperimentsChatViewTitle,
+    /// `experiments.discordConnector.hint`
+    ExperimentsDiscordConnectorHint,
+    /// `experiments.discordConnector.title`
+    ExperimentsDiscordConnectorTitle,
     /// `experiments.nodes.hint`
     ExperimentsNodesHint,
     /// `experiments.nodes.title`
@@ -4085,7 +4125,7 @@ pub enum Key {
 }
 
 /// How many keys there are.
-pub const KEY_COUNT: usize = 2034;
+pub const KEY_COUNT: usize = 2054;
 
 impl Key {
     /// Every key, in the order of their ids.
@@ -4589,6 +4629,24 @@ impl Key {
         Key::DiscordStatusWaitingHint,
         Key::DiscordTagline,
         Key::DiscordWorking,
+        Key::DiscordBotConnect,
+        Key::DiscordBotDisconnect,
+        Key::DiscordBotErrorGuild,
+        Key::DiscordBotErrorToken,
+        Key::DiscordBotGuild,
+        Key::DiscordBotGuildHint,
+        Key::DiscordBotGuildPlaceholder,
+        Key::DiscordBotHowTo,
+        Key::DiscordBotIntro,
+        Key::DiscordBotInvite,
+        Key::DiscordBotPair,
+        Key::DiscordBotPaired,
+        Key::DiscordBotRunning,
+        Key::DiscordBotStarting,
+        Key::DiscordBotTitle,
+        Key::DiscordBotToken,
+        Key::DiscordBotTokenHint,
+        Key::DiscordBotTokenPlaceholder,
         Key::DropPaste,
         Key::EditorFailed,
         Key::EditorMissingFolder,
@@ -4596,6 +4654,8 @@ impl Key {
         Key::EditorOpen,
         Key::ExperimentsChatViewHint,
         Key::ExperimentsChatViewTitle,
+        Key::ExperimentsDiscordConnectorHint,
+        Key::ExperimentsDiscordConnectorTitle,
         Key::ExperimentsNodesHint,
         Key::ExperimentsNodesTitle,
         Key::ExperimentsOnlyOn,
@@ -6628,6 +6688,24 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "discord.statusWaitingHint", en: Text::plain("Retrying every 15\u{a0}s; the presence appears on its own"), fr: Text::plain("Nouvelle tentative toutes les 15\u{a0}s\u{202f}; la présence apparaîtra d'elle-même") },
     Message { id: "discord.tagline", en: Text::plain("Hangar.AI — terminal multiplexer for coding agents"), fr: Text::plain("Hangar.AI — multiplexeur de terminaux pour agents de code") },
     Message { id: "discord.working", en: Text::plain("Orchestrating coding agents"), fr: Text::plain("Pilote ses agents de code") },
+    Message { id: "discordBot.connect", en: Text::plain("Connect"), fr: Text::plain("Connecter") },
+    Message { id: "discordBot.disconnect", en: Text::plain("Disconnect"), fr: Text::plain("Déconnecter") },
+    Message { id: "discordBot.errorGuild", en: Text::plain("A server ID is digits: right-click the server › Copy Server ID."), fr: Text::plain("Un ID de serveur, ce sont des chiffres\u{202f}: clic droit sur le serveur › Copier l'identifiant du serveur.") },
+    Message { id: "discordBot.errorToken", en: Text::plain("Give the bot's token."), fr: Text::plain("Donnez le token du bot.") },
+    Message { id: "discordBot.guild", en: Text::plain("Server ID"), fr: Text::plain("ID du serveur") },
+    Message { id: "discordBot.guildHint", en: Text::plain("In Discord, with Developer Mode on (Settings › Advanced): right-click your server › Copy Server ID. A server of your own is best: what is written there reaches your agents."), fr: Text::plain("Dans Discord, mode développeur activé (Paramètres › Avancés)\u{202f}: clic droit sur votre serveur › Copier l'identifiant du serveur. Un serveur à vous de préférence\u{202f}: ce qui s'y écrit atteint vos agents.") },
+    Message { id: "discordBot.guildPlaceholder", en: Text::plain("123456789012345678"), fr: Text::plain("123456789012345678") },
+    Message { id: "discordBot.howTo", en: Text::plain("Write in a workspace's channel to talk to its orchestrator; Open the thread on a worker's line follows it. /workspace makes a workspace, /stop, /model, /effort, /plan and /status act on the channel's agent."), fr: Text::plain("Écrivez dans le salon d'un workspace pour parler à son orchestrateur\u{202f}; Ouvrir le fil sur la ligne d'un worker le suit. /workspace crée un workspace, /stop, /model, /effort, /plan et /status agissent sur l'agent du salon.") },
+    Message { id: "discordBot.intro", en: Text::plain("A bot of your own on your server: a channel per workspace (those on your nodes included), what each orchestrator does and says, cards to allow, answer, approve and land, a thread per worker opened with a button. Only the account you pair is heard. It runs while Hangar runs on this computer, window closed or not."), fr: Text::plain("Un bot à vous sur votre serveur\u{202f}: un salon par workspace (ceux de vos nodes compris), ce que fait et dit chaque orchestrateur, des cartes pour autoriser, répondre, approuver et fusionner, un fil par worker ouvert d'un bouton. Seul le compte appairé est écouté. Il tourne tant que Hangar tourne sur cet ordinateur, fenêtre fermée ou non.") },
+    Message { id: "discordBot.invite", en: Text::plain("Invite the bot to the server"), fr: Text::plain("Inviter le bot sur le serveur") },
+    Message { id: "discordBot.pair", en: Text::plain("Not paired yet: send pair {code} in a channel of the server the bot sees."), fr: Text::plain("Pas encore appairé\u{202f}: envoyez pair {code} dans un salon du serveur que le bot voit.") },
+    Message { id: "discordBot.paired", en: Text::plain("Paired: only your account is heard."), fr: Text::plain("Appairé\u{202f}: seul votre compte est écouté.") },
+    Message { id: "discordBot.running", en: Text::plain("Connected · server {guild}"), fr: Text::plain("Connecté · serveur {guild}") },
+    Message { id: "discordBot.starting", en: Text::plain("Connecting · server {guild}"), fr: Text::plain("Connexion · serveur {guild}") },
+    Message { id: "discordBot.title", en: Text::plain("Hangar on Discord"), fr: Text::plain("Hangar sur Discord") },
+    Message { id: "discordBot.token", en: Text::plain("Bot token"), fr: Text::plain("Token du bot") },
+    Message { id: "discordBot.tokenHint", en: Text::plain("discord.com/developers › New Application › Bot: Reset Token, and turn on Message Content Intent on the same page."), fr: Text::plain("discord.com/developers › New Application › Bot\u{202f}: Reset Token, et activez Message Content Intent sur la même page.") },
+    Message { id: "discordBot.tokenPlaceholder", en: Text::plain("The bot's token"), fr: Text::plain("Le token du bot") },
     Message { id: "drop.paste", en: Text::plural("Drop to paste its path", "Drop to paste the {n} paths"), fr: Text::plural("Dépose pour coller son chemin", "Dépose pour coller les {n} chemins") },
     Message { id: "editor.failed", en: Text::plain("VS Code could not be opened: {error}"), fr: Text::plain("VS Code n'a pas pu s'ouvrir\u{202f}: {error}") },
     Message { id: "editor.missingFolder", en: Text::plain("The folder of {name} no longer exists."), fr: Text::plain("Le dossier de {name} n'existe plus.") },
@@ -6635,6 +6713,8 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "editor.open", en: Text::plain("Open with VS Code"), fr: Text::plain("Ouvrir avec VS Code") },
     Message { id: "experiments.chatView.hint", en: Text::plain("Each workspace can be shown as a chat instead of its panes: the conversation, its tasks, and the previews and kit tabs beside them. The terminals keep running behind it, and the panes come back as they were."), fr: Text::plain("Chaque workspace peut s'afficher en chat plutôt qu'en panneaux\u{202f}: la conversation, ses tâches, et les aperçus et onglets de kits à côté. Les terminaux continuent de tourner derrière, et les panneaux reviennent tels qu'ils étaient.") },
     Message { id: "experiments.chatView.title", en: Text::plain("Chat view"), fr: Text::plain("Vue chat") },
+    Message { id: "experiments.discordConnector.hint", en: Text::plain("Your workspaces on a Discord server of your own, as on the phone: a channel per workspace with its orchestrator's turns and answers, cards to allow, answer and land, a thread per worker. Set it up in Settings › Discord."), fr: Text::plain("Vos workspaces sur un serveur Discord à vous, comme sur le téléphone\u{202f}: un salon par workspace avec les tours et les réponses de son orchestrateur, des cartes pour autoriser, répondre et fusionner, un fil par worker. À configurer dans Réglages › Discord.") },
+    Message { id: "experiments.discordConnector.title", en: Text::plain("Hangar on Discord"), fr: Text::plain("Hangar sur Discord") },
     Message { id: "experiments.nodes.hint", en: Text::plain("Adds a Nodes page to the settings: Hangar connects to a Linux machine by its SSH target, installs and starts hangar-node there and keeps a tunnel to it. Remote workspaces come later."), fr: Text::plain("Ajoute une page Nœuds aux réglages\u{202f}: Hangar se connecte à une machine Linux par sa cible SSH, y installe et lance hangar-node, et garde un tunnel vers lui. Les workspaces distants viendront plus tard.") },
     Message { id: "experiments.nodes.title", en: Text::plain("Nodes over SSH"), fr: Text::plain("Nœuds par SSH") },
     Message { id: "experiments.onlyOn", en: Text::plain("Only on {platforms}"), fr: Text::plain("Uniquement sur {platforms}") },
