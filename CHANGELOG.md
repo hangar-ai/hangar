@@ -10,8 +10,6 @@ Every release, with its installers, is on the
 
 ## [Unreleased]
 
-## [2.3.0] - 2026-11-12
-
 ### Added
 
 - **A Hangar with no window, on a server.** A node runs workspaces of its own now, with no desktop connected: their state is kept on the node, their panes start there with Claude Code, and their agents' requests (workers, deliveries, the board) are answered there, so they keep working with your computer off. Make one with `hangar-node workspace add <folder>` on the server (or from Discord); `hangar-node workspaces` lists them, and a connected desktop shows them on the node's card in Settings › Nodes. `hangar-node service install` makes the node a systemd service that starts on its own.
@@ -789,7 +787,6 @@ statistics, workspace sleep and per-workspace MCP servers.
 - Automatic updates from signed GitHub releases.
 - An interface in English and French (0.1.1).
 
-[2.3.0]: https://github.com/simnJS/hangar-ai/releases/tag/v2.3.0
 [2.2.1]: https://github.com/simnJS/hangar-ai/releases/tag/v2.2.1
 [2.2.0]: https://github.com/simnJS/hangar-ai/releases/tag/v2.2.0
 [2.1.0]: https://github.com/simnJS/hangar-ai/releases/tag/v2.1.0

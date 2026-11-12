@@ -3123,7 +3123,7 @@ dependencies = [
 
 [[package]]
 name = "hangar-app"
-version = "2.3.0"
+version = "2.2.1"
 dependencies = [
  "arboard",
  "avif-parse",
@@ -3166,7 +3166,7 @@ dependencies = [
 
 [[package]]
 name = "hangar-core"
-version = "2.3.0"
+version = "2.2.1"
 dependencies = [
  "auto-launch",
  "axum",
@@ -3212,7 +3212,7 @@ dependencies = [
 
 [[package]]
 name = "hangar-discord"
-version = "2.3.0"
+version = "2.2.1"
 dependencies = [
  "axum",
  "futures-util",
@@ -3230,7 +3230,7 @@ dependencies = [
 
 [[package]]
 name = "hangar-engine"
-version = "2.3.0"
+version = "2.2.1"
 dependencies = [
  "alacritty_terminal",
  "chrono",
@@ -3248,7 +3248,7 @@ dependencies = [
 
 [[package]]
 name = "hangar-i18n"
-version = "2.3.0"
+version = "2.2.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -3256,7 +3256,7 @@ dependencies = [
 
 [[package]]
 name = "hangar-kit-host"
-version = "2.3.0"
+version = "2.2.1"
 dependencies = [
  "ab_glyph",
  "base64 0.22.1",
@@ -3286,7 +3286,7 @@ dependencies = [
 
 [[package]]
 name = "hangar-kit-sdk"
-version = "2.3.0"
+version = "2.2.1"
 dependencies = [
  "hangar-kit-ui",
  "serde",
@@ -3295,7 +3295,7 @@ dependencies = [
 
 [[package]]
 name = "hangar-kit-ui"
-version = "2.3.0"
+version = "2.2.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -3303,7 +3303,7 @@ dependencies = [
 
 [[package]]
 name = "hangar-model3d"
-version = "2.3.0"
+version = "2.2.1"
 dependencies = [
  "base64 0.22.1",
  "bytemuck",
@@ -3322,7 +3322,7 @@ dependencies = [
 
 [[package]]
 name = "hangar-node"
-version = "2.3.0"
+version = "2.2.1"
 dependencies = [
  "axum",
  "dirs 6.0.0",
@@ -3344,7 +3344,7 @@ dependencies = [
 
 [[package]]
 name = "hangar-term"
-version = "2.3.0"
+version = "2.2.1"
 dependencies = [
  "alacritty_terminal",
  "hangar-core",
@@ -3357,7 +3357,7 @@ dependencies = [
 
 [[package]]
 name = "hangar-theme"
-version = "2.3.0"
+version = "2.2.1"
 dependencies = [
  "iced",
  "serde",
@@ -3366,7 +3366,7 @@ dependencies = [
 
 [[package]]
 name = "hangar-ui"
-version = "2.3.0"
+version = "2.2.1"
 dependencies = [
  "hangar-theme",
  "iced",
@@ -3379,7 +3379,7 @@ dependencies = [
 
 [[package]]
 name = "hangar-update"
-version = "2.3.0"
+version = "2.2.1"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -3396,7 +3396,7 @@ dependencies = [
 
 [[package]]
 name = "hangar-webview"
-version = "2.3.0"
+version = "2.2.1"
 dependencies = [
  "hangar-core",
  "http",
