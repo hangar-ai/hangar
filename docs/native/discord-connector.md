@@ -48,11 +48,29 @@ the desktop hands its settings to each node it is connected to (`PUT
 /node/discord/shared`: the token, the server, the owner, the node's name);
 the node's bot makes its channels in categories named after the node
 (`Hangar · vps`) and answers in them, the PC on or off. The desktop leaves
-those channels to it (`GET /node/discord` lists them) and leads; a node
-leads while no desktop drives it. Disconnecting the desktop's bot takes it
-back from the nodes (`DELETE /node/discord/shared`). A node set up with a
-bot of its own (`hangar-node discord setup`) keeps it and refuses the
-desktop's.
+those channels to it (`GET /node/discord` lists them) and leads.
+
+- **Who leads.** The desktop that lent the bot says it runs it each time
+  it looks at the node (`GET /node/discord?lender=<the bot>`, every 10 s).
+  A node that has not heard so for 30 s (the PC off, its tunnel down)
+  leads in its place, and still never answers in the lender's channels,
+  which the hand-over names (`channels`): with the PC up and its tunnel
+  down, both lead, and neither acts on the other's cards. What nobody's
+  channel holds (a `/workspace` typed in #general) is then heard by both.
+- **Whose bot.** A node names the bot it serves without its token
+  (`"bot"`: the bot's id). It keeps the first desktop's bot until that
+  desktop takes it back: another Hangar's is refused (409), and a desktop
+  takes back only the bot it lent (`DELETE
+  /node/discord/shared?bot=<the bot>`), which it remembers across restarts
+  (`discord/lent.json`). Two Hangars on one node would otherwise hand and
+  take each other's bot at every look, the node's bot started again each
+  time. A node set up with a bot of its own (`hangar-node discord setup`)
+  keeps it and refuses the desktop's; set up over a lent bot, it becomes
+  the node's own.
+- **Another server, another bot.** The layout (`discord-layout.json`)
+  names the server and the bot that made its places, and stands for those
+  only: on another server nothing of it is there, and another bot is shut
+  out of the first one's private categories.
 
 ## Mapping
 
@@ -169,17 +187,44 @@ channel's orchestrator, or in a worker's thread for that worker.
 
 Read with the `MESSAGE_CONTENT` intent (privileged; a toggle in the
 Developer Portal under 10,000 users). Sent while the agent works, it waits
-in the bridge queue: the bot reacts ⏳, then ✅ when it is taken. Deleting
-the Discord message takes it back from the queue; editing it changes what
-waits. Only the paired account is heard: anyone else's messages are
-ignored, and their clicks get an ephemeral "only … can answer here".
+in the bridge queue: the bot reacts ⏳, then ✅ when it is taken. It also
+waits there behind what already does (the mod takes the queue a moment
+after a turn ends: typed in that moment, it would be read first), and only
+where the agent's mod is there to take it; any other agent is typed to.
+Deleting the Discord message takes it back from the queue; editing it
+changes what waits, unless it was taken meanwhile. Only the paired account
+is heard: anyone else's messages are ignored, and their clicks get an
+ephemeral "only … can answer here".
+
+**Never into a question.** An agent that waits on an answer (a permission,
+a question, a plan) has that question open in its terminal: what is typed
+there, and the Enter after it, would answer it, and a permission's first
+choice is "Yes". What the person writes then is not typed: they are told
+to answer the card first.
 
 ## Interactions
 
 Answer within 3 s or the interaction fails: a button that reaches the pane
 is acknowledged at once with `DEFERRED_UPDATE_MESSAGE` (6), then the message
 is edited (the token lasts 15 minutes). `UPDATE_MESSAGE` (7) where the new
-card is known at once; `MODAL` (9) for the forms.
+card is known at once; `MODAL` (9) for the forms. The acknowledgement and
+what the click does leave together: the agent has its answer without
+waiting for Discord's. Every interaction is acknowledged, one that reads as
+nothing of Hangar's too.
+
+**A click answers its own card.** A card is the ask it was posted for: a
+click on it answers that ask while the pane still waits on it, and nothing
+otherwise. A card left from an earlier question (answered on the PC, or
+posted before Hangar restarted, which forgets the cards it posted) never
+allows what the pane asks now: clicked, it says it was answered, in place
+of its buttons. A card whose pane is gone (a worker stopped while it
+asked) stops asking by itself.
+
+**A delivery ready to land** has its card when the orchestration's journal
+says so (`Delivery`, outcome `ready`), with Land and Send back. Land says
+"Landing…" while the landing's checks still run, and the journal's next
+word on that delivery (landed, sent back, or why not) is said on the card;
+ready again, a delivery has a card of its own.
 
 ## Notifications
 
@@ -204,8 +249,15 @@ means something.
   node's state.
 - Pairing: `setup` prints a code (`hangar-node discord status` again), the
   person sends `pair <code>` in a channel the bot sees; only that Discord
-  account is heard afterwards. A private server is recommended: a
-  message there can run commands on the PC.
+  account is heard afterwards. The code is six digits: it is heard on the
+  server Hangar was set up for alone (not in a direct message, not on
+  another server the bot was invited to), five wrong tries a person and
+  thirty in all, after which nothing pairs until the connection is started
+  again. A private server is recommended: a message there can run commands
+  on the PC.
+- `discord.json` is created the owner's alone (never readable in between),
+  and a webhook's or an interaction's token is struck from what is logged
+  of a failed call.
 - Channel obfuscation (mandatory from November 16, 2026): a bot no longer
   sees channels it cannot view, so Hangar gives itself explicit access on the
   categories it creates.
@@ -325,6 +377,39 @@ second (2,976 in 3.7 s). Measured on November 12, 2026 (4-core Xeon at
 Before, the loop waited on each call to Discord while the reports queued
 behind it, past what core keeps. A long answer is cut at 450 to 570 MB/s
 and a turn's card built in 7 µs: neither is where the time goes.
+
+The person at their server while those sixteen agents keep working (`--only
+person`: a click on an agent's Stop and a message to it, forty times; what
+is timed is when it reaches the fake Discord or the pane, Discord's own
+150 ms left out):
+
+| | Before | After |
+|---|---|---|
+| A click acknowledged at Discord (it shows a failure past 3 s) | median 1.2 ms, slowest 4.1 ms | 0.8 ms, 1.6 ms |
+| The click's Escape in the agent's pane | 152.8 ms | 0.4 ms |
+| A message handed to its agent | 1.3 ms | 0.7 ms |
+
+The Escape waited for Discord's answer to the acknowledgement; they leave
+together now, and so do a permission's answer, a question's and a plan's.
+39 clicks of 40 stop something: an agent between two turns has nothing to
+stop.
+
+At rest (`--only idle`, nothing happening for 20 s): the host and its
+connector take 0.5 ms of processor a second beside 8 workspaces, 3 ms
+beside 50, 11 ms beside 200 (1.1 % of a core), and send Discord nothing.
+
+**What does not go stale.** A turn whose end was never told (Claude Code
+quit mid-turn, a worker killed) has its card folded once its agent rests
+for 20 s. A dashboard stays within Discord's forty components (the rows
+past the count share one line), is drawn again when a draw failed, and is
+posted again when it was deleted on Discord; a channel deleted there is
+made again. A channel whose webhook Discord refused is kept and its
+webhook asked again; what a look at the structure left unmade is tried
+again in 30 s, and one look runs at a time (a `/workspace` beside the
+tick's look made the channel twice). A call the network or Discord's own
+gateways failed is sent again when sending it twice says the same thing
+(an edit, a reaction; not a post). A connector stopped or started again
+closes its lanes: nothing of the old bot runs on beside the new one.
 
 ## Sources
 

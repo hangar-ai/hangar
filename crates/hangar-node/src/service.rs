@@ -7,17 +7,18 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// The unit, running `exe serve` in the foreground.
+/// The unit, running `exe serve --supervised` in the foreground: started
+/// again however the daemon ends (the desktop stops it with a plain `kill`
+/// when it upgrades the node, which is a clean end), and waiting beside a
+/// daemon started outside the service until that one stops (daemon.rs).
 pub fn unit(exe: &Path) -> String {
     format!(
         "[Unit]\n\
 Description=Hangar node: its workspaces and the Discord connector\n\
-After=network-online.target\n\
-Wants=network-online.target\n\
 \n\
 [Service]\n\
-ExecStart=\"{}\" serve\n\
-Restart=on-failure\n\
+ExecStart=\"{}\" serve --supervised\n\
+Restart=always\n\
 RestartSec=5\n\
 \n\
 [Install]\n\
@@ -51,8 +52,21 @@ pub fn install() -> Result<(), String> {
             .map(|status| status.success())
             .unwrap_or(false)
     };
+    // A daemon that already runs (the desktop started it) keeps running,
+    // its agents with it: the service waits beside it.
+    let already = crate::state::dir()
+        .ok()
+        .and_then(|dir| crate::state::running(&dir));
     if systemctl(&["daemon-reload"]) && systemctl(&["enable", "--now", "hangar-node.service"]) {
-        println!("hangar-node runs as a service now (systemctl --user status hangar-node).");
+        match already {
+            Some(node) => println!(
+                "hangar-node is a service now. The node that already runs (pid {}) stays as it is, its agents with it: the service takes over when it stops, and at each login.",
+                node.pid
+            ),
+            None => println!(
+                "hangar-node runs as a service now (systemctl --user status hangar-node)."
+            ),
+        }
         println!("To keep it running once you log out: loginctl enable-linger $USER");
     } else {
         println!("systemd did not take it here: start it with `hangar-node serve --detach`,");
@@ -70,9 +84,14 @@ mod tests {
         let unit = unit(Path::new(
             "/home/me/.local/share/hangar-node/bin/hangar-node",
         ));
-        assert!(unit
-            .contains("ExecStart=\"/home/me/.local/share/hangar-node/bin/hangar-node\" serve\n"));
-        assert!(unit.contains("Restart=on-failure"));
+        assert!(unit.contains(
+            "ExecStart=\"/home/me/.local/share/hangar-node/bin/hangar-node\" serve --supervised\n"
+        ));
+        // However it ends: the desktop's `kill` before an upgrade is a
+        // clean end, which `on-failure` would not start again.
+        assert!(unit.contains("Restart=always"));
         assert!(unit.contains("WantedBy=default.target"));
+        // A user unit has no network-online.target to wait for.
+        assert!(!unit.contains("network-online"));
     }
 }

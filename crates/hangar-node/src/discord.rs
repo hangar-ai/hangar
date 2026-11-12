@@ -386,12 +386,7 @@ pub fn setup(args: &[&str]) -> Result<(), String> {
         Ok(token) if !token.trim().is_empty() => token.trim().to_string(),
         _ => {
             eprintln!("The bot's token (Developer Portal › your application › Bot › Reset Token):");
-            let mut line = String::new();
-            std::io::stdin()
-                .lock()
-                .read_line(&mut line)
-                .map_err(|err| err.to_string())?;
-            line.trim().to_string()
+            read_secret_line()?
         }
     };
     if token.is_empty() {
@@ -427,6 +422,58 @@ pub fn setup(args: &[&str]) -> Result<(), String> {
     }
     reload_running();
     Ok(())
+}
+
+/// The terminal as it was before a secret was typed into it, for the
+/// handler that puts it back when the command is interrupted.
+static SHOWN: std::sync::OnceLock<libc::termios> = std::sync::OnceLock::new();
+
+/// Ctrl+C while the token is typed: the terminal shows what is typed again
+/// before the command ends, or the shell after it would show nothing.
+extern "C" fn show_again(_: libc::c_int) {
+    if let Some(shown) = SHOWN.get() {
+        // SAFETY: tcsetattr and _exit are calls a signal handler may make;
+        // the terminal's settings are read, never written, here.
+        unsafe {
+            libc::tcsetattr(libc::STDIN_FILENO, libc::TCSANOW, shown);
+            libc::_exit(130);
+        }
+    }
+}
+
+/// One line read from standard input, not shown while it is typed when
+/// that is a terminal: a token typed or pasted stays off the screen, out
+/// of its scrollback and of whatever records the session. A pipe is read
+/// as it comes.
+fn read_secret_line() -> Result<String, String> {
+    let fd = libc::STDIN_FILENO;
+    // SAFETY: termios calls on standard input with a struct of this
+    // function's own; the handler is set for the time of the read alone.
+    let hidden = unsafe {
+        let mut term: libc::termios = std::mem::zeroed();
+        if libc::isatty(fd) == 1 && libc::tcgetattr(fd, &mut term) == 0 {
+            let shown = *SHOWN.get_or_init(|| term);
+            term.c_lflag &= !libc::ECHO;
+            let handler = show_again as extern "C" fn(libc::c_int) as libc::sighandler_t;
+            let before = libc::signal(libc::SIGINT, handler);
+            (libc::tcsetattr(fd, libc::TCSANOW, &term) == 0).then_some((shown, before))
+        } else {
+            None
+        }
+    };
+    let mut line = String::new();
+    let read = std::io::stdin().lock().read_line(&mut line);
+    if let Some((shown, before)) = hidden {
+        // SAFETY: as above; the settings and the handler put back.
+        unsafe {
+            libc::tcsetattr(fd, libc::TCSANOW, &shown);
+            libc::signal(libc::SIGINT, before);
+        }
+        // The Enter that ended the line was not shown either.
+        eprintln!();
+    }
+    read.map_err(|err| err.to_string())?;
+    Ok(line.trim().to_string())
 }
 
 /// `hangar-node discord status`.

@@ -197,6 +197,20 @@ streams them as any pane of the node.
   agent's `caller.paneId`, a briefing's `paneId`) is answered there, through
   the engine's dispatch, with no desktop connected; the others go to the
   desktop that drives the node, as before, or are refused when none does.
+  What the node answers is kept off the desktops' events (`/node/events`):
+  a desktop would answer it too, about a pane it does not know, and core
+  takes the first answer. An agent in no pane (a Claude Code started by
+  hand on the server: it speaks with the endpoint file's token, which
+  names no pane) is the desktop's when one drives the node, and the node's
+  own workspaces' otherwise.
+- **A workspace is one change.** `add_workspace` writes the workspace and
+  its orchestrator's role together: told of the pane before its role, the
+  panes would start it as a plain Claude Code, without the `--mcp-config`
+  file that gives it Hangar's tools, and nothing on a host with no window
+  repairs a pane that runs. A pane that leaves the state while its shell is
+  still starting has that shell taken down by the start itself (each start
+  holds its pane by a number): the kill that comes with the removal finds
+  no shell yet.
 - **Starting.** The host is loaded before the API listens: a state file it
   cannot read stops the node rather than letting a save write over it. Its
   last save runs on the way out.
@@ -250,8 +264,17 @@ hangar-node workspace add ~/projects/shop       # or /workspace on Discord
   (Discord out of reach, a token refused) is tried again, waiting longer
   each time, up to five minutes.
 - **A service.** `hangar-node service install` writes a systemd user unit
-  running `hangar-node serve`, restarted when it stops, and enables it;
-  `loginctl enable-linger` keeps it after the person logs out.
+  running `hangar-node serve --supervised`, started again however it ends
+  (`Restart=always`: the desktop stops the node with a plain `kill` before
+  it upgrades it, a clean end), and enables it; `loginctl enable-linger`
+  keeps it after the person logs out. `--supervised` is for the unit: where
+  a daemon already runs outside the service (the desktop starts one over
+  SSH, `serve --detach`), a plain `serve` leaves, which would end the unit
+  with nothing left to start the node again; the supervised one waits
+  beside that daemon, its agents untouched, and becomes the node when it
+  stops. A node that stops does not wait for what still waits on Discord.
+- **The token typed.** At `discord setup`'s prompt it is not shown (the
+  terminal's echo is off for that line, and put back on Ctrl+C too).
 - **Workspaces from Discord.** `/workspace folder:<path> name:<name>` makes
   one in a folder of the server, with its orchestrator, and its channel
   follows.
@@ -287,3 +310,38 @@ What the figures do not show: a real Claude Code's output (the sample is
 generated, after hangar-term's `claude`), real PTYs (`--bench feed --pty`
 of hangar-term measures the reader thread), and a host under memory
 pressure.
+
+### At scale
+
+`cargo bench -p hangar-engine --bench scale` (benches/scale.rs), same
+machine, same day:
+
+| | Measured | |
+|---|---|---|
+| A pane's screen, its history full (120 columns) | 3.0 MiB at 1,000 rows, 5.8 MiB at 2,000, 14.2 MiB at 5,000 | A row of cells is 2.9 kB, paid in every pane. The host kept 5,000 rows; it keeps 2,000 (`screen::HISTORY`): the longest read an agent may ask for is 1,000 lines, and nobody scrolls a screen with no window. |
+| The state: 8, 50, 200 workspaces of 6 panes | a write 39 µs, 239 µs, 1.0 ms | Linear: the panes' index is rebuilt at each write. Writes come at an agent's pace, not a report's. |
+| The same, saved | 0.9 ms, 2.2 ms, 5.4 ms | Flushed to disk before it takes the state's name, and its folder after (a power cut would otherwise leave an empty state, which a node refuses to start on). Off the runtime's threads, 400 ms after the last change. |
+| The same, loaded | 0.65 ms, 3.7 ms, 20 ms | Once, at start. |
+| A transcript of 1, 10, 50 MB: its newest page | 2.8 to 2.9 ms the first time, 57 µs again | Read from its end, whatever its size. |
+| A board of 100, 500, 2,000 tasks, read | 0.03, 0.13, 0.58 ms | |
+| A host of 48 panes where nothing happens | 1.0 ms of processor a second | The tick, 250 ms. |
+
+### The node, from outside
+
+`python3 scripts/node-bench/bench.py target/release/hangar-node` starts the
+release binary in a home of its own and asks it over its API as a desktop
+would (standard library only; `start`, `memory`, `mcp`, `flood` pick one):
+
+| | Measured |
+|---|---|
+| 8 workspaces of 6 panes, from `serve` | the API answers after 49 ms, every shell runs after 0.11 s, every agent's command is typed after 0.67 s (0.5 s of it is the wait for each shell to fall quiet) |
+| The daemon with those 48 agents started | 33.6 MiB (0.70 MiB a pane) |
+| 16 panes, once each printed 12,000 lines | 137.8 MiB, 8.6 MiB a pane: the screen (5.8) and the byte history a desktop replays (4 MiB at most). It was 272 MiB, 17.0 a pane, with 5,000 rows of history. |
+| An agent's `workspace_list` through Hangar's MCP server, answered by the node | median 0.31 ms, 95th of a hundred 0.48 ms |
+| Its `pane_list` | median 0.53 ms, 95th 0.78 ms |
+| 200 MB printed by a pane the node runs itself | 70 MB/s, 13 ms of the daemon's processor a MB (the screen is fed) |
+| The same by a pane it runs for a desktop | 83 MB/s, 5.3 ms a MB (no screen: the desktop draws it) |
+
+That bench is also what found that an agent in no pane was told to "open
+the desktop" on a node with workspaces of its own and no desktop (above,
+"Authority").

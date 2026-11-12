@@ -54,7 +54,8 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const TARGET: &str = env!("HANGAR_NODE_TARGET");
 
 #[cfg(target_os = "linux")]
-const USAGE: &str = "usage: hangar-node version | serve [--detach [--if-version <v>]] | --mcp
+const USAGE: &str =
+    "usage: hangar-node version | serve [--detach [--if-version <v>] | --supervised] | --mcp
        hangar-node workspaces | workspace add <folder> [--name <name>] [--no-orchestrator]
        hangar-node workspace remove <id> | send <pane> <text…>
        hangar-node discord setup --guild <id> | discord status | discord off
@@ -77,7 +78,8 @@ fn run(args: &[String]) -> i32 {
             mcp();
             0
         }
-        ["serve"] => report(daemon::serve()),
+        ["serve"] => report(daemon::serve(false)),
+        ["serve", "--supervised"] => report(daemon::serve(true)),
         ["serve", "--detach"] | ["--detach", "serve"] => report(daemon::detach()),
         ["serve", "--detach", "--if-version", wanted] => {
             if *wanted == VERSION {

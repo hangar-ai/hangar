@@ -1287,6 +1287,42 @@ fn wait_for<T>(what: &str, mut found: impl FnMut() -> Option<T>) -> T {
     }
 }
 
+/// The service's `serve --supervised` beside a daemon started outside it
+/// (the desktop starts one over SSH after it upgrades the node): it does
+/// not leave, which would end the unit with nothing left to start the node
+/// again; it becomes the node when that daemon stops.
+#[test]
+fn the_service_waits_beside_a_daemon_started_outside_it_and_takes_over() {
+    let mut node = Node::start();
+    let mut service = command(node.home())
+        .args(["serve", "--supervised"])
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    std::thread::sleep(Duration::from_millis(600));
+    assert!(service.try_wait().unwrap().is_none(), "it left");
+    assert_eq!(
+        read_node(node.home())["pid"],
+        node.pid,
+        "the daemon is the node"
+    );
+
+    // The daemon stops (a `kill`, as the desktop's before an upgrade).
+    stop(node.pid);
+    node.pid = 0;
+    let taken = wait_for("the service is the node", || {
+        let found = std::fs::read_to_string(state_dir(node.home()).join("node.json")).ok()?;
+        let found: Value = serde_json::from_str(&found).ok()?;
+        (found["pid"] == service.id()).then_some(found)
+    });
+    node.port = taken["port"].as_u64().unwrap() as u16;
+    node.token = taken["token"].as_str().unwrap().to_string();
+    assert_eq!(node.get("/node/info").1["pid"], service.id());
+    unsafe { libc::kill(service.id() as i32, libc::SIGTERM) };
+    let ended = service.wait().unwrap();
+    assert!(ended.success(), "a clean end: {ended}");
+}
+
 /// A node started in a home of its own whose Claude Code is a script: it
 /// asks Hangar's MCP server for the workspaces, as its pane's agent, and
 /// writes the answers down in `answers.jsonl`. With the folder of a project.

@@ -22,20 +22,45 @@ const START_TIMEOUT: Duration = Duration::from_secs(30);
 /// connection waits on it).
 const POLL: Duration = Duration::from_millis(5);
 
+/// How often a `serve --supervised` beside a daemon started outside its
+/// service looks whether that one is still there.
+const SUPERVISED_POLL: Duration = Duration::from_secs(2);
+
 /// The node in the foreground, until SIGTERM, SIGINT or SIGHUP. A daemon of
 /// the account's already running and answering is success: there is one.
-pub fn serve() -> Result<(), String> {
+///
+/// `supervised` (the systemd unit's `serve --supervised`): a daemon that
+/// already runs was started outside the service (by the desktop over SSH,
+/// which does so after it upgrades the node, or by hand). Leaving then
+/// would end the unit, and nothing would start the node again when that
+/// daemon stops: this one waits beside it instead, and becomes the node
+/// when the lock is free.
+pub fn serve(supervised: bool) -> Result<(), String> {
     let dir = state::dir()?;
     state::ensure_dir(&dir)?;
-    if let Some(node) = state::running(&dir) {
-        eprintln!("hangar-node is already running (pid {})", node.pid);
-        return Ok(());
+    if !supervised {
+        if let Some(node) = state::running(&dir) {
+            eprintln!("hangar-node is already running (pid {})", node.pid);
+            return Ok(());
+        }
     }
-    let Some(lock) = state::try_lock(&dir)? else {
-        // Another `serve` holds the lock and is starting: it is the node.
-        let node = wait_for_running(&dir, || None)?;
-        eprintln!("hangar-node is already running (pid {})", node.pid);
-        return Ok(());
+    let lock = match state::try_lock(&dir)? {
+        Some(lock) => lock,
+        None if supervised => {
+            eprintln!("hangar-node already runs outside this service: taking over when it stops");
+            loop {
+                std::thread::sleep(SUPERVISED_POLL);
+                if let Some(lock) = state::try_lock(&dir)? {
+                    break lock;
+                }
+            }
+        }
+        None => {
+            // Another `serve` holds the lock and is starting: it is the node.
+            let node = wait_for_running(&dir, || None)?;
+            eprintln!("hangar-node is already running (pid {})", node.pid);
+            return Ok(());
+        }
     };
     // Whatever `node.json` is left names no daemon: that one held the lock.
     let _ = std::fs::remove_file(state::node_file(&dir));
@@ -53,6 +78,11 @@ pub fn serve() -> Result<(), String> {
     let outcome = runtime.block_on(run(&dir, host, &headless));
     state::clear(&dir);
     headless.shutdown();
+    // What still waits on the network (a call to Discord that is slow, or
+    // told to wait) is not waited for: dropped as it is, the runtime would
+    // hold the daemon's end, a `systemctl stop` with it, for as long. The
+    // lock is kept until then: no other daemon starts beside this one.
+    runtime.shutdown_timeout(Duration::from_secs(2));
     drop(lock);
     outcome
 }
