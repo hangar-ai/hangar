@@ -10,23 +10,81 @@
 //! - `hangar-node discord status`: configured, paired, the code to pair;
 //! - `hangar-node discord off`: the token forgotten, the bot stopped.
 //!
-//! The node API: `GET /node/discord` (the same status), `POST
-//! /node/discord/reload` (the settings read again, the bot started again).
+//! The node API: `GET /node/discord` (the same status, and the channels the
+//! node's bot made), `POST /node/discord/reload` (the settings read again,
+//! the bot started again).
+//!
+//! **One bot with the desktop.** The desktop that drives the node shares its
+//! own bot with it (`PUT /node/discord/shared`): the node's workspaces get
+//! channels of their own on the desktop's server, in categories named after
+//! the node, and its bot answers in them, the desktop in its own. While no
+//! desktop drives the node, the node's bot leads: it answers where neither
+//! made a channel too. A node set up on its own (`discord setup`, another
+//! bot) keeps it: the desktop's settings are refused.
 #![cfg(target_os = "linux")]
 
+use std::collections::HashSet;
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use axum::extract::State;
+use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use hangar_discord::Settings;
 use hangar_engine::host::EngineHost;
+use serde::Deserialize;
 use serde_json::{json, Value};
+use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
 
 use crate::api::Shared;
+use crate::control::Drivers;
+
+/// The node's workspaces, as its bot serves them.
+struct NodeHangar {
+    own: EngineHost,
+    drivers: Arc<Drivers>,
+    /// The bot is the desktop's, shared.
+    shared: bool,
+}
+
+impl hangar_discord::Hangar for NodeHangar {
+    fn port(&self) -> hangar_engine::control::port::Port {
+        self.own.port()
+    }
+
+    fn desk(&self) -> Option<Arc<hangar_engine::mobile::engine::Mobile>> {
+        self.own.desk()
+    }
+
+    fn journal(&self, ws: &str) -> Vec<hangar_engine::orchestration::events::JournalEntry> {
+        hangar_discord::Hangar::journal(&self.own, ws)
+    }
+
+    fn tasks(&self, ws: &str) -> Vec<hangar_core::board::Task> {
+        hangar_discord::Hangar::tasks(&self.own, ws)
+    }
+
+    fn events(&self) -> broadcast::Receiver<hangar_core::Event> {
+        self.own.core().subscribe()
+    }
+
+    fn snapshot(&self) -> Arc<hangar_engine::state::Snapshot> {
+        self.own.snapshot()
+    }
+
+    /// Its own bot, it leads; the desktop's, only while no desktop drives
+    /// the node.
+    fn leads(&self) -> bool {
+        !self.shared || self.drivers.connected() == 0
+    }
+
+    fn others(&self) -> HashSet<String> {
+        HashSet::new()
+    }
+}
 
 /// The bot the daemon runs, when its settings are complete.
 #[derive(Default)]
@@ -37,17 +95,21 @@ pub struct Connector {
 impl Connector {
     /// The bot stopped, then started again from the settings in `dir`
     /// when they are complete. Called on the runtime.
-    pub fn restart(&self, own: &EngineHost, dir: &Path) {
+    pub fn restart(&self, own: &EngineHost, drivers: &Arc<Drivers>, dir: &Path) {
         let mut running = self.running.lock().unwrap_or_else(PoisonError::into_inner);
         if let Some(task) = running.take() {
             task.abort();
         }
-        let ready = Settings::load(dir).map(|s| s.ready()).unwrap_or(false);
-        if !ready {
+        let settings = Settings::load(dir).unwrap_or_default();
+        if !settings.ready() {
             return;
         }
-        let (own, dir) = (own.clone(), dir.to_path_buf());
-        *running = Some(tokio::spawn(keep_running(own, dir)));
+        let hangar = Arc::new(NodeHangar {
+            own: own.clone(),
+            drivers: drivers.clone(),
+            shared: settings.shared,
+        });
+        *running = Some(tokio::spawn(keep_running(hangar, dir.to_path_buf())));
     }
 
     pub fn is_running(&self) -> bool {
@@ -61,14 +123,14 @@ impl Connector {
 
 /// The bot, against discord.com or the Discord the environment names (a
 /// fake one, in the tests).
-async fn keep_running(own: EngineHost, dir: PathBuf) {
+async fn keep_running(hangar: Arc<NodeHangar>, dir: PathBuf) {
     let named = |var: &str| std::env::var(var).ok().filter(|v| !v.trim().is_empty());
     let options = hangar_discord::Options {
         api: named("HANGAR_DISCORD_API").unwrap_or_else(|| hangar_discord::rest::API.into()),
         gateway: named("HANGAR_DISCORD_GATEWAY"),
         dir,
     };
-    hangar_discord::keep_running(std::sync::Arc::new(own), options).await;
+    hangar_discord::keep_running(hangar, options).await;
 }
 
 /// What `status` and `GET /node/discord` say.
@@ -80,6 +142,11 @@ pub fn status(dir: &Path, running: bool) -> Value {
         "paired": settings.owner.is_some(),
         "pairing": settings.pairing,
         "running": running,
+        "shared": settings.shared,
+        "label": settings.label,
+        "channels": hangar_discord::config::Layout::load(dir)
+            .map(|layout| layout.channels())
+            .unwrap_or_default(),
     })
 }
 
@@ -94,18 +161,96 @@ pub async fn get_status(State(node): State<Shared>) -> Response {
 pub async fn reload(State(node): State<Shared>) -> Response {
     let dir = match crate::state::dir() {
         Ok(dir) => dir,
-        Err(err) => return crate::api::error(axum::http::StatusCode::INTERNAL_SERVER_ERROR, &err),
+        Err(err) => return crate::api::error(StatusCode::INTERNAL_SERVER_ERROR, &err),
     };
     match &node.own {
         Some(own) => {
-            node.discord.restart(own, &dir);
+            node.discord.restart(own, &node.drivers, &dir);
             Json(status(&dir, node.discord.is_running())).into_response()
         }
         None => crate::api::error(
-            axum::http::StatusCode::SERVICE_UNAVAILABLE,
+            StatusCode::SERVICE_UNAVAILABLE,
             "this node runs no workspace of its own",
         ),
     }
+}
+
+/// The desktop's bot, shared with the node.
+#[derive(Deserialize)]
+pub struct SharedBody {
+    token: String,
+    guild: String,
+    owner: String,
+    #[serde(default)]
+    label: Option<String>,
+}
+
+/// `PUT /node/discord/shared`: the desktop's bot serves the node's
+/// workspaces too. Nothing changes when it is already so; a node with a
+/// bot of its own refuses.
+pub async fn share(State(node): State<Shared>, Json(body): Json<SharedBody>) -> Response {
+    let dir = match crate::state::dir() {
+        Ok(dir) => dir,
+        Err(err) => return crate::api::error(StatusCode::INTERNAL_SERVER_ERROR, &err),
+    };
+    let Some(own) = &node.own else {
+        return crate::api::error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "this node runs no workspace of its own",
+        );
+    };
+    if body.token.trim().is_empty()
+        || !hangar_discord::setup::is_guild_id(&body.guild)
+        || body.owner.trim().is_empty()
+    {
+        return crate::api::error(StatusCode::BAD_REQUEST, "a token, a server and an owner");
+    }
+    let mut settings = Settings::load(&dir).unwrap_or_default();
+    if settings.ready() && !settings.shared {
+        return crate::api::error(
+            StatusCode::CONFLICT,
+            "this node has a Discord bot of its own (hangar-node discord off lets the desktop's in)",
+        );
+    }
+    let wanted = Settings {
+        token: body.token.trim().to_string(),
+        guild: body.guild.trim().to_string(),
+        owner: Some(body.owner.trim().to_string()),
+        pairing: None,
+        shared: true,
+        label: body.label.filter(|l| !l.trim().is_empty()),
+    };
+    if settings == wanted && node.discord.is_running() {
+        return Json(json!({ "changed": false })).into_response();
+    }
+    settings = wanted;
+    if let Err(err) = settings.save(&dir) {
+        return crate::api::error(StatusCode::INTERNAL_SERVER_ERROR, &err);
+    }
+    node.discord.restart(own, &node.drivers, &dir);
+    Json(json!({ "changed": true })).into_response()
+}
+
+/// `DELETE /node/discord/shared`: the desktop's bot no longer serves the
+/// node (the desktop disconnected it). A bot of the node's own stays.
+pub async fn unshare(State(node): State<Shared>) -> Response {
+    let dir = match crate::state::dir() {
+        Ok(dir) => dir,
+        Err(err) => return crate::api::error(StatusCode::INTERNAL_SERVER_ERROR, &err),
+    };
+    let mut settings = Settings::load(&dir).unwrap_or_default();
+    if !settings.shared {
+        return Json(json!({ "changed": false })).into_response();
+    }
+    settings.token.clear();
+    settings.shared = false;
+    if let Err(err) = settings.save(&dir) {
+        return crate::api::error(StatusCode::INTERNAL_SERVER_ERROR, &err);
+    }
+    if let Some(own) = &node.own {
+        node.discord.restart(own, &node.drivers, &dir);
+    }
+    Json(json!({ "changed": true })).into_response()
 }
 
 /// `hangar-node discord setup --guild <id>`.

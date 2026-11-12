@@ -90,7 +90,10 @@ struct Fake {
     calls: Vec<Call>,
     next: u64,
     identified: Option<Value>,
-    gateway: Option<mpsc::UnboundedSender<Value>>,
+    /// How many bots identified.
+    identifies: usize,
+    /// Every bot connected: two Hangars may share one.
+    gateway: Vec<mpsc::UnboundedSender<Value>>,
 }
 
 type Shared = Arc<Mutex<Fake>>;
@@ -148,7 +151,7 @@ async fn serve_gateway(fake: Shared, socket: WebSocket) {
     let hello = json!({ "op": 10, "d": { "heartbeat_interval": 45_000 } });
     let _ = write.send(Message::Text(hello.to_string().into())).await;
     let (tx, mut rx) = mpsc::unbounded_channel::<Value>();
-    locked(&fake).gateway = Some(tx);
+    locked(&fake).gateway.push(tx);
     let mut seq = 0u64;
     loop {
         tokio::select! {
@@ -157,7 +160,11 @@ async fn serve_gateway(fake: Shared, socket: WebSocket) {
                 let frame: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
                 match frame["op"].as_u64() {
                     Some(2) => {
-                        locked(&fake).identified = Some(frame["d"].clone());
+                        {
+                            let mut fake = locked(&fake);
+                            fake.identified = Some(frame["d"].clone());
+                            fake.identifies += 1;
+                        }
                         seq += 1;
                         let ready = json!({ "op": 0, "s": seq, "t": "READY", "d": {
                             "session_id": "s1", "resume_gateway_url": "", "user": { "id": "bot1" } } });
@@ -220,11 +227,11 @@ impl Discord {
     }
 
     fn send(&self, kind: &str, data: Value) {
-        let gateway = locked(&self.fake)
-            .gateway
-            .clone()
-            .expect("the bot is connected");
-        gateway.send(json!({ "t": kind, "d": data })).unwrap();
+        let gateways = locked(&self.fake).gateway.clone();
+        assert!(!gateways.is_empty(), "a bot is connected");
+        for gateway in gateways {
+            let _ = gateway.send(json!({ "t": kind, "d": data }));
+        }
     }
 }
 
@@ -450,6 +457,61 @@ async fn a_workspace_on_discord_from_pairing_to_a_worker_s_thread() {
     assert!(card.path.starts_with(&format!("/webhooks/{hook}/")));
     assert!(card.path.contains("with_components=true"));
     assert_eq!(card.body["username"], "Leo");
+    assert!(
+        card.body["avatar_url"]
+            .as_str()
+            .is_some_and(|url| url.starts_with("https://cdn.discordapp.com/embed/avatars/"))
+    );
+
+    // While Leo works, what the owner writes waits in its queue (⏳); an
+    // edit changes what waits, a delete takes it back.
+    eventually("Leo working", || {
+        rig.host
+            .snapshot()
+            .activity
+            .get("leo")
+            .is_some_and(|a| a.activity == hangar_engine::state::AgentActivity::Working)
+            .then_some(())
+    })
+    .await;
+    let queued = |text: &str| {
+        hangar_core::bridge::bridge_queue("leo".into())
+            .iter()
+            .any(|entry| entry.text == text)
+    };
+    d.send(
+        "MESSAGE_CREATE",
+        json!({ "id": "q1", "channel_id": channel, "content": "Et le paiement ?",
+        "author": { "id": "u1" } }),
+    );
+    eventually("queued, marked ⏳", || {
+        (queued("Et le paiement ?")
+            && !d
+                .calls_to(
+                    "PUT",
+                    &format!("/channels/{channel}/messages/q1/reactions/%E2%8F%B3"),
+                )
+                .is_empty())
+        .then_some(())
+    })
+    .await;
+    d.send(
+        "MESSAGE_UPDATE",
+        json!({ "id": "q1", "channel_id": channel, "content": "Et le paiement Stripe ?",
+        "author": { "id": "u1" } }),
+    );
+    eventually("the edit waits instead", || {
+        (queued("Et le paiement Stripe ?") && !queued("Et le paiement ?")).then_some(())
+    })
+    .await;
+    d.send(
+        "MESSAGE_DELETE",
+        json!({ "id": "q1", "channel_id": channel }),
+    );
+    eventually("taken back", || {
+        (!queued("Et le paiement Stripe ?")).then_some(())
+    })
+    .await;
     bridge(
         json!({ "kind": "tool", "phase": "start", "toolUseId": "t1", "tool": "Bash",
         "input": { "command": "npm test" } }),
@@ -643,4 +705,225 @@ async fn a_workspace_on_discord_from_pairing_to_a_worker_s_thread() {
             .iter()
             .any(|ws| ws.name == "Blog")
     );
+}
+
+/// A Hangar that shares its bot: whether it leads, and what the others
+/// made.
+struct Sharing {
+    host: EngineHost,
+    leads: bool,
+    others: Arc<Mutex<HashSet<String>>>,
+}
+
+impl hangar_discord::Hangar for Sharing {
+    fn port(&self) -> hangar_engine::control::port::Port {
+        self.host.port()
+    }
+    fn desk(&self) -> Option<Arc<hangar_engine::mobile::engine::Mobile>> {
+        self.host.desk()
+    }
+    fn journal(&self, ws: &str) -> Vec<hangar_engine::orchestration::events::JournalEntry> {
+        hangar_discord::Hangar::journal(&self.host, ws)
+    }
+    fn tasks(&self, ws: &str) -> Vec<hangar_core::board::Task> {
+        hangar_discord::Hangar::tasks(&self.host, ws)
+    }
+    fn events(&self) -> tokio::sync::broadcast::Receiver<hangar_core::Event> {
+        self.host.core().subscribe()
+    }
+    fn leads(&self) -> bool {
+        self.leads
+    }
+    fn others(&self) -> HashSet<String> {
+        locked(&self.others).clone()
+    }
+}
+
+struct Side {
+    host: EngineHost,
+    shells: Arc<Shells>,
+    dir: PathBuf,
+}
+
+/// One Hangar with workspace `ws` (its orchestrator `pane_id`), its bot on
+/// `d`.
+fn side(
+    root: &std::path::Path,
+    name: &str,
+    (ws, pane_id): (&str, &str),
+    settings: hangar_discord::Settings,
+    leads: bool,
+    others: Arc<Mutex<HashSet<String>>>,
+    d: &Discord,
+) -> Side {
+    let folder = root.join(name);
+    std::fs::create_dir_all(&folder).unwrap();
+    let state = AppState {
+        workspaces: vec![Workspace {
+            id: ws.into(),
+            name: ws.into(),
+            cwd: folder.to_string_lossy().into_owned(),
+            panes: vec![pane(pane_id, "Orchestrator", Some(PaneRole::Orchestrator))],
+            ..Workspace::default()
+        }],
+        ..AppState::default()
+    };
+    let dir = folder.join("hangar");
+    let file = dir.join("state.json");
+    hangar_engine::host::write_state_file(&file, &serde_json::to_value(&state).unwrap()).unwrap();
+    let shells = Arc::new(Shells::default());
+    let host = EngineHost::load(Config {
+        core: hangar_core::Host::with_paths(hangar_core::paths::Paths::rooted(&folder)),
+        terminals: shells.clone(),
+        state_file: file,
+    })
+    .unwrap();
+    host.start();
+    settings.save(&dir).unwrap();
+    let options = hangar_discord::Options {
+        api: format!("http://{}/api", d.base),
+        gateway: Some(format!("ws://{}/gateway", d.base)),
+        dir: dir.clone(),
+    };
+    let hangar = Arc::new(Sharing {
+        host: host.clone(),
+        leads,
+        others,
+    });
+    tokio::spawn(async move {
+        if let Err(error) = hangar_discord::run(hangar, options).await {
+            panic!("the connector stopped: {error}");
+        }
+    });
+    Side { host, shells, dir }
+}
+
+fn channel_of(dir: &std::path::Path, ws: &str) -> Option<String> {
+    std::fs::read_to_string(dir.join("discord-layout.json"))
+        .ok()
+        .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
+        .and_then(|layout| {
+            layout["workspaces"][ws]["channel"]
+                .as_str()
+                .map(str::to_string)
+        })
+}
+
+/// A desktop and the node it drives share one bot on one server: each
+/// makes and answers in its own channels, the node's categories named
+/// after it, and the desktop, which leads, answers where neither made a
+/// channel.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_desktop_and_its_node_share_one_bot() {
+    let root = tempfile::tempdir().unwrap();
+    let d = Discord::start().await;
+    let paired = hangar_discord::Settings {
+        token: "secret".into(),
+        guild: "g1".into(),
+        owner: Some("u1".into()),
+        ..hangar_discord::Settings::default()
+    };
+    let node_channels = Arc::new(Mutex::new(HashSet::new()));
+    let desktop = side(
+        root.path(),
+        "desktop",
+        ("shop", "o-desk"),
+        paired.clone(),
+        true,
+        node_channels.clone(),
+        &d,
+    );
+    let node = side(
+        root.path(),
+        "node",
+        ("lab", "o-node"),
+        hangar_discord::Settings {
+            shared: true,
+            label: Some("vps".into()),
+            ..paired
+        },
+        false,
+        Arc::default(),
+        &d,
+    );
+    // Both bots hear the gateway before anything is said on it.
+    eventually("both bots connected", || {
+        (locked(&d.fake).identifies >= 2).then_some(())
+    })
+    .await;
+    let shop = eventually("the desktop's channel", || channel_of(&desktop.dir, "shop")).await;
+    let lab = eventually("the node's channel", || channel_of(&node.dir, "lab")).await;
+    // What the desktop learns from the node it drives.
+    locked(&node_channels).insert(lab.clone());
+    let categories: Vec<String> = d
+        .calls_to("POST", "/guilds/g1/channels")
+        .into_iter()
+        .filter(|c| c.body["type"] == 4)
+        .map(|c| c.body["name"].as_str().unwrap_or_default().to_string())
+        .collect();
+    assert!(categories.contains(&"Hangar".to_string()), "{categories:?}");
+    assert!(
+        categories.contains(&"Hangar · vps".to_string()),
+        "{categories:?}"
+    );
+
+    // Written in the node's channel: the node's orchestrator alone hears it.
+    d.send(
+        "MESSAGE_CREATE",
+        json!({ "id": "n1", "channel_id": lab,
+        "content": "Lance les tests", "author": { "id": "u1" } }),
+    );
+    eventually("typed on the node", || {
+        node.shells
+            .typed_into("o-node")
+            .contains("Lance les tests")
+            .then_some(())
+    })
+    .await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(
+        !desktop
+            .shells
+            .typed_into("o-desk")
+            .contains("Lance les tests")
+    );
+
+    // A command is answered once: by the node in its channel, by the
+    // desktop in its own, and by the desktop where neither made one.
+    let status = json!({ "name": "status" });
+    for (id, channel) in [
+        ("c1", lab.as_str()),
+        ("c2", shop.as_str()),
+        ("c3", "general"),
+    ] {
+        d.send(
+            "INTERACTION_CREATE",
+            interaction(id, "u1", channel, 2, status.clone(), None),
+        );
+        eventually("answered", || {
+            d.calls_to("POST", &format!("/interactions/{id}/")).pop()
+        })
+        .await;
+    }
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    for id in ["c1", "c2", "c3"] {
+        assert_eq!(
+            d.calls_to("POST", &format!("/interactions/{id}/")).len(),
+            1,
+            "{id} answered once"
+        );
+    }
+    let said = |id: &str| {
+        d.calls_to(
+            "PATCH",
+            &format!("/webhooks/app1/{id}tok/messages/@original"),
+        )
+        .pop()
+        .map(|c| c.body["content"].as_str().unwrap_or_default().to_string())
+    };
+    let lab_status = eventually("the node's status", || said("c1")).await;
+    assert!(lab_status.contains("lab"), "{lab_status}");
+    let shop_status = eventually("the desktop's status", || said("c2")).await;
+    assert!(shop_status.contains("shop"), "{shop_status}");
+    let _ = (&desktop.host, &node.host);
 }

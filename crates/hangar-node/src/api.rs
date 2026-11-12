@@ -42,7 +42,7 @@ use axum::extract::{Path, Query, Request, State};
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{any, delete, get, post};
+use axum::routing::{any, delete, get, post, put};
 use axum::{Json, Router};
 use hangar_core::Host;
 use serde::Deserialize;
@@ -121,6 +121,10 @@ pub fn router(node: Shared) -> Router {
         .route("/node/own/panes/{id}/send", post(crate::own::send))
         .route("/node/discord", get(crate::discord::get_status))
         .route("/node/discord/reload", post(crate::discord::reload))
+        .route(
+            "/node/discord/shared",
+            put(crate::discord::share).delete(crate::discord::unshare),
+        )
         .route(
             "/node/worktree",
             post(crate::engine::worktree_add).delete(crate::engine::worktree_remove),

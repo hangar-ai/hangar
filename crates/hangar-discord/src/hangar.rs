@@ -7,6 +7,7 @@
 //! the desk, the chat view's and the phone's own calls; it follows core's
 //! events (the mods' reports) and the orchestration's journal.
 
+use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -40,6 +41,22 @@ pub trait Hangar: Send + Sync + 'static {
     /// The state and the read-models as they stand.
     fn snapshot(&self) -> Arc<Snapshot> {
         self.port().snapshot()
+    }
+
+    /// One bot can serve several Hangars on one server: a desktop and the
+    /// nodes it drives, each in channels of its own. Every instance hears
+    /// every event; each acts in the channels it made, and the one that
+    /// leads answers in the others (a command typed in #general, a message
+    /// before the pairing). The desktop leads; a node leads while no
+    /// desktop drives it.
+    fn leads(&self) -> bool {
+        true
+    }
+
+    /// The channels the other Hangars of the same bot made: left to them,
+    /// though this one leads.
+    fn others(&self) -> HashSet<String> {
+        HashSet::new()
     }
 }
 

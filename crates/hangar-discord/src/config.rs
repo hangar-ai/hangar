@@ -21,6 +21,12 @@ pub struct Settings {
     pub owner: Option<String>,
     /// The code that pairs an account while none is (`pair <code>`).
     pub pairing: Option<String>,
+    /// The settings came from the desktop that drives this node, the bot
+    /// shared with it: the desktop's settings follow, and its pairing.
+    pub shared: bool,
+    /// What this Hangar's categories are told apart by when it shares the
+    /// bot (the node's name): `Hangar · vps`.
+    pub label: Option<String>,
 }
 
 /// Where a workspace lives on the server.
@@ -129,6 +135,16 @@ impl Layout {
 
     pub fn save(&self, dir: &Path) -> Result<(), String> {
         write(&layout_file(dir), self)
+    }
+
+    /// The channels and threads this Hangar made on the server: what the
+    /// other Hangars of the bot leave to it.
+    pub fn channels(&self) -> Vec<String> {
+        self.workspaces
+            .values()
+            .map(|place| place.channel.clone())
+            .chain(self.workers.values().filter_map(|w| w.thread.clone()))
+            .collect()
     }
 }
 

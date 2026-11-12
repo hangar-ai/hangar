@@ -58,6 +58,17 @@ pub(crate) struct Turn {
     pub dirty: bool,
 }
 
+/// What the person wrote that waits in an agent's queue: their message on
+/// Discord, and the queue's entry once core has it.
+#[derive(Debug, Clone)]
+pub(crate) struct Queued {
+    pub ws: String,
+    pub pane: String,
+    pub channel: String,
+    pub text: String,
+    pub id: Option<String>,
+}
+
 /// A card waiting on the person, and what it asked.
 #[derive(Debug, Clone)]
 pub(crate) struct Ask {
@@ -81,6 +92,10 @@ pub(crate) struct State {
     pub seen: HashMap<String, u64>,
     /// Deliveries with a card already, by task.
     pub delivered: HashSet<String>,
+    /// By the Discord message.
+    pub queued: HashMap<String, Queued>,
+    /// Each pane's queue, as core last told it.
+    pub queues: HashMap<String, Vec<hangar_core::bridge::Queued>>,
     /// Each dashboard's last body, and when it was drawn.
     pub drawn: HashMap<String, (String, Instant)>,
     /// The structure is to be looked at again.
@@ -147,6 +162,13 @@ impl Bot {
     /// The workspace's place on the server.
     pub(crate) fn place(&self, ws: &str) -> Option<Place> {
         self.state().layout.workspaces.get(ws).cloned()
+    }
+
+    /// Whether this Hangar acts on what happens in `channel`: one it made,
+    /// or, when it leads, one no other Hangar of the bot made.
+    pub(crate) fn handles(&self, channel: &str) -> bool {
+        self.where_is(channel).is_some()
+            || (self.host().leads() && !self.host().others().contains(channel))
     }
 
     /// The workspace a channel is, or the worker's pane a thread is.
@@ -221,6 +243,7 @@ impl Bot {
             });
         };
         body["username"] = json!(cards::clip(&webhook_name(name), 80));
+        body["avatar_url"] = json!(avatar(name));
         let thread = thread
             .map(|thread| format!("&thread_id={thread}"))
             .unwrap_or_default();
@@ -262,6 +285,15 @@ impl Bot {
 pub(crate) enum Where {
     Workspace(String),
     Thread { ws: String, pane: String },
+}
+
+/// An agent's face: one of Discord's own default avatars, the same for a
+/// name each time (nothing of the agent's goes elsewhere for it).
+pub(crate) fn avatar(name: &str) -> String {
+    let n = name.bytes().fold(0u32, |hash, b| {
+        hash.wrapping_mul(31).wrapping_add(u32::from(b))
+    }) % 6;
+    format!("https://cdn.discordapp.com/embed/avatars/{n}.png")
 }
 
 /// Webhook names cannot hold `clyde` or `discord`.
@@ -432,6 +464,9 @@ pub async fn run(host: Arc<dyn Hangar>, options: Options) -> Result<(), String> 
                 Ok(hangar_core::Event::BridgeEvent { pane_id, event }) => {
                     bot.on_bridge(&pane_id, &event).await;
                 }
+                Ok(hangar_core::Event::BridgeQueue(queue)) => {
+                    bot.on_queue(&queue.pane_id, &queue.pending).await;
+                }
                 Ok(_) | Err(broadcast::error::RecvError::Lagged(_)) => {}
                 Err(broadcast::error::RecvError::Closed) => return Ok(()),
             },
@@ -532,6 +567,12 @@ impl Bot {
                     .find(|f| f.id == folder)
                     .map(|f| f.name.clone())
                     .unwrap_or_else(|| "Hangar".into());
+                // A node sharing the bot with its desktop: its categories
+                // say whose they are.
+                let name = match self.state().settings.label.clone() {
+                    Some(label) if !label.trim().is_empty() => format!("{name} · {label}"),
+                    _ => name,
+                };
                 let me = self.state().me.clone();
                 let made = self
                     .http()
@@ -698,6 +739,17 @@ mod tests {
         assert_eq!(channel_name("My Shop (v2)"), "my-shop-v2");
         assert_eq!(channel_name("Éditeur"), "éditeur");
         assert_eq!(channel_name("!!!"), "workspace");
+    }
+
+    #[test]
+    fn an_agent_keeps_its_face() {
+        assert_eq!(avatar("Leo"), avatar("Leo"));
+        assert!(avatar("Ada").starts_with("https://cdn.discordapp.com/embed/avatars/"));
+        let faces: HashSet<String> = ["Leo", "Ada", "Bo", "Cy", "Max", "Ivy"]
+            .iter()
+            .map(|name| avatar(name))
+            .collect();
+        assert!(faces.len() > 1);
     }
 
     #[test]

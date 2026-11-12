@@ -1501,3 +1501,63 @@ fn discord_is_set_up_on_the_server_and_run_by_the_daemon() {
     assert_eq!(said["configured"], false);
     assert_eq!(said["running"], false);
 }
+
+/// The desktop that drives the node shares its bot with it: the node takes
+/// it once, says whose channels are its own, gives it back; a bot of the
+/// node's own is never replaced.
+#[test]
+fn the_desktop_s_bot_is_shared_with_the_node_and_given_back() {
+    let home = tempfile::tempdir().unwrap();
+    let status = command(home.path())
+        .env("HANGAR_DISCORD_API", "http://127.0.0.1:9/api")
+        .args(["serve", "--detach"])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    let node = Node::found(home);
+    let shared = json!({ "token": "desk-token", "guild": "42", "owner": "u1", "label": "vps" });
+    let (status, said) = node.call(
+        "PUT",
+        "/node/discord/shared",
+        Some(&node.token.clone()),
+        Some(shared.clone()),
+    );
+    assert_eq!(status, 200, "{said}");
+    assert_eq!(said["changed"], true);
+    let (_, again) = node.call(
+        "PUT",
+        "/node/discord/shared",
+        Some(&node.token.clone()),
+        Some(shared),
+    );
+    assert_eq!(again["changed"], false, "the same settings change nothing");
+    let (_, status) = node.get("/node/discord");
+    assert_eq!(status["configured"], true);
+    assert_eq!(status["shared"], true);
+    assert_eq!(status["paired"], true);
+    assert_eq!(status["label"], "vps");
+    assert_eq!(status["running"], true);
+    assert!(status["channels"].is_array());
+    let (status, _) = node.delete("/node/discord/shared");
+    assert_eq!(status, 200);
+    let (_, status) = node.get("/node/discord");
+    assert_eq!(status["configured"], false);
+    assert_eq!(status["running"], false);
+
+    // A bot of the node's own stays its own.
+    let out = command(node.home())
+        .env("HANGAR_DISCORD_TOKEN", "node-token")
+        .args(["discord", "setup", "--guild", "7"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let (status, said) = node.call(
+        "PUT",
+        "/node/discord/shared",
+        Some(&node.token.clone()),
+        Some(json!({ "token": "desk-token", "guild": "42", "owner": "u1" })),
+    );
+    assert_eq!(status, 409, "{said}");
+    let (_, status) = node.get("/node/discord");
+    assert_eq!(status["guild"], "7");
+}

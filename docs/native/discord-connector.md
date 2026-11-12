@@ -39,8 +39,20 @@ Every answer goes through the hangar-bridge mod as the chat view's do.
   workspaces the node runs itself, with the PC off; set up with `hangar-node
   discord setup`.
 
-One bot token serves one Hangar: a desktop and a node each need their own
-bot (two Discord applications), on the same server or not.
+**One bot for the desktop and its nodes.** Every instance of a bot hears
+every event of the server, so several Hangars can share one: each makes and
+answers its own channels, and the one that leads (`Hangar::leads`) answers
+in the others it was not told are another's (`Hangar::others`): a command
+typed in #general, a message before the pairing. Once the person is paired,
+the desktop hands its settings to each node it is connected to (`PUT
+/node/discord/shared`: the token, the server, the owner, the node's name);
+the node's bot makes its channels in categories named after the node
+(`Hangar · vps`) and answers in them, the PC on or off. The desktop leaves
+those channels to it (`GET /node/discord` lists them) and leads; a node
+leads while no desktop drives it. Disconnecting the desktop's bot takes it
+back from the nodes (`DELETE /node/discord/shared`). A node set up with a
+bot of its own (`hangar-node discord setup`) keeps it and refuses the
+desktop's.
 
 ## Mapping
 
@@ -255,11 +267,26 @@ call, folded, the answer under the agent's name), posts a permission that
 calls the owner, refuses a stranger's click and acknowledges the owner's,
 shows a worker's line, opens its thread on that line and links to it,
 carries a message in the thread to the worker, archives the thread when the
-worker stops, and makes a workspace from `/workspace`. A real run needs the
-person's bot.
+worker stops, and makes a workspace from `/workspace`; a message queued
+while the agent works, edited, then deleted; and a desktop and its node
+sharing one bot, each answering once in its own channels and the desktop
+where neither made one. A run against discord.com needs the person's bot.
 
-Still to do: an edited or deleted message changing what waits in the queue
-(⏳ is shown), the per-agent avatars.
+Each agent speaks with a face of its own: one of Discord's default
+avatars, picked from its name (nothing of it goes elsewhere). What the
+person writes while the agent works waits in its queue (⏳, then ✅ once
+taken); editing the Discord message changes what waits, deleting it takes
+it back (the queue's entries come with core's `BridgeQueue` events, so a
+pane on a node the desktop drives is not followed this way).
+
+`cargo run -p hangar-discord --example fake_discord -- 7777` serves a
+Discord of one's own (its REST routes, its gateway, `/fake/calls` and
+`/fake/send`); a debug build of the app talks to it with
+`HANGAR_DISCORD_API=http://127.0.0.1:7777/api` and
+`HANGAR_DISCORD_GATEWAY=ws://127.0.0.1:7777/gateway`. Run so (November 12,
+2026), the desktop app made its category, channel, webhook and pinned
+dashboard, typed a message written on "Discord" into its orchestrator's
+pane, answered `/status`, and ignored a stranger.
 
 ## Sources
 

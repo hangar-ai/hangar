@@ -88,13 +88,8 @@ fn connected<'a>(st: &'a State, ctx: Ctx<'a>) -> Element<'a, Message> {
             .on_press(press(Msg::Disconnect)),
     );
     column![
-        row![
-            typography::body(t, ctx.t(Key::DiscordBotTitle))
-                .font(hangar_theme::fonts::ui_semibold()),
-            badge::badge(t, state, tone),
-        ]
-        .spacing(tokens::space::MD)
-        .align_y(Alignment::Center),
+        // The section names it: the card says how it stands.
+        badge::badge(t, state, tone),
         paired,
         typography::hint(t, ctx.t(Key::DiscordBotHowTo)),
         actions,

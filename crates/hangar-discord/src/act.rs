@@ -9,6 +9,8 @@
 //! waits 3 s at most), then the card is edited with what was done; a
 //! refusal is told to the one who clicked alone.
 
+use std::collections::HashSet;
+
 use serde_json::{Value, json};
 
 use hangar_core::chat::{Answer, Body, Question};
@@ -146,6 +148,8 @@ impl Bot {
         match dispatch.kind.as_str() {
             "MESSAGE_CREATE" => self.on_message(&dispatch.data).await,
             "INTERACTION_CREATE" => self.on_interaction(&dispatch.data).await,
+            "MESSAGE_DELETE" => self.on_deleted(&dispatch.data).await,
+            "MESSAGE_UPDATE" => self.on_edited(&dispatch.data).await,
             _ => {}
         }
     }
@@ -198,6 +202,9 @@ impl Bot {
         let author = m["author"]["id"].as_str().unwrap_or_default().to_string();
         let channel = m["channel_id"].as_str().unwrap_or_default().to_string();
         let message = m["id"].as_str().unwrap_or_default().to_string();
+        if !self.handles(&channel) {
+            return;
+        }
         let words = self.words();
         let (owner, code) = {
             let state = self.state();
@@ -246,10 +253,139 @@ impl Bot {
         };
         match sent {
             Ok(sent) if sent.queued == Some(true) || working => {
+                self.state().queued.insert(
+                    message.clone(),
+                    crate::bot::Queued {
+                        ws: ws.id.clone(),
+                        pane: pane.id.clone(),
+                        channel: channel.clone(),
+                        text: text.clone(),
+                        id: None,
+                    },
+                );
+                // core may have told the queue before this was noted.
+                let known = self.state().queues.get(&pane.id).cloned();
+                if let Some(pending) = known {
+                    self.match_queue(&pane.id, &pending);
+                }
                 self.react(&channel, &message, HOURGLASS).await
             }
             Ok(_) => self.react(&channel, &message, CHECK).await,
             Err(error) => self.say(&channel, Some(&message), &error).await,
+        }
+    }
+
+    /// The agent's queue changed: what the person wrote finds its entry,
+    /// and what left the queue was taken (⏳ becomes ✅).
+    pub(crate) async fn on_queue(&self, pane: &str, pending: &[hangar_core::bridge::Queued]) {
+        self.state()
+            .queues
+            .insert(pane.to_string(), pending.to_vec());
+        let taken = self.match_queue(pane, pending);
+        for (message, channel) in taken {
+            let _ = self
+                .http()
+                .call(
+                    "DELETE",
+                    &format!("/channels/{channel}/messages/{message}/reactions/{HOURGLASS}/@me"),
+                    None,
+                )
+                .await;
+            self.react(&channel, &message, CHECK).await;
+        }
+    }
+
+    /// What the person wrote, matched with the queue's entries; what left
+    /// the queue, by its message and channel.
+    fn match_queue(
+        &self,
+        pane: &str,
+        pending: &[hangar_core::bridge::Queued],
+    ) -> Vec<(String, String)> {
+        let mut taken = Vec::new();
+        {
+            let mut state = self.state();
+            let mut claimed: HashSet<String> =
+                state.queued.values().filter_map(|q| q.id.clone()).collect();
+            for (message, queued) in state.queued.iter_mut().filter(|(_, q)| q.pane == pane) {
+                match &queued.id {
+                    None => {
+                        let found = pending.iter().find(|entry| {
+                            entry.from.is_none()
+                                && entry.text.trim() == queued.text.trim()
+                                && !claimed.contains(&entry.id)
+                        });
+                        if let Some(entry) = found {
+                            claimed.insert(entry.id.clone());
+                            queued.id = Some(entry.id.clone());
+                        }
+                    }
+                    Some(id) if !pending.iter().any(|entry| &entry.id == id) => {
+                        taken.push((message.clone(), queued.channel.clone()));
+                    }
+                    Some(_) => {}
+                }
+            }
+            for (message, _) in &taken {
+                state.queued.remove(message);
+            }
+        }
+        taken
+    }
+
+    /// A message the person deleted while it waited: taken back from the
+    /// queue.
+    async fn on_deleted(&self, data: &Value) {
+        let message = data["id"].as_str().unwrap_or_default();
+        let Some(queued) = self.state().queued.remove(message) else {
+            return;
+        };
+        let Some(id) = queued.id else {
+            return;
+        };
+        if let Err(error) = desk::unqueue(&self.host().port(), &queued.ws, &queued.pane, &id).await
+        {
+            eprintln!("discord: a deleted message stayed in the queue: {error}");
+        }
+    }
+
+    /// A message the person edited while it waited: what waits is the new
+    /// text.
+    async fn on_edited(&self, data: &Value) {
+        let message = data["id"].as_str().unwrap_or_default().to_string();
+        let Some(text) = data["content"].as_str().map(str::trim).map(str::to_string) else {
+            return;
+        };
+        let known = self.state().queued.get(&message).cloned();
+        let Some(queued) = known else {
+            return;
+        };
+        if text.is_empty() || text == queued.text {
+            return;
+        }
+        let Some(id) = queued.id.clone() else {
+            return;
+        };
+        let port = self.host().port();
+        if desk::unqueue(&port, &queued.ws, &queued.pane, &id)
+            .await
+            .is_err()
+        {
+            // Taken meanwhile: the edit comes too late.
+            return;
+        }
+        if desk::queue(&port, &queued.ws, &queued.pane, &text)
+            .await
+            .is_ok()
+        {
+            self.state().queued.insert(
+                message,
+                crate::bot::Queued {
+                    text,
+                    id: None,
+                    ..queued
+                },
+            );
         }
     }
 
@@ -300,6 +436,10 @@ impl Bot {
 
     async fn on_interaction(&self, data: &Value) {
         let i = Interaction::of(data);
+        // Another Hangar of the bot answers in its own channels.
+        if !self.handles(&i.channel) {
+            return;
+        }
         let words = self.words();
         let owner = self.owner();
         match owner {
