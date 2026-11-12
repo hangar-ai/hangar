@@ -189,6 +189,34 @@ impl Words {
             "Hangar is not paired: send `pair <code>` with the code `hangar-node discord status` gives on the server.",
         )
     }
+    pub fn wrong_code(&self) -> &'static str {
+        self.pick(
+            "Ce n'est pas le code d'appairage.",
+            "That is not the pairing code.",
+        )
+    }
+    pub fn pairing_closed(&self) -> &'static str {
+        self.pick(
+            "Trop de codes faux : l'appairage est fermé. Relancez la connexion Discord de Hangar pour appairer.",
+            "Too many wrong codes: pairing is closed. Restart Hangar's Discord connection to pair.",
+        )
+    }
+    /// The agent `name` waits on an answer: what is written to it would be
+    /// typed into its question.
+    pub fn answer_first(&self, name: &str) -> String {
+        if self.fr {
+            format!(
+                "« {name} » attend une réponse : répondez d'abord à sa carte, votre message serait tapé dans sa question."
+            )
+        } else {
+            format!(
+                "\"{name}\" waits on an answer: answer its card first, your message would be typed into its question."
+            )
+        }
+    }
+    pub fn no_longer_asked(&self) -> &'static str {
+        self.pick("N'est plus demandé", "No longer asked")
+    }
     pub fn no_orchestrator(&self) -> &'static str {
         self.pick(
             "Ce workspace n'a pas d'orchestrateur à qui parler.",

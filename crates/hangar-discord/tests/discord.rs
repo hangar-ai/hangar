@@ -234,9 +234,40 @@ async fn a_workspace_on_discord_from_pairing_to_a_worker_s_thread() {
         "author": { "id": "u1" } }),
     );
     eventually("told to pair", || d.find("POST", "pair <code>")).await;
+    // The code is heard on the server alone: not in a direct message, not
+    // on another server the bot was invited to.
+    for (id, guild) in [("dm", Value::Null), ("elsewhere", json!("g2"))] {
+        d.send(
+            "MESSAGE_CREATE",
+            json!({ "id": id, "channel_id": channel, "guild_id": guild,
+            "content": format!("pair {code}"), "author": { "id": "intruder" } }),
+        );
+    }
+    // A wrong code is told wrong, five times; after that its sender is
+    // not heard any more, even with the right one.
+    for n in 0..6 {
+        d.send(
+            "MESSAGE_CREATE",
+            json!({ "id": format!("w{n}"), "channel_id": channel, "guild_id": "g1",
+            "content": "pair 000000x", "author": { "id": "guesser" } }),
+        );
+    }
+    eventually("five wrong codes told so", || {
+        (d.count("POST", "Ce n'est pas le code") == 5).then_some(())
+    })
+    .await;
     d.send(
         "MESSAGE_CREATE",
-        json!({ "id": "m2", "channel_id": channel,
+        json!({ "id": "w6", "channel_id": channel, "guild_id": "g1",
+        "content": format!("pair {code}"), "author": { "id": "guesser" } }),
+    );
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let unpaired = std::fs::read_to_string(rig.dir.join("discord.json")).unwrap();
+    assert!(unpaired.contains("\"owner\": null"), "{unpaired}");
+    assert_eq!(d.count("POST", "Ce n'est pas le code"), 5);
+    d.send(
+        "MESSAGE_CREATE",
+        json!({ "id": "m2", "channel_id": channel, "guild_id": "g1",
         "content": format!("pair {code}"), "author": { "id": "u1" } }),
     );
     eventually("paired", || {
@@ -419,6 +450,48 @@ async fn a_workspace_on_discord_from_pairing_to_a_worker_s_thread() {
     assert_eq!(refused.body["type"], 4);
     assert_eq!(refused.body["data"]["flags"], 64);
     let typed_before = rig.shells.typed_into("leo").len();
+    // While Leo waits on that answer, what the owner writes is not typed:
+    // it would land in the question, and its Enter would say yes.
+    d.send(
+        "MESSAGE_CREATE",
+        json!({ "id": "m5", "channel_id": channel, "guild_id": "g1",
+        "content": "attends, pourquoi ?", "author": { "id": "u1" } }),
+    );
+    eventually("told to answer the card first", || {
+        d.find("POST", "attend une réponse")
+    })
+    .await;
+    assert_eq!(rig.shells.typed_into("leo").len(), typed_before);
+    // A card left from an earlier question (answered on the PC, or posted
+    // before Hangar restarted) answers nothing: clicked, it says so, and
+    // what Leo asks now is not allowed by it.
+    d.send(
+        "INTERACTION_CREATE",
+        interaction(
+            "iold",
+            "u1",
+            &channel,
+            3,
+            json!({ "custom_id": "p:leo:y" }),
+            Some("999"),
+        ),
+    );
+    let stale = eventually("the old card says it is answered", || {
+        d.calls_to("PATCH", "/webhooks/app1/ioldtok/messages/@original")
+            .pop()
+    })
+    .await;
+    assert!(
+        stale.body.to_string().contains("Répondu ailleurs"),
+        "{stale:?}"
+    );
+    assert_eq!(
+        d.calls_to("POST", "/interactions/iold/ioldtok/callback")[0].body["type"],
+        6
+    );
+    assert_eq!(rig.shells.typed_into("leo").len(), typed_before);
+    assert!(d.find("PATCH", "Autorisé").is_none());
+    // The card of what Leo asks now does answer it.
     d.send(
         "INTERACTION_CREATE",
         interaction(
@@ -427,7 +500,7 @@ async fn a_workspace_on_discord_from_pairing_to_a_worker_s_thread() {
             &channel,
             3,
             json!({ "custom_id": "p:leo:y" }),
-            Some("1"),
+            Some(&asked.id),
         ),
     );
     let acked = eventually("the click acknowledged", || {

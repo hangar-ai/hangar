@@ -32,6 +32,8 @@ pub struct Call {
     pub body: Value,
     /// When it reached the server, before the server took its time.
     pub at: std::time::Instant,
+    /// The id the server gave what the call made (a message, a channel).
+    pub id: String,
 }
 
 #[derive(Default)]
@@ -71,13 +73,15 @@ async fn rest(State(fake): State<Shared>, method: Method, uri: Uri, body: Bytes)
     let (id, latency) = {
         let mut fake = locked(&fake);
         fake.next += 1;
+        let id = format!("{}", 1000 + fake.next);
         fake.calls.push(Call {
             method: method.to_string(),
             path: path.clone(),
             body: body_of(&body),
             at: std::time::Instant::now(),
+            id: id.clone(),
         });
-        (format!("{}", 1000 + fake.next), fake.latency)
+        (id, fake.latency)
     };
     if !latency.is_zero() {
         tokio::time::sleep(latency).await;

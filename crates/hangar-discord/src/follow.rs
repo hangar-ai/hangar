@@ -251,6 +251,18 @@ impl Bot {
                 due.push((ws.id.clone(), pane.id.clone()));
             }
         }
+        // The asks of panes that are gone: their cards stop asking.
+        let live: std::collections::HashSet<&str> = snapshot
+            .state
+            .workspaces
+            .iter()
+            .flat_map(|ws| ws.panes.iter().map(|pane| pane.id.as_str()))
+            .collect();
+        for (pane, ask) in &state.asks {
+            if !live.contains(pane.as_str()) {
+                due.push((ask.ws.clone(), pane.clone()));
+            }
+        }
         due
     }
 
@@ -263,21 +275,33 @@ impl Bot {
         };
         let port = self.host().port();
         let snapshot = self.host().snapshot();
+        let words = self.words();
         let Some((ws, pane)) = find(&snapshot.state, &pane).filter(|(found, _)| found.id == ws)
         else {
+            // The pane is gone with its question (a worker stopped, a
+            // workspace removed): its card stops asking.
+            let left = {
+                let mut state = self.state();
+                state.looked.remove(&pane);
+                state.asks.remove(&pane)
+            };
+            if let Some(left) = left.filter(|ask| !ask.settled) {
+                self.settle(&left, words.no_longer_asked(), None).await;
+            }
             return;
         };
-        let words = self.words();
         let waiting = snapshot
             .activity
             .get(&pane.id)
             .is_some_and(|a| a.activity == AgentActivity::Waiting);
         let known = self.state().asks.get(&pane.id).cloned();
         let pending = if waiting {
-            desk::pending_now(&port, &desk_, ws, pane)
-                .await
-                .ok()
-                .flatten()
+            match desk::pending_now(&port, &desk_, ws, pane).await {
+                Ok(pending) => pending,
+                // Not read this time (a node's link down for a moment) is
+                // not answered: the card stands until a read says so.
+                Err(_) => return,
+            }
         } else {
             None
         };

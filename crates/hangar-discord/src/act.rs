@@ -38,6 +38,31 @@ mod reply {
 const HOURGLASS: &str = "%E2%8F%B3";
 const CHECK: &str = "%E2%9C%85";
 
+/// The wrong pairing codes one person may send, and everyone together,
+/// while Hangar's Discord connection runs.
+const PAIR_TRIES: u32 = 5;
+const PAIR_TRIES_ALL: u32 = 30;
+
+/// What became of a try at the pairing code.
+enum Pairing {
+    Paired,
+    Wrong,
+    /// Too many wrong codes were sent: nothing pairs any more.
+    Closed,
+    /// From someone who tried too often: not answered.
+    Unheard,
+}
+
+/// What a card clicked is to its pane's ask.
+enum Clicked {
+    /// The card of what the pane asks now, not answered yet.
+    Current(crate::bot::Ask),
+    /// That card, answered from Discord a moment ago: nothing more to do.
+    Settled,
+    /// The card of an ask that no longer stands.
+    Stale,
+}
+
 /// What is said on Discord of a modal, once its work is done in Hangar.
 enum After {
     /// The pane's ask is settled, in these words.
@@ -219,23 +244,40 @@ impl Bot {
             return;
         }
         let words = self.words();
-        let (owner, code) = {
+        let (owner, code, guild) = {
             let state = self.state();
-            (state.settings.owner.clone(), state.settings.pairing.clone())
+            (
+                state.settings.owner.clone(),
+                state.settings.pairing.clone(),
+                state.settings.guild.clone(),
+            )
         };
         let Some(owner) = owner else {
-            if let Some(code) = code
-                && text.eq_ignore_ascii_case(&format!("pair {code}"))
-            {
-                {
-                    let mut state = self.state();
-                    state.settings.owner = Some(author);
-                    state.settings.pairing = None;
+            // The code is heard on the server Hangar was set up for alone
+            // (not in a direct message, not on another server the bot was
+            // invited to), and guessed a few times at most.
+            let here = m["guild_id"].as_str() == Some(guild.as_str());
+            let tried = text
+                .get(..5)
+                .filter(|pair| pair.eq_ignore_ascii_case("pair "))
+                .map(|_| text[5..].trim());
+            match (code, tried) {
+                (Some(code), Some(tried)) if here => {
+                    let said = match self.try_pairing(&author, tried == code) {
+                        Pairing::Paired => {
+                            self.save_settings();
+                            words.paired()
+                        }
+                        Pairing::Wrong => words.wrong_code(),
+                        Pairing::Closed => words.pairing_closed(),
+                        Pairing::Unheard => return,
+                    };
+                    self.say(&channel, Some(&message), said).await;
                 }
-                self.save_settings();
-                self.say(&channel, Some(&message), words.paired()).await;
-            } else if self.where_is(&channel).is_some() {
-                self.say(&channel, Some(&message), words.not_paired()).await;
+                _ if self.where_is(&channel).is_some() => {
+                    self.say(&channel, Some(&message), words.not_paired()).await;
+                }
+                _ => {}
             }
             return;
         };
@@ -253,12 +295,21 @@ impl Bot {
             return;
         };
         let port = self.host().port();
-        let working = self
+        let activity = self
             .host()
             .snapshot()
             .activity
             .get(&pane.id)
-            .is_some_and(|a| a.activity == AgentActivity::Working);
+            .map(|a| a.activity);
+        // An agent that waits on an answer has a question open in its
+        // terminal: what is typed there, and the Enter after it, would
+        // answer it (the first choice of a permission is "Yes").
+        let asked = self.ask_of(&pane.id).is_some_and(|ask| !ask.settled);
+        if activity == Some(AgentActivity::Waiting) || asked {
+            let said = words.answer_first(&pane.name);
+            return self.say(&channel, Some(&message), &said).await;
+        }
+        let working = activity == Some(AgentActivity::Working);
         let sent = if working {
             desk::queue(&port, &ws.id, &pane.id, &text).await
         } else {
@@ -477,21 +528,54 @@ impl Bot {
         }
         match data["type"].as_u64() {
             Some(2) => self.on_command(&i, &data["data"]).await,
+            // What reads as nothing of ours is acknowledged all the same:
+            // Discord shows a failure on a click left without an answer.
             Some(3) => {
                 let Some(click) = data["data"]["custom_id"].as_str().and_then(Click::parse) else {
-                    return;
+                    return self.respond(&i, reply::DEFERRED_UPDATE, None).await;
                 };
                 self.on_click(&i, click).await;
             }
             Some(5) => {
                 let Some(click) = data["data"]["custom_id"].as_str().and_then(Click::parse) else {
-                    return;
+                    return self.respond(&i, reply::DEFERRED_UPDATE, None).await;
                 };
                 let values = modal_values(&data["data"]);
                 self.on_modal(&i, click, values).await;
             }
             _ => {}
         }
+    }
+
+    /// One try at the pairing code by `author`: `right` pairs them. A
+    /// person has [`PAIR_TRIES`] wrong tries, and everyone together
+    /// [`PAIR_TRIES_ALL`]: past that, nothing pairs until Hangar's Discord
+    /// connection is started again. A million codes are not guessed in
+    /// thirty tries.
+    fn try_pairing(&self, author: &str, right: bool) -> Pairing {
+        let mut state = self.state();
+        let all: u32 = state.pair_tries.values().sum();
+        let mine = state.pair_tries.get(author).copied().unwrap_or(0);
+        if all >= PAIR_TRIES_ALL {
+            // Said once to each person, then not at all.
+            return if mine > PAIR_TRIES {
+                Pairing::Unheard
+            } else {
+                state.pair_tries.insert(author.to_string(), PAIR_TRIES + 1);
+                Pairing::Closed
+            };
+        }
+        if mine >= PAIR_TRIES {
+            return Pairing::Unheard;
+        }
+        if right {
+            state.settings.owner = Some(author.to_string());
+            state.settings.pairing = None;
+            state.pair_tries.clear();
+            return Pairing::Paired;
+        }
+        state.pair_tries.insert(author.to_string(), mine + 1);
+        Pairing::Wrong
     }
 
     /// The pane `pane` and its workspace, as they stand.
@@ -524,15 +608,57 @@ impl Bot {
         }
     }
 
+    /// The ask the card clicked stands for: the one posted for `pane`, when
+    /// the card is that ask's and nobody answered it yet. A card left from
+    /// an earlier ask (answered on the PC, or posted before Hangar
+    /// restarted) never answers what the pane asks now: the person is
+    /// looking at another question. A modal names no card when Discord
+    /// sends none: it was opened from one that was checked.
+    fn ask_clicked(&self, i: &Interaction, pane: &str, modal: bool) -> Clicked {
+        let Some(ask) = self.ask_of(pane) else {
+            return Clicked::Stale;
+        };
+        let its_card = match i.message.as_deref() {
+            Some(message) => message == ask.message,
+            None => modal,
+        };
+        match (its_card, ask.settled) {
+            (false, _) => Clicked::Stale,
+            (true, true) => Clicked::Settled,
+            (true, false) => Clicked::Current(ask),
+        }
+    }
+
+    /// A click on a card that asks nothing any more: acknowledged, and a
+    /// card left behind says so in place of its buttons.
+    async fn outdated(&self, i: &Interaction, clicked: Clicked) {
+        self.respond(i, reply::DEFERRED_UPDATE, None).await;
+        if matches!(clicked, Clicked::Stale) {
+            self.gone(i).await;
+        }
+    }
+
     async fn on_click(&self, i: &Interaction, click: Click) {
         let words = self.words();
         let port = self.host().port();
         let Some(desk_) = self.host().desk() else {
-            return;
+            return self.respond(i, reply::DEFERRED_UPDATE, None).await;
+        };
+        // An answer to an ask is the card's own ask's, or nothing is done.
+        let pending = match &click {
+            Click::Other { pane }
+            | Click::AnswerAll { pane }
+            | Click::Plan { pane, .. }
+            | Click::Permit { pane, .. }
+            | Click::Choose { pane, .. } => match self.ask_clicked(i, pane, false) {
+                Clicked::Current(ask) => Some(ask.pending),
+                other => return self.outdated(i, other).await,
+            },
+            Click::Deliver { .. } | Click::Thread { .. } | Click::Stop { .. } => None,
         };
         match click {
             Click::Other { pane } => {
-                let question = match self.ask_of(&pane).map(|a| a.pending) {
+                let question = match &pending {
                     Some(ChatPending::Question { questions, .. }) => questions.first().cloned(),
                     _ => None,
                 };
@@ -541,23 +667,26 @@ impl Bot {
                         let modal = cards::other_modal(words, &question, &pane);
                         self.respond(i, reply::MODAL, Some(modal)).await
                     }
-                    None => self.gone(i).await,
+                    None => self.outdated(i, Clicked::Stale).await,
                 }
             }
-            Click::AnswerAll { pane } => match self.ask_of(&pane).map(|a| a.pending) {
+            Click::AnswerAll { pane } => match &pending {
                 Some(ChatPending::Question { questions, .. }) => {
-                    let modal = cards::questions_modal(words, &questions, &pane);
+                    let modal = cards::questions_modal(words, questions, &pane);
                     self.respond(i, reply::MODAL, Some(modal)).await
                 }
-                _ => self.gone(i).await,
+                _ => self.outdated(i, Clicked::Stale).await,
             },
             Click::Plan {
                 pane,
                 approve: false,
-            } => {
-                let modal = cards::plan_modal(words, &pane);
-                self.respond(i, reply::MODAL, Some(modal)).await
-            }
+            } => match &pending {
+                Some(ChatPending::Permission { .. }) => {
+                    let modal = cards::plan_modal(words, &pane);
+                    self.respond(i, reply::MODAL, Some(modal)).await
+                }
+                _ => self.outdated(i, Clicked::Stale).await,
+            },
             Click::Deliver {
                 ws,
                 task,
@@ -567,18 +696,15 @@ impl Bot {
                 self.respond(i, reply::MODAL, Some(modal)).await
             }
             Click::Permit { pane, allow } => {
-                let Some((ws, found)) = self.located(&pane) else {
-                    self.respond(i, reply::DEFERRED_UPDATE, None).await;
-                    return self.whisper(i, "This pane is gone.").await;
-                };
-                let prompt = match self.ask_of(&pane).map(|a| a.pending) {
-                    Some(ChatPending::Permission { prompt, .. }) => Some(prompt),
-                    _ => None,
+                let (Some(ChatPending::Permission { prompt, .. }), Some((ws, found))) =
+                    (pending, self.located(&pane))
+                else {
+                    return self.outdated(i, Clicked::Stale).await;
                 };
                 let done = self
                     .acknowledged(
                         i,
-                        desk::permit(&port, &desk_, &ws.id, &found.id, allow, prompt.as_deref()),
+                        desk::permit(&port, &desk_, &ws.id, &found.id, allow, Some(&prompt)),
                     )
                     .await;
                 match done {
@@ -594,7 +720,7 @@ impl Bot {
                 }
             }
             Click::Choose { pane, option } => {
-                let asked = match self.ask_of(&pane).map(|a| a.pending) {
+                let asked = match pending {
                     Some(ChatPending::Question {
                         tool_use_id,
                         questions,
@@ -606,8 +732,7 @@ impl Bot {
                 };
                 let (Some((tool_use_id, label)), Some((ws, found))) = (asked, self.located(&pane))
                 else {
-                    self.respond(i, reply::DEFERRED_UPDATE, None).await;
-                    return self.gone(i).await;
+                    return self.outdated(i, Clicked::Stale).await;
                 };
                 let answers = [Answer {
                     selected: vec![label.clone()],
@@ -631,26 +756,15 @@ impl Bot {
                 pane,
                 approve: true,
             } => {
-                let Some((ws, found)) = self.located(&pane) else {
-                    self.respond(i, reply::DEFERRED_UPDATE, None).await;
-                    return self.gone(i).await;
-                };
-                let prompt = match self.ask_of(&pane).map(|a| a.pending) {
-                    Some(ChatPending::Permission { prompt, .. }) => Some(prompt),
-                    _ => None,
+                let (Some(ChatPending::Permission { prompt, .. }), Some((ws, found))) =
+                    (pending, self.located(&pane))
+                else {
+                    return self.outdated(i, Clicked::Stale).await;
                 };
                 let approved = self
                     .acknowledged(
                         i,
-                        desk::plan(
-                            &port,
-                            &desk_,
-                            &ws.id,
-                            &found.id,
-                            true,
-                            None,
-                            prompt.as_deref(),
-                        ),
+                        desk::plan(&port, &desk_, &ws.id, &found.id, true, None, Some(&prompt)),
                     )
                     .await;
                 match approved {
@@ -713,7 +827,7 @@ impl Bot {
 
     async fn on_modal(&self, i: &Interaction, click: Click, values: Vec<(String, Value)>) {
         let Some(desk_) = self.host().desk() else {
-            return;
+            return self.respond(i, reply::DEFERRED_UPDATE, None).await;
         };
         let after = self
             .acknowledged(i, self.modal_done(i, click, values, &desk_))
@@ -747,10 +861,15 @@ impl Bot {
         };
         match click {
             Click::Other { pane } | Click::AnswerAll { pane } => {
-                let Some(ChatPending::Question {
+                let ask = match self.ask_clicked(i, &pane, true) {
+                    Clicked::Current(ask) => ask,
+                    Clicked::Settled => return After::Nothing,
+                    Clicked::Stale => return After::Gone,
+                };
+                let ChatPending::Question {
                     tool_use_id,
                     questions,
-                }) = self.ask_of(&pane).map(|a| a.pending)
+                } = ask.pending
                 else {
                     return After::Gone;
                 };
@@ -764,12 +883,15 @@ impl Bot {
                 }
             }
             Click::Plan { pane, .. } => {
-                let Some((ws, found)) = self.located(&pane) else {
-                    return After::Gone;
+                let ask = match self.ask_clicked(i, &pane, true) {
+                    Clicked::Current(ask) => ask,
+                    Clicked::Settled => return After::Nothing,
+                    Clicked::Stale => return After::Gone,
                 };
-                let prompt = match self.ask_of(&pane).map(|a| a.pending) {
-                    Some(ChatPending::Permission { prompt, .. }) => Some(prompt),
-                    _ => None,
+                let (ChatPending::Permission { prompt, .. }, Some((ws, found))) =
+                    (ask.pending, self.located(&pane))
+                else {
+                    return After::Gone;
                 };
                 let feedback = text("text");
                 match desk::plan(
@@ -779,7 +901,7 @@ impl Bot {
                     &found.id,
                     false,
                     Some(&feedback),
-                    prompt.as_deref(),
+                    Some(&prompt),
                 )
                 .await
                 {

@@ -90,6 +90,8 @@ pub(crate) struct State {
     pub app: String,
     pub turns: HashMap<String, Turn>,
     pub asks: HashMap<String, Ask>,
+    /// The wrong pairing codes sent since the bot started, by who sent them.
+    pub pair_tries: HashMap<String, u32>,
     /// The journal's entries posted, by workspace: up to this moment.
     pub seen: HashMap<String, u64>,
     /// Deliveries with a card already, by task.
