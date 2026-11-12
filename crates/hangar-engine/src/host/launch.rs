@@ -13,10 +13,11 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use super::terminals::{Spawn, TermSink};
+use super::terminals::{Spawn, TermEvent, TermSink};
 use super::{EngineHost, Life, locked};
 use crate::live::PaneStatus;
 use crate::panes::agents::{LaunchOptions, launch_command};
+use crate::panes::wall_clock_ms;
 use crate::state::roles::{ORCHESTRATION_ALLOWED_TOOLS, orchestration_of};
 use crate::state::types::{AgentId, McpMode, Pane, Workspace};
 
@@ -149,9 +150,15 @@ pub(super) async fn start(host: EngineHost, ws: Workspace, pane: Pane) {
         return failed(&host, &pane, "the launch stopped");
     };
     let terminals = host.terminals().clone();
+    // What the pane prints is noted where its reader thread stands, with
+    // no lock; only its end goes through the host.
     let sink: TermSink = {
         let host = host.clone();
-        Arc::new(move |event| host.on_term(event))
+        let printed = host.printed_of(&pane.id);
+        Arc::new(move |event| match event {
+            TermEvent::Output(_) => printed.note(wall_clock_ms()),
+            exit @ TermEvent::Exit(_) => host.on_term(exit),
+        })
     };
     let spawn = prepared.spawn.clone();
     let started = tokio::task::spawn_blocking(move || terminals.spawn(spawn, sink)).await;
@@ -224,7 +231,7 @@ async fn settle(host: &EngineHost, pane: &str) {
             return;
         }
         if let Some(at) = host.last_printed(pane)
-            && at.elapsed() >= SETTLED
+            && wall_clock_ms().saturating_sub(at) >= SETTLED.as_millis() as u64
         {
             return;
         }

@@ -192,6 +192,71 @@ impl Screen {
     }
 }
 
+/// Every pane's screen, by pane: what a host's terminals keep beside the
+/// panes' shells. Each screen has a lock of its own: a pane that prints
+/// holds up nobody else's, and what reads a screen waits for that pane
+/// alone.
+#[derive(Clone, Default)]
+pub struct Screens(Arc<std::sync::RwLock<std::collections::HashMap<String, Fed>>>);
+
+/// One pane's screen, as its reader thread feeds it: handed out by
+/// [`Screens::open`], so that a chunk printed looks nothing up.
+#[derive(Clone)]
+pub struct Fed(Arc<Mutex<Screen>>);
+
+impl Fed {
+    fn screen(&self) -> std::sync::MutexGuard<'_, Screen> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// The pane printed `data`: what its program asked of its terminal, to
+    /// be written back to it.
+    pub fn feed(&self, data: &[u8]) -> Vec<String> {
+        self.screen().feed(data)
+    }
+}
+
+impl Screens {
+    fn get(&self, pane: &str) -> Option<Fed> {
+        self.0
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(pane)
+            .cloned()
+    }
+
+    /// A new screen for `pane`, in place of any it had.
+    pub fn open(&self, pane: &str, columns: u16, rows: u16) -> Fed {
+        let fed = Fed(Arc::new(Mutex::new(Screen::new(columns, rows))));
+        self.0
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(pane.to_string(), fed.clone());
+        fed
+    }
+
+    pub fn close(&self, pane: &str) {
+        self.0
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .remove(pane);
+    }
+
+    pub fn clear(&self) {
+        self.0
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clear();
+    }
+
+    /// What `read` reads of `pane`'s screen; `None` when it has none.
+    pub fn read<T>(&self, pane: &str, read: impl FnOnce(&Screen) -> T) -> Option<T> {
+        let fed = self.get(pane)?;
+        let screen = fed.screen();
+        Some(read(&screen))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -218,6 +283,37 @@ mod tests {
         let answers = screen.feed(b"ab\x1b[6n");
         assert_eq!(answers, ["\x1b[1;3R"]);
         assert!(screen.feed(b"c").is_empty());
+    }
+
+    #[test]
+    fn each_pane_has_a_screen_of_its_own_until_it_is_closed() {
+        let screens = Screens::default();
+        let leo = screens.open("leo", 40, 10);
+        let ada = screens.open("ada", 40, 10);
+        leo.feed(b"from leo\r\n");
+        ada.feed(b"from ada\r\n");
+        assert_eq!(
+            screens.read("leo", |s| s.lines(5)),
+            Some(vec!["from leo".to_string()])
+        );
+        assert_eq!(
+            screens.read("ada", |s| s.lines(5)),
+            Some(vec!["from ada".to_string()])
+        );
+        // A pane restarted starts from an empty screen.
+        let again = screens.open("leo", 40, 10);
+        again.feed(b"new\r\n");
+        assert_eq!(
+            screens.read("leo", |s| s.lines(5)),
+            Some(vec!["new".to_string()])
+        );
+        // While one pane's screen is held (it is being fed), another's is
+        // read without waiting.
+        let held = again.0.lock().unwrap();
+        assert_eq!(screens.read("ada", |s| s.lines(5).len()), Some(1));
+        drop(held);
+        screens.close("ada");
+        assert_eq!(screens.read("ada", |s| s.lines(5)), None);
     }
 
     #[test]

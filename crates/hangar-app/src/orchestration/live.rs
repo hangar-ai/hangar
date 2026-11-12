@@ -70,8 +70,13 @@ pub use hangar_engine::orchestration::checks::last_check;
 /// Once per run: what old versions' deliveries left in the temp folder goes,
 /// and git forgets the worktrees whose folder is gone, in each workspace's
 /// repository. On a thread of its own: git is slow on large repositories.
-fn sweep_leftovers_once(folders: Vec<String>) {
+fn sweep_leftovers_once(folders: impl FnOnce() -> Vec<String>) {
     static DONE: std::sync::Once = std::sync::Once::new();
+    // Every port made asks: nothing is gathered once it has run.
+    if DONE.is_completed() {
+        return;
+    }
+    let folders = folders();
     if folders.is_empty() {
         return;
     }
@@ -87,7 +92,7 @@ impl LivePort {
         let port = LivePort { handle, node: None };
         // A remote workspace's folder is a path on its node: nothing of
         // this machine's to sweep.
-        sweep_leftovers_once(
+        sweep_leftovers_once(|| {
             port.snapshot()
                 .state
                 .workspaces
@@ -95,8 +100,8 @@ impl LivePort {
                 .filter(|ws| ws.node.is_none())
                 .map(|ws| ws.cwd.clone())
                 .filter(|cwd| !cwd.is_empty())
-                .collect(),
-        );
+                .collect()
+        });
         port
     }
 

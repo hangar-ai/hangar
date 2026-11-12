@@ -341,6 +341,124 @@ async fn hears_the_mod_report_a_turn_and_tells_who_follows() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn a_report_that_moves_nothing_publishes_nothing() {
+    let rig = rig(Some(shop()));
+    rig.host.start();
+    eventually("Leo mounted", || {
+        locked(&rig.host.0.model).panes.machines.contains_key("p1")
+    })
+    .await;
+    let report = |event: serde_json::Value| {
+        rig.host.feed(Event::BridgeEvent {
+            pane_id: "p1".into(),
+            event,
+        });
+    };
+    report(json!({"kind": "hello", "sessionId": "s1", "model": null, "version": "2.1"}));
+    report(json!({"kind": "turn", "phase": "start"}));
+    assert_eq!(
+        rig.host.snapshot().activity.get("p1").map(|a| a.activity),
+        Some(AgentActivity::Working)
+    );
+    // Let the launch finish its own writes.
+    tokio::time::sleep(Duration::from_millis(800)).await;
+    let before = rig.host.snapshot();
+    let mut news = rig.host.news();
+    // Twenty tool calls: the agent works on, nothing the engines read moved.
+    for n in 0..20 {
+        report(
+            json!({"kind": "tool", "phase": "start", "toolUseId": format!("t{n}"),
+            "tool": "Bash", "input": {"command": "ls"}}),
+        );
+        report(json!({"kind": "tool", "phase": "end", "toolUseId": format!("t{n}")}));
+    }
+    assert!(
+        Arc::ptr_eq(&before, &rig.host.snapshot()),
+        "the same snapshot"
+    );
+    assert!(news.try_recv().is_err(), "and nobody was told");
+    // The turn ends: that is news.
+    report(
+        json!({"kind": "turn", "phase": "end", "reason": "answer", "durationMs": 10,
+        "answer": "Done."}),
+    );
+    assert!(!Arc::ptr_eq(&before, &rig.host.snapshot()));
+    let mut said = Vec::new();
+    while let Ok(news) = news.try_recv() {
+        said.push(news);
+    }
+    assert!(said.contains(&News::Changed), "{said:?}");
+    // And the agent's last word, for whoever notifies the person.
+    assert!(
+        said.iter()
+            .any(|news| matches!(news, News::Notify { pane, body, .. } if pane == "p1" && body == "Done.")),
+        "{said:?}"
+    );
+}
+
+#[test]
+fn what_a_pane_printed_is_handed_over_as_one_burst() {
+    let printed = Printed::default();
+    assert_eq!(printed.take(), None);
+    assert_eq!(printed.last(), None);
+    printed.note(1_000);
+    printed.note(1_040);
+    printed.note(1_250);
+    assert_eq!(printed.last(), Some(1_250));
+    assert_eq!(printed.take(), Some((1_000, 1_250)));
+    // Handed over once; when it last printed is still known.
+    assert_eq!(printed.take(), None);
+    assert_eq!(printed.last(), Some(1_250));
+    printed.note(2_000);
+    assert_eq!(printed.take(), Some((2_000, 2_000)));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_shell_s_output_reaches_its_machine_with_the_tick() {
+    let rig = rig(Some(shop()));
+    rig.host.start();
+    eventually("the plain shell mounted", || {
+        locked(&rig.host.0.model).panes.machines.contains_key("p2")
+    })
+    .await;
+    // The shell printed at its start (the fake's prompt): its machine has
+    // the burst once the host looked.
+    eventually("the burst handed over", || {
+        locked(&rig.host.0.model)
+            .panes
+            .machines
+            .get("p2")
+            .is_some_and(|machine| machine.watcher.burst().is_some())
+    })
+    .await;
+}
+
+#[test]
+fn the_state_file_is_compact_and_the_owner_s_alone() {
+    let root = scratch("engine-host-file");
+    let file = root.join("deep").join("state.json");
+    write_state_file(
+        &file,
+        &json!({"workspaces": [], "settings": {"locale": "fr"}}),
+    )
+    .unwrap();
+    let raw = std::fs::read_to_string(&file).unwrap();
+    assert!(!raw.contains('\n'), "{raw}");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(&file).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
+    // Written over, whole.
+    write_state_file(&file, &json!({"workspaces": [1]})).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(&file).unwrap(),
+        r#"{"workspaces":[1]}"#
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn a_shell_that_ends_stays_down_until_restarted() {
     let rig = rig(Some(shop()));
     rig.host.start();

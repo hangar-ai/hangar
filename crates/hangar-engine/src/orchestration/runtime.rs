@@ -49,6 +49,9 @@ use crate::state::types::{AppState, PaneId, PaneRole, Workspace, WsId};
 const TICK: Duration = Duration::from_secs(10);
 /// How often what Hangar Mobile plugged in runs (its activity log).
 const FIVE_SECONDS: Duration = Duration::from_secs(5);
+/// Messages taken in one trip to the blocking pool, at most: the engines'
+/// lock is let go between two batches.
+const MAX_BATCH: usize = 256;
 /// Timers fired at one wake, at most: one that re-arms itself at once would
 /// otherwise hold the blocking thread for good.
 const MAX_FIRED: usize = 64;
@@ -262,7 +265,19 @@ async fn run<H: RuntimeHost>(
         };
         tokio::select! {
             message = rx.recv() => match message {
-                Some(message) => handle.on_message(message).await,
+                Some(first) => {
+                    // Whatever else waits goes with it, in order: a burst
+                    // of reports is one trip to the blocking pool, not one
+                    // each.
+                    let mut batch = vec![first];
+                    while batch.len() < MAX_BATCH {
+                        match rx.try_recv() {
+                            Ok(more) => batch.push(more),
+                            Err(_) => break,
+                        }
+                    }
+                    handle.on_messages(batch).await;
+                }
                 None => break,
             },
             () = deadline => handle.fire_due().await,
@@ -344,16 +359,20 @@ impl<H: RuntimeHost> OrchestrationHandle<H> {
         }
     }
 
-    async fn on_message(&self, message: EngineMsg) {
+    async fn on_messages(&self, messages: Vec<EngineMsg>) {
         // A report or an exit posts events and sets timers; no board is read.
-        self.with_engines(Reads::Nothing, move |engines, port, now| match message {
-            EngineMsg::Bridge { pane, event } => {
-                engines.events.bridge_event(port, &pane, &event, now)
-            }
-            EngineMsg::PtyExit(pane) => engines.events.pty_exited(port, &pane, now),
-            EngineMsg::BoardChanged => {
-                engines.events.board_changed(now);
-                engines.manager.board_changed(port, now);
+        self.with_engines(Reads::Nothing, move |engines, port, now| {
+            for message in messages {
+                match message {
+                    EngineMsg::Bridge { pane, event } => {
+                        engines.events.bridge_event(port, &pane, &event, now)
+                    }
+                    EngineMsg::PtyExit(pane) => engines.events.pty_exited(port, &pane, now),
+                    EngineMsg::BoardChanged => {
+                        engines.events.board_changed(now);
+                        engines.manager.board_changed(port, now);
+                    }
+                }
             }
         })
         .await;

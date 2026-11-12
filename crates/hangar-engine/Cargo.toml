@@ -32,6 +32,11 @@ alacritty_terminal.workspace = true
 [dev-dependencies]
 tempfile = "3"
 
+# What the host with no window costs where it is busiest (benches/host.rs).
+[[bench]]
+name = "host"
+harness = false
+
 [features]
 # What the hosts' tests need to put the engine in a state (seeding a pane's
 # activity, running a sweep by hand): off in a build, on for tests.

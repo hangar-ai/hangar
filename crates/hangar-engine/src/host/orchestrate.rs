@@ -52,6 +52,10 @@ impl RuntimeHost for HostRuntime {
 /// once in the workspaces' folders.
 fn sweep_leftovers_once(state: &AppState) {
     static DONE: std::sync::Once = std::sync::Once::new();
+    // Every port made asks: nothing is gathered once it has run.
+    if DONE.is_completed() {
+        return;
+    }
     let folders: Vec<String> = state
         .workspaces
         .iter()

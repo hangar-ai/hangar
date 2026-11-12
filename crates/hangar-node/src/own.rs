@@ -11,15 +11,14 @@
 //! and for the Discord connector.
 #![cfg(target_os = "linux")]
 
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::Arc;
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use hangar_core::pty::{PtyEvent, PtyManager};
-use hangar_engine::host::screen::Screen;
+use hangar_engine::host::screen::{Screen, Screens};
 use hangar_engine::host::terminals::{COLUMNS, ROWS};
 use hangar_engine::host::{EngineHost, Spawn, TermEvent, TermSink, Terminals};
 use hangar_engine::state::StoreAction;
@@ -34,7 +33,7 @@ use crate::panes::{Observer, Panes};
 pub struct NodeTerminals {
     panes: Arc<Panes>,
     pty: Arc<PtyManager>,
-    screens: Arc<Mutex<HashMap<String, Screen>>>,
+    screens: Screens,
 }
 
 impl NodeTerminals {
@@ -42,30 +41,20 @@ impl NodeTerminals {
         NodeTerminals {
             panes,
             pty,
-            screens: Arc::default(),
+            screens: Screens::default(),
         }
-    }
-
-    fn screens(&self) -> MutexGuard<'_, HashMap<String, Screen>> {
-        self.screens.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
 
 impl Terminals for NodeTerminals {
     fn spawn(&self, spawn: Spawn, sink: TermSink) -> Result<(), String> {
         let id = spawn.id.clone();
-        self.screens()
-            .insert(id.clone(), Screen::new(COLUMNS, ROWS));
+        let screen = self.screens.open(&id, COLUMNS, ROWS);
         let observer: Observer = {
-            let (screens, pty, id) = (self.screens.clone(), self.pty.clone(), id.clone());
+            let (pty, id) = (self.pty.clone(), id.clone());
             Arc::new(move |event: &PtyEvent| match event {
                 PtyEvent::Output(output) => {
-                    let answers = screens
-                        .lock()
-                        .unwrap_or_else(PoisonError::into_inner)
-                        .get_mut(&id)
-                        .map(|screen| screen.feed(output.data.as_bytes()))
-                        .unwrap_or_default();
+                    let answers = screen.feed(output.data.as_bytes());
                     if !answers.is_empty() {
                         let (pty, id) = (pty.clone(), id.clone());
                         std::thread::spawn(move || {
@@ -98,7 +87,7 @@ impl Terminals for NodeTerminals {
         match spawned {
             Ok(_) => Ok(()),
             Err(err) => {
-                self.screens().remove(&id);
+                self.screens.close(&id);
                 Err(err)
             }
         }
@@ -114,33 +103,33 @@ impl Terminals for NodeTerminals {
 
     fn kill(&self, pane: &str) -> Result<(), String> {
         self.panes.kill(pane);
-        self.screens().remove(pane);
+        self.screens.close(pane);
         Ok(())
     }
 
     fn lines(&self, pane: &str, n: usize) -> Option<Vec<String>> {
-        self.screens().get(pane).map(|screen| screen.lines(n))
+        self.screens.read(pane, |screen| screen.lines(n))
     }
 
     fn screen(&self, pane: &str) -> Option<Vec<String>> {
-        self.screens().get(pane).map(Screen::rows)
+        self.screens.read(pane, Screen::rows)
     }
 
     fn bracketed_paste(&self, pane: &str) -> bool {
-        self.screens()
-            .get(pane)
-            .is_some_and(Screen::bracketed_paste)
+        self.screens
+            .read(pane, Screen::bracketed_paste)
+            .unwrap_or(false)
     }
 
     fn application_cursor(&self, pane: &str) -> bool {
-        self.screens()
-            .get(pane)
-            .is_some_and(Screen::application_cursor)
+        self.screens
+            .read(pane, Screen::application_cursor)
+            .unwrap_or(false)
     }
 
     fn kill_all(&self) {
         self.panes.kill_all();
-        self.screens().clear();
+        self.screens.clear();
     }
 }
 

@@ -41,7 +41,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, RwLock};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use serde_json::Value;
 use tokio::sync::{Notify, broadcast};
@@ -203,10 +203,43 @@ struct Inner {
     news: broadcast::Sender<News>,
     /// The shells this host started, by pane.
     shells: Mutex<HashMap<PaneId, Life>>,
-    /// When each pane last printed: a launch waits for its shell to settle.
-    printed: Mutex<HashMap<PaneId, Instant>>,
+    /// What each pane printed since the panes were last looked at.
+    printed: Mutex<HashMap<PaneId, Arc<Printed>>>,
     started: AtomicBool,
     stopping: AtomicBool,
+}
+
+/// What a pane printed since the host last looked: written by the pane's
+/// reader thread at each chunk with no lock taken, read on the host's tick
+/// (as the desktop looks at the panes off screen with its own), which hands
+/// the burst to the pane's machine.
+#[derive(Debug, Default)]
+pub(crate) struct Printed {
+    /// When the burst not yet handed over began, in ms; 0: none.
+    first: AtomicU64,
+    /// When the pane last printed, in ms; 0: never.
+    last: AtomicU64,
+}
+
+impl Printed {
+    /// The pane printed, now.
+    pub(crate) fn note(&self, now: EpochMs) {
+        self.last.store(now, Ordering::Relaxed);
+        let _ = self
+            .first
+            .compare_exchange(0, now, Ordering::Relaxed, Ordering::Relaxed);
+    }
+
+    /// The burst since the last call, from its first chunk to its last.
+    fn take(&self) -> Option<(EpochMs, EpochMs)> {
+        let first = self.first.swap(0, Ordering::Relaxed);
+        (first != 0).then(|| (first, self.last.load(Ordering::Relaxed).max(first)))
+    }
+
+    /// When the pane last printed.
+    pub(crate) fn last(&self) -> Option<EpochMs> {
+        Some(self.last.load(Ordering::Relaxed)).filter(|at| *at != 0)
+    }
 }
 
 /// The engine, hosted with no window. Cloned freely: every clone is the same
@@ -242,14 +275,35 @@ pub fn read_state_file(file: &Path) -> Result<Option<crate::state::Loaded>, Stri
 }
 
 /// `value` written to `file` whole or not at all: to a temporary file beside
-/// it, then renamed over it. The folder is made when missing.
+/// it, then renamed over it, as the desktop writes its own (compact, and
+/// the owner's alone). The folder is made when missing.
 pub fn write_state_file(file: &Path, value: &Value) -> Result<(), String> {
-    if let Some(dir) = file.parent() {
-        std::fs::create_dir_all(dir).map_err(|err| format!("{}: {err}", dir.display()))?;
-    }
-    let body = serde_json::to_vec_pretty(value).map_err(|err| err.to_string())?;
+    let body = serde_json::to_vec(value).map_err(|err| err.to_string())?;
     let temporary = file.with_extension("json.tmp");
-    std::fs::write(&temporary, body).map_err(|err| format!("{}: {err}", temporary.display()))?;
+    let write = || -> std::io::Result<()> {
+        use std::io::Write;
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create(true).truncate(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut out = options.open(&temporary)?;
+        out.write_all(&body)?;
+        Ok(())
+    };
+    if let Err(first) = write() {
+        // The folder is missing on the first save alone.
+        let made = file
+            .parent()
+            .filter(|_| first.kind() == std::io::ErrorKind::NotFound)
+            .map(std::fs::create_dir_all);
+        match made {
+            Some(Ok(())) => write().map_err(|err| format!("{}: {err}", temporary.display()))?,
+            _ => return Err(format!("{}: {first}", temporary.display())),
+        }
+    }
     std::fs::rename(&temporary, file).map_err(|err| format!("{}: {err}", file.display()))
 }
 
@@ -511,26 +565,39 @@ impl EngineHost {
         Ok(ws)
     }
 
-    /// The snapshot published again, the saver and the panes told.
+    /// The snapshot published again when what it holds changed, and those
+    /// who follow told: the saver and the panes when the state, or which
+    /// workspaces are up, did; nobody when nothing did (a report of the mod
+    /// that moved no agent's activity changes nothing the engines read).
     fn changed(&self) {
-        let snapshot = Arc::new({
+        let (snapshot, panes_moved) = {
             let mut model = locked(&self.0.model);
             // Nobody announces a respawn here: the panes follow the state.
             model.store.take_respawns();
             model.store.take_removed();
-            model.snapshot()
-        });
+            let published = self.snapshot();
+            let state_moved = !Arc::ptr_eq(&published.state, &model.store.state_arc());
+            let up_moved = published.opened != model.opened
+                || !same_keys(&published.asleep, model.panes.asleep());
+            let live_moved = published.activity != *model.panes.activity_map()
+                || !same_runs(&published.delivering, &model.runs);
+            if !(state_moved || up_moved || live_moved) {
+                return;
+            }
+            (Arc::new(model.snapshot()), state_moved || up_moved)
+        };
         *self
             .0
             .snapshot
             .write()
             .unwrap_or_else(PoisonError::into_inner) = snapshot;
-        self.0.changed.notify_one();
+        if panes_moved {
+            self.0.changed.notify_one();
+        }
         let _ = self.0.news.send(News::Changed);
     }
 
-    /// The read-model changed, the persisted state did not: published, not
-    /// saved (the saver finds nothing new).
+    /// The read-model may have changed, the persisted state did not.
     fn live_changed(&self) {
         self.changed();
     }
@@ -569,10 +636,9 @@ impl EngineHost {
     fn on_term(&self, event: TermEvent) {
         match event {
             TermEvent::Output(pane) => {
-                let now = Instant::now();
-                locked(&self.0.printed).insert(pane.clone(), now);
-                let at = wall_clock_ms();
-                locked(&self.0.model).panes.note_printed(&pane, at, at);
+                // A pane's own sink notes its output without coming here
+                // (`printed_of`); this is for whoever only has the event.
+                self.printed_of(&pane).note(wall_clock_ms());
             }
             TermEvent::Exit(pane) => {
                 let mine = {
@@ -604,8 +670,11 @@ impl EngineHost {
         }
     }
 
-    /// One of core's events.
-    fn on_core(&self, event: Event) {
+    /// One of core's events, taken in now: the mod's reports, the queue,
+    /// the deliveries' stages and the boards written reach the panes' state
+    /// machines and the orchestration. `start` follows core's bus with it; a
+    /// host that hears the events some other way hands them over here.
+    pub fn feed(&self, event: Event) {
         let now = wall_clock_ms();
         match event {
             Event::BridgeEvent { pane_id, event } => {
@@ -694,31 +763,34 @@ impl EngineHost {
             return;
         }
         let snapshot = self.snapshot();
-        let wanted: HashMap<PaneId, (Workspace, Pane)> = snapshot
+        let up =
+            |ws: &&Workspace| snapshot.opened.contains(&ws.id) && !snapshot.asleep.contains(&ws.id);
+        let wanted: HashSet<&str> = snapshot
             .state
             .workspaces
             .iter()
-            .filter(|ws| snapshot.opened.contains(&ws.id) && !snapshot.asleep.contains(&ws.id))
-            .flat_map(|ws| {
-                ws.panes
-                    .iter()
-                    .map(move |pane| (pane.id.clone(), (ws.clone(), pane.clone())))
-            })
+            .filter(up)
+            .flat_map(|ws| ws.panes.iter().map(|pane| pane.id.as_str()))
             .collect();
         let (gone, new): (Vec<PaneId>, Vec<(Workspace, Pane)>) = {
             let mut shells = locked(&self.0.shells);
             let gone: Vec<PaneId> = shells
                 .keys()
-                .filter(|pane| !wanted.contains_key(*pane))
+                .filter(|pane| !wanted.contains(pane.as_str()))
                 .cloned()
                 .collect();
             for pane in &gone {
                 shells.remove(pane);
             }
-            let new: Vec<(Workspace, Pane)> = wanted
-                .into_iter()
-                .filter(|(pane, _)| !shells.contains_key(pane))
-                .map(|(_, found)| found)
+            // Only a pane to start takes a copy of its workspace.
+            let new: Vec<(Workspace, Pane)> = snapshot
+                .state
+                .workspaces
+                .iter()
+                .filter(up)
+                .flat_map(|ws| ws.panes.iter().map(move |pane| (ws, pane)))
+                .filter(|(_, pane)| !shells.contains_key(&pane.id))
+                .map(|(ws, pane)| (ws.clone(), pane.clone()))
                 .collect();
             for (_, pane) in &new {
                 shells.insert(pane.id.clone(), Life::Starting);
@@ -833,16 +905,36 @@ impl EngineHost {
         self.live_changed();
     }
 
+    /// Where pane `pane`'s output is noted: handed to its sink once, so a
+    /// chunk printed takes no lock.
+    pub(crate) fn printed_of(&self, pane: &str) -> Arc<Printed> {
+        locked(&self.0.printed)
+            .entry(pane.to_string())
+            .or_default()
+            .clone()
+    }
+
     /// When `pane` last printed.
-    fn last_printed(&self, pane: &str) -> Option<Instant> {
-        locked(&self.0.printed).get(pane).copied()
+    fn last_printed(&self, pane: &str) -> Option<EpochMs> {
+        locked(&self.0.printed).get(pane).and_then(|p| p.last())
     }
 
     /// The watchers' checks that came due, and the trust question looked
     /// for on the screens of the panes that print.
     fn tick(&self) {
         let now = wall_clock_ms();
+        // What the panes printed since the last look, each as one burst.
+        let bursts: Vec<(PaneId, EpochMs, EpochMs)> = locked(&self.0.printed)
+            .iter()
+            .filter_map(|(pane, printed)| {
+                let (first, last) = printed.take()?;
+                Some((pane.clone(), first, last))
+            })
+            .collect();
         let mut model = locked(&self.0.model);
+        for (pane, first, last) in bursts {
+            model.panes.note_printed(&pane, first, last);
+        }
         let idle_ms = model.store.settings().notify_idle_ms;
         let panes: Vec<Arc<PaneInfo>> = model
             .panes
@@ -890,6 +982,22 @@ impl EngineHost {
     }
 }
 
+/// Whether `published` names exactly the workspaces asleep now.
+fn same_keys<V>(published: &HashSet<WsId>, now: &HashMap<WsId, V>) -> bool {
+    published.len() == now.len() && now.keys().all(|ws| published.contains(ws))
+}
+
+/// Whether `published` says the deliveries that run now.
+fn same_runs(published: &Delivering, now: &HashMap<WsId, HashMap<String, usize>>) -> bool {
+    let running = now.iter().filter(|(_, tasks)| !tasks.is_empty());
+    running.clone().count() == published.len()
+        && running.into_iter().all(|(ws, tasks)| {
+            published.get(ws).is_some_and(|said| {
+                said.len() == tasks.len() && tasks.keys().all(|t| said.contains(t))
+            })
+        })
+}
+
 /// The claims no pane holds any more, released (a pane closed, or moved on
 /// to another session).
 fn release_unheld_sessions(model: &mut Model) {
@@ -924,7 +1032,7 @@ fn reply(id: String, answer: Result<Value, String>) {
 async fn follow_events(host: EngineHost, mut events: broadcast::Receiver<Event>) {
     loop {
         match events.recv().await {
-            Ok(event) => host.on_core(event),
+            Ok(event) => host.feed(event),
             Err(broadcast::error::RecvError::Lagged(missed)) => {
                 eprintln!("the engine missed {missed} of core's events");
             }
@@ -960,7 +1068,7 @@ async fn panes_loop(host: EngineHost) {
 }
 
 /// How often the panes' watchers are looked at.
-const TICK: Duration = Duration::from_millis(500);
+const TICK: Duration = Duration::from_millis(crate::panes::activity::TICK_MS);
 
 async fn tick_loop(host: EngineHost) {
     let mut every = tokio::time::interval(TICK);

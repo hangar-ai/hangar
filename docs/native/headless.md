@@ -262,3 +262,28 @@ The desktop runs the same connector for its own workspaces
 Still to do: the remote workspaces a desktop drives on a node moving to the
 node (the desktop then their client), and a phone reaching a node with no
 desktop.
+
+## What it costs, measured
+
+`cargo bench -p hangar-engine --bench host` (benches/host.rs) drives the
+host where it is busiest, with shells that only record: the panes' screens
+fed at once, the output events of the reader threads, the mod's reports
+taken in by a host of 8 workspaces of 6 panes, model writes, saves. Measured
+on November 12, 2026, on a 4-core Xeon at 2.1 GHz (a shared cloud machine: one
+run of each, figures move by about 10 % from a run to the next), before and
+after the changes it led to:
+
+| | Before | After | What changed |
+|---|---|---|---|
+| 4 panes printing at once, screens fed | 67 MB/s together | 279 MB/s | A lock per pane's screen (`Screens`, `Fed`) instead of one for all: a pane that prints holds up nobody else's, and its reader thread looks nothing up. |
+| 16 panes printing at once | 63 MB/s | 244 MB/s | The same; one pane alone is 75 to 87 MB/s either way. |
+| A chunk printed, beside its screen | 382 ns, 1,240 ms of processor for a million | 32 ns, 90 ms | Noted in two atomics of the pane's own (`Printed`), handed to its machine as one burst on the host's tick (250 ms, the desktop's), instead of two locks of the whole host per chunk. |
+| A report of the mod, taken in | 14.8 µs | 6.5 µs | The snapshot is published only when what it holds changed (a tool call moves nothing the engines read), and the panes are reconciled with the state only when the state, or which workspaces are up, did; no workspace is copied per pane to find that nothing is to start. |
+| The same, everything it sets off | 68.5 µs of processor | 10 µs | The orchestration runtime, the app's too, takes what waits in one trip to the blocking pool rather than one per report (`MAX_BATCH`). |
+| A model write applied and published | 104 µs | 85 µs | The lighter reconcile. |
+| The state on disk (48 panes) | 17,104 bytes, pretty | 9,981 bytes | Written compact and the owner's alone (0600), as the desktop writes its own; a save takes 0.6 ms either way, and runs 400 ms after the last change. |
+
+What the figures do not show: a real Claude Code's output (the sample is
+generated, after hangar-term's `claude`), real PTYs (`--bench feed --pty`
+of hangar-term measures the reader thread), and a host under memory
+pressure.

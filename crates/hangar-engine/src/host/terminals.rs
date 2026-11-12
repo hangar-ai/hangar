@@ -6,12 +6,11 @@
 //! PTY manager on this machine. A node keeps its own panes (their history,
 //! the desktop's streams) and answers it over them.
 
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::Arc;
 
 use hangar_core::pty::{self, PtyEvent, PtyManager};
 
-use super::screen::Screen;
+use super::screen::{Screen, Screens};
 use crate::state::PaneId;
 
 /// The size a pane's shell starts at, with no window to measure.
@@ -76,38 +75,27 @@ pub trait Terminals: Send + Sync + 'static {
 /// Core's PTYs on this machine, each with a screen.
 pub struct CorePtys {
     pty: Arc<PtyManager>,
-    screens: Arc<Mutex<HashMap<PaneId, Screen>>>,
+    screens: Screens,
 }
 
 impl CorePtys {
     pub fn new(pty: Arc<PtyManager>) -> CorePtys {
         CorePtys {
             pty,
-            screens: Arc::default(),
+            screens: Screens::default(),
         }
-    }
-
-    fn screens(&self) -> MutexGuard<'_, HashMap<PaneId, Screen>> {
-        self.screens.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
 
 impl Terminals for CorePtys {
     fn spawn(&self, spawn: Spawn, sink: TermSink) -> Result<(), String> {
         let id = spawn.id.clone();
-        self.screens()
-            .insert(id.clone(), Screen::new(COLUMNS, ROWS));
-        let screens = self.screens.clone();
+        let screen = self.screens.open(&id, COLUMNS, ROWS);
         let pty = self.pty.clone();
         let pane = id.clone();
         let output: pty::PtySink = Box::new(move |event| match event {
             PtyEvent::Output(output) => {
-                let answers = screens
-                    .lock()
-                    .unwrap_or_else(PoisonError::into_inner)
-                    .get_mut(&pane)
-                    .map(|screen| screen.feed(output.data.as_bytes()))
-                    .unwrap_or_default();
+                let answers = screen.feed(output.data.as_bytes());
                 if !answers.is_empty() {
                     // Off the reader's thread: writing waits on the pane's
                     // writer, which nothing here should hold up.
@@ -143,7 +131,7 @@ impl Terminals for CorePtys {
         match spawned {
             Ok(_) => Ok(()),
             Err(error) => {
-                self.screens().remove(&id);
+                self.screens.close(&id);
                 Err(error)
             }
         }
@@ -159,32 +147,32 @@ impl Terminals for CorePtys {
 
     fn kill(&self, pane: &str) -> Result<(), String> {
         let killed = pty::pty_kill(&self.pty, pane.to_string(), Some(true));
-        self.screens().remove(pane);
+        self.screens.close(pane);
         killed
     }
 
     fn lines(&self, pane: &str, n: usize) -> Option<Vec<String>> {
-        self.screens().get(pane).map(|screen| screen.lines(n))
+        self.screens.read(pane, |screen| screen.lines(n))
     }
 
     fn screen(&self, pane: &str) -> Option<Vec<String>> {
-        self.screens().get(pane).map(Screen::rows)
+        self.screens.read(pane, Screen::rows)
     }
 
     fn bracketed_paste(&self, pane: &str) -> bool {
-        self.screens()
-            .get(pane)
-            .is_some_and(Screen::bracketed_paste)
+        self.screens
+            .read(pane, Screen::bracketed_paste)
+            .unwrap_or(false)
     }
 
     fn application_cursor(&self, pane: &str) -> bool {
-        self.screens()
-            .get(pane)
-            .is_some_and(Screen::application_cursor)
+        self.screens
+            .read(pane, Screen::application_cursor)
+            .unwrap_or(false)
     }
 
     fn kill_all(&self) {
         pty::kill_all(&self.pty);
-        self.screens().clear();
+        self.screens.clear();
     }
 }
