@@ -573,12 +573,15 @@ async fn events(
 ) -> Response {
     let receiver = node.host.subscribe();
     let driver = (query.control.as_deref() == Some("1")).then(|| node.drivers.attach());
-    upgrade.on_upgrade(move |socket| forward_events(receiver, socket, driver))
+    upgrade.on_upgrade(move |socket| forward_events(node, receiver, socket, driver))
 }
 
 /// `_driver` is held for as long as the socket is up: while it is, core's
-/// control requests have a desktop to answer them.
+/// control requests have a desktop to answer them. Those the node answers
+/// itself (control.rs) are not the desktop's to hear: it would answer them
+/// too, about a pane it does not know, and core takes the first answer.
 async fn forward_events(
+    node: Shared,
     mut receiver: tokio::sync::broadcast::Receiver<hangar_core::Event>,
     mut socket: WebSocket,
     _driver: Option<crate::control::Driver>,
@@ -587,6 +590,7 @@ async fn forward_events(
         tokio::select! {
             event = receiver.recv() => {
                 let frame = match event {
+                    Ok(event) if crate::control::answered_here(&node, &event) => continue,
                     Ok(event) => crate::events::to_json(&event),
                     // A change notice lost is a reload for the desktop.
                     Err(RecvError::Lagged(missed)) => json!({ "lagged": missed }),

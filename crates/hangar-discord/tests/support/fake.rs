@@ -30,6 +30,8 @@ pub struct Call {
     pub method: String,
     pub path: String,
     pub body: Value,
+    /// When it reached the server, before the server took its time.
+    pub at: std::time::Instant,
 }
 
 #[derive(Default)]
@@ -73,6 +75,7 @@ async fn rest(State(fake): State<Shared>, method: Method, uri: Uri, body: Bytes)
             method: method.to_string(),
             path: path.clone(),
             body: body_of(&body),
+            at: std::time::Instant::now(),
         });
         (format!("{}", 1000 + fake.next), fake.latency)
     };

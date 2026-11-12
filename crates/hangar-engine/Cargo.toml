@@ -37,6 +37,12 @@ tempfile = "3"
 name = "host"
 harness = false
 
+# What grows with what a server holds (benches/scale.rs): memory per pane,
+# the state, transcripts, boards, and what a host costs doing nothing.
+[[bench]]
+name = "scale"
+harness = false
+
 [features]
 # What the hosts' tests need to put the engine in a state (seeding a pane's
 # activity, running a sweep by hand): off in a build, on for tests.

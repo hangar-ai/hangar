@@ -1287,17 +1287,13 @@ fn wait_for<T>(what: &str, mut found: impl FnMut() -> Option<T>) -> T {
     }
 }
 
-/// A workspace the node runs itself, with no desktop: made through the
-/// API, its orchestrator's shell started and Claude Code typed in it, the
-/// requests of that Claude Code answered by the node, and the workspace
-/// still there after the node restarts.
-#[test]
-fn a_workspace_of_the_node_s_own_runs_with_no_desktop() {
+/// A node started in a home of its own whose Claude Code is a script: it
+/// asks Hangar's MCP server for the workspaces, as its pane's agent, and
+/// writes the answers down in `answers.jsonl`. With the folder of a project.
+fn node_with_an_asking_claude() -> (Node, PathBuf) {
     let home = tempfile::tempdir().unwrap();
     let project = home.path().join("project");
     std::fs::create_dir_all(&project).unwrap();
-    // A Claude Code that asks Hangar's MCP server for the workspaces, as
-    // the pane's agent, and writes the answers down.
     let fake = home.path().join("fake-claude");
     let initialize = json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": { "name": "t", "version": "1" } } });
     let call = json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": { "name": "workspace_list", "arguments": {} } });
@@ -1321,7 +1317,87 @@ fn a_workspace_of_the_node_s_own_runs_with_no_desktop() {
         .status()
         .unwrap();
     assert!(status.success(), "serve --detach: {status}");
-    let node = Node::found(home);
+    (Node::found(home), project)
+}
+
+/// What the script of [`node_with_an_asking_claude`] was answered about the
+/// workspaces, once it was.
+fn workspaces_answered(node: &Node) -> String {
+    let answers = node.home().join("answers.jsonl");
+    let answered = wait_for("the agent's answers", || {
+        let raw = std::fs::read_to_string(&answers).ok()?;
+        (raw.lines().count() >= 2).then_some(raw)
+    });
+    let call: Value = serde_json::from_str(answered.lines().nth(1).unwrap()).unwrap();
+    call["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string()
+}
+
+/// A desktop drives the node while the node runs a workspace of its own:
+/// what that workspace's agent asks, and its pane's briefing, are answered
+/// by the node and never sent to the desktop, which would answer them too,
+/// about a pane it does not know, and be believed when it answers first.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_request_of_the_node_s_own_pane_never_reaches_the_desktop() {
+    let (node, project) = tokio::task::spawn_blocking(node_with_an_asking_claude)
+        .await
+        .unwrap();
+    let node = Arc::new(node);
+    let mut events = node.socket("/node/events?control=1").await;
+    assert_eq!(node.get("/node/info").1["drivers"], 1);
+
+    let making = node.clone();
+    let text = tokio::task::spawn_blocking(move || {
+        let (status, made) = making.post(
+            "/node/own/workspaces",
+            json!({ "name": "Project", "cwd": project.to_str().unwrap() }),
+        );
+        assert_eq!(status, 200, "{made}");
+        workspaces_answered(&making)
+    })
+    .await
+    .unwrap();
+    assert!(text.contains("Project"), "{text}");
+
+    // An agent in no pane asks next: with a desktop there, that one is the
+    // desktop's, and it is the first request the desktop hears of.
+    let asking = node.clone();
+    let outside =
+        tokio::task::spawn_blocking(move || asking.post("/api/control/pane_list", json!({})));
+    let request = next_control(&mut events).await;
+    assert_eq!(request["payload"]["op"], "pane_list", "{request}");
+    let heard: Vec<&Value> = events
+        .frames
+        .iter()
+        .filter(|frame| {
+            frame["event"]
+                .as_str()
+                .is_some_and(|name| name.starts_with("control:"))
+        })
+        .collect();
+    assert_eq!(heard.len(), 1, "only the outside agent's: {heard:?}");
+    let id = request["id"].as_str().unwrap().to_string();
+    let replying = node.clone();
+    tokio::task::spawn_blocking(move || {
+        replying.post(
+            &format!("/node/control/{id}/reply"),
+            json!({ "ok": true, "value": [] }),
+        )
+    })
+    .await
+    .unwrap();
+    assert_eq!(outside.await.unwrap().0, 200);
+}
+
+/// A workspace the node runs itself, with no desktop: made through the
+/// API, its orchestrator's shell started and Claude Code typed in it, the
+/// requests of that Claude Code answered by the node, and the workspace
+/// still there after the node restarts.
+#[test]
+fn a_workspace_of_the_node_s_own_runs_with_no_desktop() {
+    let (node, project) = node_with_an_asking_claude();
 
     let (status, made) = node.post(
         "/node/own/workspaces",
@@ -1340,17 +1416,14 @@ fn a_workspace_of_the_node_s_own_runs_with_no_desktop() {
         node.pane(&pane).filter(|p| p["alive"] == true)
     });
     // Its Claude Code reached the node, which answered with no desktop.
-    let answers = node.home().join("answers.jsonl");
-    let answered = wait_for("the agent's answers", || {
-        let raw = std::fs::read_to_string(&answers).ok()?;
-        (raw.lines().count() >= 2).then_some(raw)
-    });
-    let call: Value = serde_json::from_str(answered.lines().nth(1).unwrap()).unwrap();
-    let text = call["result"]["content"][0]["text"]
-        .as_str()
-        .unwrap_or_default();
-    assert!(text.contains("Project"), "{answered}");
-    assert!(!text.contains("not connected"), "{answered}");
+    let text = workspaces_answered(&node);
+    assert!(text.contains("Project"), "{text}");
+    assert!(!text.contains("not connected"), "{text}");
+    // An agent in no pane (started by hand on the node) is answered about
+    // the node's own workspaces too, while no desktop drives the node.
+    let (status, listed) = node.post("/api/control/workspace_list", json!({}));
+    assert_eq!(status, 200, "{listed}");
+    assert!(listed.to_string().contains("Project"), "{listed}");
 
     // A folder that is not one is refused.
     let (status, _) = node.post(

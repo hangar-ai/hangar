@@ -16,8 +16,12 @@ use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::{self, Term, TermMode};
 use alacritty_terminal::vte::ansi::Processor;
 
-/// The lines kept above the screen.
-const HISTORY: usize = 5_000;
+/// The rows kept above the screen: what an agent's longest read (1,000
+/// lines, `control/panes.rs`) takes when its lines wrap onto two rows each.
+/// Nobody scrolls a screen with no window, and each row kept is paid for in
+/// every pane: 120 columns of cells are 2.9 kB, 5.8 MiB for these rows
+/// (benches/scale.rs, `memory`).
+pub const HISTORY: usize = 2_000;
 
 /// What the emulator says back to the program.
 #[derive(Clone, Default)]
@@ -70,11 +74,16 @@ impl std::fmt::Debug for Screen {
 
 impl Screen {
     pub fn new(columns: u16, rows: u16) -> Screen {
+        Screen::with_history(columns, rows, HISTORY)
+    }
+
+    /// A screen keeping `history` rows above what shows.
+    pub fn with_history(columns: u16, rows: u16, history: usize) -> Screen {
         let columns = (columns as usize).max(term::MIN_COLUMNS);
         let rows = (rows as usize).max(term::MIN_SCREEN_LINES);
         let answers = Answers::default();
         let config = term::Config {
-            scrolling_history: HISTORY,
+            scrolling_history: history,
             ..term::Config::default()
         };
         Screen {
@@ -314,6 +323,20 @@ mod tests {
         drop(held);
         screens.close("ada");
         assert_eq!(screens.read("ada", |s| s.lines(5)), None);
+    }
+
+    #[test]
+    fn the_longest_read_is_served_long_after_it_scrolled_away() {
+        let mut screen = Screen::new(120, 40);
+        for line in 0..(HISTORY * 3) {
+            screen.feed(format!("line {line}\r\n").as_bytes());
+        }
+        let read = screen.lines(1_000);
+        assert_eq!(read.len(), 1_000);
+        assert_eq!(read[999], format!("line {}", HISTORY * 3 - 1));
+        assert_eq!(read[0], format!("line {}", HISTORY * 3 - 1_000));
+        // What is kept is bounded: the rows above the screen, and the screen.
+        assert!(screen.lines(usize::MAX).len() <= HISTORY + 40);
     }
 
     #[test]

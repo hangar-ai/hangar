@@ -133,10 +133,13 @@ impl Terminals for NodeTerminals {
     }
 }
 
-/// Whether the control request `args` (an agent's when `internal` is false,
-/// else Hangar's own, a pane's briefing) is about one of the node's own
-/// panes: the node answers it, not a desktop.
-pub fn owns(own: &EngineHost, args: &Value, internal: bool) -> bool {
+/// Whether the node answers the control request `args` (an agent's when
+/// `internal` is false, else Hangar's own, a pane's briefing) itself, not a
+/// desktop: it is about one of the node's own panes; or it comes from no
+/// pane at all (an agent started by hand on the node, or in a pane with no
+/// token of its own), no desktop drives the node (`desktops` is 0) and the
+/// node has workspaces of its own to answer about.
+pub fn owns(own: &EngineHost, args: &Value, internal: bool, desktops: usize) -> bool {
     let pane = if internal {
         args.get("paneId")
             .and_then(Value::as_str)
@@ -144,7 +147,10 @@ pub fn owns(own: &EngineHost, args: &Value, internal: bool) -> bool {
     } else {
         hangar_engine::control::types::Caller::of(args).pane_id
     };
-    pane.is_some_and(|pane| own.has_pane(&pane))
+    match pane {
+        Some(pane) => own.has_pane(&pane),
+        None => !internal && desktops == 0 && !own.snapshot().state.workspaces.is_empty(),
+    }
 }
 
 /// The node's own workspaces, as `GET /node/own` lists them.

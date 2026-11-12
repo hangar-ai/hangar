@@ -38,6 +38,19 @@ mod reply {
 const HOURGLASS: &str = "%E2%8F%B3";
 const CHECK: &str = "%E2%9C%85";
 
+/// What is said on Discord of a modal, once its work is done in Hangar.
+enum After {
+    /// The pane's ask is settled, in these words.
+    Settled(String, String),
+    /// The message the modal came from becomes this card.
+    Card(Value),
+    /// To the person alone.
+    Whisper(String),
+    /// What was asked no longer stands.
+    Gone,
+    Nothing,
+}
+
 /// Where an interaction answers.
 struct Interaction {
     id: String,
@@ -407,6 +420,15 @@ impl Bot {
         }
     }
 
+    /// Acknowledges the click while `work` is done, and waits for both:
+    /// what the person clicked reaches the agent without waiting on
+    /// Discord's answer, and what is said of it afterwards (the card
+    /// settled, an error whispered) finds the click acknowledged.
+    async fn acknowledged<T>(&self, i: &Interaction, work: impl Future<Output = T>) -> T {
+        let (_, done) = tokio::join!(self.respond(i, reply::DEFERRED_UPDATE, None), work);
+        done
+    }
+
     /// The message the interaction came from (or its deferred answer), as
     /// `body` now.
     async fn edit_original(&self, i: &Interaction, body: Value) {
@@ -545,16 +567,20 @@ impl Bot {
                 self.respond(i, reply::MODAL, Some(modal)).await
             }
             Click::Permit { pane, allow } => {
-                self.respond(i, reply::DEFERRED_UPDATE, None).await;
                 let Some((ws, found)) = self.located(&pane) else {
+                    self.respond(i, reply::DEFERRED_UPDATE, None).await;
                     return self.whisper(i, "This pane is gone.").await;
                 };
                 let prompt = match self.ask_of(&pane).map(|a| a.pending) {
                     Some(ChatPending::Permission { prompt, .. }) => Some(prompt),
                     _ => None,
                 };
-                let done =
-                    desk::permit(&port, &desk_, &ws.id, &found.id, allow, prompt.as_deref()).await;
+                let done = self
+                    .acknowledged(
+                        i,
+                        desk::permit(&port, &desk_, &ws.id, &found.id, allow, prompt.as_deref()),
+                    )
+                    .await;
                 match done {
                     Ok(_) => {
                         let said = if allow {
@@ -568,29 +594,32 @@ impl Bot {
                 }
             }
             Click::Choose { pane, option } => {
-                self.respond(i, reply::DEFERRED_UPDATE, None).await;
-                let Some(ChatPending::Question {
-                    tool_use_id,
-                    questions,
-                }) = self.ask_of(&pane).map(|a| a.pending)
-                else {
-                    return self.gone(i).await;
+                let asked = match self.ask_of(&pane).map(|a| a.pending) {
+                    Some(ChatPending::Question {
+                        tool_use_id,
+                        questions,
+                    }) => questions
+                        .first()
+                        .and_then(|q| q.options.get(option))
+                        .map(|o| (tool_use_id, o.label.clone())),
+                    _ => None,
                 };
-                let Some(label) = questions
-                    .first()
-                    .and_then(|q| q.options.get(option))
-                    .map(|o| o.label.clone())
+                let (Some((tool_use_id, label)), Some((ws, found))) = (asked, self.located(&pane))
                 else {
-                    return self.gone(i).await;
-                };
-                let Some((ws, found)) = self.located(&pane) else {
+                    self.respond(i, reply::DEFERRED_UPDATE, None).await;
                     return self.gone(i).await;
                 };
                 let answers = [Answer {
                     selected: vec![label.clone()],
                     other: None,
                 }];
-                match desk::answer(&port, &desk_, &ws.id, &found.id, &tool_use_id, &answers).await {
+                let answered = self
+                    .acknowledged(
+                        i,
+                        desk::answer(&port, &desk_, &ws.id, &found.id, &tool_use_id, &answers),
+                    )
+                    .await;
+                match answered {
                     Ok(_) => {
                         let said = format!("{} : {label}", words.answered());
                         self.settled_here(i, &pane, &said).await
@@ -602,25 +631,29 @@ impl Bot {
                 pane,
                 approve: true,
             } => {
-                self.respond(i, reply::DEFERRED_UPDATE, None).await;
                 let Some((ws, found)) = self.located(&pane) else {
+                    self.respond(i, reply::DEFERRED_UPDATE, None).await;
                     return self.gone(i).await;
                 };
                 let prompt = match self.ask_of(&pane).map(|a| a.pending) {
                     Some(ChatPending::Permission { prompt, .. }) => Some(prompt),
                     _ => None,
                 };
-                match desk::plan(
-                    &port,
-                    &desk_,
-                    &ws.id,
-                    &found.id,
-                    true,
-                    None,
-                    prompt.as_deref(),
-                )
-                .await
-                {
+                let approved = self
+                    .acknowledged(
+                        i,
+                        desk::plan(
+                            &port,
+                            &desk_,
+                            &ws.id,
+                            &found.id,
+                            true,
+                            None,
+                            prompt.as_deref(),
+                        ),
+                    )
+                    .await;
+                match approved {
                     Ok(_) => self.settled_here(i, &pane, words.plan_approved()).await,
                     Err(error) => self.whisper(i, &error).await,
                 }
@@ -628,14 +661,13 @@ impl Bot {
             Click::Deliver {
                 task, land: true, ..
             } => {
-                self.respond(i, reply::DEFERRED_UPDATE, None).await;
-                let landed = hangar_engine::mobile::engine::run(
-                    "remote_land",
-                    &json!({ "task": task }),
-                    &port,
-                    &desk_,
-                )
-                .await;
+                let landing = json!({ "task": task });
+                let landed = self
+                    .acknowledged(
+                        i,
+                        hangar_engine::mobile::engine::run("remote_land", &landing, &port, &desk_),
+                    )
+                    .await;
                 match landed {
                     Ok(_) => {
                         let card = cards::settled(words.landed(), Some(&i.user), now_secs(), words);
@@ -655,11 +687,14 @@ impl Bot {
                 }
             }
             Click::Stop { pane } => {
-                self.respond(i, reply::DEFERRED_UPDATE, None).await;
                 let Some((ws, found)) = self.located(&pane) else {
+                    self.respond(i, reply::DEFERRED_UPDATE, None).await;
                     return self.gone(i).await;
                 };
-                if let Err(error) = desk::interrupt(&port, &desk_, &ws.id, &found.id).await {
+                let stopped = self
+                    .acknowledged(i, desk::interrupt(&port, &desk_, &ws.id, &found.id))
+                    .await;
+                if let Err(error) = stopped {
                     self.whisper(i, &error).await;
                 }
             }
@@ -677,12 +712,32 @@ impl Bot {
     }
 
     async fn on_modal(&self, i: &Interaction, click: Click, values: Vec<(String, Value)>) {
-        let words = self.words();
-        let port = self.host().port();
         let Some(desk_) = self.host().desk() else {
             return;
         };
-        self.respond(i, reply::DEFERRED_UPDATE, None).await;
+        let after = self
+            .acknowledged(i, self.modal_done(i, click, values, &desk_))
+            .await;
+        match after {
+            After::Settled(pane, said) => self.settled_here(i, &pane, &said).await,
+            After::Card(card) => self.edit_original(i, card).await,
+            After::Whisper(error) => self.whisper(i, &error).await,
+            After::Gone => self.gone(i).await,
+            After::Nothing => {}
+        }
+    }
+
+    /// What a modal sent is done with, in Hangar; what to say of it on
+    /// Discord comes back.
+    async fn modal_done(
+        &self,
+        i: &Interaction,
+        click: Click,
+        values: Vec<(String, Value)>,
+        desk_: &hangar_engine::mobile::engine::Mobile,
+    ) -> After {
+        let words = self.words();
+        let port = self.host().port();
         let text = |id: &str| {
             value_of(&values, id)
                 .and_then(Value::as_str)
@@ -697,20 +752,20 @@ impl Bot {
                     questions,
                 }) = self.ask_of(&pane).map(|a| a.pending)
                 else {
-                    return self.gone(i).await;
+                    return After::Gone;
                 };
                 let Some((ws, found)) = self.located(&pane) else {
-                    return self.gone(i).await;
+                    return After::Gone;
                 };
                 let answers = answers_of(&questions, &values);
-                match desk::answer(&port, &desk_, &ws.id, &found.id, &tool_use_id, &answers).await {
-                    Ok(_) => self.settled_here(i, &pane, words.answered()).await,
-                    Err(error) => self.whisper(i, &error).await,
+                match desk::answer(&port, desk_, &ws.id, &found.id, &tool_use_id, &answers).await {
+                    Ok(_) => After::Settled(pane, words.answered().to_string()),
+                    Err(error) => After::Whisper(error),
                 }
             }
             Click::Plan { pane, .. } => {
                 let Some((ws, found)) = self.located(&pane) else {
-                    return self.gone(i).await;
+                    return After::Gone;
                 };
                 let prompt = match self.ask_of(&pane).map(|a| a.pending) {
                     Some(ChatPending::Permission { prompt, .. }) => Some(prompt),
@@ -719,7 +774,7 @@ impl Bot {
                 let feedback = text("text");
                 match desk::plan(
                     &port,
-                    &desk_,
+                    desk_,
                     &ws.id,
                     &found.id,
                     false,
@@ -728,8 +783,8 @@ impl Bot {
                 )
                 .await
                 {
-                    Ok(_) => self.settled_here(i, &pane, words.plan_sent_back()).await,
-                    Err(error) => self.whisper(i, &error).await,
+                    Ok(_) => After::Settled(pane, words.plan_sent_back().to_string()),
+                    Err(error) => After::Whisper(error),
                 }
             }
             Click::Deliver { task, .. } => {
@@ -737,19 +792,20 @@ impl Bot {
                     "remote_rework",
                     &json!({ "task": task, "text": text("text") }),
                     &port,
-                    &desk_,
+                    desk_,
                 )
                 .await;
                 match reworked {
-                    Ok(_) => {
-                        let card =
-                            cards::settled(words.sent_back(), Some(&i.user), now_secs(), words);
-                        self.edit_original(i, card).await
-                    }
-                    Err(error) => self.whisper(i, &error).await,
+                    Ok(_) => After::Card(cards::settled(
+                        words.sent_back(),
+                        Some(&i.user),
+                        now_secs(),
+                        words,
+                    )),
+                    Err(error) => After::Whisper(error),
                 }
             }
-            _ => {}
+            _ => After::Nothing,
         }
     }
 

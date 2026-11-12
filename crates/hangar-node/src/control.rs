@@ -120,9 +120,24 @@ impl Drivers {
     }
 }
 
+/// Whether `event` is a control request the node answers itself ([`watch`]):
+/// one that is not sent to the desktops following the node's events.
+pub fn answered_here(node: &crate::api::Node, event: &Event) -> bool {
+    let (request, internal) = match event {
+        Event::ControlRequest(request) => (request, false),
+        Event::ControlInternal(request) => (request, true),
+        _ => return false,
+    };
+    node.own
+        .as_ref()
+        .is_some_and(|own| crate::own::owns(own, &request.args, internal, node.drivers.connected()))
+}
+
 /// Watches core's control requests for as long as the node runs: those of
-/// the panes the node runs itself are answered here (own.rs); of the others,
-/// those no desktop will hear of are refused at once.
+/// the panes the node runs itself are answered here (own.rs), and, while no
+/// desktop drives a node that has workspaces of its own, those of an agent
+/// in no pane; of the others, those no desktop will hear of are refused at
+/// once.
 pub fn watch(host: &Host, drivers: Arc<Drivers>, own: Option<EngineHost>) {
     let mut receiver = host.subscribe();
     tokio::spawn(async move {
@@ -135,7 +150,7 @@ pub fn watch(host: &Host, drivers: Arc<Drivers>, own: Option<EngineHost>) {
             };
             if let Some(own) = own
                 .as_ref()
-                .filter(|own| crate::own::owns(own, &request.args, internal))
+                .filter(|own| crate::own::owns(own, &request.args, internal, drivers.connected()))
             {
                 let own = own.clone();
                 tokio::spawn(async move {

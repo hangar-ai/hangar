@@ -8,15 +8,24 @@
 //!   Discord (a fake one, `tests/support/fake.rs`) takes 150 ms to answer
 //!   each call, as it does from a server far from it. What matters is what
 //!   reached the server: every turn's card folded and every answer posted,
-//!   and how long after the last report.
+//!   and how long after the last report;
+//! - `person`: the person at their server while those sixteen agents keep
+//!   working: a click on an agent's Stop and a message to it, forty times.
+//!   How long until Discord has the click's acknowledgement (it shows
+//!   "interaction failed" after 3 s), until the pane has the key, and until
+//!   the agent has the message;
+//! - `idle`: the connector beside 8, 50 and 200 workspaces where nothing
+//!   happens: the processor it takes, and what it sends Discord (nothing).
 //!
-//! Options, after `--`: `--only answers|burst`, `--agents N`, `--turns N`,
-//! `--calls N`, `--rate N` (reports a second), `--latency MS`.
+//! Options, after `--`: `--only answers|burst|person|idle`, `--agents N`,
+//! `--turns N`, `--calls N`, `--rate N` (reports a second), `--latency MS`,
+//! `--rounds N`.
 
 #[path = "../tests/support/fake.rs"]
 mod fake;
 
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use serde_json::json;
@@ -27,13 +36,45 @@ use hangar_engine::host::{Config, EngineHost, Spawn, TermSink, Terminals};
 use hangar_engine::state::types::{AgentId, AppState, Pane, PaneRole, Settings, Workspace};
 use hangar_i18n::Locale;
 
-struct Shells;
+/// Shells that run nothing, and keep what was typed into them and when.
+#[derive(Default)]
+struct Shells {
+    typed: Mutex<Vec<(String, String, Instant)>>,
+}
+
+impl Shells {
+    /// When `pane` was first typed something `found` holds true for, past
+    /// its first `skip` writes.
+    fn typed_at(&self, pane: &str, skip: usize, found: impl Fn(&str) -> bool) -> Option<Instant> {
+        self.typed
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|(to, _, _)| to == pane)
+            .skip(skip)
+            .find(|(_, data, _)| found(data))
+            .map(|(_, _, at)| *at)
+    }
+
+    fn writes(&self, pane: &str) -> usize {
+        self.typed
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|(to, _, _)| to == pane)
+            .count()
+    }
+}
 
 impl Terminals for Shells {
     fn spawn(&self, _spawn: Spawn, _sink: TermSink) -> Result<(), String> {
         Ok(())
     }
-    fn write(&self, _pane: &str, _data: &str) -> Result<(), String> {
+    fn write(&self, pane: &str, data: &str) -> Result<(), String> {
+        self.typed
+            .lock()
+            .unwrap()
+            .push((pane.to_string(), data.to_string(), Instant::now()));
         Ok(())
     }
     fn alive(&self, _pane: &str) -> bool {
@@ -106,13 +147,20 @@ fn bench_answers() {
     );
 }
 
-async fn bench_burst() {
-    let agents = number("--agents", 16) as usize;
-    let turns = number("--turns", 3) as usize;
-    let calls = number("--calls", 30) as usize;
-    let rate = number("--rate", 800);
-    let latency = Duration::from_millis(number("--latency", 150));
+/// A Hangar of `agents` workspaces, one orchestrator each, with its
+/// connector on a fake Discord that takes `latency` to answer.
+struct Rig {
+    root: tempfile::TempDir,
+    core: hangar_core::Host,
+    host: EngineHost,
+    shells: Arc<Shells>,
+    discord: fake::Discord,
+    dir: std::path::PathBuf,
+    /// How long the server took to be made, and in how many calls.
+    made: (Duration, usize),
+}
 
+async fn rig(agents: usize, latency: Duration) -> Rig {
     let root = tempfile::tempdir().unwrap();
     let state = AppState {
         workspaces: (0..agents)
@@ -141,9 +189,10 @@ async fn bench_burst() {
     let file = dir.join("state.json");
     hangar_engine::host::write_state_file(&file, &serde_json::to_value(&state).unwrap()).unwrap();
     let core = hangar_core::Host::with_paths(hangar_core::paths::Paths::rooted(root.path()));
+    let shells = Arc::new(Shells::default());
     let host = EngineHost::load(Config {
         core: core.clone(),
-        terminals: Arc::new(Shells),
+        terminals: shells.clone(),
         state_file: file,
     })
     .unwrap();
@@ -164,27 +213,51 @@ async fn bench_burst() {
     };
     tokio::spawn(hangar_discord::run(Arc::new(host.clone()), options));
 
-    // Every workspace has its channel and its dashboard before the burst.
+    // Every workspace has its channel and its dashboard before anything
+    // is measured.
     let ready = Instant::now();
     while discord.calls_to("PUT", "/channels/").len() < agents {
         assert!(
-            ready.elapsed() < Duration::from_secs(120),
+            ready.elapsed() < Duration::from_secs(300),
             "the server was never made"
         );
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
-    let setup_calls = discord.calls().len();
+    let made = (ready.elapsed(), discord.calls().len());
+    Rig {
+        root,
+        core,
+        host,
+        shells,
+        discord,
+        dir,
+        made,
+    }
+}
+
+fn report(core: &hangar_core::Host, pane: String, event: serde_json::Value) {
+    let _ = core.emit(hangar_core::Event::BridgeEvent {
+        pane_id: pane,
+        event,
+    });
+}
+
+async fn bench_burst() {
+    let agents = number("--agents", 16) as usize;
+    let turns = number("--turns", 3) as usize;
+    let calls = number("--calls", 30) as usize;
+    let rate = number("--rate", 800);
+    let latency = Duration::from_millis(number("--latency", 150));
+
+    let rig = rig(agents, latency).await;
+    let (core, host, discord) = (&rig.core, &rig.host, &rig.discord);
+    let setup_calls = rig.made.1;
     println!(
         "burst    the server made for {agents} workspaces in {:.1} s ({setup_calls} calls)",
-        ready.elapsed().as_secs_f64()
+        rig.made.0.as_secs_f64()
     );
 
-    let emit = |pane: String, event: serde_json::Value| {
-        let _ = core.emit(hangar_core::Event::BridgeEvent {
-            pane_id: pane,
-            event,
-        });
-    };
+    let emit = |pane: String, event: serde_json::Value| report(core, pane, event);
     for w in 0..agents {
         emit(
             format!("o{w}"),
@@ -275,6 +348,231 @@ async fn bench_burst() {
     host.shutdown().await;
 }
 
+/// `values`, sorted: its median, its 95th of a hundred, its largest.
+fn spread(values: &mut [Duration]) -> String {
+    values.sort();
+    let ms = |d: Duration| d.as_secs_f64() * 1000.0;
+    match values {
+        [] => "never".to_string(),
+        _ => format!(
+            "median {:6.1} ms   95th {:6.1} ms   slowest {:6.1} ms",
+            ms(values[values.len() / 2]),
+            ms(values[(values.len() * 95 / 100).min(values.len() - 1)]),
+            ms(values[values.len() - 1]),
+        ),
+    }
+}
+
+/// Polls `found` every millisecond, for `patience` at most.
+async fn seen<T>(patience: Duration, found: impl Fn() -> Option<T>) -> Option<T> {
+    let began = Instant::now();
+    loop {
+        if let Some(value) = found() {
+            return Some(value);
+        }
+        if began.elapsed() > patience {
+            return None;
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
+async fn bench_person() {
+    let agents = number("--agents", 16) as usize;
+    let calls = number("--calls", 30) as usize;
+    let rate = number("--rate", 800);
+    let rounds = number("--rounds", 40) as usize;
+    let latency = Duration::from_millis(number("--latency", 150));
+
+    let rig = rig(agents, latency).await;
+    let discord = &rig.discord;
+    let layout = hangar_discord::config::Layout::load(&rig.dir).unwrap();
+
+    // The agents work for as long as the person is there: turn after turn
+    // of tool calls, reported at `rate` a second.
+    let stop = Arc::new(AtomicBool::new(false));
+    let working = {
+        let (core, stop) = (rig.core.clone(), stop.clone());
+        std::thread::spawn(move || {
+            for w in 0..agents {
+                report(
+                    &core,
+                    format!("o{w}"),
+                    json!({ "kind": "hello", "sessionId": format!("s{w}"), "model": "opus", "version": "2.1" }),
+                );
+            }
+            let gap = Duration::from_micros(1_000_000 / rate.max(1));
+            let mut next = Instant::now();
+            let mut pace = || {
+                next += gap;
+                let now = Instant::now();
+                if next > now {
+                    std::thread::sleep(next - now);
+                }
+            };
+            let mut turn = 0usize;
+            while !stop.load(Ordering::Relaxed) {
+                for w in 0..agents {
+                    report(
+                        &core,
+                        format!("o{w}"),
+                        json!({ "kind": "turn", "phase": "start" }),
+                    );
+                    pace();
+                }
+                for c in 0..calls {
+                    if stop.load(Ordering::Relaxed) {
+                        return;
+                    }
+                    for w in 0..agents {
+                        report(
+                            &core,
+                            format!("o{w}"),
+                            json!({ "kind": "tool", "phase": "start", "toolUseId": format!("t{turn}-{c}"),
+                                    "tool": "Bash", "input": { "command": format!("cargo test step-{c}") } }),
+                        );
+                        pace();
+                        report(
+                            &core,
+                            format!("o{w}"),
+                            json!({ "kind": "tool", "phase": "end", "toolUseId": format!("t{turn}-{c}") }),
+                        );
+                        pace();
+                    }
+                }
+                for w in 0..agents {
+                    report(
+                        &core,
+                        format!("o{w}"),
+                        json!({ "kind": "turn", "phase": "end", "reason": "answer", "durationMs": 1000,
+                                "answer": format!("Answer of agent {w}, turn {turn}.") }),
+                    );
+                    pace();
+                }
+                turn += 1;
+            }
+        })
+    };
+    tokio::time::sleep(Duration::from_secs(2)).await;
+
+    let (mut acked, mut stopped, mut given) = (Vec::new(), Vec::new(), Vec::new());
+    for round in 0..rounds {
+        let w = round % agents;
+        let pane = format!("o{w}");
+        let channel = layout.workspaces[&format!("w{w}")].channel.clone();
+
+        // A click on the agent's Stop.
+        let id = format!("i{round}");
+        let before = rig.shells.writes(&pane);
+        let clicked = Instant::now();
+        discord.send(
+            "INTERACTION_CREATE",
+            json!({ "id": id, "token": format!("{id}tok"), "type": 3, "channel_id": channel,
+                    "member": { "user": { "id": "u1" } },
+                    "data": { "custom_id": format!("s:{pane}") }, "message": { "id": "1" } }),
+        );
+        let callback = format!("/interactions/{id}/{id}tok/callback");
+        let patience = Duration::from_secs(10);
+        if let Some(at) = seen(patience, || {
+            discord.calls_to("POST", &callback).first().map(|c| c.at)
+        })
+        .await
+        {
+            acked.push(at.saturating_duration_since(clicked));
+        }
+        // An agent between two turns has nothing to stop: no key then.
+        let escape = |data: &str| data.contains('\u{1b}');
+        if let Some(at) = seen(Duration::from_secs(1), || {
+            rig.shells.typed_at(&pane, before, escape)
+        })
+        .await
+        {
+            stopped.push(at.saturating_duration_since(clicked));
+        }
+
+        // A message to the agent: typed into its pane, or queued for its
+        // turn's end (the hourglass on the message).
+        let (message, text) = (format!("m{round}"), format!("note {round} for agent {w}"));
+        let before = rig.shells.writes(&pane);
+        let wrote = Instant::now();
+        discord.send(
+            "MESSAGE_CREATE",
+            json!({ "id": message, "channel_id": channel, "content": text,
+                    "author": { "id": "u1" } }),
+        );
+        let reaction = format!("/channels/{channel}/messages/{message}/reactions/");
+        let handed = seen(patience, || {
+            rig.shells
+                .typed_at(&pane, before, |data| data.contains(&text))
+                .or_else(|| discord.calls_to("PUT", &reaction).first().map(|c| c.at))
+        })
+        .await;
+        if let Some(at) = handed {
+            given.push(at.saturating_duration_since(wrote));
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    stop.store(true, Ordering::Relaxed);
+    let _ = working.join();
+
+    println!(
+        "person   {agents} agents at work ({rate} reports a second), Discord answering in {} ms; {rounds} clicks and {rounds} messages",
+        latency.as_millis()
+    );
+    println!(
+        "person   a click acknowledged at Discord   {}/{rounds}   {}",
+        acked.len(),
+        spread(&mut acked)
+    );
+    println!(
+        "person   Escape in the agent's pane        {}/{rounds}   {}",
+        stopped.len(),
+        spread(&mut stopped)
+    );
+    println!(
+        "person   a message handed to its agent     {}/{rounds}   {}",
+        given.len(),
+        spread(&mut given)
+    );
+    rig.host.shutdown().await;
+}
+
+/// This process's processor time, in seconds (`/proc/self/stat`).
+fn cpu_seconds() -> f64 {
+    let stat = std::fs::read_to_string("/proc/self/stat").unwrap_or_default();
+    let fields: Vec<&str> = stat
+        .rsplit_once(')')
+        .map(|(_, rest)| rest.split_whitespace().collect())
+        .unwrap_or_default();
+    let ticks = |n: usize| {
+        fields
+            .get(n)
+            .and_then(|f| f.parse::<f64>().ok())
+            .unwrap_or(0.0)
+    };
+    (ticks(11) + ticks(12)) / 100.0
+}
+
+async fn bench_idle() {
+    for workspaces in [8usize, 50, 200] {
+        let rig = rig(workspaces, Duration::ZERO).await;
+        // What the making left to settle.
+        tokio::time::sleep(Duration::from_secs(8)).await;
+        let (calls, cpu, began) = (rig.discord.calls().len(), cpu_seconds(), Instant::now());
+        tokio::time::sleep(Duration::from_secs(20)).await;
+        let seconds = began.elapsed().as_secs_f64();
+        let spent = cpu_seconds() - cpu;
+        println!(
+            "idle     {workspaces:>3} workspaces where nothing happens   {:5.2} ms of processor a second ({:.2} % of one)   {} calls to Discord in {seconds:.0} s",
+            spent * 1000.0 / seconds,
+            spent * 100.0 / seconds,
+            rig.discord.calls().len() - calls,
+        );
+        rig.host.shutdown().await;
+        drop(rig.root);
+    }
+}
+
 fn main() {
     if wanted("answers") {
         bench_answers();
@@ -286,5 +584,20 @@ fn main() {
             .build()
             .unwrap();
         runtime.block_on(bench_burst());
+    }
+    for (name, bench) in [("person", 0), ("idle", 1)] {
+        if !wanted(name) {
+            continue;
+        }
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(4)
+            .enable_all()
+            .build()
+            .unwrap();
+        if bench == 0 {
+            runtime.block_on(bench_person());
+        } else {
+            runtime.block_on(bench_idle());
+        }
     }
 }
