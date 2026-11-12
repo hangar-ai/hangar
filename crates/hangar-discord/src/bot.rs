@@ -191,6 +191,11 @@ impl Bot {
 
     pub(crate) fn save_layout(&self) {
         let _saving = self.0.saving.lock().unwrap_or_else(PoisonError::into_inner);
+        // A connector that stopped writes nothing more: the one started in
+        // its place, maybe with another bot, has the files now.
+        if self.0.lanes.closed() {
+            return;
+        }
         let layout = self.state().layout.clone();
         if let Err(error) = layout.save(&self.0.dir) {
             eprintln!("discord: the layout could not be saved: {error}");
@@ -199,6 +204,9 @@ impl Bot {
 
     pub(crate) fn save_settings(&self) {
         let _saving = self.0.saving.lock().unwrap_or_else(PoisonError::into_inner);
+        if self.0.lanes.closed() {
+            return;
+        }
         let settings = self.state().settings.clone();
         if let Err(error) = settings.save(&self.0.dir) {
             eprintln!("discord: the settings could not be saved: {error}");
@@ -471,7 +479,13 @@ pub async fn run(host: Arc<dyn Hangar>, options: Options) -> Result<(), String> 
             .unwrap_or("wss://gateway.discord.gg")
             .to_string(),
     };
-    let layout = Layout::load(&options.dir)?;
+    let me_id = me["id"].as_str().unwrap_or_default().to_string();
+    // Places made on another server, or by another bot, are not this
+    // one's: kept, nothing would be made on the server it is on now.
+    let mut layout = Layout::load(&options.dir)?;
+    if layout.stand_for(&settings.guild, &me_id) {
+        layout.save(&options.dir)?;
+    }
     let token = settings.token.clone();
     let bot = Bot(Arc::new(Inner {
         host: host.clone(),
@@ -483,14 +497,16 @@ pub async fn run(host: Arc<dyn Hangar>, options: Options) -> Result<(), String> 
         state: Mutex::new(State {
             settings,
             layout,
-            me: me["id"].as_str().unwrap_or_default().to_string(),
+            me: me_id,
             app: app["id"].as_str().unwrap_or_default().to_string(),
             dirty: true,
             ..State::default()
         }),
     }));
     // What runs beside the loop ends with it (the set aborts its tasks when
-    // dropped): the gateway's connection, and the task that hears core.
+    // dropped): the gateway's connection, and the task that hears core. So
+    // do the lanes, closed when this ends however it ends.
+    let _closing = Closing(bot.clone());
     let mut beside = tokio::task::JoinSet::new();
     // The gateway first: the events of the moments the structure takes to
     // make wait in the channel rather than go unheard.
@@ -518,6 +534,15 @@ pub async fn run(host: Arc<dyn Hangar>, options: Options) -> Result<(), String> 
             }
             _ = tick.tick() => bot.tick(),
         }
+    }
+}
+
+/// Closes the bot's lanes when the connector's loop ends or is cut.
+struct Closing(Bot);
+
+impl Drop for Closing {
+    fn drop(&mut self) {
+        self.0.0.lanes.close();
     }
 }
 
@@ -607,7 +632,9 @@ impl Bot {
                 });
             }
             "INTERACTION_CREATE" => {
-                tokio::spawn(async move { bot.on_dispatch(dispatch).await });
+                self.0
+                    .lanes
+                    .beside(async move { bot.on_dispatch(dispatch).await });
             }
             _ => {}
         }

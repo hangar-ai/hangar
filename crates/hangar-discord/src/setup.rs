@@ -34,6 +34,20 @@ pub fn bot_id(token: &str) -> Option<String> {
     (!id.is_empty() && id.chars().all(|c| c.is_ascii_digit())).then_some(id)
 }
 
+/// What tells a bot from another without being its token: its id, or, for
+/// a token that does not read as one, a number made of it that gives none
+/// of it back. What a desktop and its nodes name the bot they share by.
+pub fn bot_mark(token: &str) -> String {
+    bot_id(token).unwrap_or_else(|| {
+        let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+        for byte in token.trim().bytes() {
+            hash ^= u64::from(byte);
+            hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+        format!("t{hash:016x}")
+    })
+}
+
 fn base64_decode(text: &str) -> Option<Vec<u8>> {
     let value = |c: u8| -> Option<u32> {
         Some(match c {

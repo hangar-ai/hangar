@@ -17,18 +17,24 @@
 //! **One bot with the desktop.** The desktop that drives the node shares its
 //! own bot with it (`PUT /node/discord/shared`): the node's workspaces get
 //! channels of their own on the desktop's server, in categories named after
-//! the node, and its bot answers in them, the desktop in its own. While no
-//! desktop drives the node, the node's bot leads: it answers where neither
-//! made a channel too. A node set up on its own (`discord setup`, another
-//! bot) keeps it: the desktop's settings are refused.
+//! the node, and its bot answers in them, the desktop in its own. The
+//! desktop that lent the bot says so each time it looks at the node (`GET
+//! /node/discord?lender=<the bot>`, every 10 s): once it has not for
+//! [`LENDER_GONE`] (the PC off, its tunnel down), the node's bot leads: it
+//! answers where neither made a channel too, and still leaves the lender's
+//! channels alone (the PUT names them). A node set up on its own (`discord
+//! setup`, another bot) keeps it, and one that serves a desktop's bot
+//! keeps that one: another desktop's is refused, and only the desktop that
+//! lent a bot takes it back (`DELETE /node/discord/shared?bot=<the bot>`).
 #![cfg(target_os = "linux")]
 
 use std::collections::HashSet;
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
+use std::time::{Duration, Instant};
 
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
@@ -42,12 +48,31 @@ use tokio::task::JoinHandle;
 use crate::api::Shared;
 use crate::control::Drivers;
 
+/// How long after the desktop that lent its bot last said it runs it the
+/// node's bot takes the lead: three of the desktop's looks.
+pub const LENDER_GONE: Duration = Duration::from_secs(30);
+
+/// The desktop whose bot the node serves: when it last said it runs it,
+/// and the channels that are its own (and its other nodes').
+#[derive(Debug, Default)]
+pub struct Lender {
+    seen: Option<Instant>,
+    channels: HashSet<String>,
+}
+
+/// Whether the node's bot answers where no Hangar made a channel: always
+/// with a bot of its own; with a desktop's, once that desktop last said it
+/// runs it `since` ago, [`LENDER_GONE`] or more (`None`: it never did).
+fn leads(shared: bool, since: Option<Duration>) -> bool {
+    !shared || since.is_none_or(|since| since >= LENDER_GONE)
+}
+
 /// The node's workspaces, as its bot serves them.
 struct NodeHangar {
     own: EngineHost,
-    drivers: Arc<Drivers>,
     /// The bot is the desktop's, shared.
     shared: bool,
+    lender: Arc<Mutex<Lender>>,
 }
 
 impl hangar_discord::Hangar for NodeHangar {
@@ -75,14 +100,23 @@ impl hangar_discord::Hangar for NodeHangar {
         self.own.snapshot()
     }
 
-    /// Its own bot, it leads; the desktop's, only while no desktop drives
-    /// the node.
+    /// Its own bot, it leads; the desktop's, only once the desktop that
+    /// lent it stopped saying it runs it.
     fn leads(&self) -> bool {
-        !self.shared || self.drivers.connected() == 0
+        let lender = self.lender.lock().unwrap_or_else(PoisonError::into_inner);
+        leads(self.shared, lender.seen.map(|at| at.elapsed()))
     }
 
+    /// The lender's channels stay its own, the node leading or not.
     fn others(&self) -> HashSet<String> {
-        HashSet::new()
+        if !self.shared {
+            return HashSet::new();
+        }
+        self.lender
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .channels
+            .clone()
     }
 }
 
@@ -90,6 +124,7 @@ impl hangar_discord::Hangar for NodeHangar {
 #[derive(Default)]
 pub struct Connector {
     running: Mutex<Option<JoinHandle<()>>>,
+    lender: Arc<Mutex<Lender>>,
 }
 
 impl Connector {
@@ -104,12 +139,28 @@ impl Connector {
         if !settings.ready() {
             return;
         }
+        let _ = drivers;
         let hangar = Arc::new(NodeHangar {
             own: own.clone(),
-            drivers: drivers.clone(),
             shared: settings.shared,
+            lender: self.lender.clone(),
         });
         *running = Some(tokio::spawn(keep_running(hangar, dir.to_path_buf())));
+    }
+
+    /// The desktop that lent the bot runs it now; `channels`: those that
+    /// are its own, when it says.
+    fn lender_seen(&self, channels: Option<HashSet<String>>) {
+        let mut lender = self.lender.lock().unwrap_or_else(PoisonError::into_inner);
+        lender.seen = Some(Instant::now());
+        if let Some(channels) = channels {
+            lender.channels = channels;
+        }
+    }
+
+    /// Nobody lends the node a bot any more.
+    fn lender_gone(&self) {
+        *self.lender.lock().unwrap_or_else(PoisonError::into_inner) = Lender::default();
     }
 
     pub fn is_running(&self) -> bool {
@@ -143,6 +194,11 @@ pub fn status(dir: &Path, running: bool) -> Value {
         "pairing": settings.pairing,
         "running": running,
         "shared": settings.shared,
+        // Which bot, without its token: what the desktop that lent it
+        // knows it by.
+        "bot": settings
+            .ready()
+            .then(|| hangar_discord::setup::bot_mark(&settings.token)),
         "label": settings.label,
         "channels": hangar_discord::config::Layout::load(dir)
             .map(|layout| layout.channels())
@@ -150,12 +206,28 @@ pub fn status(dir: &Path, running: bool) -> Value {
     })
 }
 
-pub async fn get_status(State(node): State<Shared>) -> Response {
+#[derive(Deserialize)]
+pub struct StatusQuery {
+    /// The bot the asking desktop runs, when it runs one: it lent this
+    /// node's when they are the same.
+    #[serde(default)]
+    lender: Option<String>,
+}
+
+pub async fn get_status(State(node): State<Shared>, Query(query): Query<StatusQuery>) -> Response {
     let dir = match crate::state::dir() {
         Ok(dir) => dir,
         Err(err) => return crate::api::error(axum::http::StatusCode::INTERNAL_SERVER_ERROR, &err),
     };
-    Json(status(&dir, node.discord.is_running())).into_response()
+    let status = status(&dir, node.discord.is_running());
+    if status["shared"] == true
+        && query
+            .lender
+            .is_some_and(|bot| status["bot"].as_str() == Some(bot.as_str()))
+    {
+        node.discord.lender_seen(None);
+    }
+    Json(status).into_response()
 }
 
 pub async fn reload(State(node): State<Shared>) -> Response {
@@ -183,6 +255,10 @@ pub struct SharedBody {
     owner: String,
     #[serde(default)]
     label: Option<String>,
+    /// The channels that are the desktop's own, and its other nodes': the
+    /// node's bot never answers there.
+    #[serde(default)]
+    channels: Vec<String>,
 }
 
 /// `PUT /node/discord/shared`: the desktop's bot serves the node's
@@ -212,6 +288,18 @@ pub async fn share(State(node): State<Shared>, Json(body): Json<SharedBody>) -> 
             "this node has a Discord bot of its own (hangar-node discord off lets the desktop's in)",
         );
     }
+    // The bot of the first desktop that lent one stays until that desktop
+    // takes it back: two desktops would hand theirs over each other's, the
+    // node's bot started again each time.
+    let mark = hangar_discord::setup::bot_mark;
+    if settings.ready() && mark(&settings.token) != mark(&body.token) {
+        return crate::api::error(
+            StatusCode::CONFLICT,
+            "this node serves another Hangar's Discord bot (hangar-node discord off frees it)",
+        );
+    }
+    node.discord
+        .lender_seen(Some(body.channels.iter().cloned().collect()));
     let wanted = Settings {
         token: body.token.trim().to_string(),
         guild: body.guild.trim().to_string(),
@@ -231,19 +319,34 @@ pub async fn share(State(node): State<Shared>, Json(body): Json<SharedBody>) -> 
     Json(json!({ "changed": true })).into_response()
 }
 
-/// `DELETE /node/discord/shared`: the desktop's bot no longer serves the
-/// node (the desktop disconnected it). A bot of the node's own stays.
-pub async fn unshare(State(node): State<Shared>) -> Response {
+#[derive(Deserialize)]
+pub struct UnshareQuery {
+    /// The bot the asking desktop lent: what it takes back.
+    #[serde(default)]
+    bot: Option<String>,
+}
+
+/// `DELETE /node/discord/shared?bot=<the bot>`: the desktop's bot no longer
+/// serves the node (the desktop disconnected it). Only the bot named is
+/// taken back: a bot of the node's own stays, and so does one another
+/// desktop lent.
+pub async fn unshare(State(node): State<Shared>, Query(query): Query<UnshareQuery>) -> Response {
     let dir = match crate::state::dir() {
         Ok(dir) => dir,
         Err(err) => return crate::api::error(StatusCode::INTERNAL_SERVER_ERROR, &err),
     };
     let mut settings = Settings::load(&dir).unwrap_or_default();
-    if !settings.shared {
+    let lent = settings.shared
+        && query
+            .bot
+            .is_some_and(|bot| bot == hangar_discord::setup::bot_mark(&settings.token));
+    if !lent {
         return Json(json!({ "changed": false })).into_response();
     }
+    node.discord.lender_gone();
     settings.token.clear();
     settings.shared = false;
+    settings.label = None;
     if let Err(err) = settings.save(&dir) {
         return crate::api::error(StatusCode::INTERNAL_SERVER_ERROR, &err);
     }
@@ -300,6 +403,10 @@ pub fn setup(args: &[&str]) -> Result<(), String> {
     }
     settings.guild = guild;
     settings.token = token.clone();
+    // Set up here, the bot is the node's own: no desktop's settings follow
+    // (a bot a desktop lent, replaced by this, is not taken back by it).
+    settings.shared = false;
+    settings.label = None;
     let code = settings.pairing_code();
     settings.save(&dir)?;
     if let Some(bot) = hangar_discord::setup::bot_id(&token) {
@@ -352,10 +459,19 @@ pub fn print_status() -> Result<(), String> {
 pub fn off() -> Result<(), String> {
     let dir = crate::state::dir()?;
     let mut settings = Settings::load(&dir)?;
+    let lent = settings.shared && settings.ready();
     settings.token.clear();
+    settings.shared = false;
+    settings.label = None;
     settings.save(&dir)?;
     reload_running();
     println!("Discord: off.");
+    if lent {
+        // Said, rather than left to surprise: the bot was not the node's.
+        println!(
+            "That bot was lent by a desktop Hangar: one that has its Discord connection on hands it again when it next looks at this node. Disconnect Discord there to keep it off."
+        );
+    }
     Ok(())
 }
 
@@ -371,6 +487,19 @@ fn reload_running() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_lent_bot_leads_once_its_lender_is_gone() {
+        // Its own bot: the node's to lead with, whoever looks at it.
+        assert!(leads(false, None));
+        assert!(leads(false, Some(Duration::ZERO)));
+        // A desktop's: the desktop leads while it says it is there (every
+        // 10 s), the node once it stopped (the PC off, its tunnel down),
+        // or before it ever did (the node restarted, the PC off).
+        assert!(!leads(true, Some(Duration::from_secs(12))));
+        assert!(leads(true, Some(LENDER_GONE)));
+        assert!(leads(true, None));
+    }
 
     #[test]
     fn the_status_says_what_is_missing() {

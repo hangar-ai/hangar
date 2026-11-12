@@ -18,8 +18,12 @@
 //! and each node's bot makes and answers its own channels, in categories
 //! named after the node, the PC on or off. The desktop leaves the node's
 //! channels to it (`GET /node/discord` says which) and answers everywhere
-//! else; a node no desktop drives answers there in its place. A node set up
-//! with a bot of its own keeps it.
+//! else; it tells the node which channels are its own, and, each time it
+//! looks (every 10 s), that it runs the bot it lent: a node that stops
+//! hearing so answers everywhere but there in its place. A node set up
+//! with a bot of its own keeps it, and so does one another Hangar lent its
+//! bot to: this one takes back only what it lent (`lent.json`, beside the
+//! settings, remembers which nodes and which bot across restarts).
 
 mod page;
 
@@ -61,10 +65,22 @@ pub struct State {
     /// The channels the nodes' bots made, which the desktop's leaves to
     /// them; shared with the running bot.
     others: Arc<RwLock<HashSet<String>>>,
-    /// What each node said of its bot, by node.
+    /// What each node said of its bot, by node; kept when a node does not
+    /// answer once, its channels still its own.
     nodes: HashMap<String, NodeBot>,
-    /// What was handed to each node, by node: handed again when it changes.
-    handed: HashMap<String, String>,
+    /// What was last handed to each node, by node: handed again when it
+    /// changes.
+    sent: HashMap<String, String>,
+    /// The nodes this desktop lent its bot to, and which bot
+    /// (`setup::bot_mark`): what it may take back, and nothing else. Kept
+    /// on disk, read at the first look.
+    lent: HashMap<String, String>,
+    lent_read: bool,
+    /// The channels this desktop's bot made, as last read.
+    mine: Vec<String>,
+    /// When the settings' file was last changed, as last read: read again
+    /// when it changes, not at every look.
+    saved_stamp: Option<Option<std::time::SystemTime>>,
     /// How many times the settings were read again.
     reconciles: u32,
 }
@@ -75,6 +91,8 @@ pub struct NodeBot {
     pub configured: bool,
     pub shared: bool,
     pub running: bool,
+    /// Which bot it runs (`setup::bot_mark`), never its token.
+    pub bot: Option<String>,
     pub channels: Vec<String>,
 }
 
@@ -84,6 +102,7 @@ impl NodeBot {
             configured: value["configured"] == true,
             shared: value["shared"] == true,
             running: value["running"] == true,
+            bot: value["bot"].as_str().map(str::to_string),
             channels: value["channels"]
                 .as_array()
                 .map(|list| {
@@ -146,16 +165,18 @@ pub enum Msg {
     /// The invite link opened in the browser.
     Invite,
     /// What node `node` said of its bot; `None`: it could not say (an
-    /// older node, or gone).
+    /// older node, or gone). `mine`: the channels this desktop's bot made,
+    /// read beside the asking.
     NodeBot {
         node: String,
         bot: Option<NodeBot>,
+        mine: Vec<String>,
     },
-    /// The desktop's bot handed to node `node` (`handed`: what), or taken
-    /// back from it (`None`).
+    /// The desktop's bot handed to node `node` (`handed`: what, and which
+    /// bot), or taken back from it (`None`).
     Handed {
         node: String,
-        handed: Option<String>,
+        handed: Option<(String, String)>,
         ok: bool,
     },
 }
@@ -209,16 +230,90 @@ impl hangar_discord::Hangar for AppHangar {
     }
 }
 
-/// What the desktop hands a node: its bot, its server, who is paired, and
-/// the node's name for its categories. `None` until the person is paired.
-pub fn handed(saved: &Settings, label: &str) -> Option<serde_json::Value> {
+/// What the desktop hands a node: its bot, its server, who is paired, the
+/// node's name for its categories, and the channels that are not the
+/// node's to answer in (`channels`: the desktop's own and its other
+/// nodes'). `None` until the person is paired.
+pub fn handed(saved: &Settings, label: &str, channels: &[String]) -> Option<serde_json::Value> {
     let owner = saved.owner.as_ref().filter(|_| saved.ready())?;
     Some(serde_json::json!({
         "token": saved.token,
         "guild": saved.guild,
         "owner": owner,
         "label": label,
+        "channels": channels,
     }))
+}
+
+/// What to do about node `node`'s bot.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Hand {
+    /// Hand it this (the body of the PUT).
+    Give(serde_json::Value),
+    /// Take back the bot this desktop lent it (which one).
+    TakeBack(String),
+    Leave,
+}
+
+/// What this desktop does about a node's bot: `wanted` is what it would
+/// hand (`None`: nothing, its own bot is off or unpaired), `mine` which bot
+/// that is, `lent` the bot it lent this node before, `sent` what it last
+/// handed.
+///
+/// A node's own bot is left alone, and so is one another Hangar lent: two
+/// desktops handing theirs over each other's would have the node's bot
+/// started again at every look. What this desktop lent, it takes back when
+/// its own bot is gone, or before it hands another.
+pub fn hand(
+    bot: &NodeBot,
+    wanted: Option<serde_json::Value>,
+    mine: &str,
+    lent: Option<&String>,
+    sent: Option<&String>,
+) -> Hand {
+    if bot.its_own() {
+        return Hand::Leave;
+    }
+    let lent_here = bot.shared && lent.is_some() && lent == bot.bot.as_ref();
+    match wanted {
+        Some(body) => {
+            if bot.shared && bot.bot.as_deref().is_some_and(|theirs| theirs != mine) {
+                return match lent {
+                    Some(old) if lent_here => Hand::TakeBack(old.clone()),
+                    _ => Hand::Leave,
+                };
+            }
+            // Handed already, and the node still runs it.
+            if sent == Some(&body.to_string()) && bot.shared && bot.running {
+                return Hand::Leave;
+            }
+            Hand::Give(body)
+        }
+        None => match lent {
+            Some(old) if lent_here => Hand::TakeBack(old.clone()),
+            _ => Hand::Leave,
+        },
+    }
+}
+
+fn lent_file(dir: &std::path::Path) -> PathBuf {
+    dir.join("lent.json")
+}
+
+/// The nodes lent a bot, read from disk: none when the file is not there.
+fn read_lent(dir: &std::path::Path) -> HashMap<String, String> {
+    std::fs::read_to_string(lent_file(dir))
+        .ok()
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .unwrap_or_default()
+}
+
+fn write_lent(dir: &std::path::Path, lent: &HashMap<String, String>) {
+    let written = std::fs::create_dir_all(dir)
+        .and_then(|()| std::fs::write(lent_file(dir), serde_json::json!(lent).to_string()));
+    if let Err(error) = written {
+        eprintln!("discord: which nodes were lent the bot could not be saved: {error}");
+    }
 }
 
 /// Whether the bot should run: the experiment on, the state in, the
@@ -234,30 +329,41 @@ pub fn update(st: &mut State, m: &mut Model, sv: &Services, msg: Msg) -> Task<Me
             // The nodes are asked through their tunnels: less often.
             st.reconciles = st.reconciles.wrapping_add(1);
             if st.reconciles % NODES_EVERY == 1 {
-                return look_at_nodes(st, m);
+                return look_at_nodes(st, m, sv);
             }
         }
-        Msg::NodeBot { node, bot } => {
-            match bot {
-                Some(bot) => {
-                    st.nodes.insert(node.clone(), bot);
-                }
-                None => {
-                    st.nodes.remove(&node);
-                }
-            }
+        Msg::NodeBot { node, bot, mine } => {
+            st.mine = mine;
+            // A node that did not answer this once keeps what it said: its
+            // channels stay its own, and nothing is handed on a guess.
+            let Some(bot) = bot else {
+                return Task::none();
+            };
+            st.nodes.insert(node.clone(), bot);
             publish_others(st);
             return hand_to(st, m, &node);
         }
-        Msg::Handed { node, handed, ok } => match (handed, ok) {
-            (Some(what), true) => {
-                st.handed.insert(node, what);
+        Msg::Handed { node, handed, ok } => {
+            if !ok {
+                return Task::none();
             }
-            (None, true) => {
-                st.handed.remove(&node);
+            let before = st.lent.get(&node).cloned();
+            match handed {
+                Some((what, bot)) => {
+                    st.sent.insert(node.clone(), what);
+                    st.lent.insert(node.clone(), bot);
+                }
+                None => {
+                    st.sent.remove(&node);
+                    st.lent.remove(&node);
+                }
             }
-            (_, false) => {}
-        },
+            if st.lent.get(&node) != before.as_ref()
+                && let Some(dir) = folder(sv)
+            {
+                write_lent(&dir, &st.lent);
+            }
+        }
         Msg::Token(token) => {
             st.form.token = token;
             st.form.error = None;
@@ -324,7 +430,19 @@ fn reconcile(st: &mut State, m: &Model, sv: &Services) {
     let Some(dir) = folder(sv) else {
         return;
     };
-    st.saved = Settings::load(&dir).unwrap_or_default();
+    if !st.lent_read {
+        st.lent = read_lent(&dir);
+        st.lent_read = true;
+    }
+    // Read when it changed (the bot writes the pairing there, the page the
+    // token), not at every look: this runs where the window is drawn.
+    let stamp = std::fs::metadata(hangar_discord::config::settings_file(&dir))
+        .and_then(|file| file.modified())
+        .ok();
+    if st.saved_stamp != Some(stamp) {
+        st.saved = Settings::load(&dir).unwrap_or_default();
+        st.saved_stamp = Some(stamp);
+    }
     let experiment = experiments::enabled(m.settings(), experiments::DISCORD_CONNECTOR);
     let want = wanted(experiment, m.live.hydrated, &st.saved);
     let same = st.running.as_ref().is_some_and(|running| {
@@ -388,43 +506,56 @@ fn publish_others(st: &State) {
     *st.others.write().unwrap_or_else(PoisonError::into_inner) = channels;
 }
 
-/// Each connected node asked about its bot.
-fn look_at_nodes(st: &State, m: &Model) -> Task<Message> {
+/// Each connected node asked about its bot, and told this desktop runs the
+/// one it lent when it does.
+fn look_at_nodes(st: &State, m: &Model, sv: &Services) -> Task<Message> {
     let experiment = experiments::enabled(m.settings(), experiments::DISCORD_CONNECTOR);
-    if !experiment && st.handed.is_empty() {
+    if !experiment && st.lent.is_empty() {
         return Task::none();
     }
+    let path = if st.running() {
+        format!(
+            "/node/discord?lender={}",
+            hangar_discord::setup::bot_mark(&st.saved.token)
+        )
+    } else {
+        "/node/discord".to_string()
+    };
+    let dir = folder(sv);
     let ids: Vec<String> = m.settings().nodes.iter().map(|n| n.id.clone()).collect();
     Task::batch(ids.into_iter().filter_map(|id| {
         let client = crate::nodes::client(m, &id)?;
+        let (path, dir) = (path.clone(), dir.clone());
         Some(Task::perform(
             async move {
-                let answer =
-                    crate::nodes::wire::request(&client, "GET", "/node/discord", None).await;
-                answer
+                let answer = crate::nodes::wire::request(&client, "GET", &path, None).await;
+                let bot = answer
                     .ok()
                     .and_then(|answer| answer.json().ok())
-                    .map(|value| NodeBot::of(&value))
+                    .map(|value| NodeBot::of(&value));
+                let mine = dir
+                    .and_then(|dir| hangar_discord::config::Layout::load(&dir).ok())
+                    .map(|layout| layout.channels())
+                    .unwrap_or_default();
+                (bot, mine)
             },
-            move |bot| {
+            move |(bot, mine)| {
                 Message::Discord(Msg::NodeBot {
                     node: id.clone(),
                     bot,
+                    mine,
                 })
             },
         ))
     }))
 }
 
-/// The desktop's bot handed to node `node` when it is the person's and the
-/// node has none of its own; taken back when the desktop's is gone.
+/// The desktop's bot handed to node `node`, or taken back from it, as
+/// [`hand`] says.
 fn hand_to(st: &State, m: &Model, node: &str) -> Task<Message> {
     let Some(bot) = st.nodes.get(node) else {
         return Task::none();
     };
-    if bot.its_own() {
-        return Task::none();
-    }
     let Some(client) = crate::nodes::client(m, node) else {
         return Task::none();
     };
@@ -442,15 +573,22 @@ fn hand_to(st: &State, m: &Model, node: &str) -> Task<Message> {
             }
         })
         .unwrap_or_default();
-    let wanted = handed(&st.saved, &label).filter(|_| experiment);
+    // Not the node's to answer in: this desktop's channels, and those of
+    // the other nodes its bot serves.
+    let mut channels = st.mine.clone();
+    for (other, theirs) in &st.nodes {
+        if other != node && theirs.shared {
+            channels.extend(theirs.channels.iter().cloned());
+        }
+    }
+    channels.sort();
+    channels.dedup();
+    let wanted = handed(&st.saved, &label, &channels).filter(|_| experiment);
+    let mine = hangar_discord::setup::bot_mark(&st.saved.token);
     let node = node.to_string();
-    match wanted {
-        Some(body) => {
+    match hand(bot, wanted, &mine, st.lent.get(&node), st.sent.get(&node)) {
+        Hand::Give(body) => {
             let what = body.to_string();
-            // Handed already, and the node still runs it.
-            if st.handed.get(&node) == Some(&what) && bot.shared && bot.running {
-                return Task::none();
-            }
             Task::perform(
                 async move {
                     crate::nodes::wire::request(&client, "PUT", "/node/discord/shared", Some(&body))
@@ -460,15 +598,16 @@ fn hand_to(st: &State, m: &Model, node: &str) -> Task<Message> {
                 move |ok| {
                     Message::Discord(Msg::Handed {
                         node: node.clone(),
-                        handed: Some(what.clone()),
+                        handed: Some((what.clone(), mine.clone())),
                         ok,
                     })
                 },
             )
         }
-        None if bot.shared => Task::perform(
+        Hand::TakeBack(lent) => Task::perform(
             async move {
-                crate::nodes::wire::request(&client, "DELETE", "/node/discord/shared", None)
+                let path = format!("/node/discord/shared?bot={lent}");
+                crate::nodes::wire::request(&client, "DELETE", &path, None)
                     .await
                     .is_ok_and(|answer| answer.ok())
             },
@@ -480,7 +619,7 @@ fn hand_to(st: &State, m: &Model, node: &str) -> Task<Message> {
                 })
             },
         ),
-        None => Task::none(),
+        Hand::Leave => Task::none(),
     }
 }
 
@@ -488,7 +627,10 @@ fn hand_to(st: &State, m: &Model, node: &str) -> Task<Message> {
 /// settings are read again every 2 s.
 pub fn subscription(st: &State, m: &Model) -> Subscription<Message> {
     let experiment = experiments::enabled(m.settings(), experiments::DISCORD_CONNECTOR);
-    if (experiment && m.live.hydrated) || st.running.is_some() || !st.handed.is_empty() {
+    // Once at least, to read which nodes were lent the bot: taken back
+    // from them even with the experiment off since.
+    let unread = m.live.hydrated && !st.lent_read;
+    if (experiment && m.live.hydrated) || st.running.is_some() || !st.lent.is_empty() || unread {
         iced::time::every(RECONCILE).map(|_| Message::Discord(Msg::Reconcile))
     } else {
         Subscription::none()
@@ -612,14 +754,16 @@ mod tests {
             guild: "42".into(),
             ..Settings::default()
         };
-        assert_eq!(handed(&saved, "vps"), None, "nobody paired yet");
+        let channels = ["c9".to_string()];
+        assert_eq!(handed(&saved, "vps", &channels), None, "nobody paired yet");
         saved.owner = Some("u1".into());
-        let body = handed(&saved, "vps").unwrap();
+        let body = handed(&saved, "vps", &channels).unwrap();
         assert_eq!(body["token"], "t");
         assert_eq!(body["owner"], "u1");
         assert_eq!(body["label"], "vps");
+        assert_eq!(body["channels"], serde_json::json!(["c9"]));
         saved.token.clear();
-        assert_eq!(handed(&saved, "vps"), None, "disconnected");
+        assert_eq!(handed(&saved, "vps", &channels), None, "disconnected");
         let own = NodeBot::of(&serde_json::json!({ "configured": true, "shared": false }));
         assert!(own.its_own());
         let shared = NodeBot::of(&serde_json::json!({
@@ -627,6 +771,94 @@ mod tests {
         }));
         assert!(!shared.its_own());
         assert_eq!(shared.channels, ["c1", "t1"]);
+    }
+
+    #[test]
+    fn a_desktop_takes_back_only_the_bot_it_lent() {
+        let body = serde_json::json!({ "token": "t" });
+        let node = |shared: bool, bot: Option<&str>| NodeBot {
+            configured: bot.is_some(),
+            shared,
+            running: bot.is_some(),
+            bot: bot.map(str::to_string),
+            channels: Vec::new(),
+        };
+        let (mine, other) = ("bot-a".to_string(), "bot-b".to_string());
+        // A node with no bot is handed this desktop's.
+        assert_eq!(
+            hand(&node(false, None), Some(body.clone()), &mine, None, None),
+            Hand::Give(body.clone())
+        );
+        // Handed already and running: nothing more; changed, handed again.
+        let sent = body.to_string();
+        assert_eq!(
+            hand(
+                &node(true, Some("bot-a")),
+                Some(body.clone()),
+                &mine,
+                Some(&mine),
+                Some(&sent)
+            ),
+            Hand::Leave
+        );
+        let changed = serde_json::json!({ "token": "t", "channels": ["c1"] });
+        assert_eq!(
+            hand(
+                &node(true, Some("bot-a")),
+                Some(changed.clone()),
+                &mine,
+                Some(&mine),
+                Some(&sent)
+            ),
+            Hand::Give(changed)
+        );
+        // Its own bot off: what it lent comes back.
+        assert_eq!(
+            hand(
+                &node(true, Some("bot-a")),
+                None,
+                &mine,
+                Some(&mine),
+                Some(&sent)
+            ),
+            Hand::TakeBack(mine.clone())
+        );
+        // A desktop with no bot, or with another, meets a node another
+        // Hangar lent its bot to: left alone, never taken, never replaced.
+        assert_eq!(
+            hand(&node(true, Some("bot-b")), None, &mine, None, None),
+            Hand::Leave
+        );
+        assert_eq!(
+            hand(
+                &node(true, Some("bot-b")),
+                Some(body.clone()),
+                &mine,
+                None,
+                None
+            ),
+            Hand::Leave
+        );
+        // The bot it lent before its own changed: taken back first.
+        assert_eq!(
+            hand(
+                &node(true, Some("bot-b")),
+                Some(body.clone()),
+                &mine,
+                Some(&other),
+                None
+            ),
+            Hand::TakeBack(other.clone())
+        );
+        // A node set up with a bot of its own since: not this desktop's to
+        // take, whatever it remembers lending.
+        let mut own = node(false, Some("bot-a"));
+        own.configured = true;
+        assert_eq!(hand(&own, None, &mine, Some(&mine), None), Hand::Leave);
+        assert_eq!(
+            hand(&own, Some(body), &mine, Some(&mine), None),
+            Hand::Leave
+        );
     }
 
     #[test]

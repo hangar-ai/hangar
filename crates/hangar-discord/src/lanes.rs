@@ -9,7 +9,10 @@
 //! channel the person writes in and each workspace is a lane.
 //!
 //! A lane's worker lives while it has work, and goes when its queue is
-//! empty.
+//! empty. The lanes own their tasks: closed (the connector stopped, or was
+//! started again with another bot), what they were doing is cut and what
+//! waited is dropped, rather than carried on beside the connector that
+//! took their place.
 
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
@@ -26,6 +29,17 @@ struct Inner {
     lanes: HashMap<String, mpsc::UnboundedSender<Job>>,
     /// The jobs of `run_once` given and not finished, by key and tag.
     once: HashSet<(String, &'static str)>,
+    /// Every task of the lanes, cut with them.
+    tasks: tokio::task::JoinSet<()>,
+    closed: bool,
+}
+
+impl Inner {
+    /// `task` started among the lanes' own; those that ended are forgotten.
+    fn start(&mut self, task: impl Future<Output = ()> + Send + 'static) {
+        while self.tasks.try_join_next().is_some() {}
+        self.tasks.spawn(task);
+    }
 }
 
 #[derive(Clone, Default)]
@@ -41,6 +55,9 @@ impl Lanes {
     pub fn run(&self, key: &str, job: impl Future<Output = ()> + Send + 'static) {
         let mut job: Job = Box::pin(job);
         let mut inner = self.inner();
+        if inner.closed {
+            return;
+        }
         if let Some(lane) = inner.lanes.get(key) {
             match lane.send(job) {
                 Ok(()) => return,
@@ -51,7 +68,31 @@ impl Lanes {
         let (tx, rx) = mpsc::unbounded_channel();
         let _ = tx.send(job);
         inner.lanes.insert(key.to_string(), tx);
-        tokio::spawn(work(self.clone(), key.to_string(), rx));
+        let worker = work(self.clone(), key.to_string(), rx);
+        inner.start(worker);
+    }
+
+    /// Runs `job` at once, beside the lanes: for what has no order to keep
+    /// and cannot wait behind anything (a click, which Discord gives three
+    /// seconds to acknowledge). Cut with the lanes all the same.
+    pub fn beside(&self, job: impl Future<Output = ()> + Send + 'static) {
+        let mut inner = self.inner();
+        if !inner.closed {
+            inner.start(job);
+        }
+    }
+
+    /// Cuts what the lanes do and drops what waits in them; nothing given
+    /// afterwards runs.
+    pub fn close(&self) {
+        let mut inner = self.inner();
+        inner.closed = true;
+        inner.tasks.abort_all();
+        inner.lanes.clear();
+    }
+
+    pub fn closed(&self) -> bool {
+        self.inner().closed
     }
 
     /// The same, unless a job given under `key` with `tag` has not finished
@@ -192,6 +233,36 @@ mod tests {
         assert!(lanes.run_once("ws", "dashboard", async {}));
         assert!(lanes.run_once("ws", "journal", async {}));
         idle(&lanes).await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn closed_lanes_cut_their_work_and_take_no_more() {
+        let lanes = Lanes::default();
+        let done = Arc::new(Mutex::new(Vec::new()));
+        for (lane, wait) in [("a", 300), ("a", 0), ("b", 300)] {
+            let done = done.clone();
+            lanes.run(lane, async move {
+                tokio::time::sleep(Duration::from_millis(wait)).await;
+                done.lock().unwrap().push(lane);
+            });
+        }
+        let beside = done.clone();
+        lanes.beside(async move {
+            tokio::time::sleep(Duration::from_millis(300)).await;
+            beside.lock().unwrap().push("beside");
+        });
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        lanes.close();
+        assert!(lanes.closed());
+        // Given after: not run either.
+        let late = done.clone();
+        lanes.run("c", async move { late.lock().unwrap().push("late") });
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        assert!(
+            done.lock().unwrap().is_empty(),
+            "{:?}",
+            done.lock().unwrap()
+        );
     }
 
     #[tokio::test(flavor = "multi_thread")]

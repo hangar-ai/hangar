@@ -55,6 +55,11 @@ pub struct Worker {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Layout {
+    /// The server these places are on, and the bot that made them (its
+    /// categories are private to it): on another server, or for another
+    /// bot, none of them stands.
+    pub guild: Option<String>,
+    pub bot: Option<String>,
     /// A category per folder of Hangar's (`""`: the workspaces in none).
     pub categories: HashMap<String, String>,
     pub workspaces: HashMap<String, Place>,
@@ -85,14 +90,37 @@ fn write<T: Serialize>(file: &Path, value: &T) -> Result<(), String> {
         std::fs::create_dir_all(dir).map_err(|err| format!("{}: {err}", dir.display()))?;
     }
     let body = serde_json::to_vec_pretty(value).map_err(|err| err.to_string())?;
-    let temporary = file.with_extension("json.tmp");
-    std::fs::write(&temporary, body).map_err(|err| format!("{}: {err}", temporary.display()))?;
+    // A name of its writer's own: the daemon, its command line and the
+    // desktop's window write these files with no lock between them.
+    static WRITES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let nth = WRITES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let temporary = file.with_extension(format!("json.{}.{nth}.tmp", std::process::id()));
+    let written = private_file(&temporary).and_then(|mut out| {
+        use std::io::Write;
+        out.write_all(&body)
+    });
+    if let Err(err) = written {
+        let _ = std::fs::remove_file(&temporary);
+        return Err(format!("{}: {err}", temporary.display()));
+    }
+    std::fs::rename(&temporary, file).map_err(|err| {
+        let _ = std::fs::remove_file(&temporary);
+        format!("{}: {err}", file.display())
+    })
+}
+
+/// A new file nobody else reads, from the moment it exists: made with the
+/// usual mode and closed to others afterwards, the token in it could be
+/// read in between.
+fn private_file(path: &Path) -> std::io::Result<std::fs::File> {
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
     #[cfg(unix)]
     {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(&temporary, std::fs::Permissions::from_mode(0o600));
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
     }
-    std::fs::rename(&temporary, file).map_err(|err| format!("{}: {err}", file.display()))
+    options.open(path)
 }
 
 impl Settings {
@@ -135,6 +163,24 @@ impl Layout {
 
     pub fn save(&self, dir: &Path) -> Result<(), String> {
         write(&layout_file(dir), self)
+    }
+
+    /// The layout as it stands for bot `bot` on server `guild`: empty when
+    /// it was made on another server or by another bot (its channels are
+    /// there, or closed to this one), marked with both otherwise. Whether
+    /// it changed.
+    pub fn stand_for(&mut self, guild: &str, bot: &str) -> bool {
+        let elsewhere = self.guild.as_deref().is_some_and(|known| known != guild)
+            || self.bot.as_deref().is_some_and(|known| known != bot);
+        if elsewhere {
+            *self = Layout::default();
+        }
+        let marked = self.guild.as_deref() == Some(guild) && self.bot.as_deref() == Some(bot);
+        if !marked {
+            self.guild = Some(guild.to_string());
+            self.bot = Some(bot.to_string());
+        }
+        elsewhere || !marked
     }
 
     /// The channels and threads this Hangar made on the server: what the
@@ -190,5 +236,27 @@ mod tests {
         );
         layout.save(dir.path()).unwrap();
         assert_eq!(Layout::load(dir.path()).unwrap(), layout);
+        // No temporary file is left beside them.
+        let left: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .filter(|name| name.ends_with(".tmp"))
+            .collect();
+        assert!(left.is_empty(), "{left:?}");
+
+        // A layout read from before it named its server stands for the
+        // one the bot is on; on another server, or for another bot, none
+        // of its places does.
+        assert!(layout.stand_for("g1", "bot1"));
+        assert_eq!(layout.workspaces.len(), 1);
+        assert!(!layout.stand_for("g1", "bot1"));
+        let mut moved = layout.clone();
+        assert!(moved.stand_for("g2", "bot1"));
+        assert!(moved.workspaces.is_empty());
+        assert_eq!(moved.guild.as_deref(), Some("g2"));
+        let mut other_bot = layout.clone();
+        assert!(other_bot.stand_for("g1", "bot2"));
+        assert!(other_bot.workspaces.is_empty());
     }
 }

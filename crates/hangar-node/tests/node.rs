@@ -1611,19 +1611,58 @@ fn the_desktop_s_bot_is_shared_with_the_node_and_given_back() {
     assert_eq!(status["label"], "vps");
     assert_eq!(status["running"], true);
     assert!(status["channels"].is_array());
-    let (status, _) = node.delete("/node/discord/shared");
+    // Which bot it is, told without its token.
+    let lent = status["bot"].as_str().unwrap().to_string();
+    assert!(!lent.contains("desk-token") && !lent.is_empty(), "{lent}");
+
+    // Another desktop's bot does not take its place, and a desktop that
+    // lent nothing (it names no bot, or another) takes nothing back: two
+    // Hangars on one node would otherwise undo each other at every look.
+    let (status, said) = node.call(
+        "PUT",
+        "/node/discord/shared",
+        Some(&node.token.clone()),
+        Some(json!({ "token": "laptop-token", "guild": "42", "owner": "u1" })),
+    );
+    assert_eq!(status, 409, "{said}");
+    for path in [
+        "/node/discord/shared".to_string(),
+        "/node/discord/shared?bot=someone-else".to_string(),
+    ] {
+        let (status, said) = node.delete(&path);
+        assert_eq!(status, 200);
+        assert_eq!(said["changed"], false, "{path}");
+    }
+    let (_, status) = node.get("/node/discord");
+    assert_eq!(status["bot"], lent.as_str());
+    assert_eq!(status["running"], true);
+
+    // The desktop that lent it takes it back.
+    let (status, said) = node.delete(&format!("/node/discord/shared?bot={lent}"));
     assert_eq!(status, 200);
+    assert_eq!(said["changed"], true);
     let (_, status) = node.get("/node/discord");
     assert_eq!(status["configured"], false);
     assert_eq!(status["running"], false);
 
-    // A bot of the node's own stays its own.
+    // Lent again, then set up on the node with a bot of its own: that one
+    // is the node's, which no desktop replaces or takes.
+    let (status, _) = node.call(
+        "PUT",
+        "/node/discord/shared",
+        Some(&node.token.clone()),
+        Some(json!({ "token": "desk-token", "guild": "42", "owner": "u1", "label": "vps" })),
+    );
+    assert_eq!(status, 200);
     let out = command(node.home())
         .env("HANGAR_DISCORD_TOKEN", "node-token")
         .args(["discord", "setup", "--guild", "7"])
         .output()
         .unwrap();
     assert!(out.status.success());
+    let (_, status) = node.get("/node/discord");
+    assert_eq!(status["shared"], false);
+    assert_eq!(status["label"], Value::Null);
     let (status, said) = node.call(
         "PUT",
         "/node/discord/shared",
@@ -1631,6 +1670,9 @@ fn the_desktop_s_bot_is_shared_with_the_node_and_given_back() {
         Some(json!({ "token": "desk-token", "guild": "42", "owner": "u1" })),
     );
     assert_eq!(status, 409, "{said}");
+    let (_, said) = node.delete(&format!("/node/discord/shared?bot={lent}"));
+    assert_eq!(said["changed"], false);
     let (_, status) = node.get("/node/discord");
     assert_eq!(status["guild"], "7");
+    assert_eq!(status["configured"], true);
 }
