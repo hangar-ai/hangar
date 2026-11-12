@@ -187,31 +187,11 @@ pub fn dialog<'a>(st: &'a State, ctx: Ctx<'a>) -> Element<'a, Message> {
         ),
     ));
 
-    // Where a folder's workspace runs, while a node is connected (or was
-    // chosen and dropped since: the choice stays on screen).
-    let nodes = crate::nodes::connected(ctx.model);
-    let chosen = st.place.node.as_ref();
-    if st.source == Source::Folder && (!nodes.is_empty() || chosen.is_some()) {
-        // Each machine by its icon and its name, as everywhere else.
-        let mut options = vec![(
-            None,
-            Some(crate::nodes::presence::LOCAL_ICON),
-            ctx.t(Key::NodesCreateLocal).into_owned(),
-        )];
-        let mut listed: Vec<(String, String)> = nodes;
-        if let Some(node) = chosen
-            && !listed.iter().any(|(id, _)| id == node)
-        {
-            listed.push((node.clone(), crate::nodes::label(ctx.model, node)));
-        }
-        for (id, label) in listed {
-            let lead = crate::nodes::presence::icon_of(ctx.model, &id);
-            options.push((Some(id), Some(lead), label));
-        }
+    if let Some(machines) = machines(st, ctx) {
         form = form.push(labelled(
             ctx,
             Some(ctx.t(Key::NodesCreateWhere).into_owned()),
-            input::segmented_icons(t, options, &st.place.node, |node| msg(Msg::Place(node))),
+            machines,
         ));
     }
 
@@ -278,6 +258,44 @@ pub fn dialog<'a>(st: &'a State, ctx: Ctx<'a>) -> Element<'a, Message> {
     modal(ctx, panel)
 }
 
+/// Where the workspace runs, whatever it is made from: this computer and
+/// every node, each by its icon and its name, as everywhere else. A node
+/// that is switched off or cannot be reached keeps its place, greyed, its
+/// state beside its name: it is there, and why it cannot be picked is
+/// said. Nothing without a node to choose.
+fn machines<'a>(st: &'a State, ctx: Ctx<'a>) -> Option<Element<'a, Message>> {
+    use crate::nodes::presence;
+    let model = ctx.model;
+    let nodes = &model.settings().nodes;
+    if !crate::nodes::available(model) || nodes.is_empty() {
+        return None;
+    }
+    let mut options = vec![input::Segment::new(
+        None,
+        Some(presence::LOCAL_ICON),
+        ctx.t(Key::NodesCreateLocal),
+    )];
+    for node in nodes {
+        let option = input::Segment::new(
+            Some(node.id.clone()),
+            Some(presence::kind_icon(node.kind)),
+            crate::nodes::away::label_of(node),
+        );
+        options.push(if crate::nodes::client(model, &node.id).is_some() {
+            option
+        } else {
+            let state = presence::exact(model, &node.id);
+            option.unavailable(presence::short_words(ctx.i18n, &state))
+        });
+    }
+    Some(input::segmented_icons(
+        ctx.theme,
+        options,
+        &st.place.node,
+        |node| msg(Msg::Place(node)),
+    ))
+}
+
 /// Repository, destination.
 fn git_fields<'a>(
     mut form: iced::widget::Column<'a, Message>,
@@ -339,25 +357,48 @@ fn git_fields<'a>(
     }
     let browse = ui_button::secondary(t, ctx.t(Key::CreateBrowse))
         .on_press_maybe((!locked).then(|| msg(Msg::BrowseParent)));
-    let mut parent_column = column![
-        picker(ctx, path, vec![browse.into()]),
-        typography::hint(t, ctx.t(Key::CreateGitParentHint)),
-    ]
-    .spacing(tokens::space::SM);
+    // On a node the folder is one of the node's: empty, its `projects`;
+    // browsed, its folders listed here instead of the system's dialog.
+    let node = st
+        .place
+        .node
+        .as_deref()
+        .map(|node| crate::nodes::label(ctx.model, node));
+    let mut parent_column =
+        column![picker(ctx, path, vec![browse.into()])].spacing(tokens::space::SM);
+    match &node {
+        Some(node) => {
+            if st.place.browsing && !locked {
+                parent_column = node_listing(parent_column, st, ctx);
+            }
+            parent_column = parent_column.push(typography::hint(
+                t,
+                ctx.i18n
+                    .t_with(Key::NodesCloneParentHint, &args!("node" => node.as_str()))
+                    .into_owned(),
+            ));
+        }
+        None => {
+            parent_column =
+                parent_column.push(typography::hint(t, ctx.t(Key::CreateGitParentHint)));
+        }
+    }
     if status == FromGitStatus::NoFolder {
         parent_column = parent_column.push(typography::hint(t, ctx.t(Key::CreateGitNoFolder)));
     } else if let Some(ParseResult::Ok { repo }) = st.git.parse()
         && let Some(destination) = clone_destination(parent.as_deref(), Some(&repo.name))
     {
-        parent_column = parent_column.push(typography::hint(
-            t,
-            ctx.i18n
-                .t_with(
-                    Key::CreateGitDestination,
-                    &args!("path" => destination.as_str()),
-                )
-                .into_owned(),
-        ));
+        let said = match &node {
+            Some(node) => ctx.i18n.t_with(
+                Key::NodesCloneDestination,
+                &args!("path" => destination.as_str(), "node" => node.as_str()),
+            ),
+            None => ctx.i18n.t_with(
+                Key::CreateGitDestination,
+                &args!("path" => destination.as_str()),
+            ),
+        };
+        parent_column = parent_column.push(typography::hint(t, said.into_owned()));
     }
     form.push(labelled(
         ctx,
@@ -375,9 +416,17 @@ fn progress_or_error<'a>(st: &'a State, ctx: Ctx<'a>) -> Element<'a, Message> {
             .progress
             .as_ref()
             .and_then(|progress| overall_percent(&progress.phase, progress.percent));
-        let label = match &st.git.progress {
-            Some(progress) => progress_label(&progress.phase, progress.percent),
-            None => ctx.t(Key::CreateGitStarting).into_owned(),
+        let label = match (&st.git.progress, st.place.node.as_deref()) {
+            (Some(progress), _) => progress_label(&progress.phase, progress.percent),
+            // Until the node says how far it is, where the clone runs.
+            (None, Some(node)) => ctx
+                .i18n
+                .t_with(
+                    Key::NodesCloneRunning,
+                    &args!("node" => crate::nodes::label(ctx.model, node)),
+                )
+                .into_owned(),
+            (None, None) => ctx.t(Key::CreateGitStarting).into_owned(),
         };
         // A percentage the bar can use, else a segment that slides: a bar
         // stuck at zero would read as a clone that does not move.
@@ -508,24 +557,49 @@ fn node_folder_fields<'a>(
     )]
     .spacing(tokens::space::SM);
 
+    folder_column = node_listing(folder_column, st, ctx);
+    folder_column = folder_column.push(typography::hint(t, ctx.t(Key::NodesCreateHint)));
+    form.push(labelled(
+        ctx,
+        Some(ctx.t(Key::NodesCreateFolder).into_owned()),
+        folder_column,
+    ))
+}
+
+/// The folder of the node on show, under its path: why it could not be
+/// listed, or its sub-folders, each a click away.
+fn node_listing<'a>(
+    mut lines: iced::widget::Column<'a, Message>,
+    st: &'a State,
+    ctx: Ctx<'a>,
+) -> iced::widget::Column<'a, Message> {
+    let t = ctx.theme;
     if let Some(error) = &st.place.error {
         let said = ctx
             .i18n
             .t_with(Key::NodesCreateFailed, &args!("error" => error.as_str()))
             .into_owned();
-        folder_column = folder_column.push(notice(
+        lines = lines.push(notice(
             ctx,
             text(said).size(tokens::font_size::UI).into(),
             true,
         ));
     }
     if st.place.listing_asked.is_some() {
-        folder_column = folder_column.push(typography::hint(t, ctx.t(Key::NodesCreateLoading)));
+        lines = lines.push(typography::hint(t, ctx.t(Key::NodesCreateLoading)));
     } else if let Some(listing) = &st.place.listing {
         if listing.folders.is_empty() {
-            folder_column = folder_column.push(typography::hint(t, ctx.t(Key::NodesCreateEmpty)));
+            lines = lines.push(typography::hint(t, ctx.t(Key::NodesCreateEmpty)));
         }
         let mut list = column![].spacing(2);
+        if let Some(parent) = listing.parent.clone().filter(|_| st.source == Source::Git) {
+            list = list.push(
+                ui_button::ghost(t, "../")
+                    .small()
+                    .tip(ctx.t(Key::NodesCreateUp))
+                    .on_press(msg(Msg::NodeFolder(Some(parent)))),
+            );
+        }
         for name in &listing.folders {
             let path = if listing.path.ends_with('/') {
                 format!("{}{name}", listing.path)
@@ -538,18 +612,11 @@ fn node_folder_fields<'a>(
                     .on_press(msg(Msg::NodeFolder(Some(path)))),
             );
         }
-        folder_column = folder_column.push(
-            iced::widget::scrollable(list)
-                .height(Length::Fixed(140.0))
-                .width(Length::Fill),
-        );
+        // As tall as what it lists, up to where it scrolls.
+        lines = lines
+            .push(container(iced::widget::scrollable(list).width(Length::Fill)).max_height(140.0));
     }
-    folder_column = folder_column.push(typography::hint(t, ctx.t(Key::NodesCreateHint)));
-    form.push(labelled(
-        ctx,
-        Some(ctx.t(Key::NodesCreateFolder).into_owned()),
-        folder_column,
-    ))
+    lines
 }
 
 /// The roots of a workspace file, one per line; the main one is selected.

@@ -50,6 +50,68 @@ pub enum Action {
     MoveToMachine(WsId),
 }
 
+/// The checkouts of the repository of `ws` on other machines, to go to:
+/// each by its machine's icon, this computer's by its own, named as the
+/// row's tooltip names it. At the head of the menu, with the agents to go
+/// to: both are ways to somewhere else. Nothing for a workspace whose
+/// repository is open nowhere else.
+fn sibling_entries(ctx: Ctx<'_>, ws: &Workspace) -> Vec<Entry<Message>> {
+    use crate::nodes::{presence, repos};
+    let tr = ctx.i18n;
+    let model = ctx.model;
+    let siblings = repos::siblings(model, ws);
+    if siblings.is_empty() {
+        return Vec::new();
+    }
+    let mut entries = vec![menu::heading(tr.t(Key::NodesRepoMenu).into_owned())];
+    for other in siblings {
+        let (which, machine) = match other.node.as_deref() {
+            Some(node) => (
+                presence::icon_of(model, node),
+                crate::nodes::label(model, node),
+            ),
+            None => (
+                presence::LOCAL_ICON,
+                tr.t(Key::NodesCreateLocal).into_owned(),
+            ),
+        };
+        let label = tr.t_with(
+            Key::NodesRepoPlace,
+            &hangar_i18n::args!("machine" => machine, "name" => other.name.as_str()),
+        );
+        entries.push(
+            menu::item(label.into_owned())
+                .icon(which)
+                .on_select(pick(Action::Intent(Intent::ActivateWorkspace(
+                    other.id.clone(),
+                ))))
+                .into(),
+        );
+    }
+    entries.push(menu::separator());
+    entries
+}
+
+/// The way to one more checkout: the new-workspace dialog, ready to clone
+/// the repository of `ws` on a machine that lacks it. Greyed, with why,
+/// when every connected machine has it; no line for a workspace without a
+/// repository, or with no other machine.
+fn open_elsewhere_entry(ctx: Ctx<'_>, ws: &Workspace) -> Option<Entry<Message>> {
+    use crate::nodes::repos::{self, Elsewhere};
+    let tr = ctx.i18n;
+    let open = menu::item(tr.t(Key::NodesRepoOpen).into_owned()).icon(Icon::MachinePlus);
+    Some(match repos::elsewhere(ctx.model, ws)? {
+        Elsewhere::Ready { .. } => open
+            .on_select(pick(Action::Intent(Intent::OpenOnAnotherMachine(
+                ws.id.clone(),
+            ))))
+            .into(),
+        Elsewhere::Everywhere => open
+            .disabled_because(tr.t(Key::NodesRepoEverywhere).into_owned())
+            .into(),
+    })
+}
+
 fn pick(action: Action) -> Message {
     Message::Navigator(Msg::Menu(action))
 }
@@ -176,6 +238,7 @@ pub fn workspace_entries(ctx: Ctx<'_>, id: &str) -> Vec<Entry<Message>> {
         .filter(|id| state.folders.iter().any(|folder| folder.id == *id));
 
     let mut entries = agent_entries(ctx, &[ws]);
+    entries.extend(sibling_entries(ctx, ws));
     let intent = |intent| pick(Action::Intent(intent));
     entries.push(
         menu::item(tr.t(Key::SidebarMenuRename).into_owned())
@@ -262,8 +325,10 @@ pub fn workspace_entries(ctx: Ctx<'_>, id: &str) -> Vec<Entry<Message>> {
     );
     entries.push(menu::separator());
 
-    // A workspace on a node that this computer still drives stops when the
-    // computer does: handing it to the node is offered here.
+    // What has to do with machines: the repository on one more, then, for
+    // a workspace on a node that this computer still drives (it stops when
+    // the computer does), handing it to the node.
+    entries.extend(open_elsewhere_entry(ctx, ws));
     if let Some(node) = ws.node.as_deref().filter(|_| !ws.is_hosted()) {
         let label = crate::nodes::label(ctx.model, node);
         let item = menu::item(

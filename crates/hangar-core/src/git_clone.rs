@@ -495,6 +495,37 @@ fn git_line(dir: &Path, args: &[&str]) -> Option<String> {
         .then(|| String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
+/// The address of the `origin` remote of the repository at `dir`, as its
+/// configuration spells it; `None` when the folder is no repository or has
+/// no such remote. What would let someone in is taken out of it first: the
+/// whole user part of an `http(s)` address (a token is often all of it),
+/// the password of any other.
+pub fn git_origin(dir: &Path) -> Option<String> {
+    // `config` rather than `remote get-url`: the latter applies insteadOf.
+    let origin = git_line(dir, &["config", "--get", "remote.origin.url"])?;
+    Some(without_secret(&origin)).filter(|origin| !origin.is_empty())
+}
+
+/// [`git_origin`]'s cleaning of one address.
+pub fn without_secret(address: &str) -> String {
+    let address = address.trim();
+    let Some((scheme, rest)) = address.split_once("://") else {
+        return address.to_string();
+    };
+    let end = rest.find('/').unwrap_or(rest.len());
+    let (authority, path) = rest.split_at(end);
+    let Some((user, host)) = authority.rsplit_once('@') else {
+        return address.to_string();
+    };
+    let web = scheme.eq_ignore_ascii_case("http") || scheme.eq_ignore_ascii_case("https");
+    let user = user.split_once(':').map_or(user, |(user, _)| user);
+    if web || user.is_empty() {
+        format!("{scheme}://{host}{path}")
+    } else {
+        format!("{scheme}://{user}@{host}{path}")
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Removing what a clone made, and comparing paths
 // ---------------------------------------------------------------------------
@@ -1438,6 +1469,38 @@ mod tests {
 
     fn ok(input: &str) -> RepoRef {
         parse_repo(input).unwrap_or_else(|why| panic!("{input:?} refused: {why}"))
+    }
+
+    #[test]
+    fn an_origin_travels_without_what_lets_someone_in() {
+        for (said, kept) in [
+            (
+                "https://ghp_secret@github.com/acme/shop.git",
+                "https://github.com/acme/shop.git",
+            ),
+            (
+                "https://me:pw@github.com/acme/shop",
+                "https://github.com/acme/shop",
+            ),
+            (
+                "ssh://git:pw@host.example:2222/acme/shop",
+                "ssh://git@host.example:2222/acme/shop",
+            ),
+            (
+                "ssh://git@github.com/acme/shop.git",
+                "ssh://git@github.com/acme/shop.git",
+            ),
+            (
+                "git@github.com:acme/shop.git",
+                "git@github.com:acme/shop.git",
+            ),
+            (
+                "https://github.com/acme/shop",
+                "https://github.com/acme/shop",
+            ),
+        ] {
+            assert_eq!(without_secret(said), kept, "{said}");
+        }
     }
 
     #[test]

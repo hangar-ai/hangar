@@ -2041,3 +2041,88 @@ async fn a_change_to_the_node_s_own_state_is_told_and_an_agent_s_activity_is_not
     assert_eq!(heard("own:changed"), 1, "{:?}", events.frames);
     assert!(heard("bridge:event") >= 1, "the mod's report came as ever");
 }
+
+/// A desktop groups the workspaces of one repository across machines by
+/// their `origin`: the node says it for each workspace it runs itself,
+/// beside the state, and answers it for a folder a desktop still drives. A
+/// token in the address stays on the node.
+#[test]
+fn the_node_says_where_each_repository_comes_from() {
+    let node = Node::start();
+    let cloned = node.home().join("shop");
+    let plain = node.home().join("notes");
+    for folder in [&cloned, &plain] {
+        std::fs::create_dir_all(folder).unwrap();
+    }
+    git(&cloned, &["init", "--quiet"]);
+    git(
+        &cloned,
+        &[
+            "remote",
+            "add",
+            "origin",
+            "https://ghp_secret@github.com/Acme/Shop.git",
+        ],
+    );
+    for (id, folder) in [("ws-shop", &cloned), ("ws-notes", &plain)] {
+        let (status, adopted) = node.post(
+            "/node/own/adopt",
+            handed_over(id, folder, &[(&format!("{id}-p"), "Leo", "shell")]),
+        );
+        assert_eq!(status, 200, "{adopted}");
+    }
+    let state = own_state(&node);
+    assert_eq!(
+        state["origins"],
+        json!({ "ws-shop": "https://github.com/Acme/Shop.git" }),
+        "by workspace, and nothing for a folder without one"
+    );
+    assert!(
+        state["workspaces"][0].get("origin").is_none(),
+        "never inside the workspace, where it would be saved with it"
+    );
+    let (status, asked) = node.post(
+        "/node/git",
+        json!({ "op": "origin", "path": cloned.to_str().unwrap() }),
+    );
+    assert_eq!(status, 200, "{asked}");
+    assert_eq!(asked["value"], "https://github.com/Acme/Shop.git");
+    let (_, none) = node.post(
+        "/node/git",
+        json!({ "op": "origin", "path": plain.to_str().unwrap() }),
+    );
+    assert_eq!(none["value"], Value::Null);
+}
+
+/// A clone the node cannot make answers git's own refusal, and leaves
+/// nothing behind; one asked into a relative folder is not tried.
+#[test]
+fn a_clone_the_node_cannot_make_says_why() {
+    let node = Node::start();
+    let parent = node.home().join("projects");
+    let (status, answer) = node.post(
+        "/node/clone",
+        json!({
+            "url": "ssh://git@127.0.0.1:1/acme/shop.git",
+            "parent": parent.to_str().unwrap(),
+            "name": "shop",
+            "jobId": "job-1",
+        }),
+    );
+    assert_eq!(status, 200, "{answer}");
+    assert_eq!(answer["value"]["status"], "refused", "{answer}");
+    assert_eq!(answer["value"]["kind"], "failed", "{answer}");
+    assert!(
+        !answer["value"]["reason"].as_str().unwrap().is_empty(),
+        "{answer}"
+    );
+    assert!(!parent.join("shop").exists(), "nothing is left behind");
+    let (status, _) = node.post(
+        "/node/clone",
+        json!({ "url": "acme/shop", "parent": "projects", "name": "shop", "jobId": "job-2" }),
+    );
+    assert_eq!(status, 400);
+    let (status, cancelled) = node.post("/node/clone/cancel", json!({ "jobId": "job-1" }));
+    assert_eq!(status, 200);
+    assert_eq!(cancelled["value"], false, "nothing runs under it any more");
+}

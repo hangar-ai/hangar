@@ -19,6 +19,10 @@
 //!   and fetches their branches back from it (see [`repo`]);
 //! - `POST /node/git` `{op, path, …}`: the read-only questions the engine
 //!   asks, and nothing else — no command line is ever taken (see [`GitOp`]);
+//! - `POST /node/clone` `{url, parent, name, jobId}`: `git_clone`, a
+//!   repository cloned here for a workspace the node is then handed, its
+//!   progress told as core's `git-clone:progress` events; `POST
+//!   /node/clone/cancel` `{jobId}` stops it;
 //! - `POST /node/board/claim-worker`, `/release-worker`, `/update`,
 //!   `/comment`: a worker's claim and release, a delivery's moves and
 //!   comments, with `board:changed` told as the desktop tells it;
@@ -277,6 +281,9 @@ pub enum GitOp {
     /// Whether a folder exists (the engine's `dir_exists`, before it picks
     /// a worktree's folder).
     DirExists { path: String },
+    /// The address of the repository's `origin`, without credentials; null
+    /// when it has none.
+    Origin { path: String },
 }
 
 /// The ops [`GitOp`] knows, for a refusal.
@@ -286,6 +293,7 @@ pub const GIT_OPS: &[&str] = &[
     "changes",
     "commits_ahead",
     "dir_exists",
+    "origin",
 ];
 
 pub async fn git(body: Result<Json<GitOp>, axum::extract::rejection::JsonRejection>) -> Response {
@@ -308,7 +316,59 @@ pub async fn git(body: Result<Json<GitOp>, axum::extract::rejection::JsonRejecti
                 .unwrap_or(false);
             answered(Ok(exists))
         }
+        GitOp::Origin { path } => answered(Ok(origin_of(path).await)),
     }
+}
+
+/// The `origin` of the repository at `path`, read off the runtime.
+pub async fn origin_of(path: String) -> Option<String> {
+    tokio::task::spawn_blocking(move || {
+        hangar_core::git_clone::git_origin(std::path::Path::new(&path))
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CloneBody {
+    url: String,
+    /// The folder the repository's own is made in, absolute.
+    parent: String,
+    /// The repository's folder.
+    name: String,
+    /// What the progress events carry, and what a cancel names.
+    job_id: String,
+}
+
+/// A repository cloned on the node, with the node's own access to it. The
+/// answer is core's outcome, a refusal included (git's own words when the
+/// clone failed): the desktop shows it as it shows a local clone's.
+pub async fn clone(State(node): State<Shared>, Json(body): Json<CloneBody>) -> Response {
+    if let Some(refused) = not_absolute(&[("parent", &body.parent)]) {
+        return refused;
+    }
+    let outcome = hangar_core::git_clone::git_clone(
+        node.host().clone(),
+        body.url,
+        body.parent,
+        body.name,
+        body.job_id,
+    )
+    .await;
+    answered(Ok(outcome))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelBody {
+    job_id: String,
+}
+
+/// Whether a clone ran under that job and was told to stop.
+pub async fn clone_cancel(Json(body): Json<CancelBody>) -> Response {
+    answered(Ok(hangar_core::git_clone::git_clone_cancel(body.job_id)))
 }
 
 /// The board views and the orchestrator's events reload on this, which the
@@ -518,6 +578,8 @@ mod tests {
         )
         .unwrap();
         assert!(matches!(op, GitOp::CommitsAhead { .. }));
+        let op: GitOp = serde_json::from_value(json!({ "op": "origin", "path": "/r" })).unwrap();
+        assert!(matches!(op, GitOp::Origin { .. }));
         for refused in [
             json!({ "op": "exec", "path": "/r", "args": ["rm", "-rf", "/"] }),
             json!({ "op": "push", "path": "/r" }),

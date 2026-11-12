@@ -229,7 +229,7 @@ fn a_tooltip_is_the_label_and_the_state_in_words() {
     assert_eq!(tip(en, "vps", &Presence::Off), "vps · switched off");
     assert_eq!(
         tip(en, "vps", &Presence::Offline(Some(ssh_failure()))),
-        "vps · offline: SSH failed while Looking at the machine…: Connection timed out"
+        "vps · offline: unreachable over SSH (Connection timed out)"
     );
     assert_eq!(tip(fr, "vps", &Presence::Off), "vps · désactivé");
 }

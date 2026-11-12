@@ -17,11 +17,13 @@ pub mod away;
 pub mod commands;
 pub mod connect;
 pub mod engine;
+pub mod failure;
 pub mod hosted;
 pub mod model;
 mod page;
 pub mod presence;
 pub mod remote;
+pub mod repos;
 pub mod runner;
 pub mod wire;
 
@@ -53,8 +55,9 @@ use crate::settings::experiments;
 use crate::state::types::{MachineKind, NodeConfig, Workspace};
 use crate::state::{Model, Patch, Settings, StoreAction};
 
+pub use failure::words as failure_words;
 pub use model::{NodeClient, NodeStatus};
-pub use page::{failure_words, settings_page};
+pub use page::settings_page;
 
 use connect::{Setup, Timing, TunnelSlot, locked};
 use model::{BinarySource, NODE_VERSION, target_problem};
@@ -147,6 +150,9 @@ pub struct Live {
     /// What the nodes are still to be told of what the person changed on
     /// their mirrors, and the workspaces being handed to them.
     pub outbox: hosted::Outbox,
+    /// The repository of each workspace, read where its folder is: what
+    /// says that one repository is open on several machines.
+    pub repos: repos::Known,
 }
 
 impl Live {
@@ -215,6 +221,15 @@ pub enum Msg {
     /// The answer to a question about a workspace on a node
     /// (`Overlay::NodeAsk`): `true` goes ahead.
     Answer(Ask, bool),
+    /// The address of the repository in folder `cwd` of machine `node`
+    /// (`None`: this computer), asked for workspace `ws`; `None` when the
+    /// folder has no `origin`, or could not be asked.
+    Origin {
+        ws: crate::state::WsId,
+        cwd: String,
+        node: Option<String>,
+        origin: Option<String>,
+    },
 }
 
 /// A question asked before something that cannot be undone is done to a
@@ -339,7 +354,8 @@ fn apply_status(
 /// workspaces and answered there (`control::Msg::Node`); its panes' bridge
 /// reports, as a local pane's (their activity, the orchestrator's news);
 /// the queue of each; its boards changed; the state of the workspaces it
-/// runs itself changed (or events lost: everything is read again).
+/// runs itself changed (or events lost: everything is read again); a clone
+/// it makes moved on.
 async fn follow_events(sv: Services, node: String) {
     let id = node.clone();
     let emit = move |event: serde_json::Value| {
@@ -437,6 +453,27 @@ pub(crate) fn event_messages(
             cwd: text("cwd").unwrap_or_default(),
         })],
         Some("own:changed") => vec![Message::Nodes(Msg::SyncOwn(node.to_owned()))],
+        // A clone the node makes for the new-workspace dialog, as it goes:
+        // told as a clone of this computer is, the dialog knows its job.
+        Some("git-clone:progress") => {
+            let payload = event.get("payload");
+            let field = |key: &str| payload.and_then(|payload| payload.get(key));
+            match (
+                field("jobId").and_then(Value::as_str),
+                field("phase").and_then(Value::as_str),
+            ) {
+                (Some(job), Some(phase)) => vec![Message::Core(CoreEvent::GitCloneProgress(
+                    hangar_core::git_clone::CloneProgress {
+                        job_id: job.to_owned(),
+                        phase: phase.to_owned(),
+                        percent: field("percent")
+                            .and_then(Value::as_u64)
+                            .map(|percent| percent.min(100) as u8),
+                    },
+                ))],
+                _ => Vec::new(),
+            }
+        }
         _ => Vec::new(),
     }
 }
@@ -580,8 +617,10 @@ pub fn update(st: &mut State, m: &mut Model, sv: &Services, msg: Msg) -> Task<Me
             {
                 conn.events = Some(tokio::spawn(follow_events(sv.clone(), id.clone())));
             }
-            // Just connected: what the node runs itself is read at once.
+            // Just connected: what the node runs itself is read at once,
+            // and the repositories of what this computer drives there.
             if !was && client(m, &id).is_some() {
+                m.live.nodes.repos.stale_node(&id);
                 return hosted::fetch(m, &id);
             }
         }
@@ -593,6 +632,8 @@ pub fn update(st: &mut State, m: &mut Model, sv: &Services, msg: Msg) -> Task<Me
             for conn in st.conns.values() {
                 conn.wake.notify_waiters();
             }
+            // A remote added or changed while the window was behind.
+            m.live.nodes.repos.stale_local(Instant::now());
         }
         Msg::SetEnabled(id, on) => {
             patch_node(m, id, move |node| node.enabled = (!on).then_some(false));
@@ -656,6 +697,15 @@ pub fn update(st: &mut State, m: &mut Model, sv: &Services, msg: Msg) -> Task<Me
         }
         Msg::Sent { id, result } => return hosted::sent(m, &id, result),
         Msg::Answer(ask, yes) => return ask::answered(m, ask, yes),
+        Msg::Origin {
+            ws,
+            cwd,
+            node,
+            origin,
+        } => {
+            let repos = &mut m.live.nodes.repos;
+            repos.answered(&ws, &cwd, node.as_deref(), origin.as_deref());
+        }
     }
     Task::none()
 }

@@ -43,6 +43,7 @@ impl App {
             Intent::OpenOrchestration(ws) => self.open_overlay(Overlay::Orchestration(ws)),
             Intent::OpenWorktrees(ws) => self.open_overlay(Overlay::Worktrees(ws)),
             Intent::OpenKitsDialog(ws) => self.open_overlay(Overlay::KitsDialog(ws)),
+            Intent::OpenOnAnotherMachine(_) => self.open_overlay(Overlay::WorkspaceDialog),
             Intent::OpenDiff { ws, pane } => self.open_overlay(Overlay::Diff { ws, pane }),
             Intent::OpenChanges { ws, .. } => self.open_overlay(Overlay::Diff { ws, pane: None }),
             Intent::OpenSessions { ws, pane } => {
@@ -363,6 +364,13 @@ impl App {
         // What the person changed on the mirrors of the nodes' workspaces
         // is sent to the nodes, each in the order it was made.
         tasks.push(crate::nodes::hosted::send_next(&mut self.model));
+
+        // The repository of a workspace just added, or whose folder
+        // changed, is asked for.
+        tasks.push(crate::nodes::repos::refresh(
+            &mut self.model,
+            std::time::Instant::now(),
+        ));
 
         // Every respawn, whoever applied it, is announced.
         for respawn in self.model.take_respawns() {

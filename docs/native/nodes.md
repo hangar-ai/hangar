@@ -49,6 +49,9 @@ history when it reconnects.
      memory changed, bridge events) forwarded as JSON, and `own:changed`
      when the state of the workspaces the node runs itself moved;
    - `GET /node/fs?path=` list a folder (to pick a workspace's folder);
+   - `POST /node/clone` `{url, parent, name, jobId}`: a repository cloned on
+     the node (core's `git_clone`, its progress on `/node/events` as
+     `git-clone:progress`), `POST /node/clone/cancel` `{jobId}`;
    - the existing `/api/board`, `/api/tasks/...`, `/api/memory/...` routes of
      core's server, with the App token.
 4. **Desktop: connection** (`hangar-app/src/nodes/`). A node is
@@ -71,6 +74,10 @@ history when it reconnects.
    reason). A link that drops says nothing for 5 s; how a machine and its
    link are then shown is decided in one place (`nodes/presence.rs`) for
    the navigator, the palette, the pane's bar and card and the settings.
+   Why an attempt failed is one short phrase for each thing that can fail
+   (`nodes/failure.rs`: « unreachable over SSH (Connection timed out) »);
+   what the tool said in full is a second, quieter line in the settings
+   and the tooltip of the pane's card.
 5. **Desktop: remote workspaces.** `Workspace.node: Option<NodeId>`; its `cwd`
    is a path on the node. `PaneLink` and the pane controller talk to a
    `PtyBackend` (local: today's `PtyManager`; remote: the node API), so the
@@ -145,8 +152,16 @@ A workspace made from the new-workspace dialog with « Runs on » set to a
 node is the node's own from the start: built here, with the ids the
 desktop gives, flagged `hosted` and handed to the node (`POST
 /node/own/adopt`) through the same line; were the node to refuse it, it is
-taken back out and the reason shown. (A clone from Git is made on this
-computer only, as before.) A workspace the desktop still drives on a node
+taken back out and the reason shown. « Runs on » is there whatever the
+workspace is made from, with this computer and every node; a node that is
+switched off or cannot be reached keeps its place, greyed, its state beside
+its name. A clone from Git with « Runs on » set to a node is made by the
+node (`POST /node/clone`), with the node's own access to the repository,
+into the folder typed or picked among the node's (`projects` in its home
+when none is); its progress comes over `/node/events` and is shown as a
+local clone's, and when git fails its words are shown, with a line saying
+that the node may lack access. The workspace made on the folder is then
+handed to the node like any other. A workspace the desktop still drives on a node
 (`node` set, not `hosted`: one made before, which stops with this computer)
 has « Move to {machine} » in its menu in the navigator. After a question
 that says what happens, it is flagged `hosted` here first, so that this
@@ -172,6 +187,37 @@ the person changed on the desktop's copy) and `POST /node/own/adopt` (a
 workspace the desktop ran on the node, or has just made, handed to the
 node). `POST /node/panes` and `DELETE /node/panes/{id}` answer 409 for a
 pane of the node's own. The shapes are in headless.md, step 3.
+
+## One repository on several machines
+
+A workspace's repository is the address of its `origin`, brought to one
+spelling (`nodes/repos.rs`, `identity`): the host in lower case and the
+path, without scheme, user, port, `.git` or a trailing slash, so
+`git@github.com:Acme/Shop.git` and `https://github.com/acme/shop` are one.
+An address with no host (a folder, `file:`) is no identity, and a
+workspace without an `origin` is never grouped.
+
+The address is read where the folder is, off the UI thread, and held in
+memory only (`nodes::Live::repos`): by git for a folder of this computer;
+by the node for the workspaces it runs itself, beside their state
+(`origins` in `GET /node/own/state`, by workspace, so it is never saved
+with one); by `POST /node/git` `{op: "origin"}` for a workspace this
+computer still drives there. Credentials in an address are taken out
+before it leaves its machine. It is asked for after any message that left
+a workspace without it (one just added, a folder that changed), and read
+again when a node connects and when the window comes back to the front.
+None of it is read without a node in the settings.
+
+When the same repository is open on more than one machine (a machine that
+is switched off does not count, and two checkouts on one machine are not
+each other's): a row of this computer gets one faint mark whose tooltip
+says where else (« Also on vps (api) »); a row that already wears its
+machine's mark says it in that mark's tooltip; the workspace's menu starts
+with « Also on », a line for each of the others under its machine's icon,
+which goes there. No row moves. « Open on another machine… », in the same
+menu, opens the new-workspace dialog on the repository, « Runs on » set
+to the first machine, this computer then the connected nodes, that has no
+checkout of it; it is greyed when every connected machine has one.
 
 ## Later (phase 2 and on)
 

@@ -93,11 +93,12 @@ pub enum Icon {
     Unplugged,
     Power,
     MoveToMachine,
+    MachinePlus,
 }
 
 impl Icon {
     /// All of them, in the order of the web app's table.
-    pub const ALL: [Icon; 87] = [
+    pub const ALL: [Icon; 88] = [
         Icon::Layout1,
         Icon::Layout2,
         Icon::Layout4,
@@ -185,6 +186,7 @@ impl Icon {
         Icon::Unplugged,
         Icon::Power,
         Icon::MoveToMachine,
+        Icon::MachinePlus,
     ];
 
     /// The name the web app knows it by (`"splitRight"`), which is what the
@@ -278,6 +280,7 @@ impl Icon {
             Icon::Unplugged => "unplugged",
             Icon::Power => "power",
             Icon::MoveToMachine => "moveToMachine",
+            Icon::MachinePlus => "machinePlus",
         }
     }
 
@@ -379,6 +382,8 @@ impl Icon {
             Icon::Unplugged => r##"<path d="M6 1.9v3M10 1.9v3M4.3 4.9h7.4v2.5a3.7 3.7 0 0 1-7.4 0zM8 11.1v3M2.5 2.5l11 11"/>"##,
             Icon::Power => r##"<path d="M8 2.25v5.5M11.6 4.1a5.4 5.4 0 1 1-7.2 0"/>"##,
             Icon::MoveToMachine => r##"<path d="M8.5 2.75h3.55a2.2 2.2 0 0 1 2.2 2.2v6.1a2.2 2.2 0 0 1-2.2 2.2H8.5M1.75 8h6.5M5.25 5l3 3-3 3"/><circle cx="11.5" cy="8" r=".8" fill="#000" stroke="none"/>"##,
+            // A machine with a plus on its screen: the same thing opened on one more.
+            Icon::MachinePlus => r##"<rect x="1.75" y="2.25" width="12.5" height="8.5" rx="1.8"/><path d="M8 10.75v2.75M5.25 13.5h5.5M8 4.65v3.7M6.15 6.5h3.7"/>"##,
         }
     }
 }

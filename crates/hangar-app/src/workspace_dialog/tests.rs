@@ -1335,9 +1335,11 @@ fn a_workspace_can_be_made_on_a_connected_node() {
     });
     let st = State::default();
     {
-        // Not connected: nothing to offer.
+        // Not connected: listed, and not to be chosen.
         let mut ui = h.show(view(&st, h.ctx()));
-        assert!(ui.find("GPU box").is_err());
+        assert!(ui.find("GPU box").is_ok());
+        let _ = ui.click("GPU box");
+        assert!(!sent(&messages(ui), |msg| matches!(msg, Msg::Place(_))));
     }
     h.model.live.nodes.statuses.insert(
         "n1".into(),
@@ -1393,7 +1395,7 @@ fn a_workspace_can_be_made_on_a_connected_node() {
     assert_eq!(st.folder.cwd, "/home/hangar");
     {
         let mut ui = h.show(view(&st, h.ctx()));
-        assert!(ui.find("Folder on the node").is_ok());
+        assert!(ui.find("Folder on that machine").is_ok());
         assert!(ui.find("Browse…").is_err(), "not this machine's dialog");
         ui.click("demo/").expect("a sub-folder of the node");
         assert!(sent(&messages(ui), |msg| matches!(
@@ -1448,7 +1450,7 @@ fn a_workspace_made_on_a_node_is_handed_to_it_once_and_taken_back_if_refused() {
         let mut ui = h.show(view(&st, h.ctx()));
         assert!(
             ui.find(
-                "The node runs this workspace itself: its agents keep working with this \
+                "That machine runs this workspace itself: its agents keep working with this \
                  computer off, and this window shows them."
             )
             .is_ok()
@@ -1526,4 +1528,512 @@ fn a_workspace_the_node_takes_stays_as_its_mirror() {
         .expect("kept");
     assert!(made.is_hosted());
     assert!(!h.model.live.nodes.outbox.adopting(&made.id));
+}
+
+/// Three nodes beside this computer: `GPU box` connected, `vps` whose link
+/// is down, `nas` switched off.
+fn with_machines(locale: Locale, theme: &str) -> Harness {
+    use crate::nodes::model::{Failure, Step};
+    use crate::nodes::testing::{down, machine, up};
+    use crate::state::types::MachineKind;
+    let mut h = Harness::new(locale, theme).edit(|state| {
+        state.settings.experiments = vec![crate::settings::experiments::NODES.into()];
+        state.settings.nodes = vec![
+            machine("gpu", "GPU box", MachineKind::Tower),
+            machine("vps", "vps", MachineKind::Cloud),
+            machine("nas", "nas", MachineKind::MiniPc),
+        ];
+        state.settings.nodes[2].enabled = Some(false);
+    });
+    up(&mut h.model, "gpu", "gpu-01");
+    down(
+        &mut h.model,
+        "vps",
+        30,
+        Some(Failure::Ssh {
+            step: Step::Probe,
+            detail: "Connection timed out".into(),
+        }),
+    );
+    h.model.ui.overlays.push(Overlay::WorkspaceDialog);
+    h
+}
+
+/// « Runs on » is there whatever the workspace is made from, with every
+/// machine: one that is away keeps its place and says its state, and
+/// cannot be chosen, from the pointer or otherwise.
+#[test]
+fn runs_on_lists_every_machine_in_clone_mode_and_an_offline_one_cannot_be_chosen() {
+    let mut h = with_machines(Locale::En, "graphite");
+    let mut st = git_state("acme/shop", Some(parsed_ok("acme/shop", "shop")));
+    {
+        let mut ui = h.show(view(&st, h.ctx()));
+        for text in [
+            "Runs on",
+            "This computer",
+            "GPU box",
+            "vps",
+            "offline",
+            "nas",
+            "switched off",
+        ] {
+            assert!(ui.find(text).is_ok(), "{text} is on the form");
+        }
+        h.shot(&mut ui, "clone-runs-on-en-graphite");
+        let _ = ui.click("vps");
+        let _ = ui.click("nas");
+        assert!(
+            !sent(&messages(ui), |msg| matches!(msg, Msg::Place(_))),
+            "a machine that is away is not a button"
+        );
+    }
+    for away in ["vps", "nas"] {
+        let _ = form(&mut st, &mut h.model, Msg::Place(Some(away.into())));
+        assert_eq!(st.place.node, None, "{away} cannot be chosen");
+    }
+    // The connected one can, and the clone then lands in its `projects`.
+    {
+        let mut ui = h.show(view(&st, h.ctx()));
+        ui.click("GPU box").expect("a connected machine is offered");
+        assert!(sent(&messages(ui), |msg| matches!(
+            msg,
+            Msg::Place(Some(node)) if node == "gpu"
+        )));
+    }
+    st.git.parent = "/home/me/dev".into();
+    let _ = form(&mut st, &mut h.model, Msg::Place(Some("gpu".into())));
+    assert_eq!(st.place.node.as_deref(), Some("gpu"));
+    assert_eq!(
+        st.git.parent, "",
+        "a folder of this computer means nothing there"
+    );
+    assert!(
+        st.place.listing_asked.is_none(),
+        "nothing is listed unasked"
+    );
+    assert_eq!(
+        st.parent_for(&h.model).as_deref(),
+        Some("/home/me/projects"),
+        "empty: projects in the node's home"
+    );
+    assert_eq!(st.git_status(&h.model), FromGitStatus::Ready);
+    let mut ui = h.show(view(&st, h.ctx()));
+    for text in [
+        "empty: the projects folder in the home of GPU box",
+        "It will be cloned to /home/me/projects/shop on GPU box",
+    ] {
+        assert!(ui.find(text).is_ok(), "{text} is on the form");
+    }
+    h.shot(&mut ui, "clone-on-node-en-graphite");
+}
+
+#[test]
+fn the_clone_form_lists_the_machines_in_french_in_a_light_theme() {
+    let h = with_machines(Locale::Fr, "github-light");
+    let st = git_state("acme/shop", Some(parsed_ok("acme/shop", "shop")));
+    let mut ui = h.show(view(&st, h.ctx()));
+    for text in ["S’exécute sur", "Cet ordinateur", "hors ligne", "désactivé"] {
+        assert!(ui.find(text).is_ok(), "{text} is on the form");
+    }
+    h.shot(&mut ui, "clone-runs-on-fr-github-light");
+}
+
+/// Without a node there is nothing to choose, in either mode.
+#[test]
+fn runs_on_is_not_there_without_a_node_or_the_experiment() {
+    let h = Harness::new(Locale::En, "graphite");
+    for st in [State::default(), git_state("acme/shop", None)] {
+        let mut ui = h.show(view(&st, h.ctx()));
+        assert!(ui.find("Runs on").is_err());
+    }
+    let h = with_machines(Locale::En, "graphite").edit(|state| state.settings.experiments.clear());
+    let st = State::default();
+    let mut ui = h.show(view(&st, h.ctx()));
+    assert!(ui.find("Runs on").is_err());
+}
+
+/// The folder a node clones into is picked among the node's own, listed
+/// in the form; switching what the workspace is made from lists again for
+/// the other field.
+#[test]
+fn the_folder_to_clone_into_is_browsed_on_the_node() {
+    use crate::nodes::remote::Listing;
+    let mut h = with_machines(Locale::En, "graphite");
+    let mut st = git_state("acme/shop", Some(parsed_ok("acme/shop", "shop")));
+    let _ = form(&mut st, &mut h.model, Msg::Place(Some("gpu".into())));
+    let _ = form(&mut st, &mut h.model, Msg::BrowseParent);
+    assert!(st.place.browsing);
+    let asked = st.place.listing_asked.expect("the node's home is listed");
+    let _ = form(
+        &mut st,
+        &mut h.model,
+        Msg::NodeListed {
+            asked,
+            result: Ok(Listing {
+                path: "/home/me".into(),
+                parent: Some("/home".into()),
+                folders: vec!["dev".into(), "projects".into()],
+            }),
+        },
+    );
+    assert_eq!(
+        st.git.parent, "/home/me",
+        "the folder listed is the one picked"
+    );
+    assert_eq!(st.folder.cwd, "", "not the folder of a workspace");
+    {
+        let mut ui = h.show(view(&st, h.ctx()));
+        assert!(
+            ui.find("It will be cloned to /home/me/shop on GPU box")
+                .is_ok()
+        );
+        h.shot(&mut ui, "clone-on-node-browsing-en-graphite");
+        ui.click("dev/").expect("a sub-folder of the node");
+        assert!(sent(&messages(ui), |msg| matches!(
+            msg,
+            Msg::NodeFolder(Some(path)) if path == "/home/me/dev"
+        )));
+    }
+    // Back to a folder: the listing is the workspace's folder's again.
+    let _ = form(&mut st, &mut h.model, Msg::Source(Source::Folder));
+    assert!(!st.place.browsing);
+    assert!(st.place.listing.is_none());
+    assert!(st.place.listing_asked.is_some());
+}
+
+/// What the fake node of this test answers one request with.
+async fn serve_once(
+    listener: &tokio::net::TcpListener,
+    status: u16,
+    body: serde_json::Value,
+) -> crate::nodes::testing::Request {
+    use crate::nodes::testing::{answer, read_request};
+    let (mut stream, _) = listener.accept().await.expect("a connection");
+    let request = read_request(&mut stream).await;
+    answer(&mut stream, status, &body.to_string()).await;
+    request
+}
+
+/// `vps` connected through `client`, its home `/home/vps`, and the clone
+/// form ready for `acme/shop` on it.
+fn ready_to_clone_on(client: &crate::nodes::model::NodeClient) -> (Harness, State) {
+    use crate::nodes::NodeStatus;
+    use crate::nodes::model::NodeInfo;
+    use crate::nodes::testing::{TOKEN, machine};
+    use crate::state::types::MachineKind;
+    let mut h = Harness::new(Locale::En, "graphite").edit(|state| {
+        state.settings.experiments = vec![crate::settings::experiments::NODES.into()];
+        state.settings.nodes = vec![machine("vps", "vps", MachineKind::Cloud)];
+    });
+    let port = client
+        .base_url
+        .rsplit(':')
+        .next()
+        .and_then(|port| port.parse().ok())
+        .expect("a port");
+    h.model.live.nodes.statuses.insert(
+        "vps".into(),
+        NodeStatus::Connected {
+            info: NodeInfo {
+                home: "/home/vps".into(),
+                ..NodeInfo::default()
+            },
+            local_port: port,
+            token: TOKEN.into(),
+        },
+    );
+    h.model.ui.overlays.push(Overlay::WorkspaceDialog);
+    let mut st = git_state("acme/shop", Some(parsed_ok("acme/shop", "shop")));
+    let _ = form(&mut st, &mut h.model, Msg::Place(Some("vps".into())));
+    (h, st)
+}
+
+/// Cloning on a node, start to end against a node that says yes: the node
+/// is asked to clone into its `projects`, and the workspace made on the
+/// folder it answers is handed to it as its own, one orchestrator pane.
+#[tokio::test]
+async fn a_clone_on_a_node_is_asked_of_it_then_the_workspace_handed_over() {
+    use crate::nodes::hosted::{self, Handover, Job};
+    use crate::nodes::testing::listen;
+    use crate::state::types::PaneRole;
+    let (listener, client) = listen().await;
+    let (mut h, mut st) = ready_to_clone_on(&client);
+
+    let _ = start_git_on_node(&mut st, &mut h.model, "vps");
+    assert!(st.git.running);
+    let job = st.git.job.clone().expect("a job to follow");
+    {
+        let mut ui = h.show(view(&st, h.ctx()));
+        assert!(
+            ui.find("Cloning on vps…").is_ok(),
+            "said until git says more"
+        );
+        assert!(ui.find("Cancel the clone").is_ok());
+        h.shot(&mut ui, "clone-on-node-running-en-graphite");
+    }
+    // Its progress comes with the node's events, and is followed as a
+    // local clone's.
+    let told = crate::nodes::event_messages(
+        "vps",
+        h.model.state(),
+        serde_json::json!({
+            "event": "git-clone:progress",
+            "payload": { "jobId": job, "phase": "Receiving objects", "percent": 40 },
+        }),
+    );
+    let [Message::Core(CoreEvent::GitCloneProgress(progress))] = told.as_slice() else {
+        panic!("one progress: {told:?}");
+    };
+    assert!(follow(&mut st, progress));
+    assert_eq!(st.git.progress.as_ref().and_then(|p| p.percent), Some(40));
+
+    let asked = job.clone();
+    let cloning = tokio::spawn(async move {
+        crate::nodes::engine::clone(
+            &client,
+            "https://github.com/acme/shop.git",
+            "/home/vps/projects",
+            "shop",
+            &asked,
+        )
+        .await
+    });
+    let request = serve_once(
+        &listener,
+        200,
+        serde_json::json!({ "value": {
+            "status": "cloned", "path": "/home/vps/projects/shop", "reused": false, "branch": "main",
+        } }),
+    )
+    .await;
+    assert_eq!(request.line(), "POST /node/clone HTTP/1.1");
+    let body: serde_json::Value = serde_json::from_str(&request.body).unwrap();
+    assert_eq!(
+        body,
+        serde_json::json!({
+            "url": "https://github.com/acme/shop.git",
+            "parent": "/home/vps/projects",
+            "name": "shop",
+            "jobId": job,
+        })
+    );
+    let result = cloning.await.unwrap();
+    assert_eq!(
+        result.as_ref().map(|cloned| cloned.path.as_str()),
+        Ok("/home/vps/projects/shop")
+    );
+
+    let before = h.model.state().workspaces.len();
+    let _ = form(
+        &mut st,
+        &mut h.model,
+        Msg::NodeCloned {
+            job,
+            node: "vps".into(),
+            result,
+        },
+    );
+    assert!(!st.git.running);
+    assert_eq!(st.git.error, None);
+    assert_eq!(h.model.state().workspaces.len(), before + 1);
+    let made = h
+        .model
+        .state()
+        .workspaces
+        .iter()
+        .find(|ws| ws.cwd == "/home/vps/projects/shop")
+        .expect("made on the folder the node cloned")
+        .clone();
+    assert_eq!(made.name, "shop");
+    assert_eq!(made.node.as_deref(), Some("vps"));
+    assert!(made.is_hosted(), "the node's own from the start");
+    assert_eq!(made.panes.len(), 1);
+    assert_eq!(made.panes[0].role, Some(PaneRole::Orchestrator));
+
+    // Then the adopt, sent in the node's line.
+    let waiting = h.model.live.nodes.outbox.waiting("vps");
+    let [
+        job @ Job::Adopt {
+            handover: Handover::Created,
+            ..
+        },
+    ] = waiting.as_slice()
+    else {
+        panic!("one adopt: {waiting:?}");
+    };
+    let client = crate::nodes::client(&h.model, "vps").expect("connected");
+    let job = job.clone();
+    let sending = tokio::spawn(async move { hosted::send(&client, &job).await });
+    let request = serve_once(&listener, 200, serde_json::json!({ "id": made.id })).await;
+    assert_eq!(request.line(), "POST /node/own/adopt HTTP/1.1");
+    let body: serde_json::Value = serde_json::from_str(&request.body).unwrap();
+    assert_eq!(body["id"], made.id.as_str());
+    assert_eq!(body["cwd"], "/home/vps/projects/shop");
+    assert_eq!(sending.await.unwrap(), Ok(()));
+    let _ = hosted::send_next(&mut h.model);
+    let _ = hosted::sent(&mut h.model, "vps", Ok(()));
+    assert!(h.model.workspace(&made.id).is_some_and(|ws| ws.is_hosted()));
+}
+
+/// The node could not clone: git's own words are shown, with what is
+/// likely behind them, and nothing is made.
+#[tokio::test]
+async fn a_clone_the_node_refuses_shows_git_s_words_and_makes_nothing() {
+    use crate::nodes::testing::listen;
+    let (listener, client) = listen().await;
+    let (mut h, mut st) = ready_to_clone_on(&client);
+    let _ = start_git_on_node(&mut st, &mut h.model, "vps");
+    let job = st.git.job.clone().expect("a job");
+    let asked = job.clone();
+    let cloning = tokio::spawn(async move {
+        crate::nodes::engine::clone(
+            &client,
+            "git@github.com:acme/shop.git",
+            "/home/vps/projects",
+            "shop",
+            &asked,
+        )
+        .await
+    });
+    serve_once(
+        &listener,
+        200,
+        serde_json::json!({ "value": {
+            "status": "refused", "kind": "failed",
+            "reason": "git@github.com: Permission denied (publickey).",
+        } }),
+    )
+    .await;
+    let result = cloning.await.unwrap();
+    assert_eq!(
+        result.as_ref().map_err(|refusal| refusal.kind.as_str()),
+        Err("failed")
+    );
+    let before = h.model.state().workspaces.len();
+    let _ = form(
+        &mut st,
+        &mut h.model,
+        Msg::NodeCloned {
+            job,
+            node: "vps".into(),
+            result,
+        },
+    );
+    assert!(!st.git.running);
+    assert_eq!(
+        st.git.error.as_deref(),
+        Some(
+            "vps could not clone it: git@github.com: Permission denied (publickey). vps may \
+             not have access to this repository: it clones with its own keys, not this \
+             computer’s."
+        )
+    );
+    assert_eq!(h.model.state().workspaces.len(), before, "nothing is made");
+    assert!(
+        !h.model.live.nodes.outbox.busy("vps"),
+        "nothing is handed over"
+    );
+    let mut ui = h.show(view(&st, h.ctx()));
+    assert!(
+        ui.find("Clone and create workspace").is_ok(),
+        "to try again"
+    );
+    h.shot(&mut ui, "clone-on-node-refused-en-graphite");
+}
+
+/// A folder that holds something else is not git failing: no word on
+/// access. A node that does not answer is said as it is; a clone the
+/// person stopped says so.
+#[test]
+fn a_refusal_that_is_not_git_s_says_nothing_of_access() {
+    use crate::nodes::engine::CloneRefusal;
+    use crate::nodes::testing::{machine, up};
+    use crate::state::types::MachineKind;
+    let mut h = Harness::new(Locale::En, "graphite").edit(|state| {
+        state.settings.experiments = vec![crate::settings::experiments::NODES.into()];
+        state.settings.nodes = vec![machine("vps", "vps", MachineKind::Cloud)];
+    });
+    up(&mut h.model, "vps", "vps-01");
+    h.model.ui.overlays.push(Overlay::WorkspaceDialog);
+    let mut answer = |kind: &str, reason: &str, cancelled: bool| {
+        let mut st = git_state("acme/shop", Some(parsed_ok("acme/shop", "shop")));
+        st.place.node = Some("vps".into());
+        st.git.job = Some("job".into());
+        st.git.running = true;
+        st.git.cancelled = cancelled;
+        let _ = form(
+            &mut st,
+            &mut h.model,
+            Msg::NodeCloned {
+                job: "job".into(),
+                node: "vps".into(),
+                result: Err(CloneRefusal {
+                    kind: kind.into(),
+                    reason: reason.into(),
+                }),
+            },
+        );
+        st.git.error.unwrap_or_default()
+    };
+    assert_eq!(
+        answer(
+            "exists",
+            "/home/vps/projects/shop already holds other files",
+            false
+        ),
+        "vps could not clone it: /home/vps/projects/shop already holds other files."
+    );
+    assert_eq!(
+        answer("unreachable", "the node did not answer", false),
+        "vps could not clone it: the node did not answer."
+    );
+    assert_eq!(
+        answer("cancelled", "the clone was cancelled", true),
+        "Clone cancelled"
+    );
+    // An answer for another job changes nothing.
+    let mut st = git_state("acme/shop", None);
+    st.git.job = Some("newer".into());
+    st.git.running = true;
+    let _ = form(
+        &mut st,
+        &mut h.model,
+        Msg::NodeCloned {
+            job: "older".into(),
+            node: "vps".into(),
+            result: Err(CloneRefusal {
+                kind: "failed".into(),
+                reason: "x".into(),
+            }),
+        },
+    );
+    assert!(st.git.running);
+}
+
+/// « Open on another machine… » opens the dialog on the repository of the
+/// workspace, « Runs on » already on a machine that lacks it.
+#[test]
+fn opening_a_repository_elsewhere_readies_the_clone_form() {
+    use crate::nodes::testing::{machine, up};
+    use crate::state::types::MachineKind;
+    let mut h = Harness::new(Locale::En, "graphite").edit(|state| {
+        state.settings.experiments = vec![crate::settings::experiments::NODES.into()];
+        state.settings.nodes = vec![machine("vps", "vps", MachineKind::Cloud)];
+    });
+    up(&mut h.model, "vps", "vps-01");
+    let shop = h.model.workspace("w2").unwrap().clone();
+    let known = &mut h.model.live.nodes.repos;
+    known.said(&shop, Some("git@github.com:acme/shop.git"));
+    let mut st = State::default();
+    st.name = "left over".into();
+    let _ = open_elsewhere(&mut st, &h.model, "w2");
+    assert_eq!(st.source, Source::Git);
+    assert_eq!(st.git.repo, "git@github.com:acme/shop.git");
+    assert_eq!(st.place.node.as_deref(), Some("vps"));
+    assert_eq!(st.name, "", "a clean form otherwise");
+    // A workspace without a repository opens the plain form.
+    let mut st = State::default();
+    let _ = open_elsewhere(&mut st, &h.model, "w1");
+    assert_eq!(st.source, Source::Folder);
+    assert_eq!(st.place.node, None);
 }

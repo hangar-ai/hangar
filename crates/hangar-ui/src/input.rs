@@ -736,22 +736,58 @@ where
     V: Clone + PartialEq,
     M: Clone + 'a,
 {
-    segmented_icons(
+    let segments = segment_buttons(
         t,
         options
             .into_iter()
-            .map(|(value, label)| (value, None, label))
+            .map(|(value, label)| Segment::new(value, None, label))
             .collect(),
         selected,
         on_select,
-    )
+        Length::Fill,
+    );
+    container(row(segments).spacing(space::XXS))
+        .padding(space::XXS)
+        .height(size::CONTROL_HEIGHT)
+        .style(style::container::segmented(t))
+        .into()
+}
+
+/// One segment of [`segmented_icons`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct Segment<V> {
+    pub value: V,
+    pub lead: Option<Icon>,
+    pub label: String,
+    /// Why it cannot be chosen now, in a word or two set after its label
+    /// ("offline"); `None` for one that can.
+    pub unavailable: Option<String>,
+}
+
+impl<V> Segment<V> {
+    pub fn new(value: V, lead: Option<Icon>, label: impl Into<String>) -> Self {
+        Segment {
+            value,
+            lead,
+            label: label.into(),
+            unavailable: None,
+        }
+    }
+
+    pub fn unavailable(mut self, why: impl Into<String>) -> Self {
+        self.unavailable = Some(why.into());
+        self
+    }
 }
 
 /// [`segmented_labels`] whose segments may each lead with an icon: a choice
-/// among things that go by one (the machines a workspace can run on).
+/// among things that go by one (the machines a workspace can run on). A
+/// segment that cannot be chosen stays in its place, greyed, with the
+/// reason beside its name. Too many to sit on one line, they go on to the
+/// next.
 pub fn segmented_icons<'a, V, M>(
     t: &'a Theme,
-    options: Vec<(V, Option<Icon>, String)>,
+    options: Vec<Segment<V>>,
     selected: &V,
     on_select: impl Fn(V) -> M,
 ) -> Element<'a, M>
@@ -759,28 +795,59 @@ where
     V: Clone + PartialEq,
     M: Clone + 'a,
 {
-    let segments = options.into_iter().map(|(value, lead, label)| {
-        let chosen = &value == selected;
-        let label = text(label).size(font_size::UI).font(fonts::ui_medium());
-        let face: Element<'a, M> = match lead {
-            Some(lead) => row![icon(lead, size::ICON), label]
-                .spacing(space::SM)
-                .align_y(Alignment::Center)
-                .into(),
-            None => label.into(),
-        };
-        let segment = button(container(face).center_y(Length::Fill))
-            .padding(Padding::from([0.0, space::LG]))
-            .height(Length::Fill)
-            .style(style::button::tab(t, chosen))
-            .on_press(on_select(value));
-        Element::from(segment)
-    });
-    container(row(segments).spacing(space::XXS))
-        .padding(space::XXS)
-        .height(size::CONTROL_HEIGHT)
-        .style(style::container::segmented(t))
-        .into()
+    let inner = size::CONTROL_HEIGHT - 2.0 * space::XXS;
+    let segments = segment_buttons(t, options, selected, on_select, Length::Fixed(inner));
+    container(
+        row(segments)
+            .spacing(space::XXS)
+            .wrap()
+            .vertical_spacing(space::XXS),
+    )
+    .padding(space::XXS)
+    .style(style::container::segmented(t))
+    .into()
+}
+
+/// The segments of a segmented control, each a button `height` tall.
+fn segment_buttons<'a, V, M>(
+    t: &'a Theme,
+    options: Vec<Segment<V>>,
+    selected: &V,
+    on_select: impl Fn(V) -> M,
+    height: Length,
+) -> Vec<Element<'a, M>>
+where
+    V: Clone + PartialEq,
+    M: Clone + 'a,
+{
+    options
+        .into_iter()
+        .map(|option| {
+            let chosen = &option.value == selected;
+            let off = option.unavailable.is_some();
+            let subtle = t.colors.fg_subtle;
+            let mut face = row![].spacing(space::SM).align_y(Alignment::Center);
+            if let Some(lead) = option.lead {
+                let lead = icon(lead, size::ICON);
+                face = face.push(if off { lead.color(subtle) } else { lead });
+            }
+            face = face.push(
+                text(option.label)
+                    .size(font_size::UI)
+                    .font(fonts::ui_medium())
+                    .color_maybe(off.then_some(subtle)),
+            );
+            if let Some(why) = option.unavailable {
+                face = face.push(text(why).size(font_size::CAPTION).color(subtle));
+            }
+            let segment = button(container(face).center_y(Length::Fill))
+                .padding(Padding::from([0.0, space::LG]))
+                .height(height)
+                .style(style::button::tab(t, chosen))
+                .on_press_maybe((!off).then(|| on_select(option.value)));
+            Element::from(segment)
+        })
+        .collect()
 }
 
 #[cfg(test)]

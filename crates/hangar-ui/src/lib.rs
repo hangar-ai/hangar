@@ -120,3 +120,9 @@ pub use icon::{Icon, icon};
 #[cfg(test)]
 mod testing;
 mod text_metrics;
+
+/// The width of `content` set on one line in this size and face: what a
+/// test asks to know that a line of words fits where it is put.
+pub fn text_width(content: &str, size: f32, font: iced::Font) -> f32 {
+    text_metrics::text_width(content, size, font)
+}

@@ -48,6 +48,9 @@ pub struct OwnState {
     pub activity: HashMap<PaneId, AgentActivity>,
     /// The panes whose agent the node hears through its mod.
     pub bridged: HashSet<PaneId>,
+    /// The address of each workspace's repository, for those that have
+    /// one; `None` from a node that does not say (an older one).
+    pub origins: Option<HashMap<WsId, String>>,
 }
 
 /// The state of a node last taken in: what a later answer is compared with.
@@ -78,7 +81,17 @@ pub fn parse(value: &Value) -> Option<OwnState> {
         .flatten()
         .filter_map(|pane| pane.as_str().map(str::to_owned))
         .collect();
+    let origins = value
+        .get("origins")
+        .and_then(Value::as_object)
+        .map(|origins| {
+            origins
+                .iter()
+                .filter_map(|(ws, origin)| Some((ws.clone(), origin.as_str()?.to_owned())))
+                .collect()
+        });
     Some(OwnState {
+        origins,
         boot: value.get("boot")?.as_str()?.to_owned(),
         revision: value.get("revision")?.as_u64()?,
         workspaces,
@@ -187,6 +200,16 @@ pub fn take_in(m: &mut Model, node: &str, own: OwnState, now: u64) {
         );
     }
     crate::panes_logic::mirror_hosted(m, node, &before, &own.activity, &own.bridged, now);
+    // Where each mirror's repository comes from, as its node reads it.
+    if let Some(origins) = &own.origins {
+        let state = m.state_arc();
+        for ws in &state.workspaces {
+            if ws.is_hosted() && ws.node.as_deref() == Some(node) {
+                let origin = origins.get(&ws.id).map(String::as_str);
+                m.live.nodes.repos.said(ws, origin);
+            }
+        }
+    }
 }
 
 /// Node `node` is no longer one of this Hangar's machines: its mirrors go,

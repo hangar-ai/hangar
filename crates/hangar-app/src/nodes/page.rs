@@ -5,7 +5,7 @@
 
 use std::borrow::Cow;
 
-use hangar_i18n::{Key, Translator, args};
+use hangar_i18n::{Key, args};
 use hangar_theme::tokens;
 use hangar_ui::menu::{self as ui_menu, Entry};
 use hangar_ui::{Icon, button as ui_button, form, icon, input, text as typography, tip};
@@ -16,7 +16,8 @@ use crate::ctx::Ctx;
 use crate::message::Message;
 use crate::state::types::{MachineKind, NodeConfig};
 
-use super::model::{Failure, NodeStatus, Step, TargetProblem, target_problem};
+use super::failure;
+use super::model::{NodeStatus, Step, TargetProblem, target_problem};
 use super::presence::{self, Presence};
 use super::{Msg, Open, State};
 
@@ -42,38 +43,6 @@ pub fn step_key(step: Step) -> Key {
         Step::Tunnel => Key::NodesStepTunnel,
         Step::Handshake => Key::NodesStepHandshake,
     }
-}
-
-/// The failure in the person's language; the details stay as the tools said
-/// them.
-pub fn failure_words(i18n: Translator, failure: &Failure) -> String {
-    match failure {
-        Failure::Ssh { step, detail } => i18n.t_with(
-            Key::NodesErrorSsh,
-            &args!("step" => i18n.t(step_key(*step)).into_owned(), "detail" => detail.as_str()),
-        ),
-        Failure::NoBinary { arch, file, dir } => i18n.t_with(
-            Key::NodesErrorNoBinary,
-            &args!("arch" => arch.as_str(), "file" => file.as_str(), "dir" => dir.as_str()),
-        ),
-        Failure::UnsupportedArch(arch) => i18n.t_with(
-            Key::NodesErrorUnsupportedArch,
-            &args!("arch" => arch.as_str()),
-        ),
-        Failure::NodeJson(detail) => {
-            i18n.t_with(Key::NodesErrorNodeJson, &args!("detail" => detail.as_str()))
-        }
-        Failure::Tunnel(detail) => {
-            i18n.t_with(Key::NodesErrorTunnel, &args!("detail" => detail.as_str()))
-        }
-        Failure::Api(detail) => {
-            i18n.t_with(Key::NodesErrorApi, &args!("detail" => detail.as_str()))
-        }
-        Failure::Local(detail) => {
-            i18n.t_with(Key::NodesErrorLocal, &args!("detail" => detail.as_str()))
-        }
-    }
-    .into_owned()
 }
 
 /// The width of the icon at the head of a row, which the lines under a
@@ -116,19 +85,26 @@ fn name_text<'a>(ctx: Ctx<'a>, name: impl text::IntoFragment<'a>) -> text::Text<
     typography::body(ctx.theme, name).font(hangar_theme::fonts::ui_semibold())
 }
 
+/// The name this computer has on its network, read once.
+pub(crate) fn local_hostname() -> Option<&'static str> {
+    static NAME: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+    NAME.get_or_init(hangar_core::paths::hostname).as_deref()
+}
+
 /// This computer, which heads the list: it is a machine like the others,
-/// only never away.
+/// only never away. Under its name, the name it has on its network, which
+/// is what the other rows say of theirs once connected.
 fn local_row<'a>(ctx: Ctx<'a>) -> Element<'a, Message> {
     let t = ctx.theme;
     let lead =
         container(icon(presence::LOCAL_ICON, tokens::size::ICON_LG).color(t.colors.fg_muted))
             .center_x(LEAD)
             .center_y(LEAD);
-    let lines = column![
-        name_text(ctx, ctx.t(Key::NodesCreateLocal)),
-        typography::hint(t, ctx.t(Key::NodesLocalHint)),
-    ]
-    .spacing(tokens::space::XXS);
+    let mut lines =
+        column![name_text(ctx, ctx.t(Key::NodesCreateLocal))].spacing(tokens::space::XXS);
+    if let Some(hostname) = local_hostname() {
+        lines = lines.push(typography::hint(t, hostname));
+    }
     container(row_frame(lead.into(), lines.into(), None))
         .padding(Padding::from([tokens::space::LG, tokens::space::XL]))
         .width(Length::Fill)
@@ -249,7 +225,7 @@ pub(crate) fn state_words(ctx: Ctx<'_>, node: &NodeConfig) -> (String, bool) {
         },
         Presence::Offline(None) => tr.t(Key::NodesRowUnavailable),
         Presence::Offline(Some(failure)) => {
-            let reason = failure_words(tr, &failure);
+            let reason = failure::words(tr, &failure);
             match link.and_then(|link| link.retry_in(ctx.now)) {
                 Some(seconds) if seconds > 0 => tr.t_with(
                     Key::NodesRowOfflineIn,
@@ -268,7 +244,7 @@ pub(crate) fn state_words(ctx: Ctx<'_>, node: &NodeConfig) -> (String, bool) {
                     .unwrap_or(*retry_in);
                 tr.t_with(
                     Key::NodesRowReconnectingIn,
-                    &args!("seconds" => seconds as i64, "reason" => failure_words(tr, failure)),
+                    &args!("seconds" => seconds as i64, "reason" => failure::words(tr, failure)),
                 )
             }
             _ => tr.t(Key::NodesRowStarting),
@@ -279,6 +255,30 @@ pub(crate) fn state_words(ctx: Ctx<'_>, node: &NodeConfig) -> (String, bool) {
         Presence::Offline(Some(_))
     ) || matches!(status, NodeStatus::Unreachable { .. });
     (words.into_owned(), alert)
+}
+
+/// The longest a tool's own words run in a row.
+const DETAIL_MAX: usize = 200;
+
+/// What the tool said of the failure the row of `node` reports, when the
+/// row's sentence does not hold all of it.
+pub(crate) fn failure_detail(ctx: Ctx<'_>, node: &NodeConfig) -> Option<String> {
+    let live = &ctx.model.live.nodes;
+    let failure = match presence::exact(ctx.model, &node.id) {
+        Presence::Offline(Some(failure)) => failure,
+        Presence::Connecting { .. } => match live.status(&node.id) {
+            NodeStatus::Unreachable { failure, .. } => failure,
+            _ => return None,
+        },
+        _ => return None,
+    };
+    let detail = failure::detail(ctx.i18n, &failure)?;
+    Some(if detail.chars().count() > DETAIL_MAX {
+        let cut: String = detail.chars().take(DETAIL_MAX).collect();
+        format!("{cut}…")
+    } else {
+        detail
+    })
 }
 
 fn machine_row<'a>(st: &'a State, ctx: Ctx<'a>, node: &'a NodeConfig) -> Element<'a, Message> {
@@ -322,6 +322,10 @@ fn machine_row<'a>(st: &'a State, ctx: Ctx<'a>, node: &'a NodeConfig) -> Element
         lines = lines
             .push(typography::hint(t, target_words(node)))
             .push(typography::hint(t, state).color(warning));
+        // What the tool said in full, quieter, for whoever has to fix it.
+        if let Some(detail) = failure_detail(ctx, node) {
+            lines = lines.push(typography::subtle(t, detail));
+        }
     } else {
         lines = lines.push(typography::hint(
             t,

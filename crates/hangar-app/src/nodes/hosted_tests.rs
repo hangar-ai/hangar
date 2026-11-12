@@ -55,6 +55,7 @@ pub(super) fn answered(boot: &str, revision: u64, workspaces: Vec<Workspace>) ->
         workspaces,
         activity: HashMap::new(),
         bridged: HashSet::new(),
+        origins: None,
     }
 }
 

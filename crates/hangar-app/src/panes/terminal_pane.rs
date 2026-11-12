@@ -223,13 +223,20 @@ fn away_card<'a>(ctx: Ctx<'a>, away: Away) -> Element<'a, Message> {
     let look = presence::look_of(ctx.model, &away.node, ctx.now);
     let machine = presence::icon_of(ctx.model, &away.node);
     let fg = t.colors.fg;
-    let said = column![
-        text(words)
-            .size(tokens::font_size::UI)
-            .style(move |_| text::Style { color: Some(fg) }),
-        actions,
-    ]
-    .spacing(tokens::space::LG);
+    let words: Element<'a, Message> = text(words)
+        .size(tokens::font_size::UI)
+        .style(move |_| text::Style { color: Some(fg) })
+        .into();
+    // What the tool said in full is a look away, not in the sentence.
+    let detail = match &away.presence {
+        Presence::Offline(Some(failure)) => crate::nodes::failure::detail(ctx.i18n, failure),
+        _ => None,
+    };
+    let words = match detail {
+        Some(detail) => hangar_ui::tip::bottom(t, words, detail),
+        None => words,
+    };
+    let said = column![words, actions].spacing(tokens::space::LG);
     let card = container(
         row![
             // Level with the first line of the words, which may wrap.
@@ -374,9 +381,10 @@ mod tests {
         down(&mut h.model, "n1", 10, Some(timed_out()));
         {
             let mut ui = h.show(crate::panes::view_workspace(&st, h.ctx(), &id, false));
-            assert!(ui
-                .find("GPU box is offline: SSH failed while Looking at the machine…: ssh: connect to host gpu port 22: Connection timed out")
-                .is_ok());
+            assert!(
+                ui.find("GPU box is offline: unreachable over SSH (Connection timed out)")
+                    .is_ok()
+            );
             assert!(ui.find("Retry now").is_ok());
             assert!(ui.find("Switch off").is_err());
         }

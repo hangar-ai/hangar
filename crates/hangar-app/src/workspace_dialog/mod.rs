@@ -190,13 +190,16 @@ impl Git {
     }
 }
 
-/// Where a workspace made from a folder runs (experiment `nodes`): this
-/// machine, or a connected node, whose folders are listed through its API
-/// (`GET /node/fs`) instead of the system's folder dialog.
+/// Where the workspace runs (experiment `nodes`): this computer, or a
+/// connected node, whose folders are listed through its API (`GET
+/// /node/fs`) instead of the system's folder dialog, and which clones a
+/// repository itself.
 #[derive(Debug, Default)]
 struct Place {
-    /// The node chosen; `None` is this machine.
+    /// The node chosen; `None` is this computer.
     node: Option<String>,
+    /// The node's folders are on show under « Clone into », to pick one.
+    browsing: bool,
     /// The node's folder listed, once its answer came.
     listing: Option<crate::nodes::remote::Listing>,
     /// A listing asked for and not answered yet: its number.
@@ -305,8 +308,14 @@ pub enum Msg {
     KitsHook(HookField, String),
 
     // Where it runs (experiment `nodes`).
-    /// This machine (`None`) or a connected node.
+    /// This computer (`None`) or a connected node.
     Place(Option<String>),
+    /// The node answered the clone it was asked for under `job`.
+    NodeCloned {
+        job: String,
+        node: String,
+        result: Result<crate::nodes::engine::Cloned, crate::nodes::engine::CloneRefusal>,
+    },
     /// A folder of the node to list and pick: `None` is its home.
     NodeFolder(Option<String>),
     NodeListed {
@@ -340,8 +349,12 @@ fn notice(text: String) -> Task<Message> {
 
 impl State {
     /// The destination of a clone: the folder typed, else the setting, else
-    /// the parent of the folder of the workspace in front.
+    /// the parent of the folder of the workspace in front. On a node: the
+    /// folder typed or picked there, else `projects` in its home.
     fn parent_for(&self, m: &Model) -> Option<String> {
+        if let Some(node) = &self.place.node {
+            return node_parent(&self.git.parent, m, node);
+        }
         resolve_parent(
             Some(&self.git.parent),
             projects_folder_of(m.settings()).as_deref(),
@@ -364,12 +377,31 @@ impl State {
     }
 }
 
+/// Where a node clones when no folder was typed or picked: `projects` in
+/// its home, made by the clone when it is not there. `None` while the node
+/// is not connected, which is when its home is known.
+fn node_parent(typed: &str, m: &Model, node: &str) -> Option<String> {
+    let typed = typed.trim();
+    if !typed.is_empty() {
+        return Some(typed.to_owned());
+    }
+    match m.live.nodes.status(node) {
+        crate::nodes::NodeStatus::Connected { info, .. } if !info.home.is_empty() => {
+            Some(format!("{}/projects", info.home.trim_end_matches('/')))
+        }
+        _ => None,
+    }
+}
+
 pub fn update(st: &mut State, m: &mut Model, sv: &Services, msg: Msg) -> Task<Message> {
     match msg {
         // The two that start or stop a clone are the only ones that reach
         // the services; the rest of the form is `form`.
-        Msg::Submit(_) if st.source == Source::Git => start_git(st, m, sv),
-        Msg::Stop => stop_clone(st),
+        Msg::Submit(_) if st.source == Source::Git => match st.place.node.clone() {
+            Some(node) => start_git_on_node(st, m, &node),
+            None => start_git(st, m, sv),
+        },
+        Msg::Stop => stop_clone(st, m),
         msg => form(st, m, msg),
     }
 }
@@ -383,7 +415,21 @@ fn form(st: &mut State, m: &mut Model, msg: Msg) -> Task<Message> {
             if st.git.running {
                 return Task::none();
             }
+            let changed = st.source != source;
             st.source = source;
+            // The node's folders were listed for the other source: its
+            // folder is the workspace's, a clone's is the one it lands in.
+            let mut listed = Task::none();
+            if changed && st.place.node.is_some() {
+                st.place = Place {
+                    node: st.place.node.take(),
+                    ..Place::default()
+                };
+                if source == Source::Folder {
+                    let shown = Some(st.folder.cwd.clone()).filter(|cwd| !cwd.is_empty());
+                    listed = list_node_folder(st, m, shown);
+                }
+            }
             // Reading the address follows the source, as the web app's effect
             // did.
             if source == Source::Git {
@@ -392,9 +438,9 @@ fn form(st: &mut State, m: &mut Model, msg: Msg) -> Task<Message> {
                 // the first field when it opens (the folder, or the
                 // repository when a clone is still showing); only a switch
                 // made inside the open dialog needs asking.
-                return Task::batch([schedule_parse(st), operation::focus(repo_id())]);
+                return Task::batch([listed, schedule_parse(st), operation::focus(repo_id())]);
             }
-            Task::none()
+            listed
         }
         Msg::Name(name) => {
             if !st.git.running {
@@ -418,16 +464,25 @@ fn form(st: &mut State, m: &mut Model, msg: Msg) -> Task<Message> {
 
         // ── where it runs ──
         Msg::Place(node) => {
-            if st.place.node == node {
+            if st.place.node == node || st.git.running {
+                return Task::none();
+            }
+            // A machine that cannot be reached cannot be given a workspace.
+            if node
+                .as_deref()
+                .is_some_and(|node| crate::nodes::client(m, node).is_none())
+            {
                 return Task::none();
             }
             // A folder of one machine means nothing on another.
             st.folder = Folder::default();
+            st.git.parent.clear();
+            st.git.error = None;
             st.place = Place {
                 node,
                 ..Place::default()
             };
-            if st.place.node.is_some() {
+            if st.place.node.is_some() && st.source == Source::Folder {
                 list_node_folder(st, m, None)
             } else {
                 Task::none()
@@ -442,7 +497,12 @@ fn form(st: &mut State, m: &mut Model, msg: Msg) -> Task<Message> {
             match result {
                 Ok(listing) => {
                     st.place.error = None;
-                    st.folder.cwd = listing.path.clone();
+                    // The folder listed is the one picked: the workspace's,
+                    // or the one a clone lands in.
+                    match st.source {
+                        Source::Folder => st.folder.cwd = listing.path.clone(),
+                        Source::Git => st.git.parent = listing.path.clone(),
+                    }
                     st.place.listing = Some(listing);
                 }
                 Err(error) => st.place.error = Some(error),
@@ -626,6 +686,18 @@ fn form(st: &mut State, m: &mut Model, msg: Msg) -> Task<Message> {
             }
             Task::none()
         }
+        // On a node, the folders are the node's, listed in the form.
+        Msg::BrowseParent if st.place.node.is_some() => {
+            if st.git.running {
+                return Task::none();
+            }
+            st.place.browsing = !st.place.browsing;
+            if !st.place.browsing {
+                return Task::none();
+            }
+            let typed = Some(st.git.parent.trim().to_owned()).filter(|typed| !typed.is_empty());
+            list_node_folder(st, m, typed)
+        }
         Msg::BrowseParent => Task::perform(
             dialogs::pick_folder(t.t(Key::CreateGitParentDialog).into_owned(), None),
             |picked| Message::WorkspaceDialog(Msg::ParentPicked(picked)),
@@ -670,6 +742,7 @@ fn form(st: &mut State, m: &mut Model, msg: Msg) -> Task<Message> {
             Task::none()
         }
         Msg::GitDone { job, outcome } => git_done(st, m, t, &job, outcome),
+        Msg::NodeCloned { job, node, result } => node_cloned(st, m, t, &job, &node, result),
         // Started by `update`.
         Msg::Stop => Task::none(),
         Msg::Tick(at) => {
@@ -788,6 +861,195 @@ fn list_node_folder(st: &mut State, m: &Model, path: Option<String>) -> Task<Mes
     )
 }
 
+/// « Clone and create workspace » on a node: the node clones, with its own
+/// access to the repository, into the folder picked there; its answer
+/// comes back as `Msg::NodeCloned`, its progress as a local clone's does
+/// (the node's events, which carry the job).
+fn start_git_on_node(st: &mut State, m: &mut Model, node: &str) -> Task<Message> {
+    let status = st.git_status(m);
+    let (Some(parent), Some(ParseResult::Ok { repo })) =
+        (st.parent_for(m), st.git.parse().cloned())
+    else {
+        return Task::none();
+    };
+    if from_git_key("Enter", status) != Some(FormKey::Start) {
+        return Task::none();
+    }
+    let Some(client) = crate::nodes::client(m, node) else {
+        let label = crate::nodes::label(m, node);
+        st.git.error = Some(
+            Translator::new(m.locale())
+                .t_with(Key::NodesPaneAway, &args!("node" => label.as_str()))
+                .into_owned(),
+        );
+        return Task::none();
+    };
+    let job = new_clone_job_id();
+    st.git.job = Some(job.clone());
+    st.git.ended = Some(Arc::new(AtomicBool::new(false)));
+    st.git.cancelled = false;
+    st.git.error = None;
+    st.git.progress = None;
+    st.git.running = true;
+    st.git.began = Some(Instant::now());
+    st.git.beat = st.git.began;
+    st.place.browsing = false;
+    let node = node.to_owned();
+    let asked = job.clone();
+    Task::perform(
+        async move {
+            let folder = crate::git_flow::clone::default_clone_folder(&repo.name);
+            crate::nodes::engine::clone(&client, &repo.url, &parent, folder, &asked).await
+        },
+        move |result| {
+            Message::WorkspaceDialog(Msg::NodeCloned {
+                job: job.clone(),
+                node: node.clone(),
+                result,
+            })
+        },
+    )
+}
+
+/// The node answered its clone. Cloned: the workspace is made on the
+/// folder, one Claude Code pane that is its orchestrator as a local clone's
+/// is, and handed to the node as its own. Refused: git's words are shown,
+/// and that the node may lack access when git was the one to fail.
+fn node_cloned(
+    st: &mut State,
+    m: &mut Model,
+    t: Translator,
+    job: &str,
+    node: &str,
+    result: Result<crate::nodes::engine::Cloned, crate::nodes::engine::CloneRefusal>,
+) -> Task<Message> {
+    if st.git.job.as_deref() != Some(job) {
+        return Task::none();
+    }
+    st.git.job = None;
+    if let Some(ended) = st.git.ended.take() {
+        ended.store(true, Ordering::SeqCst);
+    }
+    st.git.running = false;
+    let label = crate::nodes::label(m, node);
+    let cloned = match result {
+        Ok(cloned) => cloned,
+        Err(refusal) => {
+            let text = if st.git.cancelled || refusal.kind == "cancelled" {
+                t.t(Key::CreateGitCancelled).into_owned()
+            } else {
+                let key = if refusal.kind == "failed" {
+                    Key::NodesCloneFailedAccess
+                } else {
+                    Key::NodesCloneFailed
+                };
+                let reason = one_line(&refusal.reason, 160);
+                t.t_with(
+                    key,
+                    &args!(
+                        "node" => label.as_str(),
+                        "reason" => reason.trim_end_matches('.'),
+                    ),
+                )
+                .into_owned()
+            };
+            return if on_top(m) {
+                st.git.error = Some(text);
+                Task::none()
+            } else {
+                Task::done(Message::Intent(Intent::Notice(Notice::Problem(text))))
+            };
+        }
+    };
+    // A workspace of that node on that folder already: it is shown.
+    let existing = m
+        .state()
+        .workspaces
+        .iter()
+        .find(|ws| ws.node.as_deref() == Some(node) && ws.cwd == cloned.path)
+        .map(|ws| ws.id.clone());
+    if let Some(id) = existing {
+        return Task::batch([
+            notice(
+                t.t_with(
+                    Key::CreateGitExisting,
+                    &args!("path" => cloned.path.as_str()),
+                )
+                .into_owned(),
+            ),
+            close(m),
+            Task::done(Message::Intent(Intent::ActivateWorkspace(id))),
+        ]);
+    }
+    let start = folder::start_of(false, m.ui.claude_installed);
+    let Some(draft) = folder::draft_of(&FolderForm {
+        name: &st.name,
+        cwd: &cloned.path,
+        roots: &[],
+        start,
+        layout: folder::DEFAULT_LAYOUT,
+        assignments: &[],
+        shell_id: None,
+        kits: &[],
+        claude_account: None,
+    }) else {
+        return Task::none();
+    };
+    let mut tasks = vec![close(m)];
+    if cloned.reused {
+        tasks.push(notice(
+            t.t_with(Key::CreateGitReused, &args!("path" => cloned.path.as_str()))
+                .into_owned(),
+        ));
+    }
+    if let Some(id) = make_workspace(m, draft, Some(node.to_owned()), None, start) {
+        tasks.push(Task::done(Message::Intent(Intent::ActivateWorkspace(id))));
+    }
+    Task::batch(tasks)
+}
+
+/// The workspace of `draft` made, on node `remote` when one is given: it
+/// is then the node's own from the start, handed over as it stands with
+/// the ids it was just given, and runs there whether this computer is on
+/// or not. Nothing of it starts here meanwhile; were the node to refuse
+/// it, it is taken back out and the reason shown.
+fn make_workspace(
+    m: &mut Model,
+    draft: crate::state::WorkspaceDraft,
+    remote: Option<String>,
+    hooks: Option<crate::state::types::WorktreeHooks>,
+    start: folder::Start,
+) -> Option<WsId> {
+    let id = m.apply(StoreAction::AddWorkspace(draft)).workspace?;
+    // Before its terminals start: they start on the node.
+    if let Some(node) = remote.clone() {
+        m.apply(StoreAction::UpdateWorkspace(
+            id.clone(),
+            Patch::new(move |workspace: &mut crate::state::Workspace| {
+                workspace.node = Some(node.clone());
+            }),
+        ));
+    }
+    if let Some(hooks) = hooks {
+        m.apply(StoreAction::UpdateWorkspace(
+            id.clone(),
+            Patch::new(move |workspace: &mut crate::state::Workspace| {
+                workspace.worktree_hooks = Some(hooks.clone());
+            }),
+        ));
+    }
+    // In the same update as the creation, before the pane mounts: it
+    // launches as the orchestrator it was made to be, with Hangar's
+    // server. The new workspace opens in the panes view, as any other.
+    if start == folder::Start::Orchestrator {
+        crate::orchestration_ui::actions::pin_first_pane(m, &id);
+    }
+    if remote.is_some() {
+        crate::nodes::hosted::hand_over(m, &id, crate::nodes::hosted::Handover::Created);
+    }
+    Some(id)
+}
+
 fn submit_folder(st: &mut State, m: &mut Model, kits: &[WorkspaceKit]) -> Task<Message> {
     let remote = st.place.node.clone();
     // A workspace on a node takes no kit: kits of remote files come later.
@@ -806,40 +1068,9 @@ fn submit_folder(st: &mut State, m: &mut Model, kits: &[WorkspaceKit]) -> Task<M
     }) else {
         return Task::none();
     };
-    let made = m.apply(StoreAction::AddWorkspace(draft));
     let mut tasks = vec![close(m)];
-    if let Some(id) = made.workspace {
-        // Before its terminals start: they start on the node.
-        if let Some(node) = remote.clone() {
-            m.apply(StoreAction::UpdateWorkspace(
-                id.clone(),
-                Patch::new(move |workspace: &mut crate::state::Workspace| {
-                    workspace.node = Some(node.clone());
-                }),
-            ));
-        }
-        if let Some(hooks) = folder::hooks_of(&st.folder.hooks) {
-            m.apply(StoreAction::UpdateWorkspace(
-                id.clone(),
-                Patch::new(move |workspace: &mut crate::state::Workspace| {
-                    workspace.worktree_hooks = Some(hooks.clone());
-                }),
-            ));
-        }
-        // In the same update as the creation, before the pane mounts: it
-        // launches as the orchestrator it was made to be, with Hangar's
-        // server. The new workspace opens in the panes view, as any other.
-        if start == folder::Start::Orchestrator {
-            crate::orchestration_ui::actions::pin_first_pane(m, &id);
-        }
-        // A workspace made on a node is the node's own from the start: it
-        // is handed over as it stands, with the ids it was just given, and
-        // runs there whether this computer is on or not. Nothing of it
-        // starts here meanwhile; were the node to refuse it, it is taken
-        // back out and the reason shown.
-        if remote.is_some() {
-            crate::nodes::hosted::hand_over(m, &id, crate::nodes::hosted::Handover::Created);
-        }
+    let hooks = folder::hooks_of(&st.folder.hooks);
+    if let Some(id) = make_workspace(m, draft, remote, hooks, start) {
         // The new workspace is the one in front, and its terminals start.
         tasks.push(Task::done(Message::Intent(Intent::ActivateWorkspace(id))));
     }
@@ -953,7 +1184,7 @@ fn git_done(
 
 /// Stops the clone. It may not have started yet (the address is being
 /// checked): asked again until it lands or the flow ends.
-fn stop_clone(st: &mut State) -> Task<Message> {
+fn stop_clone(st: &mut State, m: &Model) -> Task<Message> {
     st.git.cancelled = true;
     let Some(job) = st.git.job.clone() else {
         return Task::none();
@@ -963,6 +1194,22 @@ fn stop_clone(st: &mut State) -> Task<Message> {
         .ended
         .clone()
         .unwrap_or_else(|| Arc::new(AtomicBool::new(false)));
+    // A clone a node makes is stopped there, asked the same way.
+    if let Some(node) = st.place.node.as_deref() {
+        let Some(client) = crate::nodes::client(m, node) else {
+            return Task::none();
+        };
+        return Task::perform(
+            async move {
+                while !ended.load(Ordering::SeqCst)
+                    && !crate::nodes::engine::clone_cancel(&client, &job).await
+                {
+                    tokio::time::sleep(STOP_RETRY).await;
+                }
+            },
+            |()| Message::Noop,
+        );
+    }
     Task::perform(
         cancel_until(job, ended, STOP_RETRY, |job| {
             hangar_core::git_clone::git_clone_cancel(job.to_string())
@@ -1013,6 +1260,7 @@ pub fn on_intent(
             opened(st);
             Some(Task::none())
         }
+        Intent::OpenOnAnotherMachine(ws) => Some(open_elsewhere(st, m, ws)),
         Intent::OpenOverlay(Overlay::KitsDialog(ws)) | Intent::OpenKitsDialog(ws) => {
             st.kits = kits_dialog::KitsDialog::open(m, ws);
             Some(Task::none())
@@ -1032,6 +1280,27 @@ pub fn on_event(
         CoreEvent::GitCloneProgress(progress) => follow(st, progress).then(Task::none),
         _ => None,
     }
+}
+
+/// The dialog opens to put the repository of workspace `ws` on one more
+/// machine: its address in the repository field, « Runs on » on the first
+/// machine that has no checkout of it. A clone still running keeps the
+/// dialog as it is.
+fn open_elsewhere(st: &mut State, m: &Model, ws: &str) -> Task<Message> {
+    use crate::nodes::repos::{self, Elsewhere};
+    if st.git.running {
+        return Task::none();
+    }
+    st.reset();
+    let Some(Elsewhere::Ready { repo, place }) =
+        m.workspace(ws).and_then(|ws| repos::elsewhere(m, ws))
+    else {
+        return Task::none();
+    };
+    st.source = Source::Git;
+    st.git.repo = repo;
+    st.place.node = place;
+    schedule_parse(st)
 }
 
 /// The dialog opens: the form starts clean, unless a clone is still running

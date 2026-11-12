@@ -245,8 +245,17 @@ pub fn look_of(m: &Model, node: &str, now: Instant) -> Look {
     look(kind, &of(m, node, now))
 }
 
+/// The state in a word or two, without why: what a control that lists the
+/// machines has room for.
+pub fn short_words(tr: Translator, presence: &Presence) -> String {
+    match presence {
+        Presence::Offline(_) => tr.t(Key::NodesStateOffline).into_owned(),
+        other => words(tr, other),
+    }
+}
+
 /// The state in words, as a tooltip ends: "connected", "reconnecting…",
-/// "offline: SSH failed while…".
+/// "offline: unreachable over SSH (Connection timed out)".
 pub fn words(tr: Translator, presence: &Presence) -> String {
     match presence {
         Presence::Connected => tr.t(Key::NodesStateConnected).into_owned(),
@@ -257,7 +266,7 @@ pub fn words(tr: Translator, presence: &Presence) -> String {
         Presence::Offline(Some(failure)) => tr
             .t_with(
                 Key::NodesStateOfflineWhy,
-                &args!("reason" => super::page::failure_words(tr, failure)),
+                &args!("reason" => super::failure::words(tr, failure)),
             )
             .into_owned(),
         Presence::Offline(None) => tr.t(Key::NodesStateOffline).into_owned(),

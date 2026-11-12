@@ -81,7 +81,6 @@ fn each_machine_is_a_row_that_says_how_its_link_is_doing() {
     for text in [
         // This computer heads the list.
         "This computer",
-        "This machine",
         "GPU box",
         "me@gpu · Connected · hangar-node 2.3.0 on gpu-01",
         "Claude Code",
@@ -89,12 +88,23 @@ fn each_machine_is_a_row_that_says_how_its_link_is_doing() {
         "Runs 2 workspaces itself, listed in the navigator",
         "vps",
         "me@vps · -F ~/.ssh/work",
-        "Offline · retrying in 8\u{a0}s: SSH failed while Looking at the machine…: ssh: connect to host vps port 22: Connection timed out",
+        "Offline · retrying in 8\u{a0}s: unreachable over SSH (Connection timed out)",
+        // What ssh said in full, apart and quieter.
+        "ssh: connect to host vps port 22: Connection timed out",
         "nas",
         "me@nas · Switched off",
         "Add a machine",
     ] {
         assert!(ui.find(text).is_ok(), "{text} is on the page");
+    }
+    // Under its name, this computer's own, when the system says it: not
+    // the same thing said twice.
+    assert!(ui.find("This machine").is_err());
+    if let Some(hostname) = super::page::local_hostname() {
+        assert!(
+            ui.find(hostname).is_ok(),
+            "{hostname} is under This computer"
+        );
     }
     h.shot(&mut ui, "machines-settings-en-graphite");
 }
@@ -135,7 +145,7 @@ fn a_link_on_its_way_says_which_step_and_one_that_dropped_when_it_tries_again() 
             "the first connection"
         );
         assert!(
-            ui.find("Reconnecting in 8\u{a0}s: The tunnel closed: Connection reset")
+            ui.find("Reconnecting in 8\u{a0}s: the tunnel closed (Connection reset)")
                 .is_ok(),
             "said at once in the settings, without the grace period"
         );
@@ -293,4 +303,42 @@ fn a_machine_says_how_many_workspaces_still_need_this_computer() {
             .is_ok()
     );
     h.shot(&mut ui, "machines-settings-still-here-en-graphite");
+}
+
+/// A failure's row: what failed in a short sentence, what the tool said
+/// under it; in French too.
+#[test]
+fn a_failure_is_a_short_sentence_over_what_the_tool_said() {
+    let (h, at) = page_at(Locale::Fr, "github-light");
+    let st = State::default();
+    let mut ui = h.show(drawn_at(&st, &h, at));
+    let vps = &h.model.settings().nodes[1];
+    let ctx = Ctx { now: at, ..h.ctx() };
+    let (sentence, alert) = super::page::state_words(ctx, vps);
+    assert!(alert);
+    assert!(
+        sentence.starts_with("Hors ligne · nouvel essai dans 8")
+            && sentence.ends_with("injoignable en SSH (Connection timed out)"),
+        "{sentence}"
+    );
+    for text in [
+        sentence.as_str(),
+        "ssh: connect to host vps port 22: Connection timed out",
+    ] {
+        assert!(ui.find(text).is_ok(), "{text} is on the page");
+    }
+    assert_eq!(
+        super::page::failure_detail(ctx, vps).as_deref(),
+        Some("ssh: connect to host vps port 22: Connection timed out")
+    );
+    // A machine that is up or switched off has nothing of the kind.
+    assert_eq!(
+        super::page::failure_detail(ctx, &h.model.settings().nodes[0]),
+        None
+    );
+    assert_eq!(
+        super::page::failure_detail(ctx, &h.model.settings().nodes[2]),
+        None
+    );
+    h.shot(&mut ui, "machines-settings-failure-fr-github-light");
 }

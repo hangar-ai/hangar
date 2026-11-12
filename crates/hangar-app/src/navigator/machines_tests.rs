@@ -176,7 +176,10 @@ fn a_remote_row_wears_its_machine_and_a_local_one_nothing() {
     // The foot of the list: this computer and three nodes.
     assert!(has(&mut ui, "4 machines"));
     assert!(has(&mut ui, "1 offline"));
-    assert!(has(&mut ui, "1 switched off"));
+    assert!(
+        !has(&mut ui, "1 switched off"),
+        "a machine switched off needs nobody: it is in the tooltip"
+    );
     h.shot(&mut ui, "machines-navigator-en-graphite");
     ui.click("4 machines").expect("the foot is a button");
     let opened = messages(ui).into_iter().any(|message| {
@@ -197,7 +200,7 @@ fn the_navigator_speaks_french_in_a_light_theme() {
     let mut ui = h.show(framed(&st, &h));
     assert!(has(&mut ui, "4 machines"));
     assert!(has(&mut ui, "1 hors ligne"));
-    assert!(has(&mut ui, "1 désactivée"));
+    assert!(!has(&mut ui, "1 désactivée"));
     h.shot(&mut ui, "machines-navigator-fr-github-light");
 }
 
@@ -315,6 +318,7 @@ fn mirrors(locale: Locale, theme: &str) -> Harness {
             .map(|(pane, activity)| (pane.to_string(), *activity))
             .collect(),
         bridged: activity.iter().map(|(pane, _)| pane.to_string()).collect(),
+        origins: None,
     };
     hosted::take_in(
         &mut h.model,
@@ -568,4 +572,236 @@ fn deleting_a_mirror_asks_first() {
     );
     assert!(h.model.workspace("o3").is_some());
     assert!(h.model.live.nodes.refused.is_some());
+}
+
+/// [`machines`], with one repository open in three places: `shop` here,
+/// `training` on GPU box and `billing` on vps. `storefront`, here, is a
+/// repository open nowhere else; `hangar` has no origin.
+fn shared(locale: Locale, theme: &str) -> Harness {
+    let mut h = machines(locale, theme);
+    let said = [
+        ("w2", "git@github.com:Acme/Shop.git"),
+        ("w3", "https://github.com/acme/shop"),
+        ("w4", "ssh://git@github.com/acme/shop.git"),
+        ("w6", "git@github.com:acme/storefront.git"),
+    ];
+    for (id, origin) in said {
+        let ws = h.model.workspace(id).unwrap().clone();
+        h.model.live.nodes.repos.said(&ws, Some(origin));
+    }
+    h
+}
+
+/// A repository open on several machines is said on each of its rows, by
+/// one mark: a row of this computer gets a faint one, a row that has its
+/// machine's says it in that mark's tooltip. No row moves.
+#[test]
+fn a_repository_open_on_several_machines_is_said_on_each_row() {
+    use crate::nodes::{presence, repos};
+    let h = shared(Locale::En, "graphite");
+    let st = State::default();
+    let tr = h.ctx().i18n;
+    let model = &h.model;
+    let ws = |id: &str| model.workspace(id).unwrap();
+    assert_eq!(
+        repos::also_on(model, tr, ws("w2")).as_deref(),
+        Some("Also on GPU box (training), vps (billing)")
+    );
+    let now = h.ctx().now;
+    let tip = presence::tip_of(model, tr, "gpu", now);
+    assert_eq!(
+        repos::tip_with_others(model, tr, ws("w3"), tip),
+        "GPU box · connected · also on this computer (shop), vps (billing)"
+    );
+    // Open here only, or with no origin: nothing is added.
+    assert_eq!(repos::also_on(model, tr, ws("w6")), None);
+    assert_eq!(repos::also_on(model, tr, ws("w1")), None);
+    let tip = presence::tip_of(model, tr, "gpu", now);
+    assert_eq!(
+        repos::tip_with_others(model, tr, ws("w5"), tip.clone()),
+        tip,
+        "render-farm is another repository"
+    );
+    assert_eq!(
+        listed(&st, model),
+        listed(&st, &machines(Locale::En, "graphite").model),
+        "a workspace stays where the person put it"
+    );
+    let mut ui = h.show(framed(&st, &h));
+    h.shot(&mut ui, "repos-navigator-en-graphite");
+}
+
+#[test]
+fn the_marks_of_a_shared_repository_in_french_in_a_light_theme() {
+    let h = shared(Locale::Fr, "github-light");
+    let st = State::default();
+    let tr = h.ctx().i18n;
+    let shop = h.model.workspace("w2").unwrap();
+    assert_eq!(
+        crate::nodes::repos::also_on(&h.model, tr, shop).as_deref(),
+        Some("Aussi sur GPU box (training), vps (billing)")
+    );
+    let mut ui = h.show(framed(&st, &h));
+    h.shot(&mut ui, "repos-navigator-fr-github-light");
+}
+
+/// The entries of the menu of workspace `id`, headings included.
+fn menu_entries(h: &Harness, id: &str) -> Vec<String> {
+    menu::workspace_entries(h.ctx(), id)
+        .into_iter()
+        .map(|entry| match entry {
+            hangar_ui::menu::Entry::Item(item) => item.label().to_owned(),
+            hangar_ui::menu::Entry::Heading(label) => format!("# {label}"),
+            hangar_ui::menu::Entry::Separator => "-".to_owned(),
+        })
+        .collect()
+}
+
+fn menu_item(h: &Harness, id: &str, label: &str) -> hangar_ui::menu::Item<Message> {
+    menu::workspace_entries(h.ctx(), id)
+        .into_iter()
+        .find_map(|entry| match entry {
+            hangar_ui::menu::Entry::Item(item) if item.label() == label => Some(item),
+            _ => None,
+        })
+        .unwrap_or_else(|| panic!("no {label} in the menu of {id}"))
+}
+
+/// The menu of a workspace goes to the other checkouts of its repository,
+/// each under its machine's icon, and offers to open it on one more
+/// machine while one is connected that lacks it.
+#[test]
+fn the_menu_goes_to_the_other_machines_and_opens_on_one_more() {
+    let h = shared(Locale::En, "graphite");
+    // `training`, on GPU box: also here and on vps, at the head of the
+    // menu; nowhere left to open it, said beside the move.
+    let entries = menu_entries(&h, "w3");
+    assert_eq!(
+        entries[..4],
+        ["# Also on", "This computer (shop)", "vps (billing)", "-"]
+    );
+    let at = entries
+        .iter()
+        .position(|entry| entry == "Open on another machine…")
+        .expect("the line");
+    assert_eq!(entries[at - 1], "-");
+    assert_eq!(entries[at + 1], "Move to GPU box");
+    let here = menu_item(&h, "w3", "This computer (shop)");
+    assert_eq!(here.lead(), Some(Icon::Desktop));
+    assert!(matches!(
+        here.selects(),
+        Some(Message::Navigator(Msg::Menu(menu::Action::Intent(
+            Intent::ActivateWorkspace(ws)
+        )))) if ws == "w2"
+    ));
+    assert_eq!(
+        menu_item(&h, "w3", "vps (billing)").lead(),
+        Some(Icon::Cloud)
+    );
+    let open = menu_item(&h, "w3", "Open on another machine…");
+    assert_eq!(open.lead(), Some(Icon::MachinePlus));
+    assert_eq!(
+        open.refusal(),
+        Some("Every connected machine has this repository already.")
+    );
+
+    // `storefront` is open here only: no other machine to go to, one to
+    // open it on.
+    let entries = menu_entries(&h, "w6");
+    assert!(!entries.contains(&"# Also on".to_string()));
+    let open = menu_item(&h, "w6", "Open on another machine…");
+    assert_eq!(open.refusal(), None);
+    assert!(matches!(
+        open.selects(),
+        Some(Message::Navigator(Msg::Menu(menu::Action::Intent(
+            Intent::OpenOnAnotherMachine(ws)
+        )))) if ws == "w6"
+    ));
+    // No repository, no line; nor without a node.
+    assert!(!menu_entries(&h, "w1").contains(&"Open on another machine…".to_string()));
+    let alone = shared(Locale::En, "graphite").edit(|state| state.settings.nodes.clear());
+    assert!(!menu_entries(&alone, "w6").contains(&"Open on another machine…".to_string()));
+
+    let st = State {
+        menu: Some(MenuState {
+            kind: RowKind::Ws,
+            id: "w3".into(),
+            at: iced::Vector::new(24.0, 20.0),
+            from_keyboard: true,
+        }),
+        ..State::default()
+    };
+    let mut ui = h.show(framed(&st, &h));
+    h.shot(&mut ui, "repos-navigator-menu-en-graphite");
+}
+
+/// The foot says how many machines and, in the warning colour, how many
+/// need a look; those switched off are in its tooltip. Its words fit the
+/// navigator's width in French, the longer of the two languages, with more
+/// machines than anybody has.
+#[test]
+fn the_foot_fits_the_navigator_in_french_whatever_the_count() {
+    use crate::nodes::presence::Census;
+    use hangar_i18n::Translator;
+    use hangar_theme::fonts;
+    use hangar_theme::tokens::{font_size, space};
+    let h = machines(Locale::Fr, "github-light");
+    let st = State::default();
+    // The fonts the window sets its text in are loaded with a window.
+    let mut ui = h.show(framed(&st, &h));
+    assert!(has(&mut ui, "4 machines"));
+
+    let said = super::view::foot_words(
+        h.ctx().i18n,
+        crate::nodes::presence::census(&h.model, h.ctx().now),
+    );
+    assert_eq!(said.count, "4 machines");
+    assert_eq!(said.offline.as_deref(), Some("1 hors ligne"));
+    assert_eq!(
+        said.tip,
+        "Les machines, dans Réglages › Nœuds · 1 désactivée"
+    );
+    let en = super::view::foot_words(
+        Translator::new(Locale::En),
+        Census {
+            machines: 2,
+            offline: 0,
+            off: 0,
+        },
+    );
+    assert_eq!(en.count, "2 machines");
+    assert_eq!(en.offline, None);
+    assert_eq!(en.tip, "Machines, in Settings › Nodes");
+
+    for locale in [Locale::Fr, Locale::En] {
+        let worst = super::view::foot_words(
+            Translator::new(locale),
+            Census {
+                machines: 999,
+                offline: 998,
+                off: 1,
+            },
+        );
+        let width = |words: &str| hangar_ui::text_width(words, font_size::MICRO, fonts::ui());
+        let needed = width(&worst.count) + space::SM + width(&worst.offline.unwrap());
+        assert!(
+            needed <= super::view::FOOT_ROOM,
+            "{needed} px of words in {} px",
+            super::view::FOOT_ROOM
+        );
+        // With room to spare: nothing sits against the edge.
+        assert!(needed <= super::view::FOOT_ROOM - 24.0, "{needed}");
+    }
+}
+
+/// The filter's button shows the machine the list is narrowed to, and a
+/// plain filter otherwise: never the machines' glyph, which is the foot's.
+#[test]
+fn the_filter_button_wears_the_machine_it_keeps() {
+    let h = machines(Locale::En, "graphite");
+    let icon = |machine: MachineFilter| super::view::filter_icon(h.ctx(), &machine);
+    assert_eq!(icon(MachineFilter::All), Icon::Filter);
+    assert_eq!(icon(MachineFilter::Local), Icon::Desktop);
+    assert_eq!(icon(MachineFilter::Node("gpu".into())), Icon::Tower);
+    assert_eq!(icon(MachineFilter::Node("vps".into())), Icon::Cloud);
 }

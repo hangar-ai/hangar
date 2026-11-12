@@ -132,6 +132,23 @@ impl Paths {
     }
 }
 
+/// The name this computer goes by on its network, as the system has it;
+/// `None` when it cannot be read or is empty.
+pub fn hostname() -> Option<String> {
+    #[cfg(unix)]
+    let name = {
+        let mut buf = [0u8; 256];
+        // SAFETY: the buffer's length is passed with it.
+        let named = unsafe { libc::gethostname(buf.as_mut_ptr().cast(), buf.len()) } == 0;
+        let end = buf.iter().position(|&b| b == 0).unwrap_or(buf.len());
+        named.then(|| String::from_utf8_lossy(&buf[..end]).into_owned())
+    };
+    #[cfg(not(unix))]
+    let name = std::env::var("COMPUTERNAME").ok();
+    name.map(|name| name.trim().to_owned())
+        .filter(|name| !name.is_empty())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

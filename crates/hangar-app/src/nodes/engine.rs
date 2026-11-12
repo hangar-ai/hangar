@@ -206,6 +206,99 @@ pub async fn commits_ahead(
     .await
 }
 
+/// The address of the `origin` of the repository in folder `path` of the
+/// node, without credentials; `None` when it has none, and for a node that
+/// cannot say.
+pub async fn origin(client: &NodeClient, path: &str) -> Option<String> {
+    quick::<Option<String>>(
+        client,
+        "POST",
+        "/node/git",
+        json!({ "op": "origin", "path": path }),
+    )
+    .await
+    .ok()
+    .flatten()
+}
+
+/// A clone: git's own limit is core's (an hour); this only runs out when
+/// the node no longer answers.
+pub const CLONE_TIMEOUT: Duration = Duration::from_secs(70 * 60);
+
+/// A repository the node cloned.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Cloned {
+    /// Its folder, absolute, on the node.
+    pub path: String,
+    /// The folder held this repository already and was used as it was.
+    pub reused: bool,
+}
+
+/// Why a node did not clone a repository.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CloneRefusal {
+    /// Core's kind (`failed`, `exists`, `cancelled`…); `unreachable` when
+    /// the node gave no answer.
+    pub kind: String,
+    /// What git, core or the wire said.
+    pub reason: String,
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "status", rename_all = "camelCase")]
+enum CloneWire {
+    Cloned {
+        path: String,
+        #[serde(default)]
+        reused: bool,
+    },
+    Refused {
+        kind: String,
+        reason: String,
+    },
+}
+
+/// `url` cloned by the node into `<parent>/<name>`, with the node's own
+/// access to the repository, under job `job`: what its progress events
+/// carry (`git-clone:progress`) and what [`clone_cancel`] names.
+pub async fn clone(
+    client: &NodeClient,
+    url: &str,
+    parent: &str,
+    name: &str,
+    job: &str,
+) -> Result<Cloned, CloneRefusal> {
+    let read: Result<CloneWire, String> = call(
+        client,
+        "POST",
+        "/node/clone",
+        Some(json!({ "url": url, "parent": parent, "name": name, "jobId": job })),
+        CLONE_TIMEOUT,
+    )
+    .await;
+    match read {
+        Ok(CloneWire::Cloned { path, reused }) => Ok(Cloned { path, reused }),
+        Ok(CloneWire::Refused { kind, reason }) => Err(CloneRefusal { kind, reason }),
+        Err(reason) => Err(CloneRefusal {
+            kind: "unreachable".into(),
+            reason,
+        }),
+    }
+}
+
+/// Asks the node to stop the clone running under `job`; `true` when one
+/// was.
+pub async fn clone_cancel(client: &NodeClient, job: &str) -> bool {
+    quick(
+        client,
+        "POST",
+        "/node/clone/cancel",
+        json!({ "jobId": job }),
+    )
+    .await
+    .unwrap_or(false)
+}
+
 /// Whether folder `path` exists on the node; one it cannot tell of does not.
 pub async fn dir_exists(client: &NodeClient, path: &str) -> bool {
     quick(

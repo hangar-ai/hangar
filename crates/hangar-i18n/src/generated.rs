@@ -2368,6 +2368,16 @@ pub enum Key {
     NodesClaudeFound,
     /// `nodes.claudeMissing`
     NodesClaudeMissing,
+    /// `nodes.clone.destination`
+    NodesCloneDestination,
+    /// `nodes.clone.failed`
+    NodesCloneFailed,
+    /// `nodes.clone.failedAccess`
+    NodesCloneFailedAccess,
+    /// `nodes.clone.parentHint`
+    NodesCloneParentHint,
+    /// `nodes.clone.running`
+    NodesCloneRunning,
     /// `nodes.create.empty`
     NodesCreateEmpty,
     /// `nodes.create.failed`
@@ -2384,20 +2394,32 @@ pub enum Key {
     NodesCreateUp,
     /// `nodes.create.where`
     NodesCreateWhere,
-    /// `nodes.error.api`
-    NodesErrorApi,
-    /// `nodes.error.local`
-    NodesErrorLocal,
-    /// `nodes.error.noBinary`
-    NodesErrorNoBinary,
-    /// `nodes.error.nodeJson`
-    NodesErrorNodeJson,
-    /// `nodes.error.ssh`
-    NodesErrorSsh,
-    /// `nodes.error.tunnel`
-    NodesErrorTunnel,
-    /// `nodes.error.unsupportedArch`
-    NodesErrorUnsupportedArch,
+    /// `nodes.fail.api`
+    NodesFailApi,
+    /// `nodes.fail.because`
+    NodesFailBecause,
+    /// `nodes.fail.noBinary`
+    NodesFailNoBinary,
+    /// `nodes.fail.noBinaryHelp`
+    NodesFailNoBinaryHelp,
+    /// `nodes.fail.nodeJson`
+    NodesFailNodeJson,
+    /// `nodes.fail.sshConfig`
+    NodesFailSshConfig,
+    /// `nodes.fail.sshHandshake`
+    NodesFailSshHandshake,
+    /// `nodes.fail.sshInstall`
+    NodesFailSshInstall,
+    /// `nodes.fail.sshProbe`
+    NodesFailSshProbe,
+    /// `nodes.fail.sshStart`
+    NodesFailSshStart,
+    /// `nodes.fail.sshTunnel`
+    NodesFailSshTunnel,
+    /// `nodes.fail.tunnel`
+    NodesFailTunnel,
+    /// `nodes.fail.unsupportedArch`
+    NodesFailUnsupportedArch,
     /// `nodes.gitFound`
     NodesGitFound,
     /// `nodes.gitMissing`
@@ -2424,8 +2446,6 @@ pub enum Key {
     NodesKindServer,
     /// `nodes.kind.tower`
     NodesKindTower,
-    /// `nodes.local.hint`
-    NodesLocalHint,
     /// `nodes.move.action`
     NodesMoveAction,
     /// `nodes.move.confirm`
@@ -2470,6 +2490,20 @@ pub enum Key {
     NodesRemoveKept,
     /// `nodes.remove.title`
     NodesRemoveTitle,
+    /// `nodes.repo.also`
+    NodesRepoAlso,
+    /// `nodes.repo.everywhere`
+    NodesRepoEverywhere,
+    /// `nodes.repo.here`
+    NodesRepoHere,
+    /// `nodes.repo.menu`
+    NodesRepoMenu,
+    /// `nodes.repo.open`
+    NodesRepoOpen,
+    /// `nodes.repo.place`
+    NodesRepoPlace,
+    /// `nodes.repo.tipAlso`
+    NodesRepoTipAlso,
     /// `nodes.retry`
     NodesRetry,
     /// `nodes.row.cancel`
@@ -3472,12 +3506,12 @@ pub enum Key {
     SidebarMachinesFilterOn,
     /// `sidebar.machines.none`
     SidebarMachinesNone,
-    /// `sidebar.machines.off`
-    SidebarMachinesOff,
     /// `sidebar.machines.offline`
     SidebarMachinesOffline,
     /// `sidebar.machines.open`
     SidebarMachinesOpen,
+    /// `sidebar.machines.openOff`
+    SidebarMachinesOpenOff,
     /// `sidebar.menuRemoveFolder`
     SidebarMenuRemoveFolder,
     /// `sidebar.menuRename`
@@ -4235,7 +4269,7 @@ pub enum Key {
 }
 
 /// How many keys there are.
-pub const KEY_COUNT: usize = 2109;
+pub const KEY_COUNT: usize = 2126;
 
 impl Key {
     /// Every key, in the order of their ids.
@@ -5417,6 +5451,11 @@ impl Key {
         Key::NodesAdoptMoveFailed,
         Key::NodesClaudeFound,
         Key::NodesClaudeMissing,
+        Key::NodesCloneDestination,
+        Key::NodesCloneFailed,
+        Key::NodesCloneFailedAccess,
+        Key::NodesCloneParentHint,
+        Key::NodesCloneRunning,
         Key::NodesCreateEmpty,
         Key::NodesCreateFailed,
         Key::NodesCreateFolder,
@@ -5425,13 +5464,19 @@ impl Key {
         Key::NodesCreateLocal,
         Key::NodesCreateUp,
         Key::NodesCreateWhere,
-        Key::NodesErrorApi,
-        Key::NodesErrorLocal,
-        Key::NodesErrorNoBinary,
-        Key::NodesErrorNodeJson,
-        Key::NodesErrorSsh,
-        Key::NodesErrorTunnel,
-        Key::NodesErrorUnsupportedArch,
+        Key::NodesFailApi,
+        Key::NodesFailBecause,
+        Key::NodesFailNoBinary,
+        Key::NodesFailNoBinaryHelp,
+        Key::NodesFailNodeJson,
+        Key::NodesFailSshConfig,
+        Key::NodesFailSshHandshake,
+        Key::NodesFailSshInstall,
+        Key::NodesFailSshProbe,
+        Key::NodesFailSshStart,
+        Key::NodesFailSshTunnel,
+        Key::NodesFailTunnel,
+        Key::NodesFailUnsupportedArch,
         Key::NodesGitFound,
         Key::NodesGitMissing,
         Key::NodesHostedNotDone,
@@ -5445,7 +5490,6 @@ impl Key {
         Key::NodesKindPick,
         Key::NodesKindServer,
         Key::NodesKindTower,
-        Key::NodesLocalHint,
         Key::NodesMoveAction,
         Key::NodesMoveConfirm,
         Key::NodesMoveDelivering,
@@ -5468,6 +5512,13 @@ impl Key {
         Key::NodesRemoveConfirm,
         Key::NodesRemoveKept,
         Key::NodesRemoveTitle,
+        Key::NodesRepoAlso,
+        Key::NodesRepoEverywhere,
+        Key::NodesRepoHere,
+        Key::NodesRepoMenu,
+        Key::NodesRepoOpen,
+        Key::NodesRepoPlace,
+        Key::NodesRepoTipAlso,
         Key::NodesRetry,
         Key::NodesRowCancel,
         Key::NodesRowConnected,
@@ -5969,9 +6020,9 @@ impl Key {
         Key::SidebarMachinesFilter,
         Key::SidebarMachinesFilterOn,
         Key::SidebarMachinesNone,
-        Key::SidebarMachinesOff,
         Key::SidebarMachinesOffline,
         Key::SidebarMachinesOpen,
+        Key::SidebarMachinesOpenOff,
         Key::SidebarMenuRemoveFolder,
         Key::SidebarMenuRename,
         Key::SidebarMore,
@@ -6861,7 +6912,7 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "discordBot.guildHint", en: Text::plain("In Discord, with Developer Mode on (Settings › Advanced): right-click your server › Copy Server ID. A server of your own is best: what is written there reaches your agents."), fr: Text::plain("Dans Discord, mode développeur activé (Paramètres › Avancés)\u{202f}: clic droit sur votre serveur › Copier l'identifiant du serveur. Un serveur à vous de préférence\u{202f}: ce qui s'y écrit atteint vos agents.") },
     Message { id: "discordBot.guildPlaceholder", en: Text::plain("123456789012345678"), fr: Text::plain("123456789012345678") },
     Message { id: "discordBot.howTo", en: Text::plain("Write in a workspace's channel to talk to its orchestrator; Open the thread on a worker's line follows it. /workspace makes a workspace, /stop, /model, /effort, /plan and /status act on the channel's agent."), fr: Text::plain("Écrivez dans le salon d'un workspace pour parler à son orchestrateur\u{202f}; Ouvrir le fil sur la ligne d'un worker le suit. /workspace crée un workspace, /stop, /model, /effort, /plan et /status agissent sur l'agent du salon.") },
-    Message { id: "discordBot.intro", en: Text::plain("A bot of your own on your server: a channel per workspace (those on your nodes included), what each orchestrator does and says, cards to allow, answer, approve and land, a thread per worker opened with a button. Only the account you pair is heard. It runs while Hangar runs on this computer, window closed or not."), fr: Text::plain("Un bot à vous sur votre serveur\u{202f}: un salon par workspace (ceux de vos nodes compris), ce que fait et dit chaque orchestrateur, des cartes pour autoriser, répondre, approuver et fusionner, un fil par worker ouvert d'un bouton. Seul le compte appairé est écouté. Il tourne tant que Hangar tourne sur cet ordinateur, fenêtre fermée ou non.") },
+    Message { id: "discordBot.intro", en: Text::plain("A bot of your own on your server: a channel per workspace (those on your other machines included), what each orchestrator does and says, cards to allow, answer, approve and land, a thread per worker opened with a button. Only the account you pair is heard. It runs while Hangar runs on this computer, window closed or not."), fr: Text::plain("Un bot à vous sur votre serveur\u{202f}: un salon par workspace (ceux de vos autres machines compris), ce que fait et dit chaque orchestrateur, des cartes pour autoriser, répondre, approuver et fusionner, un fil par worker ouvert d'un bouton. Seul le compte appairé est écouté. Il tourne tant que Hangar tourne sur cet ordinateur, fenêtre fermée ou non.") },
     Message { id: "discordBot.invite", en: Text::plain("Invite the bot to the server"), fr: Text::plain("Inviter le bot sur le serveur") },
     Message { id: "discordBot.pair", en: Text::plain("Not paired yet: send pair {code} in a channel of the server the bot sees."), fr: Text::plain("Pas encore appairé\u{202f}: envoyez pair {code} dans un salon du serveur que le bot voit.") },
     Message { id: "discordBot.paired", en: Text::plain("Paired: only your account is heard."), fr: Text::plain("Appairé\u{202f}: seul votre compte est écouté.") },
@@ -7531,21 +7582,32 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "nodes.adopt.moveFailed", en: Text::plain("{node} could not take {name}: {reason}. It still runs from this computer."), fr: Text::plain("{node} n’a pas pu prendre {name}\u{202f}: {reason}. Il tourne toujours depuis cet ordinateur.") },
     Message { id: "nodes.claudeFound", en: Text::plain("Claude Code"), fr: Text::plain("Claude Code") },
     Message { id: "nodes.claudeMissing", en: Text::plain("No Claude Code"), fr: Text::plain("Pas de Claude Code") },
+    Message { id: "nodes.clone.destination", en: Text::plain("It will be cloned to {path} on {node}"), fr: Text::plain("Il sera cloné dans {path} sur {node}") },
+    Message { id: "nodes.clone.failed", en: Text::plain("{node} could not clone it: {reason}."), fr: Text::plain("{node} n’a pas pu le cloner\u{202f}: {reason}.") },
+    Message { id: "nodes.clone.failedAccess", en: Text::plain("{node} could not clone it: {reason}. {node} may not have access to this repository: it clones with its own keys, not this computer’s."), fr: Text::plain("{node} n’a pas pu le cloner\u{202f}: {reason}. {node} n’a peut-être pas accès à ce dépôt\u{202f}: le clonage se fait avec ses clés, pas celles de cet ordinateur.") },
+    Message { id: "nodes.clone.parentHint", en: Text::plain("empty: the projects folder in the home of {node}"), fr: Text::plain("vide\u{202f}: le dossier projects dans le dossier personnel de {node}") },
+    Message { id: "nodes.clone.running", en: Text::plain("Cloning on {node}…"), fr: Text::plain("Clonage sur {node}…") },
     Message { id: "nodes.create.empty", en: Text::plain("No sub-folder here."), fr: Text::plain("Aucun sous-dossier ici.") },
-    Message { id: "nodes.create.failed", en: Text::plain("The node could not list this folder: {error}"), fr: Text::plain("Le nœud n’a pas pu lister ce dossier\u{202f}: {error}") },
-    Message { id: "nodes.create.folder", en: Text::plain("Folder on the node"), fr: Text::plain("Dossier sur le nœud") },
-    Message { id: "nodes.create.hint", en: Text::plain("The node runs this workspace itself: its agents keep working with this computer off, and this window shows them."), fr: Text::plain("Le nœud fait tourner ce workspace lui-même\u{202f}: ses agents continuent, cet ordinateur éteint, et cette fenêtre les affiche.") },
-    Message { id: "nodes.create.loading", en: Text::plain("Reading the node’s folders…"), fr: Text::plain("Lecture des dossiers du nœud…") },
+    Message { id: "nodes.create.failed", en: Text::plain("This folder could not be listed: {error}"), fr: Text::plain("Ce dossier n’a pas pu être listé\u{202f}: {error}") },
+    Message { id: "nodes.create.folder", en: Text::plain("Folder on that machine"), fr: Text::plain("Dossier sur cette machine") },
+    Message { id: "nodes.create.hint", en: Text::plain("That machine runs this workspace itself: its agents keep working with this computer off, and this window shows them."), fr: Text::plain("Cette machine fait tourner ce workspace elle-même\u{202f}: ses agents continuent, cet ordinateur éteint, et cette fenêtre les affiche.") },
+    Message { id: "nodes.create.loading", en: Text::plain("Reading its folders…"), fr: Text::plain("Lecture de ses dossiers…") },
     Message { id: "nodes.create.local", en: Text::plain("This computer"), fr: Text::plain("Cet ordinateur") },
     Message { id: "nodes.create.up", en: Text::plain("Parent folder"), fr: Text::plain("Dossier parent") },
     Message { id: "nodes.create.where", en: Text::plain("Runs on"), fr: Text::plain("S’exécute sur") },
-    Message { id: "nodes.error.api", en: Text::plain("The node did not answer through the tunnel: {detail}"), fr: Text::plain("Le nœud n’a pas répondu par le tunnel\u{202f}: {detail}") },
-    Message { id: "nodes.error.local", en: Text::plain("{detail}"), fr: Text::plain("{detail}") },
-    Message { id: "nodes.error.noBinary", en: Text::plain("No hangar-node build for {arch}: set HANGAR_NODE_BINARY or put {file} beside hangar-ai ({dir})."), fr: Text::plain("Aucun hangar-node pour {arch}\u{202f}: définis HANGAR_NODE_BINARY ou place {file} à côté de hangar-ai ({dir}).") },
-    Message { id: "nodes.error.nodeJson", en: Text::plain("The node’s node.json could not be read: {detail}"), fr: Text::plain("Le node.json du nœud est illisible\u{202f}: {detail}") },
-    Message { id: "nodes.error.ssh", en: Text::plain("SSH failed while {step}: {detail}"), fr: Text::plain("SSH a échoué pendant l’étape «\u{202f}{step}\u{202f}»\u{202f}: {detail}") },
-    Message { id: "nodes.error.tunnel", en: Text::plain("The tunnel closed: {detail}"), fr: Text::plain("Le tunnel s’est fermé\u{202f}: {detail}") },
-    Message { id: "nodes.error.unsupportedArch", en: Text::plain("This machine runs {arch}; nodes run on Linux x86_64 and arm64."), fr: Text::plain("Cette machine tourne sur {arch}\u{202f}; les nœuds tournent sur Linux x86_64 et arm64.") },
+    Message { id: "nodes.fail.api", en: Text::plain("hangar-node did not answer through the tunnel"), fr: Text::plain("hangar-node n’a pas répondu par le tunnel") },
+    Message { id: "nodes.fail.because", en: Text::plain("{what} ({cause})"), fr: Text::plain("{what} ({cause})") },
+    Message { id: "nodes.fail.noBinary", en: Text::plain("no hangar-node build for {arch}"), fr: Text::plain("aucun hangar-node pour {arch}") },
+    Message { id: "nodes.fail.noBinaryHelp", en: Text::plain("Set HANGAR_NODE_BINARY or put {file} beside hangar-ai ({dir})."), fr: Text::plain("Définis HANGAR_NODE_BINARY ou place {file} à côté de hangar-ai ({dir}).") },
+    Message { id: "nodes.fail.nodeJson", en: Text::plain("its node.json could not be read"), fr: Text::plain("son node.json est illisible") },
+    Message { id: "nodes.fail.sshConfig", en: Text::plain("its address could not be read"), fr: Text::plain("son adresse n’a pas pu être lue") },
+    Message { id: "nodes.fail.sshHandshake", en: Text::plain("hangar-node did not say who it is"), fr: Text::plain("hangar-node ne s’est pas identifié") },
+    Message { id: "nodes.fail.sshInstall", en: Text::plain("hangar-node could not be installed"), fr: Text::plain("hangar-node n’a pas pu être installé") },
+    Message { id: "nodes.fail.sshProbe", en: Text::plain("unreachable over SSH"), fr: Text::plain("injoignable en SSH") },
+    Message { id: "nodes.fail.sshStart", en: Text::plain("hangar-node did not start"), fr: Text::plain("hangar-node n’a pas démarré") },
+    Message { id: "nodes.fail.sshTunnel", en: Text::plain("the tunnel could not be opened"), fr: Text::plain("le tunnel n’a pas pu être ouvert") },
+    Message { id: "nodes.fail.tunnel", en: Text::plain("the tunnel closed"), fr: Text::plain("le tunnel s’est fermé") },
+    Message { id: "nodes.fail.unsupportedArch", en: Text::plain("it runs {arch}, not Linux x86_64 or arm64"), fr: Text::plain("elle tourne sur {arch}, pas sur Linux x86_64 ou arm64") },
     Message { id: "nodes.gitFound", en: Text::plain("git"), fr: Text::plain("git") },
     Message { id: "nodes.gitMissing", en: Text::plain("No git"), fr: Text::plain("Pas de git") },
     Message { id: "nodes.hosted.notDone", en: Text::plain("{node} did not take the change to {name}: {reason}. It is shown as {node} has it."), fr: Text::plain("{node} n’a pas pris la modification de {name}\u{202f}: {reason}. Il est affiché tel que {node} l’a.") },
@@ -7559,7 +7621,6 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "nodes.kind.pick", en: Text::plain("Kind of machine: {kind}"), fr: Text::plain("Type de machine\u{202f}: {kind}") },
     Message { id: "nodes.kind.server", en: Text::plain("Server"), fr: Text::plain("Serveur") },
     Message { id: "nodes.kind.tower", en: Text::plain("Tower"), fr: Text::plain("Tour") },
-    Message { id: "nodes.local.hint", en: Text::plain("This machine"), fr: Text::plain("Cette machine") },
     Message { id: "nodes.move.action", en: Text::plain("Move to {node}"), fr: Text::plain("Déplacer vers {node}") },
     Message { id: "nodes.move.confirm", en: Text::plain("Move to {node}"), fr: Text::plain("Déplacer vers {node}") },
     Message { id: "nodes.move.delivering", en: Text::plain("{name} cannot move to {node} while one of its deliveries runs."), fr: Text::plain("{name} ne peut pas être déplacé vers {node} pendant l’une de ses livraisons.") },
@@ -7582,6 +7643,13 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "nodes.remove.confirm", en: Text::plain("Delete workspace"), fr: Text::plain("Supprimer le workspace") },
     Message { id: "nodes.remove.kept", en: Text::plain("Its folder stays on {node}."), fr: Text::plain("Son dossier reste sur {node}.") },
     Message { id: "nodes.remove.title", en: Text::plain("Delete {name}?"), fr: Text::plain("Supprimer {name}\u{202f}?") },
+    Message { id: "nodes.repo.also", en: Text::plain("Also on {where}"), fr: Text::plain("Aussi sur {where}") },
+    Message { id: "nodes.repo.everywhere", en: Text::plain("Every connected machine has this repository already."), fr: Text::plain("Toutes les machines connectées ont déjà ce dépôt.") },
+    Message { id: "nodes.repo.here", en: Text::plain("this computer"), fr: Text::plain("cet ordinateur") },
+    Message { id: "nodes.repo.menu", en: Text::plain("Also on"), fr: Text::plain("Aussi sur") },
+    Message { id: "nodes.repo.open", en: Text::plain("Open on another machine…"), fr: Text::plain("Ouvrir sur une autre machine…") },
+    Message { id: "nodes.repo.place", en: Text::plain("{machine} ({name})"), fr: Text::plain("{machine} ({name})") },
+    Message { id: "nodes.repo.tipAlso", en: Text::plain("{tip} · also on {where}"), fr: Text::plain("{tip} · aussi sur {where}") },
     Message { id: "nodes.retry", en: Text::plain("Retry now"), fr: Text::plain("Réessayer maintenant") },
     Message { id: "nodes.row.cancel", en: Text::plain("Cancel"), fr: Text::plain("Annuler") },
     Message { id: "nodes.row.connected", en: Text::plain("Connected · hangar-node {version} on {hostname}"), fr: Text::plain("Connecté · hangar-node {version} sur {hostname}") },
@@ -7610,8 +7678,8 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "nodes.state.offlineWhy", en: Text::plain("offline: {reason}"), fr: Text::plain("hors ligne\u{202f}: {reason}") },
     Message { id: "nodes.state.reconnecting", en: Text::plain("reconnecting…"), fr: Text::plain("reconnexion…") },
     Message { id: "nodes.state.tip", en: Text::plain("{node} · {state}"), fr: Text::plain("{node} · {state}") },
-    Message { id: "nodes.step.config", en: Text::plain("Reading the node’s address…"), fr: Text::plain("Lecture de l’adresse du nœud…") },
-    Message { id: "nodes.step.handshake", en: Text::plain("Asking the node who it is…"), fr: Text::plain("Identification du nœud…") },
+    Message { id: "nodes.step.config", en: Text::plain("Reading its address…"), fr: Text::plain("Lecture de son adresse…") },
+    Message { id: "nodes.step.handshake", en: Text::plain("Asking hangar-node who it is…"), fr: Text::plain("Identification de hangar-node…") },
     Message { id: "nodes.step.install", en: Text::plain("Installing hangar-node…"), fr: Text::plain("Installation de hangar-node…") },
     Message { id: "nodes.step.probe", en: Text::plain("Looking at the machine…"), fr: Text::plain("Examen de la machine…") },
     Message { id: "nodes.step.start", en: Text::plain("Starting hangar-node…"), fr: Text::plain("Démarrage de hangar-node…") },
@@ -8083,9 +8151,9 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "sidebar.machines.filter", en: Text::plain("Filter by machine"), fr: Text::plain("Filtrer par machine") },
     Message { id: "sidebar.machines.filterOn", en: Text::plain("Only {machine}"), fr: Text::plain("Seulement {machine}") },
     Message { id: "sidebar.machines.none", en: Text::plain("No workspace on {machine}."), fr: Text::plain("Aucun workspace sur {machine}.") },
-    Message { id: "sidebar.machines.off", en: Text::plain("{n} switched off"), fr: Text::plural("{n} désactivée", "{n} désactivées") },
     Message { id: "sidebar.machines.offline", en: Text::plain("{n} offline"), fr: Text::plain("{n} hors ligne") },
     Message { id: "sidebar.machines.open", en: Text::plain("Machines, in Settings › Nodes"), fr: Text::plain("Les machines, dans Réglages › Nœuds") },
+    Message { id: "sidebar.machines.openOff", en: Text::plain("Machines, in Settings › Nodes · {n} switched off"), fr: Text::plural("Les machines, dans Réglages › Nœuds · {n} désactivée", "Les machines, dans Réglages › Nœuds · {n} désactivées") },
     Message { id: "sidebar.menuRemoveFolder", en: Text::plain("Delete folder"), fr: Text::plain("Supprimer le dossier") },
     Message { id: "sidebar.menuRename", en: Text::plain("Rename"), fr: Text::plain("Renommer") },
     Message { id: "sidebar.more", en: Text::plain("More actions"), fr: Text::plain("Plus d'actions") },

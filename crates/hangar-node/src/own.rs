@@ -204,8 +204,10 @@ pub fn listing(own: &EngineHost) -> Value {
 /// of that state and the daemon's `boot` (the revisions start again with
 /// the daemon). What each pane's agent is doing is beside them, by pane,
 /// for those that said: it is not part of the state, and inside a pane it
-/// would be read as one of its fields and saved with it.
-pub fn full(own: &EngineHost, boot: &str) -> Value {
+/// would be read as one of its fields and saved with it. `origins` is the
+/// same for the repositories: the address of each workspace's `origin`, by
+/// workspace, for those that have one.
+pub fn full(own: &EngineHost, boot: &str, origins: &serde_json::Map<String, Value>) -> Value {
     let (revision, state) = own.revised_state();
     let snapshot = own.snapshot();
     let activity: serde_json::Map<String, Value> = state
@@ -237,6 +239,7 @@ pub fn full(own: &EngineHost, boot: &str) -> Value {
         "workspaces": state.workspaces,
         "activity": activity,
         "bridged": bridged,
+        "origins": origins,
     })
 }
 
@@ -257,7 +260,24 @@ pub async fn list(State(node): State<Shared>) -> Response {
 
 pub async fn state(State(node): State<Shared>) -> Response {
     match node.own.as_ref() {
-        Some(own) => Json(full(own, &node.boot)).into_response(),
+        Some(own) => {
+            // Read first, and each off the runtime: git is asked once for
+            // each folder. A workspace added meanwhile is in the next read.
+            let folders: Vec<(String, String)> = own
+                .snapshot()
+                .state
+                .workspaces
+                .iter()
+                .map(|ws| (ws.id.clone(), ws.cwd.clone()))
+                .collect();
+            let mut origins = serde_json::Map::new();
+            for (id, cwd) in folders {
+                if let Some(origin) = crate::engine::origin_of(cwd).await {
+                    origins.insert(id, Value::String(origin));
+                }
+            }
+            Json(full(own, &node.boot, &origins)).into_response()
+        }
         None => unavailable(),
     }
 }

@@ -142,6 +142,11 @@ impl<M> Item<M> {
         self.on_select.as_ref().filter(|_| !self.disabled)
     }
 
+    /// The icon the line leads with, when it has one.
+    pub fn lead(&self) -> Option<Icon> {
+        self.icon
+    }
+
     /// Why the line is greyed, when it says.
     pub fn refusal(&self) -> Option<&str> {
         self.reason.as_deref().filter(|_| self.disabled)

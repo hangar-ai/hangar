@@ -28,7 +28,7 @@ use crate::commands::CommandId;
 use crate::ctx::Ctx;
 use crate::inspector::format::prose_time;
 use crate::message::{Intent, Message};
-use crate::nodes::presence;
+use crate::nodes::{presence, repos};
 use crate::shell::{Focus, Region};
 use crate::state::roles::{orchestrator_of, workers_of};
 use crate::state::types::Workspace;
@@ -620,13 +620,19 @@ fn workspace_row<'a>(f: &Frame<'a>, ws: &'a Workspace) -> Element<'a, Message> {
             // The machine comes first, so the eye finds it at one place down
             // the list.
             let mut end = row![].spacing(2).align_y(Alignment::Center);
+            // A row of this computer has one only when its repository is
+            // open on another machine too, and then a fainter one: it says
+            // where else, not where this is.
             if let (Some(node), Some(look)) = (ws.node.as_deref(), machine) {
+                let tip = presence::tip_of(model, tr, node, f.ctx.now);
                 end = end.push(mark_in(
                     t,
                     look.icon,
                     look.tone.color(t),
-                    presence::tip_of(model, tr, node, f.ctx.now),
+                    repos::tip_with_others(model, tr, ws, tip),
                 ));
+            } else if let Some(words) = repos::also_on(model, tr, ws) {
+                end = end.push(mark_in(t, Icon::Machines, t.colors.fg_subtle, words));
             }
             if ws.claude_account.is_some() {
                 end = end.push(crate::accounts::badge(f.ctx, &ws.id));
@@ -1022,6 +1028,17 @@ pub(super) fn machine_choices(ctx: Ctx<'_>) -> Vec<(MachineFilter, Icon, String)
     choices
 }
 
+/// What the filter's machine button shows: the machine the list is
+/// narrowed to, by its own icon, and a plain filter while it is not. The
+/// machines' own glyph is the line's just above it.
+pub(super) fn filter_icon(ctx: Ctx<'_>, machine: &MachineFilter) -> Icon {
+    match machine {
+        MachineFilter::All => Icon::Filter,
+        MachineFilter::Local => presence::LOCAL_ICON,
+        MachineFilter::Node(id) => presence::icon_of(ctx.model, id),
+    }
+}
+
 /// The filter's machine button and its menu: every machine, this computer,
 /// or one node. Only there while there is a node to tell apart.
 fn machine_button<'a>(f: &Frame<'a>, machine: &MachineFilter) -> Option<Element<'a, Message>> {
@@ -1043,7 +1060,7 @@ fn machine_button<'a>(f: &Frame<'a>, machine: &MachineFilter) -> Option<Element<
         ctx.t(Key::SidebarMachinesFilter).into_owned()
     };
     let open = f.st.machine_menu;
-    let button = ui_button::icon_button(t, Icon::Machines)
+    let button = ui_button::icon_button(t, filter_icon(ctx, machine))
         .icon_size(16.0)
         .tip(words)
         .toggled(narrowed || open)
@@ -1069,42 +1086,76 @@ fn machine_button<'a>(f: &Frame<'a>, machine: &MachineFilter) -> Option<Element<
 
 /// How tall the machines' line is.
 const FOOT_HEIGHT: f32 = 26.0;
+/// The padding around the machines' line, and inside its button.
+const FOOT_OUTER: Padding = Padding {
+    top: 0.0,
+    right: 6.0,
+    bottom: 4.0,
+    left: PAD,
+};
+const FOOT_INNER: Padding = Padding {
+    top: 0.0,
+    right: 2.0,
+    bottom: 0.0,
+    left: PAD,
+};
+/// The room the words of the machines' line have, after its icon.
+#[cfg(test)]
+pub(super) const FOOT_ROOM: f32 = size::SIDEBAR_WIDTH
+    - FOOT_OUTER.left
+    - FOOT_OUTER.right
+    - FOOT_INNER.left
+    - FOOT_INNER.right
+    - 16.0
+    - PAD;
+
+/// What the machines' line says: how many machines, then how many of them
+/// are offline when any is (what needs a look, and nothing else), and its
+/// tooltip, where the ones switched off are counted.
+pub(super) struct FootWords {
+    pub count: String,
+    pub offline: Option<String>,
+    pub tip: String,
+}
+
+pub(super) fn foot_words(tr: hangar_i18n::Translator, census: presence::Census) -> FootWords {
+    FootWords {
+        count: tr
+            .tn(Key::SidebarMachinesCount, census.machines, &[])
+            .into_owned(),
+        offline: (census.offline > 0).then(|| {
+            tr.tn(Key::SidebarMachinesOffline, census.offline, &[])
+                .into_owned()
+        }),
+        tip: if census.off > 0 {
+            tr.tn(Key::SidebarMachinesOpenOff, census.off, &[])
+                .into_owned()
+        } else {
+            tr.t(Key::SidebarMachinesOpen).into_owned()
+        },
+    }
+}
 
 /// The line at the foot of the list while there is a node: how many
-/// machines, how many of them are down, how many switched off. It opens
-/// their page of the settings.
+/// machines, and how many of them are down. It opens their page of the
+/// settings.
 fn machines_foot<'a>(ctx: Ctx<'a>) -> Option<Element<'a, Message>> {
     let t = ctx.theme;
-    let tr = ctx.i18n;
     if !crate::nodes::available(ctx.model) || ctx.model.settings().nodes.is_empty() {
         return None;
     }
-    let census = presence::census(ctx.model, ctx.now);
-    let said = |words: String, ink: iced::Color| {
+    let said = foot_words(ctx.i18n, presence::census(ctx.model, ctx.now));
+    let set = |words: String, ink: iced::Color| {
         text(words)
             .size(font_size::MICRO)
             .color(ink)
             .wrapping(text::Wrapping::None)
     };
-    let mut words = row![said(
-        tr.tn(Key::SidebarMachinesCount, census.machines, &[])
-            .into_owned(),
-        t.colors.fg_muted
-    )]
-    .spacing(space::SM)
-    .align_y(Alignment::Center);
-    if census.offline > 0 {
-        words = words.push(said(
-            tr.tn(Key::SidebarMachinesOffline, census.offline, &[])
-                .into_owned(),
-            t.colors.warning,
-        ));
-    }
-    if census.off > 0 {
-        words = words.push(said(
-            tr.tn(Key::SidebarMachinesOff, census.off, &[]).into_owned(),
-            t.colors.fg_subtle,
-        ));
+    let mut words = row![set(said.count, t.colors.fg_muted)]
+        .spacing(space::SM)
+        .align_y(Alignment::Center);
+    if let Some(offline) = said.offline {
+        words = words.push(set(offline, t.colors.warning));
     }
     // Laid out as a row is: the icon under the rows' glyphs, the words
     // under their names.
@@ -1116,17 +1167,10 @@ fn machines_foot<'a>(ctx: Ctx<'a>) -> Option<Element<'a, Message>> {
     ]
     .spacing(PAD)
     .align_y(Alignment::Center);
-    // The words may run closer to the edge than a row's marks do, and are
-    // cut there if they are too many.
     let foot = button(container(line).center_y(Length::Fill).clip(true))
         .width(Length::Fill)
         .height(FOOT_HEIGHT)
-        .padding(Padding {
-            top: 0.0,
-            right: 2.0,
-            bottom: 0.0,
-            left: PAD,
-        })
+        .padding(FOOT_INNER)
         .on_press(Message::Intent(Intent::OpenSettings(Some(
             crate::shell::SettingsCategory::Nodes,
         ))))
@@ -1139,17 +1183,8 @@ fn machines_foot<'a>(ctx: Ctx<'a>) -> Option<Element<'a, Message>> {
             }
         });
     Some(
-        container(tip::right(
-            t,
-            foot,
-            tr.t(Key::SidebarMachinesOpen).into_owned(),
-        ))
-        .padding(Padding {
-            top: 0.0,
-            right: 6.0,
-            bottom: 4.0,
-            left: PAD,
-        })
-        .into(),
+        container(tip::right(t, foot, said.tip))
+            .padding(FOOT_OUTER)
+            .into(),
     )
 }

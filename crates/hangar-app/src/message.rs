@@ -183,6 +183,9 @@ pub enum Intent {
     },
     OpenWorktrees(WsId),
     OpenKitsDialog(WsId),
+    /// The new-workspace dialog, ready to clone the repository of this
+    /// workspace on a machine that has no checkout of it yet.
+    OpenOnAnotherMachine(WsId),
     OpenMcpInstall,
     OpenMcpServers(WsId),
     OpenOrchestration(WsId),

@@ -162,6 +162,8 @@ pub fn router(node: Shared) -> Router {
         .route("/node/branch", delete(crate::engine::branch_delete))
         .route("/node/repo", post(crate::engine::repo))
         .route("/node/git", post(crate::engine::git))
+        .route("/node/clone", post(crate::engine::clone))
+        .route("/node/clone/cancel", post(crate::engine::clone_cancel))
         .route(
             "/node/board/claim-worker",
             post(crate::engine::claim_worker),
