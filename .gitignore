@@ -51,3 +51,6 @@ Thumbs.db
 # Nodes test rig: its dedicated keys, and the files up.sh generates
 scripts/node-test/.keys/
 scripts/node-test/ssh_config
+
+# Python bytecode beside the scripts
+__pycache__/
