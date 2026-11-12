@@ -159,8 +159,13 @@ impl LivePort {
         }
     }
 
+    /// What the engines of this machine read: the app's snapshot without
+    /// the workspaces a node runs itself. The node's own engines run those;
+    /// this machine's would find their orchestrators and workers in the
+    /// state and act on them a second time. Every read of this port comes
+    /// through here.
     fn snapshot(&self) -> Arc<Snapshot> {
-        self.handle.host().services().snapshot()
+        crate::state::snapshot::own(self.handle.host().services().snapshot())
     }
 
     fn host(&self) -> hangar_core::Host {

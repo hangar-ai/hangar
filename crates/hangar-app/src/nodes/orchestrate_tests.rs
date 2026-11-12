@@ -101,9 +101,13 @@ fn a_node_reports_for_its_own_panes_only() {
         [Message::Core(CoreEvent::BoardChanged { cwd })] if cwd == "/home/hangar/demo"
     ));
     let lost = super::event_messages("n-orch", &state(), json!({ "lagged": 3 }));
+    // The boards are read again, and what the node runs itself.
     assert!(matches!(
         lost.as_slice(),
-        [Message::Board(crate::board::Msg::Reload)]
+        [
+            Message::Board(crate::board::Msg::Reload),
+            Message::Nodes(super::Msg::SyncOwn(node))
+        ] if node == "n-orch"
     ));
 }
 

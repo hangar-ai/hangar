@@ -98,6 +98,16 @@ impl LivePort {
     fn node_of(&self, pane: &str) -> Option<String> {
         crate::nodes::engine::node_of_pane(&self.services.snapshot().state, pane)
     }
+
+    /// Whether pane `pane` is one its node runs itself.
+    fn hosted(&self, pane: &str) -> bool {
+        self.services
+            .snapshot()
+            .state
+            .workspaces
+            .iter()
+            .any(|ws| ws.is_hosted() && ws.panes.iter().any(|entry| entry.id == pane))
+    }
 }
 
 /// `text` queued for pane `pane` on node `node`, its session's queue there.
@@ -181,7 +191,12 @@ impl AppPort for LivePort {
         let pty = self.services.core().pty().clone();
         let node = self.node_of(pane);
         let pane = pane.clone();
+        let hosted = self.hosted(&pane);
         Box::pin(async move {
+            // A pane its node runs itself is the node's alone to end.
+            if hosted {
+                return Err(crate::nodes::remote::HOSTED_PANE.to_string());
+            }
             if let Some(killed) = crate::nodes::remote::kill_pane(&pane).await {
                 return killed;
             }

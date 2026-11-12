@@ -13,7 +13,7 @@ pub mod snapshot;
 
 // The persisted state and its store live in hangar-engine, with the logic
 // modules of `src/lib/*` they are built on: named here as before.
-pub use hangar_engine::state::{folders, layout, pane_names, roles, store, types, unread};
+pub use hangar_engine::state::{folders, hosted, layout, pane_names, roles, store, types, unread};
 
 use std::sync::Arc;
 
@@ -43,6 +43,16 @@ pub use types::{
 };
 
 use crate::shell::{Drawer, View, WindowKind};
+
+/// A change to what a node owns of a workspace it runs itself, made on its
+/// mirror: the workspace, its node, and what the node would be told to make
+/// its own copy say the same.
+#[derive(Debug, Clone, PartialEq)]
+pub struct HostedEdit {
+    pub node: String,
+    pub workspace: WsId,
+    pub ops: Vec<hosted::HostedOp>,
+}
 
 /// Everything the window knows.
 #[derive(Debug, Default)]
@@ -91,8 +101,56 @@ impl Model {
     }
 
     /// Applies one store action (hangar-engine's `Store::apply`).
+    ///
+    /// A workspace a node runs itself is its node's to change: an action
+    /// that would change what the node owns of one ([`Model::hosted_edits`])
+    /// is refused whole, nothing applied, and the shell says so
+    /// (`nodes::Live::refused`). Sending such a change to the node instead
+    /// starts here.
     pub fn apply(&mut self, action: StoreAction) -> StoreOutcome {
+        if let Some(edit) = self.hosted_edits(&action).into_iter().next() {
+            self.live.nodes.refused = Some(edit);
+            return StoreOutcome::default();
+        }
         self.store.apply(action)
+    }
+
+    /// What `action` would change in the workspaces a node runs itself, as
+    /// what their nodes would have to be told (`hosted::diff`): one entry
+    /// for each such workspace it touches in what its node owns. Empty for
+    /// everything else, the mirror's own presentation included (its place in
+    /// the list, its layout, its views, its window, its chat view).
+    ///
+    /// The action is tried on a copy of the store, which is thrown away:
+    /// nothing is applied here. What the node itself said
+    /// (`SyncHosted`) and a workspace put whole (`PutWorkspace`) are not
+    /// edits of the person's, and give nothing.
+    pub fn hosted_edits(&self, action: &StoreAction) -> Vec<HostedEdit> {
+        if matches!(
+            action,
+            StoreAction::SyncHosted { .. } | StoreAction::PutWorkspace(_)
+        ) {
+            return Vec::new();
+        }
+        let before = self.state();
+        if !before.workspaces.iter().any(Workspace::is_hosted) {
+            return Vec::new();
+        }
+        let mut trial = self.store.trial();
+        trial.apply(action.clone());
+        before
+            .workspaces
+            .iter()
+            .filter(|ws| ws.is_hosted())
+            .filter_map(|ws| {
+                let ops = hosted::diff(ws, trial.workspace(&ws.id), trial.respawns());
+                (!ops.is_empty()).then(|| HostedEdit {
+                    node: ws.node.clone().unwrap_or_default(),
+                    workspace: ws.id.clone(),
+                    ops,
+                })
+            })
+            .collect()
     }
 
     #[cfg(test)]

@@ -98,8 +98,26 @@ A node also runs workspaces itself, with no desktop: hangar-engine's host
 in the daemon, their state on the node, their agents' requests answered
 there (headless.md, step 3). They are made from the server (`hangar-node
 workspace add <folder>`), the node API (`/node/own`) or Discord
-(discord-connector.md), and a connected desktop lists them on the node's
-card.
+(discord-connector.md).
+
+A desktop that has the node among its machines mirrors them: each is a
+workspace of its own state marked `hosted`, listed in the navigator with
+the machine's other workspaces and opened like them. Their state is read
+when the node connects, when it says `own:changed` and when events were
+lost; an answer older than what is held (same `boot`, lower `revision`)
+changes nothing. While the node is away the mirrors stay as last seen, and
+a node removed from Settings takes them with it. Settings › Nodes says how
+many a machine runs.
+
+The node stays their owner. The desktop follows their panes' streams and
+never starts, launches or kills one; its orchestration runtime, its
+hibernation, its Discord connector and the answers it gives a node's
+agents leave them out; the reports of their agents and their queues come
+over `/node/events`, so their marks show for a workspace never opened.
+What is the node's of a workspace (its name, its folder, its panes) cannot
+be changed from the desktop yet: such a change is refused with a notice.
+Where it is listed, its layout, its views, its window and its chat view
+are the desktop's own, and change freely.
 
 The node API also lets a desktop mirror them, the node staying their owner:
 `GET /node/own/state` (the workspaces whole, with a revision),

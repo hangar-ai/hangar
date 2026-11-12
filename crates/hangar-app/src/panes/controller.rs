@@ -76,6 +76,10 @@ pub struct PaneRt {
     pub ws: WsId,
     pub name: String,
     pub agent: AgentId,
+    /// Its node runs the pane itself (`Workspace::hosted`, as it stood at
+    /// the mount): this terminal follows a shell it neither started nor
+    /// ends.
+    pub hosted: bool,
     pub link: Arc<PaneLink>,
     /// The shell's life as this package lives it; P4's copy is what the
     /// glyphs read.
@@ -207,6 +211,9 @@ pub struct RemoteStart {
     /// `replay_until` is drawn as it was.
     pub attached: bool,
     pub replay_until: u64,
+    /// The node runs the pane itself: its shell is never this machine's to
+    /// end.
+    pub hosted: bool,
 }
 
 /// The shell a pane runs: its own, its workspace's, the settings', then the
@@ -337,6 +344,8 @@ struct Spawn {
     /// A worker a local workspace sent to a node: its board is this
     /// machine's (`remote::BOARD_RELAY`).
     away: bool,
+    /// A pane its node runs itself: found there, never started from here.
+    hosted: bool,
 }
 
 /// What the MCP scope of a launch is made from (`mcpLaunchConfig`).
@@ -359,7 +368,10 @@ pub fn backend_for(
     pty: &Arc<hangar_core::pty::PtyManager>,
 ) -> PtyBackend {
     match crate::nodes::away::node_of(ws, pane) {
-        Some(node) => PtyBackend::Remote { node },
+        Some(node) => PtyBackend::Remote {
+            node,
+            hosted: ws.is_hosted(),
+        },
         None => PtyBackend::Local(pty.clone()),
     }
 }
@@ -445,6 +457,7 @@ pub fn mount(
             ),
         node,
         away: crate::nodes::away::pane_node(pane).is_some(),
+        hosted: ws.is_hosted(),
     };
 
     let task = mounted_then_due(pane.id.clone(), measured);
@@ -453,6 +466,7 @@ pub fn mount(
         ws: ws.id.clone(),
         name: pane.name.clone(),
         agent: pane.agent,
+        hosted: ws.is_hosted(),
         link,
         status: PaneStatus::Starting,
         notes: Vec::new(),
@@ -524,9 +538,14 @@ pub fn start(
     let (columns, rows) = rt.link.lock().size();
     if let Some(node) = spawn.node.clone() {
         let id = spawn.id.clone();
+        let label = crate::nodes::label(m, &node);
+        if spawn.hosted {
+            return Task::perform(attach_hosted(node, label, id.clone()), move |result| {
+                Message::Panes(Msg::Spawned(id.clone(), result))
+            });
+        }
         let asked = spawn.remote(columns, rows);
         let tr = Translator::new(m.locale());
-        let label = crate::nodes::label(m, &node);
         return Task::perform(start_remote(node, label, asked, tr), move |result| {
             Message::Panes(Msg::Spawned(id.clone(), result))
         });
@@ -572,6 +591,42 @@ async fn start_remote(
     Ok(remote_report(&spawn, started, tr))
 }
 
+/// How many times, and how far apart, a pane its node runs itself is looked
+/// for on the node before its terminal says it did not start: the time the
+/// node takes to start a pane it has just been given.
+const HOSTED_TRIES: u32 = 60;
+const HOSTED_EVERY: Duration = Duration::from_millis(500);
+
+/// Finds the shell of a pane its node runs itself, once the node is
+/// connected, and follows it: nothing is started, and nothing typed.
+async fn attach_hosted(node: String, label: String, pane: PaneId) -> Result<SpawnReport, String> {
+    let client = loop {
+        if let Some(client) = remote::wait_for(&node, NODE_WAIT).await {
+            break client;
+        }
+    };
+    let started = remote::attach(&client, &pane, HOSTED_TRIES, HOSTED_EVERY)
+        .await
+        .map_err(|error| format!("{label}: {error}"))?;
+    let Started::Attached { seq } = started else {
+        return Err(format!("{label}: its node has not started this pane"));
+    };
+    Ok(SpawnReport {
+        kit_issues: Vec::new(),
+        resolved: None,
+        missing: None,
+        account: None,
+        mcp: None,
+        mcp_arg: None,
+        notes: Vec::new(),
+        remote: Some(RemoteStart {
+            attached: true,
+            replay_until: seq,
+            hosted: true,
+        }),
+    })
+}
+
 /// What a remote start says, as a local spawn says it.
 fn remote_report(spawn: &RemoteSpawn, started: Started, tr: Translator) -> SpawnReport {
     let mut report = SpawnReport {
@@ -589,12 +644,14 @@ fn remote_report(spawn: &RemoteSpawn, started: Started, tr: Translator) -> Spawn
             report.remote = Some(RemoteStart {
                 attached: true,
                 replay_until: seq,
+                hosted: false,
             });
         }
         Started::Spawned { mcp } => {
             report.remote = Some(RemoteStart {
                 attached: false,
                 replay_until: 0,
+                hosted: false,
             });
             let Some(asked) = &spawn.mcp else {
                 // Claude Code with its own servers, as an `inherit` launch.
@@ -910,7 +967,8 @@ pub fn spawned(
     // could not start Claude Code on it.
     let fell_back =
         report.missing.is_some() || (report.account.is_some() && report.account != report.resolved);
-    if rt.agent == AgentId::Claude {
+    // Not a pane its node runs itself: the account it runs on is the node's.
+    if rt.agent == AgentId::Claude && !rt.hosted {
         if let Some(missing) = &report.missing {
             notes.push(
                 tr.t_with(Key::AccountsPickerMissing, &args!("id" => missing.as_str()))
@@ -1221,6 +1279,10 @@ pub fn unmount(hub: &Hub, sv: &Services, m: &mut Model, rt: PaneRt) -> Task<Mess
     let pty = sv.core().pty().clone();
     let id = rt.link.id.clone();
     let node = rt.link.node().map(str::to_owned);
+    // A pane its node runs itself is only let go of: the node keeps its
+    // shell, whether the pane was closed here, restarted there under another
+    // id, or its workspace handed to the node since it was mounted.
+    let hosted = rt.hosted || m.find_pane(&id).is_some_and(|(ws, _)| ws.is_hosted());
     drop(rt);
     // Closed, restarted under a new id, or put to sleep: not counted against
     // its account any more.
@@ -1229,14 +1291,36 @@ pub fn unmount(hub: &Hub, sv: &Services, m: &mut Model, rt: PaneRt) -> Task<Mess
         pane: id.clone(),
         handing_over: false,
     }));
-    let kill = match node {
-        Some(node) => kill_remote(node, id),
-        None => Task::perform(
+    let kill = match shell_end(node, hosted) {
+        ShellEnd::Kept => Task::none(),
+        ShellEnd::OnNode(node) => kill_remote(node, id),
+        ShellEnd::Local => Task::perform(
             tokio::task::spawn_blocking(move || hangar_core::pty::pty_kill(&pty, id, None)),
             |_| Message::Noop,
         ),
     };
     Task::batch([unmounted, kill])
+}
+
+/// What becomes of the shell of a pane that is unmounted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum ShellEnd {
+    /// Killed here: a pane of this machine.
+    Local,
+    /// Killed on its node, which this machine started it on.
+    OnNode(String),
+    /// Left running: its node runs it itself, and only the node ends it.
+    Kept,
+}
+
+/// What an unmount does with the shell of a pane on `node` (`None`: this
+/// machine), `hosted` when its node runs it itself.
+pub(crate) fn shell_end(node: Option<String>, hosted: bool) -> ShellEnd {
+    match node {
+        Some(_) if hosted => ShellEnd::Kept,
+        Some(node) => ShellEnd::OnNode(node),
+        None => ShellEnd::Local,
+    }
 }
 
 /// A remote pane's shell killed on its node. A node away keeps it: the
@@ -1277,7 +1361,8 @@ pub fn role_check(rt: &mut PaneRt, m: &Model, locale: Locale) -> Task<Message> {
     if pane.role.is_none() {
         rt.role_handled = false;
     }
-    if rt.status != PaneStatus::Running || rt.role_handled {
+    // A pane its node runs itself is never restarted from here.
+    if rt.hosted || rt.status != PaneStatus::Running || rt.role_handled {
         return Task::none();
     }
     let activity = m.live.panes_logic.activity_or_idle(&id);
@@ -1359,6 +1444,7 @@ pub(crate) fn mounted(ws: &Workspace, pane: &Pane) -> PaneRt {
         ws: ws.id.clone(),
         name: pane.name.clone(),
         agent: pane.agent,
+        hosted: ws.is_hosted(),
         link,
         status: PaneStatus::Starting,
         notes: Vec::new(),
@@ -1638,6 +1724,7 @@ mod tests {
             scoped: false,
             node: None,
             away: false,
+            hosted: false,
         };
         assert!(spawn.shell.is_none());
 

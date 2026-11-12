@@ -85,12 +85,14 @@ impl RemotePort {
     }
 }
 
-/// `snapshot` with only the workspaces of node `node`.
+/// `snapshot` with only the workspaces of node `node` this machine drives.
+/// Those the node runs itself are not among them: what their agents ask is
+/// answered on the node, by its own engines.
 pub fn narrowed(snapshot: &Snapshot, node: &str) -> Snapshot {
     let mut state = (*snapshot.state).clone();
     state
         .workspaces
-        .retain(|ws| ws.node.as_deref() == Some(node));
+        .retain(|ws| ws.node.as_deref() == Some(node) && !ws.is_hosted());
     let mine = |id: &String| state.workspaces.iter().any(|ws| &ws.id == id);
     let opened = snapshot
         .opened

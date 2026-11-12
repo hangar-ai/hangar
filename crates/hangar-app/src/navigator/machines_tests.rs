@@ -274,3 +274,131 @@ fn a_machine_with_no_workspace_says_so() {
     assert!(has(&mut ui, "No workspace on vps."));
     assert!(has(&mut ui, "Clear the filter"));
 }
+
+/// What a node runs itself is listed like any workspace of that machine:
+/// `GPU box` (connected) runs `nightly`, one agent at work and one waiting,
+/// and `evals`; `vps`, whose link is down, runs `billing-jobs`, shown as it
+/// was last seen.
+fn mirrors(locale: Locale, theme: &str) -> Harness {
+    use crate::nodes::hosted::{self, OwnState};
+    use crate::state::live::AgentActivity;
+    let agent = |id: &str, name: &str| Pane {
+        id: id.into(),
+        name: name.into(),
+        agent: AgentId::Claude,
+        ..Pane::default()
+    };
+    let theirs = |id: &str, name: &str, panes: Vec<Pane>| Workspace {
+        id: id.into(),
+        name: name.into(),
+        cwd: format!("/srv/{name}"),
+        panes,
+        ..Workspace::default()
+    };
+    let mut h = Harness::new(locale, theme).edit(|state| {
+        state.settings.experiments = vec![crate::settings::experiments::NODES.into()];
+        state.settings.nodes = vec![
+            machine("gpu", "GPU box", MachineKind::Tower),
+            machine("vps", "vps", MachineKind::Cloud),
+        ];
+        state
+            .workspaces
+            .push(on("w3", "training", Some("gpu"), None));
+    });
+    up(&mut h.model, "gpu", "gpu-01");
+    let own = |workspaces, activity: &[(&str, AgentActivity)]| OwnState {
+        boot: "b1".into(),
+        revision: 1,
+        workspaces,
+        activity: activity
+            .iter()
+            .map(|(pane, activity)| (pane.to_string(), *activity))
+            .collect(),
+        bridged: activity.iter().map(|(pane, _)| pane.to_string()).collect(),
+    };
+    hosted::take_in(
+        &mut h.model,
+        "gpu",
+        own(
+            vec![
+                theirs(
+                    "o1",
+                    "nightly",
+                    vec![agent("o1-a", "Rorch"), agent("o1-b", "Wes")],
+                ),
+                theirs("o2", "evals", vec![agent("o2-a", "Kit")]),
+            ],
+            &[
+                ("o1-a", AgentActivity::Working),
+                ("o1-b", AgentActivity::Waiting),
+            ],
+        ),
+        1_000,
+    );
+    hosted::take_in(
+        &mut h.model,
+        "vps",
+        own(
+            vec![theirs("o3", "billing-jobs", vec![agent("o3-a", "Bo")])],
+            &[],
+        ),
+        1_000,
+    );
+    down(
+        &mut h.model,
+        "vps",
+        30,
+        Some(Failure::Ssh {
+            step: Step::Probe,
+            detail: "Connection timed out".into(),
+        }),
+    );
+    h
+}
+
+#[test]
+fn what_a_node_runs_itself_is_listed_among_the_workspaces() {
+    let h = mirrors(Locale::En, "graphite");
+    let st = State::default();
+    assert_eq!(
+        listed(&st, &h.model),
+        ["ws:w1", "ws:w2", "ws:w3", "ws:o1", "ws:o2", "ws:o3"]
+    );
+    {
+        let mut ui = h.show(framed(&st, &h));
+        for name in ["training", "nightly", "evals", "billing-jobs"] {
+            assert!(has(&mut ui, name), "{name} is listed");
+        }
+        assert!(has(&mut ui, "3 machines"));
+        assert!(has(&mut ui, "1 offline"));
+        h.shot(&mut ui, "hosted-navigator-en-graphite");
+    }
+
+    // Its agents count as any workspace's do, never opened though it is.
+    let counts = h.model.live.panes_logic.workspace_activity("o1");
+    assert_eq!((counts.working, counts.waiting), (1, 1));
+
+    // Narrowed to one machine, its own workspaces come with those driven
+    // from here.
+    let narrowed = State {
+        machine: MachineFilter::Node("gpu".into()),
+        ..State::default()
+    };
+    assert_eq!(listed(&narrowed, &h.model), ["ws:w3", "ws:o1", "ws:o2"]);
+
+    // Switched off, a machine takes what it runs itself out of the list
+    // too; nothing is forgotten.
+    let h = h.edit(|state| state.settings.nodes[0].enabled = Some(false));
+    assert_eq!(listed(&st, &h.model), ["ws:w1", "ws:w2", "ws:o3"]);
+    assert!(h.model.workspace("o1").is_some());
+}
+
+#[test]
+fn the_mirrors_are_listed_in_french_in_a_light_theme() {
+    let h = mirrors(Locale::Fr, "github-light");
+    let st = State::default();
+    let mut ui = h.show(framed(&st, &h));
+    assert!(has(&mut ui, "nightly"));
+    assert!(has(&mut ui, "1 hors ligne"));
+    h.shot(&mut ui, "hosted-navigator-fr-github-light");
+}

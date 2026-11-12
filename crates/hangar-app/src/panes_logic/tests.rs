@@ -1363,3 +1363,81 @@ fn an_outcome_wakes_the_window_once_when_it_is_due_to_go() {
     assert_eq!(m.live.panes_logic.delivery_stage("t1", due), None);
     assert_eq!(m.live.panes_logic.deliveries.next_expiry(), None);
 }
+
+/// `ws` as the mirror of a workspace node `n` runs itself.
+fn run_by_its_node(mut ws: Workspace) -> Workspace {
+    ws.node = Some("n".into());
+    ws.hosted = Some(true);
+    ws
+}
+
+#[test]
+fn a_workspace_its_node_runs_is_never_put_to_sleep_here() {
+    let (m, _) = model(vec![
+        workspace("w1", vec![pane("p1", "Ava", AgentId::Claude)]),
+        workspace("other", vec![pane("p2", "Bo", AgentId::Claude)]),
+        run_by_its_node(workspace("o1", vec![pane("op1", "Rorch", AgentId::Claude)])),
+    ]);
+    // The sweep does not look at it, and its menu offers no sleep.
+    assert_eq!(sweepable(&m), ["w1", "other"]);
+    assert_eq!(sleep_line(&m, "o1", None), None);
+    assert!(sleep_line(&m, "other", None).is_some());
+}
+
+#[test]
+fn the_session_of_a_pane_its_node_runs_is_the_node_s_to_write() {
+    let (mut m, _) = model(vec![
+        workspace("w1", vec![pane("p1", "Ava", AgentId::Claude)]),
+        run_by_its_node(workspace("o1", vec![pane("op1", "Rorch", AgentId::Claude)])),
+    ]);
+    let hello = |session: &str| json!({"kind": "hello", "sessionId": session, "model": "claude-opus-5", "version": "2.1"});
+    let revision = m.revision();
+    bridge(&mut m, "op1", hello("another"), NOW);
+    assert_eq!(m.revision(), revision, "nothing is written for the mirror");
+    assert!(m.live.nodes.refused.is_none(), "and nothing was asked");
+    let session = |m: &Model, pane: &str| m.find_pane(pane).unwrap().1.session_id.clone();
+    assert_eq!(session(&m, "op1").as_deref(), Some("s-op1"));
+    // The report is heard all the same: the pane's agent is known.
+    assert!(m.live.panes_logic.agents.get("op1").is_some());
+    // A pane of this machine keeps the session it is told.
+    bridge(&mut m, "p1", hello("another"), NOW);
+    assert_eq!(session(&m, "p1").as_deref(), Some("another"));
+}
+
+#[test]
+fn a_mirrored_pane_keeps_what_is_known_of_it_when_its_terminal_comes_and_goes() {
+    let mut m = Model::default();
+    m.hydrate(AppState {
+        workspaces: vec![run_by_its_node(workspace(
+            "o1",
+            vec![pane("op1", "Rorch", AgentId::Claude)],
+        ))],
+        ..AppState::default()
+    });
+    let working = HashMap::from([("op1".to_string(), AgentActivity::Working)]);
+    mirror_hosted(&mut m, "n", &HashSet::new(), &working, &HashSet::new(), NOW);
+    let glyph = |m: &Model| state_glyph_state(m, &"op1".to_string());
+    assert_eq!(glyph(&m), GlyphState::Working);
+    assert!(!has_terminal(&m, "op1"));
+
+    // Opened: the terminal starts, the machine is the same one.
+    index_panes(&mut m);
+    let (ws, found, info) = lookup(&m, "op1")
+        .map(|(ws, pane, info)| (ws.id.clone(), pane.id.clone(), info))
+        .unwrap();
+    assert_eq!((ws.as_str(), found.as_str()), ("o1", "op1"));
+    let live = &mut m.live.panes_logic;
+    live.mirror_pane("op1", &info.workspace_id, &info.name);
+    live.status.insert("op1".into(), PaneStatus::Starting);
+    assert_eq!(glyph(&m), GlyphState::Starting);
+    assert!(has_terminal(&m, "op1"));
+    m.live
+        .panes_logic
+        .status
+        .insert("op1".into(), PaneStatus::Running);
+    assert_eq!(
+        glyph(&m),
+        GlyphState::Working,
+        "what its agent was doing is kept"
+    );
+}

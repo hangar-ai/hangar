@@ -45,7 +45,7 @@ use crate::message::{Intent, Message};
 use crate::orchestration::OrchestrationHandle;
 use crate::services::{CoreEvent, Services};
 use crate::settings::experiments;
-use crate::state::Model;
+use crate::state::{Model, Snapshot};
 
 pub use page::settings_page;
 
@@ -207,6 +207,13 @@ impl hangar_discord::Hangar for AppHangar {
 
     fn desk(&self) -> Option<Arc<Mobile>> {
         Some(self.desk.clone())
+    }
+
+    /// Without the workspaces a node runs itself: the node's own bot makes
+    /// their channels and speaks in them, and this one making them too
+    /// would show each twice.
+    fn snapshot(&self) -> Arc<Snapshot> {
+        crate::state::snapshot::own(self.port.snapshot())
     }
 
     fn journal(&self, ws: &str) -> Vec<JournalEntry> {

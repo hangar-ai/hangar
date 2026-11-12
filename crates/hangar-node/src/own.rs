@@ -217,11 +217,26 @@ pub fn full(own: &EngineHost, boot: &str) -> Value {
             Some((pane.id.clone(), json!(live.activity)))
         })
         .collect();
+    // The panes whose agent reports through its mod: a mirror then leaves
+    // its own guesses from their output aside.
+    let bridged: Vec<&str> = state
+        .workspaces
+        .iter()
+        .flat_map(|ws| &ws.panes)
+        .filter(|pane| {
+            snapshot
+                .activity
+                .get(&pane.id)
+                .is_some_and(|live| live.bridged)
+        })
+        .map(|pane| pane.id.as_str())
+        .collect();
     json!({
         "boot": boot,
         "revision": revision,
         "workspaces": state.workspaces,
         "activity": activity,
+        "bridged": bridged,
     })
 }
 

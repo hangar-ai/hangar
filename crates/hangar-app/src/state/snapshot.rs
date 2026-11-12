@@ -10,6 +10,8 @@
 //! The snapshot itself is hangar-engine's (`hangar_engine::state::snapshot`);
 //! taking it from the `Model` is the app's.
 
+use std::sync::{Arc, Mutex};
+
 use super::Model;
 
 pub use hangar_engine::state::snapshot::Snapshot;
@@ -42,4 +44,20 @@ pub fn is_stale(snapshot: &Snapshot, model: &Model) -> bool {
         || asleep.keys().any(|id| !snapshot.asleep.contains(id))
         || snapshot.activity != *model.live.panes_logic.activity_map()
         || snapshot.delivering != model.live.control.delivering()
+}
+
+/// `snapshot` without the workspaces a node runs itself: what the engines
+/// of this machine act on (`Snapshot::without_hosted`). Made once for each
+/// snapshot the app publishes, since they read it many times a round.
+pub fn own(snapshot: Arc<Snapshot>) -> Arc<Snapshot> {
+    static LAST: Mutex<Option<(Arc<Snapshot>, Arc<Snapshot>)>> = Mutex::new(None);
+    let mut last = LAST.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some((from, own)) = last.as_ref()
+        && Arc::ptr_eq(from, &snapshot)
+    {
+        return own.clone();
+    }
+    let own = Snapshot::without_hosted(&snapshot);
+    *last = Some((snapshot, own.clone()));
+    own
 }

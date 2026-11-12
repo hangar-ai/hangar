@@ -16,7 +16,7 @@ use crate::ctx::Ctx;
 use crate::message::Message;
 use crate::state::types::{MachineKind, NodeConfig};
 
-use super::model::{Failure, NodeStatus, OwnWorkspace, Step, TargetProblem, target_problem};
+use super::model::{Failure, NodeStatus, Step, TargetProblem, target_problem};
 use super::presence::{self, Presence};
 use super::{Msg, Open, State};
 
@@ -333,6 +333,13 @@ fn machine_row<'a>(st: &'a State, ctx: Ctx<'a>, node: &'a NodeConfig) -> Element
     {
         lines = lines.push(tools_line(ctx, info.claude, info.git));
     }
+    // What it runs itself is in the navigator, with every other workspace:
+    // here, only how many, known whether or not it is connected.
+    if node.is_on()
+        && let Some(words) = own_words(ctx, id)
+    {
+        lines = lines.push(typography::subtle(t, words));
+    }
 
     let end: Element<'a, Message> = if renaming.is_some() {
         row![
@@ -370,21 +377,24 @@ fn machine_row<'a>(st: &'a State, ctx: Ctx<'a>, node: &'a NodeConfig) -> Element
     if st.open == Some(Open::Remove(id.clone())) {
         block = block.push(under(remove_question(ctx, node, &label)));
     }
-    if matches!(status, NodeStatus::Connected { .. })
-        && let Some(own) = ctx
-            .model
-            .live
-            .nodes
-            .own
-            .get(id)
-            .filter(|own| !own.is_empty())
-    {
-        block = block.push(under(own_workspaces(ctx, own)));
-    }
     container(block)
         .padding(Padding::from([tokens::space::LG, tokens::space::XL]))
         .width(Length::Fill)
         .into()
+}
+
+/// How many workspaces node `id` runs itself, in words; nothing when it
+/// runs none.
+fn own_words(ctx: Ctx<'_>, id: &str) -> Option<String> {
+    match super::hosted::count(ctx.model, id) {
+        0 => None,
+        1 => Some(ctx.t(Key::NodesOwnOne).into_owned()),
+        count => Some(
+            ctx.i18n
+                .t_with(Key::NodesOwnMany, &args!("count" => count))
+                .into_owned(),
+        ),
+    }
 }
 
 /// What sits under a row, in line with its name.
@@ -475,40 +485,6 @@ fn remove_question<'a>(ctx: Ctx<'a>, node: &NodeConfig, label: &str) -> Element<
     ]
     .spacing(tokens::space::MD)
     .into()
-}
-
-/// The workspaces the node runs itself, each with its panes and what they
-/// are doing.
-fn own_workspaces<'a>(ctx: Ctx<'a>, own: &'a [OwnWorkspace]) -> Element<'a, Message> {
-    let t = ctx.theme;
-    let mut list = column![
-        typography::hint(t, ctx.t(Key::NodesOwnTitle)).font(hangar_theme::fonts::ui_semibold()),
-        typography::hint(t, ctx.t(Key::NodesOwnHint)),
-    ]
-    .spacing(tokens::space::SM);
-    for ws in own {
-        let panes: Vec<String> = ws
-            .panes
-            .iter()
-            .map(|pane| {
-                let doing = ctx.t(match pane.activity.as_deref() {
-                    Some("working") => Key::NodesOwnWorking,
-                    Some("waiting") => Key::NodesOwnWaiting,
-                    Some("yours") => Key::NodesOwnYours,
-                    _ => Key::NodesOwnIdle,
-                });
-                format!("{} · {doing}", pane.name)
-            })
-            .collect();
-        list = list.push(
-            column![
-                typography::ui(t, format!("{} — {}", ws.name, ws.cwd)),
-                typography::hint(t, panes.join("   ")),
-            ]
-            .spacing(tokens::space::XS),
-        );
-    }
-    list.into()
 }
 
 fn add_form<'a>(st: &'a State, ctx: Ctx<'a>) -> Element<'a, Message> {

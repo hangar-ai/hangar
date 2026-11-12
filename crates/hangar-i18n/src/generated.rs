@@ -2398,6 +2398,8 @@ pub enum Key {
     NodesGitFound,
     /// `nodes.gitMissing`
     NodesGitMissing,
+    /// `nodes.hosted.refused`
+    NodesHostedRefused,
     /// `nodes.kind.cloud`
     NodesKindCloud,
     /// `nodes.kind.desktop`
@@ -2414,18 +2416,10 @@ pub enum Key {
     NodesKindTower,
     /// `nodes.local.hint`
     NodesLocalHint,
-    /// `nodes.own.hint`
-    NodesOwnHint,
-    /// `nodes.own.idle`
-    NodesOwnIdle,
-    /// `nodes.own.title`
-    NodesOwnTitle,
-    /// `nodes.own.waiting`
-    NodesOwnWaiting,
-    /// `nodes.own.working`
-    NodesOwnWorking,
-    /// `nodes.own.yours`
-    NodesOwnYours,
+    /// `nodes.own.many`
+    NodesOwnMany,
+    /// `nodes.own.one`
+    NodesOwnOne,
     /// `nodes.pane.away`
     NodesPaneAway,
     /// `nodes.pane.connecting`
@@ -4197,7 +4191,7 @@ pub enum Key {
 }
 
 /// How many keys there are.
-pub const KEY_COUNT: usize = 2090;
+pub const KEY_COUNT: usize = 2087;
 
 impl Key {
     /// Every key, in the order of their ids.
@@ -5394,6 +5388,7 @@ impl Key {
         Key::NodesErrorUnsupportedArch,
         Key::NodesGitFound,
         Key::NodesGitMissing,
+        Key::NodesHostedRefused,
         Key::NodesKindCloud,
         Key::NodesKindDesktop,
         Key::NodesKindLaptop,
@@ -5402,12 +5397,8 @@ impl Key {
         Key::NodesKindServer,
         Key::NodesKindTower,
         Key::NodesLocalHint,
-        Key::NodesOwnHint,
-        Key::NodesOwnIdle,
-        Key::NodesOwnTitle,
-        Key::NodesOwnWaiting,
-        Key::NodesOwnWorking,
-        Key::NodesOwnYours,
+        Key::NodesOwnMany,
+        Key::NodesOwnOne,
         Key::NodesPaneAway,
         Key::NodesPaneConnecting,
         Key::NodesPaneOff,
@@ -7489,6 +7480,7 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "nodes.error.unsupportedArch", en: Text::plain("This machine runs {arch}; nodes run on Linux x86_64 and arm64."), fr: Text::plain("Cette machine tourne sur {arch}\u{202f}; les nœuds tournent sur Linux x86_64 et arm64.") },
     Message { id: "nodes.gitFound", en: Text::plain("git"), fr: Text::plain("git") },
     Message { id: "nodes.gitMissing", en: Text::plain("No git"), fr: Text::plain("Pas de git") },
+    Message { id: "nodes.hosted.refused", en: Text::plain("{name} runs on {node}: it cannot be changed from here yet."), fr: Text::plain("{name} tourne sur {node}\u{202f}: impossible de le modifier d’ici pour l’instant.") },
     Message { id: "nodes.kind.cloud", en: Text::plain("Cloud"), fr: Text::plain("Cloud") },
     Message { id: "nodes.kind.desktop", en: Text::plain("Desktop"), fr: Text::plain("Ordinateur de bureau") },
     Message { id: "nodes.kind.laptop", en: Text::plain("Laptop"), fr: Text::plain("Portable") },
@@ -7497,12 +7489,8 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "nodes.kind.server", en: Text::plain("Server"), fr: Text::plain("Serveur") },
     Message { id: "nodes.kind.tower", en: Text::plain("Tower"), fr: Text::plain("Tour") },
     Message { id: "nodes.local.hint", en: Text::plain("This machine"), fr: Text::plain("Cette machine") },
-    Message { id: "nodes.own.hint", en: Text::plain("They keep running with this computer off: drive them from Discord, or with hangar-node workspace on the server."), fr: Text::plain("Ils continuent sans cet ordinateur\u{202f}: pilotez-les depuis Discord, ou avec hangar-node workspace sur le serveur.") },
-    Message { id: "nodes.own.idle", en: Text::plain("idle"), fr: Text::plain("inactif") },
-    Message { id: "nodes.own.title", en: Text::plain("Workspaces this node runs itself"), fr: Text::plain("Workspaces que ce nœud fait tourner lui-même") },
-    Message { id: "nodes.own.waiting", en: Text::plain("waiting for you"), fr: Text::plain("vous attend") },
-    Message { id: "nodes.own.working", en: Text::plain("working"), fr: Text::plain("travaille") },
-    Message { id: "nodes.own.yours", en: Text::plain("done"), fr: Text::plain("a fini") },
+    Message { id: "nodes.own.many", en: Text::plain("Runs {count} workspaces itself, listed in the navigator"), fr: Text::plain("Fait tourner {count} workspaces lui-même, listés dans le navigateur") },
+    Message { id: "nodes.own.one", en: Text::plain("Runs 1 workspace itself, listed in the navigator"), fr: Text::plain("Fait tourner 1 workspace lui-même, listé dans le navigateur") },
     Message { id: "nodes.pane.away", en: Text::plain("{node} is not connected"), fr: Text::plain("{node} n’est pas connecté") },
     Message { id: "nodes.pane.connecting", en: Text::plain("{node} is connecting…"), fr: Text::plain("Connexion à {node}…") },
     Message { id: "nodes.pane.off", en: Text::plain("{node} is switched off"), fr: Text::plain("{node} est désactivé") },

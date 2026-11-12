@@ -111,6 +111,17 @@ impl Store {
         &self.state.settings
     }
 
+    /// A copy to try an action on, which is thrown away: the same state,
+    /// shared until the action writes it, and nothing waiting to be
+    /// announced or saved. What an action would change is read from it
+    /// before the action is applied for good.
+    pub fn trial(&self) -> Store {
+        Store {
+            state: self.state.clone(),
+            ..Store::default()
+        }
+    }
+
     /// The respawns not yet taken (`take_respawns`), oldest first: what
     /// telling a restarted pane from one closed and another opened needs
     /// (`hosted::diff`).

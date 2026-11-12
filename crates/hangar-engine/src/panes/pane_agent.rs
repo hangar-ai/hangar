@@ -179,6 +179,54 @@ impl Live {
         }
     }
 
+    /// A pane its node runs itself is known here from now on, whether or
+    /// not a terminal follows it: the reports of its agent, which its node
+    /// passes on, need a machine to land in, so that a workspace never
+    /// opened still shows what its agents are doing. A machine already
+    /// there is kept as it is. No status is set: the pane has no shell of
+    /// this machine's to wait for.
+    pub fn mirror_pane(&mut self, pane: &str, workspace_id: &str, name: &str) {
+        self.machines
+            .entry(pane.to_string())
+            .or_insert_with(|| PaneAgent {
+                workspace_id: workspace_id.to_string(),
+                name: name.to_string(),
+                ..PaneAgent::default()
+            });
+    }
+
+    /// Where its node says the agent of a mirrored pane stands, taken as
+    /// the pane's own: what was missed while its reports were not followed
+    /// (before the node connected, or events lost). `bridged`: the node
+    /// hears its mod, so the guesses made from its output stand down here
+    /// too. An agent at rest on both sides keeps what this machine holds:
+    /// the node counts a turn nobody on it looked at as handed back, which
+    /// the person may have read here since.
+    pub fn mirror_activity(
+        &mut self,
+        info: &PaneInfo,
+        activity: AgentActivity,
+        bridged: bool,
+        now: EpochMs,
+    ) {
+        let Some(machine) = self.machines.get_mut(&info.id) else {
+            return;
+        };
+        let resting = |activity| matches!(activity, AgentActivity::Idle | AgentActivity::Yours);
+        let known = self.agents.get(&info.id).is_some();
+        let activity = if known && resting(machine.activity) && resting(activity) {
+            machine.activity
+        } else {
+            activity
+        };
+        if known && machine.activity == activity && machine.bridged == bridged {
+            return;
+        }
+        machine.activity = activity;
+        machine.bridged = bridged;
+        self.publish(info, now);
+    }
+
     // ----- what is published
 
     /// Publishes the pane's activity: for the sidebar, which counts each

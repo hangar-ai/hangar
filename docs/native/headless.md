@@ -256,8 +256,14 @@ streams them as any pane of the node.
 - **On the server.** `hangar-node workspaces`, `hangar-node workspace add
   <folder> [--name <name>] [--no-orchestrator]`, `hangar-node workspace
   remove <id>` and `hangar-node send <pane> <text…>` ask the running daemon.
-- **On the desktop.** A connected node's card lists the workspaces it runs
-  itself, with each pane and what it is doing, read every 5 s.
+- **On the desktop.** The workspaces a node runs itself are mirrored in
+  the desktop's state and listed in the navigator like any workspace of
+  that machine (nodes.md, "Workspaces of the node's own"): read from `GET
+  /node/own/state` at the connection, at `own:changed` and after lost
+  events, their panes followed and never started or killed from there.
+  `bridged`, beside `activity` in that answer, lists the panes whose agent
+  reports through its mod. Changing what is the node's from the desktop is
+  refused for now; the ops above are what it will send.
 
 Tested on the binary itself (`hangar-node/tests/node.rs`): a workspace
 made through the API, its orchestrator's shell started and a Claude Code

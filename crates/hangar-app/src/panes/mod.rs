@@ -314,8 +314,13 @@ fn handle(st: &mut State, m: &mut Model, sv: &Services, msg: Msg) -> Task<Messag
             // The pane went while its shell was starting: the shell would
             // outlive it.
             None if result.as_ref().is_ok_and(|report| report.remote.is_some()) => {
+                // But one its node runs itself, which was only found there.
+                let hosted = result
+                    .as_ref()
+                    .is_ok_and(|report| report.remote.is_some_and(|start| start.hosted));
                 match m
                     .find_pane(&pane)
+                    .filter(|(ws, _)| !hosted && !ws.is_hosted())
                     .and_then(|(ws, entry)| crate::nodes::away::node_of(ws, entry))
                 {
                     Some(node) => controller::kill_remote(node, pane),
@@ -1319,7 +1324,7 @@ fn signature(st: &State, m: &Model) -> u64 {
         let Some(ws) = m.find_workspace(id) else {
             continue;
         };
-        (&ws.id, &ws.theme_id, ws.detached).hash(&mut hash);
+        (&ws.id, &ws.theme_id, ws.detached, ws.is_hosted()).hash(&mut hash);
         crate::chat_view::shown(m, ws).hash(&mut hash);
         ws.view_panes.len().hash(&mut hash);
         for pane in &ws.panes {
@@ -1401,12 +1406,19 @@ fn sync(st: &mut State, m: &mut Model, sv: &Services) -> Task<Message> {
     let wanted_ids: HashSet<&PaneId> = wanted.iter().map(|(_, pane)| pane).collect();
 
     // Gone: closed, restarted under a new id, its workspace closed or put to
-    // sleep.
+    // sleep. And a pane whose workspace was handed to its node, or taken
+    // back from it, since the pane was mounted: it starts again the other
+    // way (followed where it was started, or the reverse), under the same
+    // id.
+    let moved = |id: &PaneId, rt: &PaneRt| {
+        m.find_pane(id)
+            .is_some_and(|(ws, _)| ws.is_hosted() != rt.hosted)
+    };
     let gone: Vec<PaneId> = st
         .panes
-        .keys()
-        .filter(|id| !wanted_ids.contains(id))
-        .cloned()
+        .iter()
+        .filter(|(id, rt)| !wanted_ids.contains(id) || moved(id, rt))
+        .map(|(id, _)| id.clone())
         .collect();
     for id in gone {
         let Some(rt) = st.panes.remove(&id) else {

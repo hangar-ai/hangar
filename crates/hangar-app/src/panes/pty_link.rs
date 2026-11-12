@@ -70,15 +70,17 @@ use crate::state::PaneId;
 pub enum PtyBackend {
     /// Core's PTY manager: a pane of this machine.
     Local(Arc<PtyManager>),
-    /// The node of id `node`: a pane of a remote workspace.
-    Remote { node: String },
+    /// The node of id `node`: a pane of a remote workspace. `hosted`: the
+    /// node runs the pane itself (`Workspace::hosted`), and this machine
+    /// only follows it.
+    Remote { node: String, hosted: bool },
 }
 
 impl std::fmt::Debug for PtyBackend {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             PtyBackend::Local(_) => f.write_str("Local"),
-            PtyBackend::Remote { node } => write!(f, "Remote({node})"),
+            PtyBackend::Remote { node, .. } => write!(f, "Remote({node})"),
         }
     }
 }
@@ -164,6 +166,8 @@ pub struct PaneLink {
 /// that follows the stream takes it, and that task, stopped with the link.
 struct RemoteSide {
     node: String,
+    /// The node runs the pane itself.
+    hosted: bool,
     inbox: Mutex<Option<tokio_mpsc::UnboundedReceiver<Outgoing>>>,
     stream: Mutex<Option<tokio::task::AbortHandle>>,
     alive: Arc<AtomicBool>,
@@ -180,7 +184,7 @@ impl Drop for PaneLink {
             {
                 stream.abort();
             }
-            remote::unregister(&self.id);
+            remote::unregister(&self.id, &side.alive);
         }
     }
 }
@@ -207,12 +211,13 @@ impl PaneLink {
         let writer_id = id.clone();
         let (sink, remote) = match backend {
             PtyBackend::Local(pty) => (Sink::Local(pty), None),
-            PtyBackend::Remote { node } => {
+            PtyBackend::Remote { node, hosted } => {
                 let (outgoing, stream_inbox) = tokio_mpsc::unbounded_channel();
                 let alive = Arc::new(AtomicBool::new(false));
-                remote::register(&id, &node, outgoing.clone(), alive.clone());
+                remote::register(&id, &node, hosted, outgoing.clone(), alive.clone());
                 let side = RemoteSide {
                     node,
+                    hosted,
                     inbox: Mutex::new(Some(stream_inbox)),
                     stream: Mutex::new(None),
                     alive,
@@ -244,6 +249,11 @@ impl PaneLink {
     /// The node of a remote pane; `None` for a pane of this machine.
     pub fn node(&self) -> Option<&str> {
         self.remote.as_ref().map(|side| side.node.as_str())
+    }
+
+    /// Whether the pane is one its node runs itself.
+    pub fn hosted(&self) -> bool {
+        self.remote.as_ref().is_some_and(|side| side.hosted)
     }
 
     /// A remote pane's shell runs (it started or was found on its node), or
@@ -400,6 +410,7 @@ impl PaneLink {
             launch: self.launch.clone(),
             id: self.id.clone(),
             waker,
+            answers: !self.hosted(),
         }
     }
 }
@@ -480,6 +491,11 @@ struct Feeder {
     launch: Arc<Mutex<LaunchWatch>>,
     id: PaneId,
     waker: Waker,
+    /// Whether what the terminal answers the program's queries with is
+    /// sent to it. Not for a pane its node runs itself: the node keeps a
+    /// screen of its own for each, which answers them, and a second answer
+    /// from here would be typed into the agent.
+    answers: bool,
 }
 
 impl Feeder {
@@ -510,7 +526,9 @@ impl Feeder {
         for event in events {
             let kind = match event {
                 Event::Write(bytes) => {
-                    let _ = self.jobs.send(Job::Write(bytes));
+                    if self.answers {
+                        let _ = self.jobs.send(Job::Write(bytes));
+                    }
                     continue;
                 }
                 Event::Bell => HubKind::Bell,
@@ -852,7 +870,7 @@ mod remote_tests {
             ..Workspace::default()
         };
         match backend_for(&remote, &pane, &pty) {
-            PtyBackend::Remote { node } => assert_eq!(node, "n1"),
+            PtyBackend::Remote { node, .. } => assert_eq!(node, "n1"),
             other => panic!("a remote workspace got {other:?}"),
         }
         let id = format!("backend-test-{}", std::process::id());
@@ -878,7 +896,7 @@ mod remote_tests {
             ..crate::state::Pane::default()
         };
         match backend_for(&local, &worker, &pty) {
-            PtyBackend::Remote { node } => assert_eq!(node, "n2"),
+            PtyBackend::Remote { node, .. } => assert_eq!(node, "n2"),
             other => panic!("a worker on a node got {other:?}"),
         }
         let shell = crate::state::Pane::default();
@@ -907,7 +925,10 @@ mod remote_tests {
         let link = PaneLink::new(
             id.clone(),
             Terminal::new(Config::default(), 80, 24),
-            PtyBackend::Remote { node: "n".into() },
+            PtyBackend::Remote {
+                node: "n".into(),
+                hosted: false,
+            },
         );
         let (hub, mut wakes) = tokio_mpsc::unbounded_channel();
         let waker = Waker {

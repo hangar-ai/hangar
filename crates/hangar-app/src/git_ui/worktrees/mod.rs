@@ -443,6 +443,20 @@ fn close(m: &mut Model) -> Task<Message> {
     Task::none()
 }
 
+/// Whether workspace `ws` is one its node runs itself, in which case the
+/// refusal is noted for the shell to say (as `Model::apply` does).
+fn hosted_edit(m: &mut Model, ws: &str) -> bool {
+    let Some(found) = m.workspace(ws).filter(|found| found.is_hosted()) else {
+        return false;
+    };
+    m.live.nodes.refused = Some(crate::state::HostedEdit {
+        node: found.node.clone().unwrap_or_default(),
+        workspace: found.id.clone(),
+        ops: Vec::new(),
+    });
+    true
+}
+
 /// Reuses the workspace already sitting on that folder — two workspaces on
 /// one worktree would fight over the same files for no gain.
 fn activate_workspace(
@@ -525,6 +539,9 @@ fn step(panel: &mut Panel, m: &mut Model, msg: WtMsg) -> Task<Message> {
             panel.diff_for = None;
             Task::none()
         }
+        // A worktree of a workspace its node runs is a folder of the node's:
+        // a workspace on it is the node's to make, and none is made here.
+        WtMsg::OpenWorkspace(..) if hosted_edit(m, &panel.ws) => close(m),
         WtMsg::OpenWorkspace(path, branch) => {
             let opened = activate_workspace(m, &panel.ws, &path, branch.as_deref());
             Task::batch([opened, close(m)])

@@ -6,15 +6,16 @@ use std::time::Instant;
 
 use iced_test::Simulator;
 
-use super::model::{Failure, NodeStatus, OwnPane, OwnWorkspace, Step};
+use super::model::{Failure, NodeStatus, Step};
 use super::testing::{down, machine, up};
 use super::{Msg, Open, State, settings_page};
 use crate::ctx::Ctx;
 use crate::message::Message;
-use crate::state::types::MachineKind;
+use crate::state::StoreAction;
+use crate::state::types::{MachineKind, Workspace};
 use crate::workspace_dialog::testing::{Harness, messages};
 
-/// Three nodes: `GPU box` connected (no git there, a workspace of its
+/// Three nodes: `GPU box` connected (no git there, two workspaces of its
 /// own), `vps` offline after a failed attempt, `nas` switched off.
 fn page(locale: Locale, theme: &str) -> Harness {
     page_at(locale, theme).0
@@ -37,20 +38,18 @@ fn page_at(locale: Locale, theme: &str) -> (Harness, Instant) {
     if let Some(NodeStatus::Connected { info, .. }) = h.model.live.nodes.statuses.get_mut("gpu") {
         info.git = false;
     }
-    h.model.live.nodes.own.insert(
-        "gpu".into(),
-        vec![OwnWorkspace {
-            id: "o1".into(),
-            name: "nightly".into(),
-            cwd: "/srv/nightly".into(),
-            panes: vec![OwnPane {
-                id: "op1".into(),
-                name: "Rorch".into(),
-                role: None,
-                activity: Some("working".into()),
-            }],
-        }],
-    );
+    // What `gpu` runs itself, mirrored here.
+    let own = |id: &str, name: &str| Workspace {
+        id: id.into(),
+        name: name.into(),
+        cwd: format!("/srv/{name}"),
+        ..Workspace::default()
+    };
+    h.model.apply(StoreAction::SyncHosted {
+        node: "gpu".into(),
+        workspaces: vec![own("o1", "nightly"), own("o2", "render-farm")],
+        keep: Vec::new(),
+    });
     let at = down(
         &mut h.model,
         "vps",
@@ -87,8 +86,7 @@ fn each_machine_is_a_row_that_says_how_its_link_is_doing() {
         "me@gpu · Connected · hangar-node 2.3.0 on gpu-01",
         "Claude Code",
         "No git",
-        "Workspaces this node runs itself",
-        "nightly — /srv/nightly",
+        "Runs 2 workspaces itself, listed in the navigator",
         "vps",
         "me@vps · -F ~/.ssh/work",
         "Offline · retrying in 8\u{a0}s: SSH failed while Looking at the machine…: ssh: connect to host vps port 22: Connection timed out",

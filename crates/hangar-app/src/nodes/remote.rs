@@ -183,6 +183,38 @@ pub struct RemoteScope {
     pub missing: Vec<String>,
 }
 
+/// The shell of pane `pane`, which the node runs itself: found there and
+/// never started from here, since the node starts its own panes and a
+/// second shell under the same id would be a second agent. A pane the node
+/// has not started yet is waited for, `tries` looks `every` apart; one
+/// whose shell ended is followed all the same, for the last screen it left.
+pub async fn attach(
+    client: &NodeClient,
+    pane: &str,
+    tries: u32,
+    every: Duration,
+) -> Result<Started, String> {
+    for attempt in 0..tries.max(1) {
+        if attempt > 0 {
+            tokio::time::sleep(every).await;
+        }
+        let listed = wire::request(client, "GET", "/node/panes", None)
+            .await?
+            .json()?;
+        let found = listed
+            .get("panes")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .find(|entry| entry.get("id").and_then(Value::as_str) == Some(pane));
+        if let Some(entry) = found {
+            let seq = entry.get("seq").and_then(Value::as_u64).unwrap_or(0);
+            return Ok(Started::Attached { seq });
+        }
+    }
+    Err("its node has not started this pane".into())
+}
+
 /// How a pane of a remote workspace started.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Started {
@@ -624,6 +656,8 @@ pub async fn list_folder(client: &NodeClient, path: Option<&str>) -> Result<List
 /// finds it: its node, what it types into it, whether its shell runs.
 struct Registered {
     node: String,
+    /// The node runs the pane itself: nothing here ends its shell.
+    hosted: bool,
     outgoing: UnboundedSender<Outgoing>,
     alive: Arc<AtomicBool>,
 }
@@ -641,6 +675,7 @@ fn panes() -> std::sync::RwLockReadGuard<'static, HashMap<String, Registered>> {
 pub fn register(
     pane: &str,
     node: &str,
+    hosted: bool,
     outgoing: UnboundedSender<Outgoing>,
     alive: Arc<AtomicBool>,
 ) {
@@ -651,17 +686,24 @@ pub fn register(
             pane.to_owned(),
             Registered {
                 node: node.to_owned(),
+                hosted,
                 outgoing,
                 alive,
             },
         );
 }
 
-pub fn unregister(pane: &str) {
-    PANES
-        .write()
-        .unwrap_or_else(|poison| poison.into_inner())
-        .remove(pane);
+/// The pane registered with `alive` is gone. One mounted again under the
+/// same id meanwhile (a workspace handed to its node) is another
+/// registration, and stays.
+pub fn unregister(pane: &str, alive: &Arc<AtomicBool>) {
+    let mut panes = PANES.write().unwrap_or_else(|poison| poison.into_inner());
+    if panes
+        .get(pane)
+        .is_some_and(|registered| Arc::ptr_eq(&registered.alive, alive))
+    {
+        panes.remove(pane);
+    }
 }
 
 /// The node of pane `pane`, when it is a remote one.
@@ -693,8 +735,16 @@ pub fn alive(pane: &str) -> Option<bool> {
         .map(|pane| pane.alive.load(Ordering::Acquire))
 }
 
-/// Pane `pane`'s shell killed on its node, if it is a remote one.
+/// Said to whatever asks to end the shell of a pane its node runs itself.
+pub const HOSTED_PANE: &str = "This pane is run by its node, which alone starts and stops it.";
+
+/// Pane `pane`'s shell killed on its node, if it is a remote one. Never
+/// one the node runs itself: that is refused here, before the node is
+/// asked.
 pub async fn kill_pane(pane: &str) -> Option<Result<(), String>> {
+    if panes().get(pane)?.hosted {
+        return Some(Err(HOSTED_PANE.into()));
+    }
     let node = node_of(pane)?;
     let Some(client) = directory(&node) else {
         return Some(Err(format!("node {node} is not connected")));

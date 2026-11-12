@@ -16,6 +16,7 @@ pub mod away;
 pub mod commands;
 pub mod connect;
 pub mod engine;
+pub mod hosted;
 pub mod model;
 mod page;
 pub mod presence;
@@ -23,6 +24,8 @@ pub mod remote;
 pub mod runner;
 pub mod wire;
 
+#[cfg(test)]
+mod hosted_tests;
 #[cfg(test)]
 mod orchestrate_tests;
 #[cfg(test)]
@@ -132,8 +135,12 @@ pub struct Live {
     pub statuses: HashMap<String, NodeStatus>,
     /// What each link went through since it was last up, by node id.
     pub links: HashMap<String, presence::Link>,
-    /// The workspaces each connected node runs itself, as last read.
-    pub own: HashMap<String, Vec<model::OwnWorkspace>>,
+    /// The state of each node's own workspaces last taken in, by node id:
+    /// what their mirrors say (`hosted::take_in`).
+    pub held: HashMap<String, hosted::Held>,
+    /// A change to a workspace a node runs itself that was just refused
+    /// (`Model::apply`), until the shell has said so.
+    pub refused: Option<crate::state::HostedEdit>,
 }
 
 impl Live {
@@ -175,13 +182,13 @@ pub enum Msg {
     /// node that is switched on, none for the others (as the app starts,
     /// then every second while there is a node to keep connected).
     Reconcile,
-    /// The connected nodes asked which workspaces they run themselves
-    /// (every 5 s).
-    RefreshOwn,
+    /// Node `id` is asked for the state of the workspaces it runs itself:
+    /// it connected, it said the state changed, or events were lost.
+    SyncOwn(String),
     /// What node `id` answered; `None`: it could not say (an older node).
-    Own {
+    OwnState {
         id: String,
-        workspaces: Option<Vec<model::OwnWorkspace>>,
+        state: Option<Box<hosted::OwnState>>,
     },
 }
 
@@ -296,7 +303,8 @@ fn apply_status(
 /// (`/node/events?control=1`): its control requests, run here against its
 /// workspaces and answered there (`control::Msg::Node`); its panes' bridge
 /// reports, as a local pane's (their activity, the orchestrator's news);
-/// its boards changed (or events lost: everything is read again).
+/// the queue of each; its boards changed; the state of the workspaces it
+/// runs itself changed (or events lost: everything is read again).
 async fn follow_events(sv: Services, node: String) {
     let id = node.clone();
     let emit = move |event: serde_json::Value| {
@@ -323,7 +331,10 @@ pub(crate) fn event_messages(
     use serde_json::Value;
     let text = |key: &str| event.get(key).and_then(Value::as_str).map(str::to_owned);
     if event.get("lagged").is_some() {
-        return vec![Message::Board(crate::board::Msg::Reload)];
+        return vec![
+            Message::Board(crate::board::Msg::Reload),
+            Message::Nodes(Msg::SyncOwn(node.to_owned())),
+        ];
     }
     match text("event").as_deref() {
         Some(name @ ("control:request" | "control:internal")) => {
@@ -371,11 +382,51 @@ pub(crate) fn event_messages(
             }
             _ => Vec::new(),
         },
+        // What waits for a pane of this node's, as its own core holds it.
+        Some("bridge:queue") => {
+            let payload = event.get("payload");
+            let pane = payload
+                .and_then(|payload| payload.get("paneId"))
+                .and_then(Value::as_str);
+            match pane {
+                Some(pane) if engine::node_of_pane(state, pane).as_deref() == Some(node) => {
+                    vec![Message::Core(CoreEvent::BridgeQueue {
+                        pane: pane.to_owned(),
+                        pending: queued(payload.and_then(|payload| payload.get("pending"))),
+                    })]
+                }
+                _ => Vec::new(),
+            }
+        }
         Some("board:changed") => vec![Message::Core(CoreEvent::BoardChanged {
             cwd: text("cwd").unwrap_or_default(),
         })],
+        Some("own:changed") => vec![Message::Nodes(Msg::SyncOwn(node.to_owned()))],
         _ => Vec::new(),
     }
+}
+
+/// The prompts of a `bridge:queue` event, in their order; one that cannot
+/// be read is left out.
+fn queued(pending: Option<&serde_json::Value>) -> Vec<crate::state::live::QueuedPrompt> {
+    let text = |entry: &serde_json::Value, key: &str| {
+        entry
+            .get(key)
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_owned)
+    };
+    pending
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| {
+            Some(crate::state::live::QueuedPrompt {
+                id: text(entry, "id")?,
+                text: text(entry, "text")?,
+                from: text(entry, "from"),
+            })
+        })
+        .collect()
 }
 
 fn disconnect(st: &mut State, live: &mut Live, id: &str) {
@@ -488,10 +539,15 @@ pub fn update(st: &mut State, m: &mut Model, sv: &Services, msg: Msg) -> Task<Me
             status,
         } => {
             let now = Instant::now();
+            let was = client(m, &id).is_some();
             if apply_status(st, &mut m.live.nodes, id.clone(), generation, status, now)
                 && let Some(conn) = st.conns.get_mut(&id)
             {
-                conn.events = Some(tokio::spawn(follow_events(sv.clone(), id)));
+                conn.events = Some(tokio::spawn(follow_events(sv.clone(), id.clone())));
+            }
+            // Just connected: what the node runs itself is read at once.
+            if !was && client(m, &id).is_some() {
+                return hosted::fetch(m, &id);
             }
         }
         Msg::Retry(id) => match st.conns.get(&id) {
@@ -516,9 +572,13 @@ pub fn update(st: &mut State, m: &mut Model, sv: &Services, msg: Msg) -> Task<Me
         Msg::Remove(id) => {
             st.open = None;
             disconnect(st, &mut m.live.nodes, &id);
+            // The mirrors of what it runs itself go with it: nothing reaches
+            // them any more.
+            hosted::forget(m, &id, crate::panes_logic::wall_clock_ms());
             m.apply(StoreAction::UpdateSettings(Patch::new(
                 move |s: &mut Settings| s.nodes.retain(|node| node.id != id),
             )));
+            leave_hidden_workspace(m);
         }
         Msg::Show(open) => st.open = open,
         Msg::RenameInput(value) => {
@@ -551,15 +611,13 @@ pub fn update(st: &mut State, m: &mut Model, sv: &Services, msg: Msg) -> Task<Me
             }
         }
         Msg::Reconcile => reconcile(st, m, sv),
-        Msg::RefreshOwn => return refresh_own(m),
-        Msg::Own { id, workspaces } => match workspaces {
-            Some(workspaces) => {
-                m.live.nodes.own.insert(id, workspaces);
+        Msg::SyncOwn(id) => return hosted::fetch(m, &id),
+        Msg::OwnState { id, state } => {
+            if let Some(state) = state {
+                hosted::take_in(m, &id, *state, crate::panes_logic::wall_clock_ms());
+                leave_hidden_workspace(m);
             }
-            None => {
-                m.live.nodes.own.remove(&id);
-            }
-        },
+        }
     }
     Task::none()
 }
@@ -618,38 +676,11 @@ pub fn subscription(st: &State, m: &Model) -> Subscription<Message> {
             iced::futures::stream::once(async { Message::Nodes(Msg::Reconcile) })
         }),
         iced::time::every(Duration::from_secs(1)).map(|_| Message::Nodes(Msg::Reconcile)),
-        iced::time::every(OWN_EVERY).map(|_| Message::Nodes(Msg::RefreshOwn)),
         iced::event::listen_with(|event, _status, _window| match event {
             iced::Event::Window(iced::window::Event::Focused) => Some(Message::Nodes(Msg::Wake)),
             _ => None,
         }),
     ])
-}
-
-/// How often the connected nodes are asked for their own workspaces.
-const OWN_EVERY: Duration = Duration::from_secs(5);
-
-/// Each connected node asked which workspaces it runs itself.
-fn refresh_own(m: &Model) -> Task<Message> {
-    let ids: Vec<String> = m.settings().nodes.iter().map(|n| n.id.clone()).collect();
-    Task::batch(ids.into_iter().filter_map(|id| {
-        let client = client(m, &id)?;
-        Some(Task::perform(
-            async move {
-                let answer = wire::request(&client, "GET", "/node/own", None).await;
-                answer
-                    .ok()
-                    .and_then(|answer| answer.json().ok())
-                    .map(|value| model::parse_own(&value))
-            },
-            move |workspaces| {
-                Message::Nodes(Msg::Own {
-                    id: id.clone(),
-                    workspaces,
-                })
-            },
-        ))
-    }))
 }
 
 pub fn on_intent(

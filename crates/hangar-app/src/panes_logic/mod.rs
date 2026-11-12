@@ -309,6 +309,45 @@ pub fn state_glyph_state(m: &Model, pane: &PaneId) -> GlyphState {
     }
 }
 
+/// The panes node `node` runs itself, as its mirrors now hold them, given
+/// their machines: one for each, whether or not its workspace was ever
+/// opened here, so the reports of its agent (which the node passes on) have
+/// where to land and the navigator shows them. `activity` is where the node
+/// says each agent stands, `bridged` those it hears through their mod.
+/// `before` are the panes the mirrors held until now: the machines of those
+/// that went go with them.
+pub fn mirror_hosted(
+    m: &mut Model,
+    node: &str,
+    before: &HashSet<PaneId>,
+    activity: &HashMap<PaneId, AgentActivity>,
+    bridged: &HashSet<PaneId>,
+    now: EpochMs,
+) {
+    index_panes(m);
+    let state = m.state_arc();
+    let live = &mut m.live.panes_logic;
+    let mut held: HashSet<&PaneId> = HashSet::new();
+    let mirrors = state
+        .workspaces
+        .iter()
+        .filter(|ws| ws.is_hosted() && ws.node.as_deref() == Some(node));
+    for ws in mirrors {
+        for pane in &ws.panes {
+            held.insert(&pane.id);
+            live.mirror_pane(&pane.id, &ws.id, &pane.name);
+            if let Some(activity) = activity.get(&pane.id) {
+                let info = info_of(ws, pane);
+                live.mirror_activity(&info, *activity, bridged.contains(&pane.id), now);
+            }
+        }
+    }
+    for gone in before.iter().filter(|pane| !held.contains(pane)) {
+        live.unmount_pane(gone, false);
+    }
+    bump(m);
+}
+
 // ----- the prompts a restart carried over
 
 /// Hands prompts back to core's queue for a pane, in the order they were held.
@@ -402,6 +441,10 @@ pub fn sleep_line(
     workspace_id: &str,
     probed: Option<&HashMap<PaneId, bool>>,
 ) -> Option<SleepLine> {
+    // A workspace its node runs is not this machine's to put to sleep.
+    if m.workspace(workspace_id).is_some_and(Workspace::is_hosted) {
+        return None;
+    }
     let reading = read_forced(&ModelRead(m), workspace_id, probed)?;
     Some(match reading.verdict {
         Verdict::Sleep { .. } => SleepLine::Ready,
@@ -527,6 +570,11 @@ fn run_effects(m: &mut Model, info: &PaneInfo, effects: Vec<Effect>) -> Task<Mes
                     target: Some((info.workspace_id.clone(), info.id.clone())),
                 }))));
             }
+            // A pane its node runs: the node heard the same report and
+            // holds the session, which comes back with its state.
+            Effect::CaptureSession(_)
+                if m.workspace(&info.workspace_id)
+                    .is_some_and(Workspace::is_hosted) => {}
             Effect::CaptureSession(session_id) => {
                 m.apply(StoreAction::UpdatePane {
                     ws: info.workspace_id.clone(),
@@ -887,7 +935,18 @@ pub fn update(st: &mut State, m: &mut Model, sv: &Services, msg: Msg) -> Task<Me
                 return Task::none();
             };
             let folder = folder_of(ws, found);
+            let hosted = ws.is_hosted();
             let live = &mut m.live.panes_logic;
+            if hosted {
+                // A pane its node runs keeps the machine its mirror gave it
+                // (`mirror_hosted`), with what its agent was doing: only its
+                // terminal is new. The prompts a restart carries are its
+                // node's to hand back, and its folder is not on this disk.
+                live.mirror_pane(&pane, &info.workspace_id, &info.name);
+                live.status.insert(pane, PaneStatus::Starting);
+                bump(m);
+                return Task::none();
+            }
             live.mount_pane(&pane, &info.workspace_id, &info.name, now);
             // A restart gave this pane a new id: the prompts still queued for
             // the old one come along.
@@ -900,6 +959,16 @@ pub fn update(st: &mut State, m: &mut Model, sv: &Services, msg: Msg) -> Task<Me
             Task::batch([requeued, ask_branch(m, &folder, now, PANE_BRANCH_TTL_MS)])
         }
         Msg::Unmounted { pane, handing_over } => {
+            // A pane its node still runs: its terminal went (its workspace
+            // closed here), its agent goes on, and so does what is known of
+            // it.
+            if m.find_pane(&pane).is_some_and(|(ws, _)| ws.is_hosted()) {
+                let live = &mut m.live.panes_logic;
+                live.status.remove(&pane);
+                live.watches.remove(&pane);
+                bump(m);
+                return Task::none();
+            }
             let live = &m.live.panes_logic;
             let carry = live.machines.get(&pane).and_then(|machine| {
                 // Restarted under a new id, its prompts still queued come
@@ -1291,7 +1360,7 @@ fn slow(st: &mut State, m: &mut Model, now: EpochMs) -> Task<Message> {
             .workspaces
             .iter()
             .flat_map(|ws| ws.panes.iter().map(move |pane| (ws, pane)))
-            .filter(|(_, pane)| m.live.panes_logic.is_pane_mounted(&pane.id))
+            .filter(|(ws, pane)| !ws.is_hosted() && has_terminal(m, &pane.id))
             .map(|(ws, pane)| folder_of(ws, pane))
             .collect();
         for folder in folders {
@@ -1363,9 +1432,16 @@ fn next_slow_at(st: &State, m: &Model) -> Option<EpochMs> {
     let branches = live
         .machines
         .keys()
-        .any(|pane| live.is_pane_mounted(pane))
+        .any(|pane| has_terminal(m, pane))
         .then_some(st.last_branch_poll + PANE_BRANCH_REFRESH_MS);
     [marks, hunt, context, branches].into_iter().flatten().min()
+}
+
+/// Whether a terminal of this window follows pane `pane`. A pane a node
+/// runs itself has a machine without one, for as long as its workspace was
+/// not opened here.
+fn has_terminal(m: &Model, pane: &str) -> bool {
+    m.live.panes_logic.pane_status(pane).is_some()
 }
 
 /// How often a checking chip's time moves.
@@ -1422,6 +1498,18 @@ fn ask_branch(m: &mut Model, folder: &str, now: EpochMs, max_age_ms: u64) -> Tas
     )
 }
 
+/// The workspaces the sweep looks at: all but those a node runs itself.
+/// Stopping their agents is not this machine's to do, and closing them
+/// here frees nothing there.
+fn sweepable(m: &Model) -> Vec<WsId> {
+    m.state()
+        .workspaces
+        .iter()
+        .filter(|ws| !ws.is_hosted())
+        .map(|ws| ws.id.clone())
+        .collect()
+}
+
 /// The sweep: one window-wide timer, every thirty seconds.
 fn hibernate_tick(st: &mut State, m: &mut Model, sv: &Services, now: EpochMs) -> Task<Message> {
     if !m.live.hydrated || !m.settings().hibernate_idle {
@@ -1429,12 +1517,7 @@ fn hibernate_tick(st: &mut State, m: &mut Model, sv: &Services, now: EpochMs) ->
     }
     sync_active(m, now);
     let delay = delay_ms(m);
-    let ids: Vec<WsId> = m
-        .state()
-        .workspaces
-        .iter()
-        .map(|ws| ws.id.clone())
-        .collect();
+    let ids = sweepable(m);
     let mut tasks = Vec::new();
     for id in ids {
         tasks.push(decide_next(
@@ -1586,6 +1669,10 @@ pub fn on_intent(
     }
     refresh_attention(m, None, now);
     match intent {
+        // Not one a node runs itself (`sleep_line` offers none).
+        Intent::Sleep(ws) if m.workspace(ws).is_some_and(Workspace::is_hosted) => {
+            Some(Task::none())
+        }
         Intent::Sleep(ws) => {
             // Asked by hand: the same rules without the clock, and the same
             // way to sleep. Everything is read and asked at the click.

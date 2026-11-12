@@ -1293,29 +1293,6 @@ EOF
 esac
 "#;
 
-#[test]
-fn the_workspaces_a_node_runs_itself_are_read_from_its_answer() {
-    let answer = serde_json::json!({
-        "workspaces": [{
-            "id": "w1",
-            "name": "Site",
-            "cwd": "/srv/site",
-            "panes": [
-                { "id": "p1", "name": "Leo", "agent": "claude", "role": "orchestrator", "taskId": null, "activity": "working" },
-                { "id": "p2", "name": "Ada", "agent": "claude", "role": null, "taskId": "t1", "activity": null },
-            ],
-        }],
-    });
-    let own = super::model::parse_own(&answer);
-    assert_eq!(own.len(), 1);
-    assert_eq!(own[0].name, "Site");
-    assert_eq!(own[0].panes[0].role.as_deref(), Some("orchestrator"));
-    assert_eq!(own[0].panes[0].activity.as_deref(), Some("working"));
-    assert_eq!(own[0].panes[1].activity, None);
-    // An answer it cannot read (an older node's 404 body) is no workspace.
-    assert!(super::model::parse_own(&serde_json::json!({ "error": "not found" })).is_empty());
-}
-
 // ---- Retrying, switching on and off ---------------------------------------------------------
 
 fn timing(spread: fn() -> f64) -> Timing {

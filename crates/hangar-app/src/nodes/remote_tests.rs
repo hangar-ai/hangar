@@ -641,14 +641,14 @@ fn a_remote_pane_is_typed_into_by_id() {
     let pane = format!("registry-test-{}", std::process::id());
     let (outgoing, mut inbox) = tokio::sync::mpsc::unbounded_channel();
     let alive = Arc::new(AtomicBool::new(true));
-    remote::register(&pane, "n", outgoing, alive.clone());
+    remote::register(&pane, "n", false, outgoing, alive.clone());
     assert_eq!(remote::node_of(&pane).as_deref(), Some("n"));
     assert_eq!(remote::write(&pane, "ls\r".into()), Some(Ok(())));
     assert_eq!(inbox.try_recv().unwrap(), Outgoing::Input("ls\r".into()));
     alive.store(false, Ordering::Release);
     assert_eq!(remote::alive(&pane), Some(false));
     assert!(matches!(remote::write(&pane, "x".into()), Some(Err(_))));
-    remote::unregister(&pane);
+    remote::unregister(&pane, &alive);
     assert_eq!(
         remote::write(&pane, "x".into()),
         None,

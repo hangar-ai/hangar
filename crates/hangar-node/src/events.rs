@@ -20,6 +20,17 @@ pub fn to_json(event: &Event) -> Value {
         }
         Event::BridgeQueue(queue) => json!({ "event": name, "payload": queue }),
         Event::GitCloneProgress(progress) => json!({ "event": name, "payload": progress }),
+        // Where every delivery under way stands and how the one that ended
+        // went, spelled out: core's type is not one that serialises.
+        Event::DeliveryStages(stages) => json!({
+            "event": name,
+            "payload": {
+                "running": stages.running,
+                "ended": stages.ended.as_ref().map(|ended| {
+                    json!({ "taskId": ended.task_id, "outcome": ended.outcome })
+                }),
+            },
+        }),
         Event::MemoryChanged
         | Event::RemoteChanged
         | Event::KitsChanged
@@ -73,5 +84,55 @@ mod tests {
             })
         );
         assert_eq!(to_json(&Event::ControlInternal(request))["id"], "r1");
+    }
+
+    /// The queue of a pane and the deliveries' stages go with what they
+    /// say, not as a bare name: a desktop that mirrors the node's own
+    /// workspaces shows both.
+    #[test]
+    fn the_queue_and_the_deliveries_stages_carry_their_payload() {
+        let queue = hangar_core::bridge::QueueChanged {
+            pane_id: "p1".into(),
+            pending: vec![hangar_core::bridge::Queued {
+                id: "q1".into(),
+                text: "next".into(),
+                from: Some("Ava".into()),
+            }],
+        };
+        assert_eq!(
+            to_json(&Event::BridgeQueue(queue)),
+            json!({
+                "event": "bridge:queue",
+                "payload": {
+                    "paneId": "p1",
+                    "pending": [{ "id": "q1", "text": "next", "from": "Ava" }]
+                }
+            })
+        );
+        let stages = hangar_core::delivery::Stages {
+            running: vec![hangar_core::delivery::Running {
+                task_id: "t1".into(),
+                queue: "/w".into(),
+                stage: "checking".into(),
+                since: 7,
+                batch: None,
+            }],
+            ended: Some(hangar_core::delivery::StageEnd {
+                task_id: "t0".into(),
+                outcome: hangar_core::delivery::Kind::Landed,
+            }),
+        };
+        assert_eq!(
+            to_json(&Event::DeliveryStages(stages)),
+            json!({
+                "event": "delivery:stages",
+                "payload": {
+                    "running": [
+                        { "taskId": "t1", "queue": "/w", "stage": "checking", "since": 7 }
+                    ],
+                    "ended": { "taskId": "t0", "outcome": "landed" }
+                }
+            })
+        );
     }
 }

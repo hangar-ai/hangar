@@ -790,7 +790,13 @@ fn run_action(st: &mut State, m: &mut Model, action: menu::Action) -> Task<Messa
             Task::none()
         }
         Action::RemoveWorkspace(id) => {
+            // The MCP scope of a workspace its node runs is a file of the
+            // node's, which the node writes and clears.
+            let hosted = m.workspace(&id).is_some_and(|ws| ws.is_hosted());
             apply(m, StoreAction::RemoveWorkspace(id.clone()));
+            if hosted {
+                return Task::none();
+            }
             Task::done(Message::Navigator(Msg::ClearMcpScope(id)))
         }
     }

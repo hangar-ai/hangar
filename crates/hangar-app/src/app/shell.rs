@@ -350,6 +350,16 @@ impl App {
             );
         }
 
+        // A change to a workspace a node runs itself was refused: said once,
+        // whoever asked for it.
+        if let Some(edit) = self.model.live.nodes.refused.take() {
+            let text = crate::nodes::hosted::refusal_words(&self.model, &edit);
+            tasks.push(notice::show(
+                &mut self.model,
+                crate::shell::Notice::Problem(text),
+            ));
+        }
+
         // Every respawn, whoever applied it, is announced.
         for respawn in self.model.take_respawns() {
             tasks.push(Task::done(Message::Intent(Intent::PaneRespawned {
