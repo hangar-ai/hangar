@@ -10,11 +10,12 @@ Every release, with its installers, is on the
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-11-12
+
 ### Added
 
 - **A Hangar with no window, on a server.** A node runs workspaces of its own now, with no desktop connected: their state is kept on the node, their panes start there with Claude Code, and their agents' requests (workers, deliveries, the board) are answered there, so they keep working with your computer off. Make one with `hangar-node workspace add <folder>` on the server (or from Discord); `hangar-node workspaces` lists them, and a connected desktop shows them on the node's card in Settings › Nodes. `hangar-node service install` makes the node a systemd service that starts on its own.
 - **Discord connector (experimental).** A Discord server as one more place to work with Hangar: a channel per workspace of the node, its orchestrator's turns as cards and its answers under its name; permissions, questions and plans as cards answered with buttons; workers announced with « Ouvrir le fil », which opens a thread with their work since they started, then live; deliveries with Land and Send back; a pinned dashboard; `/stop`, `/model`, `/effort`, `/plan`, `/status` and `/workspace`. Only the account you pair with a code is heard. Set it up on the server with `hangar-node discord setup --guild <id>`.
-
 - **Answers reach Claude Code as answers.** A permission allowed or denied, or a question answered, in the chat view or on the phone now goes to Claude Code as the decision itself, through the hangar-bridge mod, as an Agent SDK host's would: no keys typed into the dialog, no screen read back. The dialog stays up in the terminal meanwhile and either place can answer; a pane on a node, or a Claude Code without the mod, is still answered with keys.
 - **Stop in the chat view.** While the orchestrator works, a button next to Send stops its turn, as Escape does in the terminal.
 - **Model, effort and plan mode from the chat view's input.** Next to the input, the orchestrator's model, its effort level and Plan: a click shows the choices, and the choice reaches its Claude Code as `/model`, `/effort` or `/plan`, at once when it is idle, at the end of its turn otherwise. The hangar-bridge mod reports what the session runs with as it changes, so the input shows it. As in the terminal, `/model` and `/effort` also become the defaults of new sessions.
@@ -788,6 +789,7 @@ statistics, workspace sleep and per-workspace MCP servers.
 - Automatic updates from signed GitHub releases.
 - An interface in English and French (0.1.1).
 
+[2.3.0]: https://github.com/simnJS/hangar-ai/releases/tag/v2.3.0
 [2.2.1]: https://github.com/simnJS/hangar-ai/releases/tag/v2.2.1
 [2.2.0]: https://github.com/simnJS/hangar-ai/releases/tag/v2.2.0
 [2.1.0]: https://github.com/simnJS/hangar-ai/releases/tag/v2.1.0
