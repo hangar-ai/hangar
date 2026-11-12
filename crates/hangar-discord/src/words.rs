@@ -144,6 +144,12 @@ impl Words {
     pub fn landed(&self) -> &'static str {
         self.pick("Fusionné", "Landed")
     }
+    pub fn landing(&self) -> &'static str {
+        self.pick("Fusion en cours…", "Landing…")
+    }
+    pub fn not_landed(&self) -> &'static str {
+        self.pick("Pas fusionné", "Not landed")
+    }
     pub fn sent_back(&self) -> &'static str {
         self.pick("Renvoyé", "Sent back")
     }

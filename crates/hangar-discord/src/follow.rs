@@ -14,9 +14,8 @@ use hangar_core::chat::Body;
 use hangar_engine::live::{BridgeEvent, ToolPhase, TurnPhase};
 use hangar_engine::mobile::contract::ChatPending;
 use hangar_engine::mobile::desk;
-use hangar_engine::orchestration::events::OrchestratorEvent;
+use hangar_engine::orchestration::events::{DeliveryOutcome, OrchestratorEvent};
 use hangar_engine::state::AgentActivity;
-use hangar_engine::state::roles::READY_TO_LAND_LABEL;
 use hangar_engine::state::types::PaneRole;
 
 use crate::bot::{Ask, Bot, Turn, find, voice};
@@ -106,6 +105,7 @@ impl Bot {
                                 calls: Vec::new(),
                                 edited: Instant::now(),
                                 dirty: false,
+                                left: None,
                             },
                         );
                     }
@@ -193,6 +193,46 @@ impl Bot {
             .unwrap_or_default();
         let card = cards::turn(self.words(), &name, turn.started, &turn.calls, &pane);
         self.edit_as(&turn.ws, turn.thread.as_deref(), &turn.message, card)
+            .await;
+    }
+
+    /// The panes whose turn has a card up though their agent does nothing
+    /// for [`crate::bot::TURN_LEFT`] already, or is gone: the end of that
+    /// turn was never told.
+    pub(crate) fn turns_left(&self) -> Vec<String> {
+        let snapshot = self.host().snapshot();
+        let mut state = self.state();
+        let mut left = Vec::new();
+        for (pane, turn) in state.turns.iter_mut() {
+            let gone = find(&snapshot.state, pane).is_none();
+            let resting = snapshot.activity.get(pane).is_some_and(|a| {
+                !matches!(a.activity, AgentActivity::Working | AgentActivity::Waiting)
+            });
+            if !gone && !resting {
+                turn.left = None;
+                continue;
+            }
+            let since = *turn.left.get_or_insert_with(Instant::now);
+            if gone || since.elapsed() >= crate::bot::TURN_LEFT {
+                left.push(pane.clone());
+            }
+        }
+        left
+    }
+
+    /// The card of a turn whose end was never told, folded as it stands.
+    /// In the pane's lane: after the end of the turn, had it come.
+    pub(crate) async fn fold_left(&self, pane: String) {
+        let Some(turn) = self.state().turns.remove(&pane) else {
+            return;
+        };
+        let snapshot = self.host().snapshot();
+        let name = find(&snapshot.state, &pane)
+            .map(|(_, p)| p.name.clone())
+            .unwrap_or_default();
+        let minutes = now_secs().saturating_sub(turn.started).div_ceil(60);
+        let folded = cards::turn_folded(self.words(), &name, turn.calls.len(), minutes);
+        self.edit_as(&turn.ws, turn.thread.as_deref(), &turn.message, folded)
             .await;
     }
 
@@ -474,11 +514,50 @@ impl Bot {
                 }
                 self.save_layout();
             }
-            OrchestratorEvent::TaskMoved { task_id, to, .. } if to == READY_TO_LAND_LABEL => {
-                if !self.state().delivered.insert(task_id.clone()) {
+            // A delivery that passed its check and review waits for the
+            // person: its card, with Land and Send back. One that stops
+            // waiting (landed, sent back, failed since) has its card say
+            // what became of it, and the next time it is ready is a card
+            // of its own.
+            OrchestratorEvent::Delivery {
+                task_id,
+                title,
+                worker,
+                outcome: DeliveryOutcome::Ready,
+                ..
+            } => {
+                if self.state().delivered.contains_key(&task_id) {
                     return;
                 }
-                self.post_delivery(ws, channel, &task_id).await;
+                self.state().delivered.insert(task_id.clone(), None);
+                let said = (title.as_str(), worker.as_str());
+                match self.post_delivery(ws, channel, &task_id, said).await {
+                    Some(message) => {
+                        let card = Some((channel.to_string(), message));
+                        self.state().delivered.insert(task_id, card);
+                    }
+                    None => {
+                        self.state().delivered.remove(&task_id);
+                    }
+                }
+            }
+            OrchestratorEvent::Delivery {
+                task_id,
+                outcome,
+                detail,
+                ..
+            } => {
+                let Some((channel, message)) = self.state().delivered.remove(&task_id).flatten()
+                else {
+                    return;
+                };
+                let said = match outcome {
+                    DeliveryOutcome::Landed | DeliveryOutcome::Done => words.landed().to_string(),
+                    DeliveryOutcome::ChangesRequested => words.sent_back().to_string(),
+                    _ => format!("{} : {}", words.not_landed(), cards::clip(&detail, 300)),
+                };
+                let card = cards::settled(&said, None, now_secs(), words);
+                self.edit(&channel, &message, card).await;
             }
             OrchestratorEvent::TaskNeedsYou { title, reason, .. } => {
                 let owner = self.owner();
@@ -509,15 +588,18 @@ impl Bot {
     }
 
     /// A delivery ready to land, as the desk reads it (`remote_delivery`).
+    /// The card of task `task`'s delivery, posted in `channel`: its
+    /// message. What the delivery holds is read as the phone reads it; when
+    /// it cannot be, the card says what the journal said (`said`: the
+    /// task's title and its worker) and still calls the person.
     async fn post_delivery(
         &self,
         ws: &hangar_engine::state::types::Workspace,
         channel: &str,
         task: &str,
-    ) {
-        let Some(desk_) = self.host().desk() else {
-            return;
-        };
+        said: (&str, &str),
+    ) -> Option<String> {
+        let desk_ = self.host().desk()?;
         let port = self.host().port();
         let read = hangar_engine::mobile::engine::run(
             "remote_delivery",
@@ -526,13 +608,10 @@ impl Bot {
             &desk_,
         )
         .await;
-        let d = match read {
-            Ok(d) => d,
-            Err(error) => {
-                eprintln!("discord: the delivery of {task}: {error}");
-                return;
-            }
-        };
+        let d = read.unwrap_or_else(|error| {
+            eprintln!("discord: the delivery of {task}: {error}");
+            json!({ "title": said.0, "worker": said.1 })
+        });
         let text = |v: &Value| v.as_str().unwrap_or_default().to_string();
         let files: Vec<(String, u32, u32)> = d["files"]
             .as_array()
@@ -588,8 +667,12 @@ impl Bot {
             },
             self.owner().as_deref(),
         );
-        if let Err(error) = self.post(channel, card, Vec::new()).await {
-            eprintln!("discord: a delivery's card: {error}");
+        match self.post(channel, card, Vec::new()).await {
+            Ok(message) => Some(message),
+            Err(error) => {
+                eprintln!("discord: a delivery's card: {error}");
+                None
+            }
         }
     }
 }

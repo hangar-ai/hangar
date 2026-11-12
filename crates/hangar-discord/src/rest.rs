@@ -19,6 +19,32 @@ pub const API: &str = "https://discord.com/api/v10";
 
 /// Tries after a 429, at most.
 const RETRIES: usize = 4;
+/// How long before a call the network or Discord's gateways failed is sent
+/// again, times the tries so far.
+const AGAIN: Duration = Duration::from_millis(500);
+
+/// The part of `path` that is a secret: a webhook's token, or an
+/// interaction's, with which anyone speaks in its place.
+fn secret_of(path: &str) -> Option<&str> {
+    let only = path.split('?').next().unwrap_or(path);
+    let mut parts = only.trim_start_matches('/').split('/');
+    match parts.next()? {
+        "webhooks" | "interactions" => {
+            parts.next()?;
+            parts.next().filter(|token| !token.is_empty())
+        }
+        _ => None,
+    }
+}
+
+/// `text` without the secret of `path`: what is said of a failed call ends
+/// in a log.
+fn struck(path: &str, text: String) -> String {
+    match secret_of(path) {
+        Some(secret) => text.replace(secret, "…"),
+        None => text,
+    }
+}
 const TIMEOUT: Duration = Duration::from_secs(30);
 
 /// A file sent with a message (`attachment://name` in its components).
@@ -128,7 +154,12 @@ impl Http {
 
     fn exchange(&self, method: &str, path: &str, payload: &Payload) -> Result<Value, Refused> {
         let route = Http::route(method, path);
-        for _ in 0..RETRIES {
+        // What says the same thing sent twice is sent again when the
+        // network failed it; a POST is not, or a message would be posted
+        // twice when only its answer was lost.
+        let repeatable = method != "POST";
+        for attempt in 1..=RETRIES {
+            let last = attempt == RETRIES;
             let wait = self
                 .spent
                 .lock()
@@ -138,7 +169,14 @@ impl Http {
             if let Some(wait) = wait.filter(|wait| !wait.is_zero()) {
                 std::thread::sleep(wait);
             }
-            let (status, headers, body) = self.once(method, path, payload)?;
+            let (status, headers, body) = match self.once(method, path, payload) {
+                Ok(answered) => answered,
+                Err(_) if repeatable && !last => {
+                    std::thread::sleep(AGAIN * attempt as u32);
+                    continue;
+                }
+                Err(failed) => return Err(failed),
+            };
             if headers.remaining == Some(0)
                 && let Some(after) = headers.reset_after
             {
@@ -149,12 +187,17 @@ impl Http {
                 spent.retain(|_, until| *until > now);
                 spent.insert(route.clone(), now + after);
             }
-            if status == 429 {
+            if status == 429 && !last {
                 let after = serde_json::from_str::<Value>(&body)
                     .ok()
                     .and_then(|body| body.get("retry_after")?.as_f64())
                     .unwrap_or(1.0);
                 std::thread::sleep(Duration::from_secs_f64(after.clamp(0.05, 60.0)));
+                continue;
+            }
+            // Discord's own gateways failing: the call was not carried out.
+            if matches!(status, 502..=504) && !last {
+                std::thread::sleep(AGAIN * attempt as u32);
                 continue;
             }
             if (200..300).contains(&status) {
@@ -176,11 +219,17 @@ impl Http {
                     })
                 })
                 .unwrap_or(body);
-            return Err(Refused { status, message });
+            return Err(Refused {
+                status,
+                message: struck(path, message),
+            });
         }
         Err(Refused {
             status: 429,
-            message: format!("{method} {path}: still limited after {RETRIES} tries"),
+            message: struck(
+                path,
+                format!("{method} {path}: still limited after {RETRIES} tries"),
+            ),
         })
     }
 
@@ -194,7 +243,7 @@ impl Http {
         let auth = format!("Bot {}", self.token);
         let failed = |err: ureq::Error| Refused {
             status: 0,
-            message: format!("{method} {path}: {err}"),
+            message: struck(path, format!("{method} {path}: {err}")),
         };
         let response = match (method, payload) {
             ("GET" | "DELETE", _) => {
@@ -323,6 +372,22 @@ mod tests {
         assert!(text.contains("name=\"files[0]\"; filename=\"plan.md\""));
         assert!(text.contains("# Plan"));
         assert!(text.ends_with("--b--\r\n"));
+    }
+
+    #[test]
+    fn what_is_said_of_a_failed_call_holds_no_token() {
+        for path in [
+            "/webhooks/123/s3cr3t-token?wait=true",
+            "/webhooks/app1/s3cr3t-token/messages/@original",
+            "/interactions/9/s3cr3t-token/callback",
+        ] {
+            let said = struck(path, format!("POST {path}: connection reset"));
+            assert!(!said.contains("s3cr3t-token"), "{said}");
+            assert!(said.contains("connection reset"));
+        }
+        // A channel's path names nothing secret.
+        let plain = "/channels/42/messages";
+        assert_eq!(struck(plain, plain.to_string()), plain);
     }
 
     #[test]

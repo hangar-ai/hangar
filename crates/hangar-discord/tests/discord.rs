@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 
 use hangar_engine::control::port::ModelCmd;
 use hangar_engine::host::{Config, EngineHost, Spawn, TermEvent, TermSink, Terminals};
-use hangar_engine::orchestration::events::OrchestratorEvent;
+use hangar_engine::orchestration::events::{DeliveryOutcome, OrchestratorEvent};
 use hangar_engine::state::types::{AgentId, AppState, Pane, PaneRole, Settings, Workspace};
 use hangar_i18n::Locale;
 
@@ -613,6 +613,43 @@ async fn a_workspace_on_discord_from_pairing_to_a_worker_s_thread() {
         d.calls_to("PATCH", &format!("/channels/{thread_id}"))
             .into_iter()
             .find(|c| c.body["archived"] == true)
+    })
+    .await;
+
+    // Ada's delivery passed its check and review: the journal says so,
+    // and the card that calls the owner has Land and Send back. Landed,
+    // the card says so in place of its buttons; ready again later, it is
+    // a card of its own.
+    let delivery = |outcome| OrchestratorEvent::Delivery {
+        task_id: "t1".into(),
+        title: "Le panier".into(),
+        worker: "Ada".into(),
+        outcome,
+        detail: String::new(),
+    };
+    let orchestration = rig.host.orchestration().unwrap();
+    orchestration.post("shop", delivery(DeliveryOutcome::Ready));
+    let ready = eventually("the delivery's card", || d.find("POST", "d:y:shop:t1")).await;
+    assert!(
+        ready.body.to_string().contains("Livraison prête"),
+        "{ready:?}"
+    );
+    assert!(ready.body.to_string().contains("Le panier"));
+    assert!(ready.body.to_string().contains("d:n:shop:t1"));
+    assert_eq!(ready.body["allowed_mentions"]["users"], json!(["u1"]));
+    orchestration.post("shop", delivery(DeliveryOutcome::Landed));
+    let landed = eventually("the card says landed", || {
+        d.calls_to(
+            "PATCH",
+            &format!("/channels/{channel}/messages/{}", ready.id),
+        )
+        .pop()
+    })
+    .await;
+    assert!(landed.body.to_string().contains("Fusionné"), "{landed:?}");
+    orchestration.post("shop", delivery(DeliveryOutcome::Ready));
+    eventually("a second delivery, a second card", || {
+        (d.count("POST", "d:y:shop:t1") == 2).then_some(())
     })
     .await;
 

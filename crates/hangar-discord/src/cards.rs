@@ -491,14 +491,19 @@ pub struct Delivery<'a> {
 }
 
 pub fn delivery(words: Words, d: &Delivery<'_>, owner: Option<&str>) -> Value {
+    // The branches are not known when the delivery could not be read: the
+    // card still calls the person, with what the journal said of it.
+    let branches = if d.branch.is_empty() {
+        String::new()
+    } else {
+        format!(" · `{}` → `{}`", clip(d.branch, 80), clip(d.target, 80))
+    };
     let mut parts = vec![text(format!(
-        "{}**{}** · {}\n-# {} · `{}` → `{}`",
+        "{}**{}** · {}\n-# {}{branches}",
         mention(owner),
         words.delivery_ready(),
         clip(d.title, 200),
         clip(d.worker, 60),
-        clip(d.branch, 80),
-        clip(d.target, 80)
     ))];
     if let Some(summary) = d.summary.filter(|s| !s.trim().is_empty()) {
         parts.push(text(clip(summary, 1_200)));
@@ -567,12 +572,24 @@ pub fn dashboard(words: Words, ws_name: &str, rows: &[Row<'_>], board: &str) -> 
         clip(ws_name, 80),
         words.dashboard()
     ))];
-    for row in rows.iter().take(30) {
+    // Discord takes forty components a message, nested ones counted: the
+    // container and the title, the board's line and its separator, one a
+    // plain row, three a worker's (its section, its text, its button). The
+    // rows past that share one text, without their buttons.
+    let mut used = 2 + if board.is_empty() { 0 } else { 2 };
+    let mut rest: Vec<String> = Vec::new();
+    for row in rows {
         let since = row
             .since_secs
             .map(|s| format!(" · <t:{s}:R>"))
             .unwrap_or_default();
         let line = format!("**{}** — {}{since}", clip(row.name, 60), row.state);
+        let cost = if row.worker.is_some() { 3 } else { 1 };
+        if !rest.is_empty() || used + cost + 1 > COMPONENTS_MAX {
+            rest.push(line);
+            continue;
+        }
+        used += cost;
         match row.worker {
             Some((pane, thread)) => {
                 let accessory = match thread {
@@ -590,12 +607,18 @@ pub fn dashboard(words: Words, ws_name: &str, rows: &[Row<'_>], board: &str) -> 
             None => parts.push(text(line)),
         }
     }
+    if !rest.is_empty() {
+        parts.push(text(clip(&rest.join("\n"), 2_000)));
+    }
     if !board.is_empty() {
         parts.push(separator());
         parts.push(text(format!("-# {board}")));
     }
     message(vec![container(accent::ACCENT, parts)], true)
 }
+
+/// The components Discord takes in one message, nested ones counted.
+pub const COMPONENTS_MAX: usize = 40;
 
 #[cfg(test)]
 mod tests {
@@ -682,6 +705,36 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn a_dashboard_of_sixteen_agents_stays_within_what_discord_takes() {
+        // A workspace holds sixteen panes: an orchestrator and fifteen
+        // workers, three components a worker.
+        let names: Vec<String> = (0..15).map(|n| format!("Worker {n}")).collect();
+        let panes: Vec<String> = (0..15).map(|n| format!("p{n}")).collect();
+        let mut rows = vec![Row {
+            name: "Leo",
+            state: "travaille",
+            since_secs: Some(1),
+            worker: None,
+        }];
+        for (name, pane) in names.iter().zip(&panes) {
+            rows.push(Row {
+                name,
+                state: "travaille",
+                since_secs: Some(1),
+                worker: Some((pane, None)),
+            });
+        }
+        let card = dashboard(fr(), "Shop", &rows, "3 tâches");
+        assert!(components(&card).len() <= COMPONENTS_MAX, "{card}");
+        // Every agent is still named, the last ones without their button.
+        let flat = card.to_string();
+        for name in &names {
+            assert!(flat.contains(name.as_str()), "{name}");
+        }
+        assert!(flat.contains("t:p0") && !flat.contains("t:p14"));
     }
 
     #[test]

@@ -295,12 +295,8 @@ impl Bot {
             return;
         };
         let port = self.host().port();
-        let activity = self
-            .host()
-            .snapshot()
-            .activity
-            .get(&pane.id)
-            .map(|a| a.activity);
+        let snapshot_activity = self.host().snapshot().activity.get(&pane.id).cloned();
+        let activity = snapshot_activity.as_ref().map(|a| a.activity);
         // An agent that waits on an answer has a question open in its
         // terminal: what is typed there, and the Enter after it, would
         // answer it (the first choice of a permission is "Yes").
@@ -309,7 +305,18 @@ impl Bot {
             let said = words.answer_first(&pane.name);
             return self.say(&channel, Some(&message), &said).await;
         }
-        let working = activity == Some(AgentActivity::Working);
+        // Queued for the turn's end while the agent works, and behind what
+        // already waits there (its mod takes the queue a moment after the
+        // turn ends: typed in that moment, this would be read first). Only
+        // where the mod is there to take it: any other agent is typed to,
+        // and its own terminal holds what comes mid-turn.
+        let bridged = snapshot_activity.as_ref().is_some_and(|a| a.bridged);
+        let behind = self
+            .state()
+            .queues
+            .get(&pane.id)
+            .is_some_and(|waiting| !waiting.is_empty());
+        let working = bridged && (activity == Some(AgentActivity::Working) || behind);
         let sent = if working {
             desk::queue(&port, &ws.id, &pane.id, &text).await
         } else {
@@ -430,26 +437,36 @@ impl Bot {
         let Some(id) = queued.id.clone() else {
             return;
         };
-        let port = self.host().port();
-        if desk::unqueue(&port, &queued.ws, &queued.pane, &id)
-            .await
-            .is_err()
-        {
-            // Taken meanwhile: the edit comes too late.
+        // Taken meanwhile (the queue no longer holds it): the edit comes
+        // too late, and queued again it would be read twice.
+        let waits = self
+            .state()
+            .queues
+            .get(&queued.pane)
+            .is_some_and(|waiting| waiting.iter().any(|entry| entry.id == id));
+        if !waits {
             return;
         }
-        if desk::queue(&port, &queued.ws, &queued.pane, &text)
-            .await
-            .is_ok()
-        {
-            self.state().queued.insert(
-                message,
-                crate::bot::Queued {
-                    text,
-                    id: None,
-                    ..queued
-                },
-            );
+        // Noted under its new text before the queue changes: the queue's
+        // own telling of the old entry gone is not this message taken.
+        self.state().queued.insert(
+            message.clone(),
+            crate::bot::Queued {
+                text: text.clone(),
+                id: None,
+                ..queued.clone()
+            },
+        );
+        let port = self.host().port();
+        let requeued = match desk::unqueue(&port, &queued.ws, &queued.pane, &id).await {
+            Ok(()) => desk::queue(&port, &queued.ws, &queued.pane, &text)
+                .await
+                .map(|_| ()),
+            Err(error) => Err(error),
+        };
+        if let Err(error) = requeued {
+            eprintln!("discord: an edited message is not in the queue: {error}");
+            self.state().queued.remove(&message);
         }
     }
 
@@ -783,8 +800,22 @@ impl Bot {
                     )
                     .await;
                 match landed {
-                    Ok(_) => {
+                    // Landed: the card says so, and by whom.
+                    Ok(done) if done["landed"] == true => {
+                        self.state().delivered.remove(&task);
                         let card = cards::settled(words.landed(), Some(&i.user), now_secs(), words);
+                        self.edit_original(i, card).await
+                    }
+                    // Still landing (its checks run): the card says that,
+                    // and what the journal tells of the landing later
+                    // (landed, or why not) is said on this card.
+                    Ok(_) => {
+                        if let Some(message) = &i.message {
+                            let card = Some((i.channel.clone(), message.clone()));
+                            self.state().delivered.insert(task.clone(), card);
+                        }
+                        let card =
+                            cards::settled(words.landing(), Some(&i.user), now_secs(), words);
                         self.edit_original(i, card).await
                     }
                     Err(error) => self.whisper(i, &error).await,

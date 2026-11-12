@@ -9,7 +9,7 @@
 //! person writes and clicks back through the desk, the chat view's own
 //! calls (follow.rs, act.rs).
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
@@ -47,6 +47,13 @@ const TICK: Duration = Duration::from_millis(1_500);
 pub(crate) const TURN_EDIT_DUE: Duration = Duration::from_secs(2);
 /// A dashboard is drawn again at most this often.
 const DASHBOARD_EDIT: Duration = Duration::from_secs(5);
+/// How long an agent is seen doing nothing, its turn's end never told
+/// (Claude Code quit mid-turn, a worker killed, a report lost), before its
+/// turn's card is folded all the same.
+pub(crate) const TURN_LEFT: Duration = Duration::from_secs(20);
+/// How long after Discord refused a channel or a webhook the structure is
+/// looked at again.
+const SYNC_AGAIN: Duration = Duration::from_secs(30);
 
 /// A turn under way, its card in a channel or a thread.
 #[derive(Debug, Clone)]
@@ -58,6 +65,9 @@ pub(crate) struct Turn {
     pub calls: Vec<String>,
     pub edited: Instant,
     pub dirty: bool,
+    /// Since when its agent is seen doing nothing though no end of the
+    /// turn was told.
+    pub left: Option<Instant>,
 }
 
 /// What the person wrote that waits in an agent's queue: their message on
@@ -94,8 +104,9 @@ pub(crate) struct State {
     pub pair_tries: HashMap<String, u32>,
     /// The journal's entries posted, by workspace: up to this moment.
     pub seen: HashMap<String, u64>,
-    /// Deliveries with a card already, by task.
-    pub delivered: HashSet<String>,
+    /// The deliveries that wait on the person, by task: the channel and
+    /// the message of each one's card (`None` while it is being posted).
+    pub delivered: HashMap<String, Option<(String, String)>>,
     /// By the Discord message.
     pub queued: HashMap<String, Queued>,
     /// Each pane's queue, as core last told it.
@@ -109,6 +120,9 @@ pub(crate) struct State {
     pub looked: HashMap<String, Looked>,
     /// The structure is to be looked at again.
     pub dirty: bool,
+    /// A look at the structure left something unmade (Discord refused a
+    /// channel or its webhook): looked at again from this moment on.
+    pub sync_again: Option<Instant>,
     /// The state the structure was last looked at for.
     pub synced: Option<Arc<AppState>>,
 }
@@ -124,6 +138,9 @@ pub(crate) struct Inner {
     /// Held while a file of the connector's is written: two lanes saving
     /// at once would write over each other's temporary file.
     pub saving: Mutex<()>,
+    /// Held while the structure is made: a command's look and the tick's,
+    /// side by side, would each make the channel the other is making.
+    pub syncing: tokio::sync::Mutex<()>,
 }
 
 /// A pane's ask, as it stood when last looked at (`Bot::asks_due`).
@@ -462,6 +479,7 @@ pub async fn run(host: Arc<dyn Hangar>, options: Options) -> Result<(), String> 
         dir: options.dir.clone(),
         lanes: Lanes::default(),
         saving: Mutex::new(()),
+        syncing: tokio::sync::Mutex::new(()),
         state: Mutex::new(State {
             settings,
             layout,
@@ -596,11 +614,11 @@ impl Bot {
     }
 
     /// `job` given to lane `key`, unless the same (`tag`) still waits there.
-    fn give<F>(&self, key: &str, tag: &'static str, job: impl FnOnce(Bot) -> F)
+    fn give<F>(&self, key: &str, tag: &'static str, job: impl FnOnce(Bot) -> F) -> bool
     where
         F: std::future::Future<Output = ()> + Send + 'static,
     {
-        self.0.lanes.run_once(key, tag, job(self.clone()));
+        self.0.lanes.run_once(key, tag, job(self.clone()))
     }
 
     /// What is due, given to the lanes: the structure after a change, the
@@ -617,14 +635,25 @@ impl Bot {
             if changed {
                 state.synced = Some(snapshot.state.clone());
             }
-            std::mem::take(&mut state.dirty) || changed
+            let again = state.sync_again.is_some_and(|from| Instant::now() >= from);
+            if again {
+                state.sync_again = None;
+            }
+            std::mem::take(&mut state.dirty) || changed || again
         };
-        if dirty {
-            self.give("structure", "sync", |bot| async move { bot.sync().await });
+        // A look that runs already may have read the state before this
+        // change: asked again at the next tick.
+        if dirty && !self.give("structure", "sync", |bot| async move { bot.sync().await }) {
+            self.state().dirty = true;
         }
         for pane in self.turns_due() {
             self.give(&pane.clone(), "turn", |bot| async move {
                 bot.flush_turn(pane).await
+            });
+        }
+        for pane in self.turns_left() {
+            self.give(&pane.clone(), "left", |bot| async move {
+                bot.fold_left(pane).await
             });
         }
         for (ws, pane) in self.asks_due() {
@@ -654,18 +683,41 @@ impl Bot {
 
     /// A category per folder, a channel (with its webhook) per workspace:
     /// the categories one after the other (each is made once), the
-    /// channels at once.
+    /// channels at once. One look at a time; what Discord refused is tried
+    /// again in a while.
     pub(crate) async fn sync(&self) {
+        let _one = self.0.syncing.lock().await;
         let snapshot = self.host().snapshot();
         let state_now = snapshot.state.clone();
+        // A channel whose webhook could not be made when it was.
+        let bare: Vec<(String, String)> = {
+            let state = self.state();
+            state_now
+                .workspaces
+                .iter()
+                .filter_map(|ws| {
+                    let place = state.layout.workspaces.get(&ws.id)?;
+                    place
+                        .webhook
+                        .is_none()
+                        .then(|| (ws.id.clone(), place.channel.clone()))
+                })
+                .collect()
+        };
+        let mut changed = false;
+        for (ws, channel) in bare {
+            if let Ok(webhook) = self.make_webhook(&channel).await
+                && let Some(place) = self.state().layout.workspaces.get_mut(&ws)
+            {
+                place.webhook = Some(webhook);
+                changed = true;
+            }
+        }
         let missing: Vec<&Workspace> = state_now
             .workspaces
             .iter()
             .filter(|ws| self.place(&ws.id).is_none())
             .collect();
-        if missing.is_empty() {
-            return;
-        }
         let mut folders: Vec<String> = Vec::new();
         for ws in &missing {
             let folder = ws.folder_id.clone().unwrap_or_default();
@@ -673,27 +725,47 @@ impl Bot {
                 folders.push(folder);
             }
         }
+        let mut categories = true;
         for folder in folders {
             if let Err(error) = self.category_of(&state_now, &folder).await {
                 eprintln!("discord: no category for the workspaces: {error}");
-                return;
+                categories = false;
+                break;
             }
         }
-        let made = futures_util::future::join_all(
-            missing.iter().map(|ws| self.make_place(&state_now, ws)),
-        )
-        .await;
-        for (ws, place) in missing.iter().zip(made) {
-            match place {
-                Ok(place) => {
-                    self.state().layout.workspaces.insert(ws.id.clone(), place);
-                }
-                Err(error) => {
-                    eprintln!("discord: no channel for workspace {}: {error}", ws.name);
+        if categories && !missing.is_empty() {
+            let made = futures_util::future::join_all(
+                missing.iter().map(|ws| self.make_place(&state_now, ws)),
+            )
+            .await;
+            for (ws, place) in missing.iter().zip(made) {
+                match place {
+                    Ok(place) => {
+                        self.state().layout.workspaces.insert(ws.id.clone(), place);
+                        changed = true;
+                    }
+                    Err(error) => {
+                        eprintln!("discord: no channel for workspace {}: {error}", ws.name);
+                    }
                 }
             }
         }
-        self.save_layout();
+        if changed {
+            self.save_layout();
+        }
+        let unmade = {
+            let state = self.state();
+            state_now.workspaces.iter().any(|ws| {
+                state
+                    .layout
+                    .workspaces
+                    .get(&ws.id)
+                    .is_none_or(|place| place.webhook.is_none())
+            })
+        };
+        if unmade {
+            self.state().sync_again = Some(Instant::now() + SYNC_AGAIN);
+        }
     }
 
     /// The category of folder `folder` (`""`: the workspaces in none), made
@@ -755,6 +827,24 @@ impl Bot {
             )
             .await?;
         let channel = channel["id"].as_str().unwrap_or_default().to_string();
+        // The channel is there, whatever becomes of its webhook: a place
+        // not kept would have the next look make the channel again.
+        let webhook = match self.make_webhook(&channel).await {
+            Ok(webhook) => Some(webhook),
+            Err(error) => {
+                eprintln!("discord: no webhook for workspace {} yet: {error}", ws.name);
+                None
+            }
+        };
+        Ok(Place {
+            channel,
+            webhook,
+            dashboard: None,
+        })
+    }
+
+    /// The webhook the agents of `channel` speak through: its id and token.
+    async fn make_webhook(&self, channel: &str) -> Result<(String, String), Refused> {
         let hook = self
             .http()
             .call(
@@ -763,15 +853,14 @@ impl Bot {
                 Some(json!({ "name": "Hangar" })),
             )
             .await?;
-        let webhook = hook["id"]
+        hook["id"]
             .as_str()
             .zip(hook["token"].as_str())
-            .map(|(id, token)| (id.to_string(), token.to_string()));
-        Ok(Place {
-            channel,
-            webhook,
-            dashboard: None,
-        })
+            .map(|(id, token)| (id.to_string(), token.to_string()))
+            .ok_or_else(|| Refused {
+                status: 0,
+                message: "the webhook made has no id or no token".into(),
+            })
     }
 
     /// Whether workspace `ws`'s dashboard shows something else than when
@@ -795,11 +884,17 @@ impl Bot {
             return;
         };
         let body = self.dashboard_of(ws, &snapshot, self.words());
-        self.state()
-            .drawn
-            .insert(ws.id.clone(), (body.to_string(), Instant::now()));
-        match &place.dashboard {
-            Some(message) => self.edit(&place.channel, message, body).await,
+        let flat = body.to_string();
+        let drawn = match &place.dashboard {
+            Some(message) => self
+                .http()
+                .call(
+                    "PATCH",
+                    &format!("/channels/{}/messages/{message}", place.channel),
+                    Some(body),
+                )
+                .await
+                .map(|_| ()),
             None => match self.post(&place.channel, body, Vec::new()).await {
                 Ok(message) => {
                     let _ = self
@@ -814,9 +909,41 @@ impl Bot {
                         place.dashboard = Some(message);
                     }
                     self.save_layout();
+                    Ok(())
                 }
-                Err(error) => eprintln!("discord: no dashboard for {}: {error}", ws.name),
+                Err(error) => Err(error),
             },
+        };
+        let Err(error) = drawn else {
+            self.state()
+                .drawn
+                .insert(ws.id.clone(), (flat, Instant::now()));
+            return;
+        };
+        eprintln!("discord: the dashboard of {}: {error}", ws.name);
+        // Drawn again in a while, whatever it shows then.
+        self.state()
+            .drawn
+            .insert(ws.id.clone(), (String::new(), Instant::now()));
+        if error.status == 404 {
+            // Deleted on Discord. A dashboard gone is posted again; when
+            // the channel is gone with it (the post fails the same way),
+            // the workspace's place is forgotten and made again.
+            {
+                let mut state = self.state();
+                match &place.dashboard {
+                    Some(_) => {
+                        if let Some(place) = state.layout.workspaces.get_mut(&ws.id) {
+                            place.dashboard = None;
+                        }
+                    }
+                    None => {
+                        state.layout.workspaces.remove(&ws.id);
+                        state.dirty = true;
+                    }
+                }
+            }
+            self.save_layout();
         }
     }
 
@@ -893,7 +1020,7 @@ mod tests {
     fn an_agent_keeps_its_face() {
         assert_eq!(avatar("Leo"), avatar("Leo"));
         assert!(avatar("Ada").starts_with("https://cdn.discordapp.com/embed/avatars/"));
-        let faces: HashSet<String> = ["Leo", "Ada", "Bo", "Cy", "Max", "Ivy"]
+        let faces: std::collections::HashSet<String> = ["Leo", "Ada", "Bo", "Cy", "Max", "Ivy"]
             .iter()
             .map(|name| avatar(name))
             .collect();

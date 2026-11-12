@@ -83,6 +83,9 @@ pub async fn run(
     }
 }
 
+/// How long the gateway has to open its socket, and then to say Hello.
+const OPENING: std::time::Duration = std::time::Duration::from_secs(30);
+
 enum Ended {
     /// The connection dropped: resume.
     Cut,
@@ -102,25 +105,34 @@ async fn connect(
     events: &mpsc::UnboundedSender<Dispatch>,
 ) -> Ended {
     let url = gateway_url(base);
-    let Ok((socket, _)) = tokio_tungstenite::connect_async(&url).await else {
+    // A socket that opens and then says nothing (a proxy that holds it, a
+    // network that drops what it sends) is cut like one that never opened:
+    // without a limit here the bot would hear nothing, for good.
+    let opened = tokio::time::timeout(OPENING, tokio_tungstenite::connect_async(&url)).await;
+    let Ok(Ok((socket, _))) = opened else {
         return Ended::Cut;
     };
     let (mut write, mut read) = socket.split();
 
     // Hello.
-    let interval = loop {
-        match read.next().await {
-            Some(Ok(Message::Text(text))) => {
-                let Ok(frame) = serde_json::from_str::<Value>(&text) else {
-                    continue;
-                };
-                if frame["op"] == 10 {
-                    break frame["d"]["heartbeat_interval"].as_u64().unwrap_or(41_250);
+    let hello = async {
+        loop {
+            match read.next().await {
+                Some(Ok(Message::Text(text))) => {
+                    let Ok(frame) = serde_json::from_str::<Value>(&text) else {
+                        continue;
+                    };
+                    if frame["op"] == 10 {
+                        break Some(frame["d"]["heartbeat_interval"].as_u64().unwrap_or(41_250));
+                    }
                 }
+                Some(Ok(_)) => continue,
+                _ => break None,
             }
-            Some(Ok(_)) => continue,
-            _ => return Ended::Cut,
         }
+    };
+    let Ok(Some(interval)) = tokio::time::timeout(OPENING, hello).await else {
+        return Ended::Cut;
     };
     let hello = match (&session.id, session.seq) {
         (Some(id), Some(seq)) => json!({
