@@ -26,6 +26,9 @@
 //! - `GET /node/events?control=1`: the same, from a desktop that drives the
 //!   node's orchestration: core's control requests are its to answer, with
 //!   `POST /node/control/{id}/reply` (control.rs);
+//! - `/node/own/*`: the workspaces the node runs itself (own.rs); a change
+//!   to their state is told on `GET /node/events` as `{"event":
+//!   "own:changed", "revision"}`;
 //! - `/node/worktree`, `/node/branch`, `/node/git`, `/node/board/*`,
 //!   `/node/bridge/{pane}`, `/node/delivery/*`: what the desktop's
 //!   orchestration engine does on the node's disk (engine.rs);
@@ -65,6 +68,10 @@ pub struct Node {
     pub own: Option<hangar_engine::host::EngineHost>,
     /// The Discord connector beside them (discord.rs).
     pub discord: crate::discord::Connector,
+    /// Made when the daemon starts: the revisions of the node's own state
+    /// (`/node/own/state`) start again with it, and who follows them tells
+    /// one run of the daemon from the next by this.
+    pub boot: String,
 }
 
 impl Node {
@@ -85,6 +92,24 @@ impl Node {
             drivers: Arc::default(),
             own,
             discord: crate::discord::Connector::default(),
+            boot: hangar_engine::state::store::new_id(),
+        }
+    }
+
+    /// The host of the workspaces the node runs itself, when `pane` is one
+    /// of theirs. Such a pane is started and ended by the node alone: a
+    /// desktop that did either would run an agent twice, or kill one the
+    /// node goes on answering for.
+    pub fn owner_of(&self, pane: &str) -> Option<&hangar_engine::host::EngineHost> {
+        self.own.as_ref().filter(|own| own.has_pane(pane))
+    }
+
+    /// A pane told its new size. One of the node's own has a screen the
+    /// engine reads (own.rs), which follows.
+    pub fn resize(&self, pane: &str, cols: u16, rows: u16) -> Result<(), String> {
+        match self.owner_of(pane) {
+            Some(own) => own.terminals().resize(pane, cols, rows),
+            None => self.panes.resize(pane, cols, rows),
         }
     }
 
@@ -116,8 +141,11 @@ pub fn router(node: Shared) -> Router {
         .route("/node/memory", get(memory))
         .route("/node/control/{id}/reply", post(crate::control::reply))
         .route("/node/own", get(crate::own::list))
+        .route("/node/own/state", get(crate::own::state))
+        .route("/node/own/adopt", post(crate::own::adopt))
         .route("/node/own/workspaces", post(crate::own::create))
         .route("/node/own/workspaces/{id}", delete(crate::own::remove))
+        .route("/node/own/workspaces/{id}/ops", post(crate::own::ops))
         .route("/node/own/panes/{id}/send", post(crate::own::send))
         .route("/node/discord", get(crate::discord::get_status))
         .route("/node/discord/reload", post(crate::discord::reload))
@@ -188,7 +216,7 @@ async fn authorize(State(node): State<Shared>, request: Request, next: Next) -> 
 
 /// A blocking call of core's (a spawn, a kill, a write the shell is slow to
 /// read), off the runtime.
-async fn blocking<T: Send + 'static>(
+pub(crate) async fn blocking<T: Send + 'static>(
     work: impl FnOnce() -> T + Send + 'static,
 ) -> Result<T, Failed> {
     tokio::task::spawn_blocking(work)
@@ -197,7 +225,7 @@ async fn blocking<T: Send + 'static>(
 }
 
 /// A blocking call that panicked or was cancelled.
-struct Failed(String);
+pub(crate) struct Failed(String);
 
 impl IntoResponse for Failed {
     fn into_response(self) -> Response {
@@ -315,6 +343,9 @@ async fn spawn(State(node): State<Shared>, Json(body): Json<SpawnBody>) -> Respo
     if !std::path::Path::new(&body.cwd).is_dir() {
         return error(StatusCode::BAD_REQUEST, "the pane's folder does not exist");
     }
+    if node.owner_of(&body.id).is_some() {
+        return error(StatusCode::CONFLICT, OWN_PANE);
+    }
     let shell = body.shell.map(|shell| hangar_core::shells::ShellInfo {
         id: shell.program.clone(),
         label: shell.program.clone(),
@@ -362,6 +393,9 @@ async fn spawn(State(node): State<Shared>, Json(body): Json<SpawnBody>) -> Respo
     }
 }
 
+/// Said to a desktop that asks to start or end a pane of the node's own.
+const OWN_PANE: &str = "this pane is one the node runs itself: the node starts and ends it";
+
 #[derive(Deserialize)]
 struct InputBody {
     data: String,
@@ -394,10 +428,13 @@ async fn resize(
     Path(id): Path<String>,
     Json(body): Json<ResizeBody>,
 ) -> Response {
-    done(blocking(move || node.panes.resize(&id, body.cols, body.rows)).await)
+    done(blocking(move || node.resize(&id, body.cols, body.rows)).await)
 }
 
 async fn kill(State(node): State<Shared>, Path(id): Path<String>) -> Response {
+    if node.owner_of(&id).is_some() {
+        return error(StatusCode::CONFLICT, OWN_PANE);
+    }
     match blocking(move || node.panes.kill(&id)).await {
         Ok(true) => Json(json!({ "ok": true })).into_response(),
         Ok(false) => error(StatusCode::NOT_FOUND, "pty not found"),
@@ -542,7 +579,7 @@ async fn watch(
                     let id = id.clone();
                     let done = tokio::task::spawn_blocking(move || match incoming {
                         Incoming::Input(data) => node.panes.write(&id, data),
-                        Incoming::Resize { cols, rows } => node.panes.resize(&id, cols, rows),
+                        Incoming::Resize { cols, rows } => node.resize(&id, cols, rows),
                     })
                     .await;
                     if let Ok(Err(err)) = done {
@@ -576,16 +613,51 @@ async fn events(
     upgrade.on_upgrade(move |socket| forward_events(node, receiver, socket, driver))
 }
 
+/// The next time the state of the node's own workspaces has moved past
+/// revision `seen`: its new revision. Their host says `Changed` for an
+/// agent's activity too, which is not a change to their state and is told
+/// to nobody here (the mod's reports already say it, pane by pane). Never,
+/// for a node that runs none.
+async fn own_moved(
+    own: Option<&hangar_engine::host::EngineHost>,
+    news: &mut Option<tokio::sync::broadcast::Receiver<hangar_engine::host::News>>,
+    seen: u64,
+) -> u64 {
+    let (Some(own), Some(news)) = (own, news.as_mut()) else {
+        return std::future::pending().await;
+    };
+    loop {
+        match news.recv().await {
+            // News missed may have been a change: the revision says.
+            Ok(hangar_engine::host::News::Changed) | Err(RecvError::Lagged(_)) => {
+                let revision = own.revision();
+                if revision != seen {
+                    return revision;
+                }
+            }
+            Ok(_) => {}
+            Err(RecvError::Closed) => return std::future::pending().await,
+        }
+    }
+}
+
 /// `_driver` is held for as long as the socket is up: while it is, core's
 /// control requests have a desktop to answer them. Those the node answers
 /// itself (control.rs) are not the desktop's to hear: it would answer them
 /// too, about a pane it does not know, and core takes the first answer.
+///
+/// Beside core's events, the socket is told when the state of the node's
+/// own workspaces changed (`own:changed`, with its new revision): the
+/// desktop that mirrors them reads `/node/own/state` again.
 async fn forward_events(
     node: Shared,
     mut receiver: tokio::sync::broadcast::Receiver<hangar_core::Event>,
     mut socket: WebSocket,
     _driver: Option<crate::control::Driver>,
 ) {
+    // Listening before the revision is read: a change in between is told.
+    let mut news = node.own.as_ref().map(|own| own.news());
+    let mut seen = node.own.as_ref().map_or(0, |own| own.revision());
     loop {
         tokio::select! {
             event = receiver.recv() => {
@@ -597,6 +669,12 @@ async fn forward_events(
                     Err(RecvError::Closed) => break,
                 };
                 if socket.send(text(frame)).await.is_err() {
+                    return;
+                }
+            }
+            revision = own_moved(node.own.as_ref(), &mut news, seen) => {
+                seen = revision;
+                if socket.send(text(crate::events::own_changed(revision))).await.is_err() {
                     return;
                 }
             }

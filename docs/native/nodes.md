@@ -46,7 +46,8 @@ history when it reconnects.
    - `GET /node/panes/{id}/stream?from=<seq>` (WebSocket): the history after
      `seq`, then live output frames `{seq, data}` and `{exit}`;
    - `GET /node/events` (WebSocket): the node's core events (board changed,
-     memory changed, bridge events) forwarded as JSON;
+     memory changed, bridge events) forwarded as JSON, and `own:changed`
+     when the state of the workspaces the node runs itself moved;
    - `GET /node/fs?path=` list a folder (to pick a workspace's folder);
    - the existing `/api/board`, `/api/tasks/...`, `/api/memory/...` routes of
      core's server, with the App token.
@@ -99,6 +100,14 @@ there (headless.md, step 3). They are made from the server (`hangar-node
 workspace add <folder>`), the node API (`/node/own`) or Discord
 (discord-connector.md), and a connected desktop lists them on the node's
 card.
+
+The node API also lets a desktop mirror them, the node staying their owner:
+`GET /node/own/state` (the workspaces whole, with a revision),
+`own:changed` on `/node/events`, `POST /node/own/workspaces/{id}/ops` (what
+the person changed on the desktop's copy) and `POST /node/own/adopt` (a
+workspace the desktop ran on the node, or has just made, handed to the
+node). `POST /node/panes` and `DELETE /node/panes/{id}` answer 409 for a
+pane of the node's own. The shapes are in headless.md, step 3.
 
 ## Later (phase 2 and on)
 

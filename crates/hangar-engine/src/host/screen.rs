@@ -108,6 +108,20 @@ impl Screen {
         )
     }
 
+    /// The pane was resized: the screen takes its new size, as a window's
+    /// terminal does, so that what a full-screen program draws for that
+    /// size lands where it drew it.
+    pub fn resize(&mut self, columns: u16, rows: u16) {
+        let columns = (columns as usize).max(term::MIN_COLUMNS);
+        let rows = (rows as usize).max(term::MIN_SCREEN_LINES);
+        if (columns, rows) == (self.columns, self.rows) {
+            return;
+        }
+        self.term.resize(Size { columns, rows });
+        self.columns = columns;
+        self.rows = rows;
+    }
+
     /// The program asked for pastes to be bracketed.
     pub fn bracketed_paste(&self) -> bool {
         self.term.mode().contains(TermMode::BRACKETED_PASTE)
@@ -244,6 +258,13 @@ impl Screens {
         fed
     }
 
+    /// `pane`'s screen at its new size; nothing for a pane with no screen.
+    pub fn resize(&self, pane: &str, columns: u16, rows: u16) {
+        if let Some(fed) = self.get(pane) {
+            fed.screen().resize(columns, rows);
+        }
+    }
+
     pub fn close(&self, pane: &str) {
         self.0
             .write()
@@ -337,6 +358,22 @@ mod tests {
         assert_eq!(read[0], format!("line {}", HISTORY * 3 - 1_000));
         // What is kept is bounded: the rows above the screen, and the screen.
         assert!(screen.lines(usize::MAX).len() <= HISTORY + 40);
+    }
+
+    #[test]
+    fn a_resized_screen_wraps_at_its_new_width_and_keeps_what_it_showed() {
+        let mut screen = Screen::new(10, 5);
+        screen.feed(b"kept\r\n");
+        screen.resize(20, 8);
+        screen.feed(b"abcdefghijklmnop\r\n");
+        assert_eq!(screen.rows().len(), 8);
+        assert_eq!(&screen.rows()[..2], ["kept", "abcdefghijklmnop"]);
+        // Through the panes' screens, by pane; a pane with none is nothing.
+        let screens = Screens::default();
+        screens.open("leo", 10, 5);
+        screens.resize("leo", 30, 12);
+        screens.resize("nobody", 30, 12);
+        assert_eq!(screens.read("leo", |s| s.rows().len()), Some(12));
     }
 
     #[test]

@@ -8,6 +8,7 @@
 //! change.
 
 pub mod folders;
+pub mod hosted;
 pub mod layout;
 mod lenient;
 pub mod pane_names;
@@ -108,6 +109,13 @@ impl Store {
 
     pub fn settings(&self) -> &Settings {
         &self.state.settings
+    }
+
+    /// The respawns not yet taken (`take_respawns`), oldest first: what
+    /// telling a restarted pane from one closed and another opened needs
+    /// (`hosted::diff`).
+    pub fn respawns(&self) -> &[Respawn] {
+        &self.respawned
     }
 
     pub fn workspace(&self, id: &str) -> Option<&Workspace> {

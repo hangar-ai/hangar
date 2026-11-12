@@ -248,6 +248,13 @@ pub struct Workspace {
     /// for a workspace of this machine.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub node: Option<String>,
+    /// Its node runs it itself: this Hangar mirrors it. The node holds its
+    /// state and starts its panes, with this Hangar there or not; what is
+    /// kept here is a copy, brought up to date from the node
+    /// (`state::hosted`), with this Hangar's own presentation of it. Absent
+    /// for a workspace this Hangar runs, on this machine or on a node.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hosted: Option<bool>,
     #[serde(flatten)]
     pub extra: Extra,
 }
@@ -295,6 +302,11 @@ impl Workspace {
 
     pub fn has_view(&self, id: &str) -> bool {
         self.view_panes.iter().any(|view| view.id == id)
+    }
+
+    /// Whether its node runs it itself, this Hangar mirroring it.
+    pub fn is_hosted(&self) -> bool {
+        self.hosted == Some(true)
     }
 
     /// A terminal or a view of this workspace's grid.

@@ -221,6 +221,38 @@ streams them as any pane of the node.
   /node/own/workspaces/{id}` removes one, its shells with it; `POST
   /node/own/panes/{id}/send {text}` queues what the person says for a pane's
   session.
+- **For a desktop that mirrors them.** A desktop keeps a copy of these
+  workspaces in its own state and shows them like its own, the node staying
+  their owner (`hangar-engine/src/state/hosted.rs` says which fields are the
+  node's and which stay the copy's presentation). `GET /node/own/state`
+  answers `{boot, revision, workspaces, activity}`: each workspace whole, as
+  the state holds it; `revision`, which moves when that state does and never
+  for an agent's activity alone; `boot`, made when the daemon starts, since
+  the revisions start again with it; and `activity`, by pane id (`working`,
+  `waiting`, `yours`, `idle`), beside the panes, not in them. `GET
+  /node/events` sends `{"event": "own:changed", "revision"}` when the
+  revision moved. `POST /node/own/workspaces/{id}/ops {ops}` applies what
+  the person changed on the copy, in order, all or none, and answers
+  `{revision}`: `putPane` (a pane under the id the desktop chose),
+  `closePane`, `respawnPane` (`from`, `to`), `patchWorkspace` and
+  `patchPane` (the fields named, `null` emptying one), `removeWorkspace`.
+  Applied twice, they change nothing the second time.
+- **Handing a workspace over.** `POST /node/own/adopt` takes a whole
+  workspace, with its ids: one a desktop ran on this node, or one it has
+  just made for it. It is checked first (its folder is one of the node's,
+  its ids are usable and free) and refused with 400 before anything is
+  touched. The shells that run under its pane ids, which a desktop started,
+  are then taken down, and the node starts its own under the same ids, each
+  Claude Code resumed on its pane's session. What was the desktop's
+  presentation (its folder in the navigator, its window, its views, its
+  kits) is left out, and a pane whose name is taken on the node gets a free
+  one. A workspace the node already has is answered as done, nothing
+  restarted.
+- **The node's panes are the node's.** `POST /node/panes` and `DELETE
+  /node/panes/{id}` answer 409 for a pane of the node's own: a desktop
+  that started or ended one would run an agent twice, or kill one the node
+  answers for. A resize of such a pane also resizes the screen the engine
+  reads it from.
 - **On the server.** `hangar-node workspaces`, `hangar-node workspace add
   <folder> [--name <name>] [--no-orchestrator]`, `hangar-node workspace
   remove <id>` and `hangar-node send <pane> <text…>` ask the running daemon.
@@ -232,7 +264,10 @@ made through the API, its orchestrator's shell started and a Claude Code
 typed in it (a script standing in for it) whose request through Hangar's
 MCP server the node answers with no desktop, the state kept across a
 restart, and the workspace removed with its shell; the same from the
-command line.
+command line; a workspace handed over above a shell a desktop started under
+the same id, which comes back as the node's on its session; the ops, the
+409s, and `own:changed` told for a change to the state and not for an
+agent's activity.
 
 ## Step 4: the Discord connector
 

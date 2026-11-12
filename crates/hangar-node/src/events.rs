@@ -31,6 +31,13 @@ pub fn to_json(event: &Event) -> Value {
     }
 }
 
+/// The state of the workspaces the node runs itself changed, and stands at
+/// `revision` (`/node/own/state` says what it holds). Not one of core's
+/// events: their host is the node's.
+pub fn own_changed(revision: u64) -> Value {
+    json!({ "event": "own:changed", "revision": revision })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

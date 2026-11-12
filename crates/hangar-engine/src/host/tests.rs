@@ -703,3 +703,272 @@ fn a_real_shell_is_typed_into_and_read_back() {
     assert!(!ptys.alive("real"));
     assert!(ptys.lines("real", 5).is_none());
 }
+
+/// A workspace as a desktop that ran it on this machine hands it over:
+/// with the desktop's presentation of it, and a view among its panes.
+fn handed_over(cwd: &std::path::Path) -> Workspace {
+    use crate::state::layout::{insert_leaf, preset_tree};
+    use crate::state::types::{DropZone, ViewPane, WindowBounds, WorkspaceKit};
+    let terminals = preset_tree(&["d1".to_string(), "d2".to_string()]);
+    Workspace {
+        tree: Some(insert_leaf(&terminals, "d1", "view", DropZone::Bottom)),
+        view_panes: vec![ViewPane::new("view")],
+        node: Some("n1".into()),
+        hosted: Some(true),
+        folder_id: Some("work".into()),
+        detached: Some(true),
+        window_bounds: Some(WindowBounds::default()),
+        chat_view: Some(true),
+        kits: Some(vec![WorkspaceKit::default()]),
+        theme_id: Some("paper".into()),
+        ..workspace(
+            "docs",
+            &cwd.to_string_lossy(),
+            vec![
+                Pane {
+                    session_id: Some("s-1".into()),
+                    ..pane("d1", "Leo", AgentId::Claude)
+                },
+                pane("d2", "Bo", AgentId::Shell),
+            ],
+        )
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_workspace_handed_over_is_kept_without_the_desktop_s_presentation_and_started() {
+    let rig = rig(Some(shop()));
+    rig.host.start();
+    eventually("the panes started", || rig.shells.spawned().len() == 2).await;
+    let cwd = scratch("engine-adopt");
+    let handed = handed_over(&cwd);
+    let before = rig.host.revision();
+    assert_eq!(rig.host.adoptable(&handed), Ok(true));
+    assert_eq!(rig.host.adopt(handed.clone()).as_deref(), Ok("docs"));
+    assert_eq!(rig.host.revision(), before + 1);
+
+    let snapshot = rig.host.snapshot();
+    assert!(snapshot.opened.contains("docs"));
+    let kept = snapshot
+        .state
+        .workspaces
+        .iter()
+        .find(|ws| ws.id == "docs")
+        .unwrap();
+    let ids: Vec<&str> = kept.panes.iter().map(|p| p.id.as_str()).collect();
+    assert_eq!(ids, ["d1", "d2"], "under the desktop's ids");
+    // Leo is a pane of the shop here: the one handed over gets a free name.
+    assert_ne!(kept.panes[0].name, "Leo");
+    assert_eq!(kept.panes[1].name, "Bo");
+    assert_eq!(kept.panes[0].session_id.as_deref(), Some("s-1"));
+    let expected = Workspace {
+        panes: kept.panes.clone(),
+        tree: Some(crate::state::layout::preset_tree(&[
+            "d1".to_string(),
+            "d2".to_string(),
+        ])),
+        view_panes: Vec::new(),
+        node: None,
+        hosted: None,
+        folder_id: None,
+        detached: None,
+        window_bounds: None,
+        chat_view: None,
+        kits: None,
+        ..handed.clone()
+    };
+    assert_eq!(*kept, expected);
+    eventually("its panes started", || {
+        let spawned = rig.shells.spawned();
+        spawned.contains(&"d1".to_string()) && spawned.contains(&"d2".to_string())
+    })
+    .await;
+
+    // Handed over again: there already, nothing changes, nothing restarts.
+    assert_eq!(rig.host.adoptable(&handed), Ok(false));
+    assert_eq!(rig.host.adopt(handed).as_deref(), Ok("docs"));
+    assert_eq!(rig.host.revision(), before + 1);
+    assert_eq!(rig.shells.spawned().len(), 4);
+    assert!(locked(&rig.shells.killed).is_empty());
+}
+
+#[test]
+fn a_workspace_that_cannot_run_here_is_refused_whole() {
+    let rig = rig(Some(shop()));
+    let cwd = scratch("engine-adopt-refused");
+    let good = handed_over(&cwd);
+    let refused = |edit: fn(&mut Workspace)| {
+        let mut ws = good.clone();
+        edit(&mut ws);
+        let asked = rig.host.adoptable(&ws);
+        assert_eq!(rig.host.adopt(ws).err(), asked.clone().err());
+        asked.expect_err("refused")
+    };
+    assert!(refused(|ws| ws.cwd = "/no/such/folder".into()).contains("/no/such/folder"));
+    assert!(refused(|ws| ws.cwd = "relative".into()).contains("absolute"));
+    refused(|ws| ws.id = String::new());
+    refused(|ws| ws.id = "two words".into());
+    refused(|ws| ws.panes.clear());
+    refused(|ws| ws.panes[0].id = "a/b".into());
+    refused(|ws| ws.panes[1].id = "d1".into());
+    // A pane id the host already has, in another workspace.
+    refused(|ws| ws.panes[1].id = "p1".into());
+    refused(|ws| ws.panes[0].cwd = Some("docs".into()));
+    refused(|ws| ws.panes[0].node = Some("n2".into()));
+    assert_eq!(rig.host.revision(), 0);
+    assert_eq!(rig.host.snapshot().state.workspaces.len(), 1);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn what_a_mirror_asks_is_applied_and_the_shells_follow() {
+    use crate::state::hosted::{PaneFields, WorkspaceFields};
+    let rig = rig(Some(shop()));
+    rig.host.start();
+    eventually("the panes started", || rig.shells.spawned().len() == 2).await;
+    let ops = vec![
+        HostedOp::PatchWorkspace {
+            patch: WorkspaceFields {
+                name: Some("Shop".into()),
+                ..WorkspaceFields::default()
+            },
+        },
+        HostedOp::RespawnPane {
+            from: "p1".into(),
+            to: "p1b".into(),
+            patch: PaneFields::default(),
+        },
+        HostedOp::PutPane {
+            pane: pane("p3", "Ada", AgentId::Shell),
+        },
+        HostedOp::ClosePane { pane: "p2".into() },
+    ];
+    let before = rig.host.revision();
+    rig.host.apply_ops("shop", ops.clone()).unwrap();
+    let after = rig.host.revision();
+    assert!(after > before);
+    let state = rig.host.revised_state();
+    assert_eq!(state.0, after);
+    let shop = &state.1.workspaces[0];
+    assert_eq!(shop.name, "Shop");
+    let ids: Vec<&str> = shop.panes.iter().map(|p| p.id.as_str()).collect();
+    assert_eq!(ids, ["p1b", "p3"]);
+    eventually("the new shells started and the old ones killed", || {
+        let spawned = rig.shells.spawned();
+        let killed = locked(&rig.shells.killed).clone();
+        ["p1b", "p3"]
+            .iter()
+            .all(|id| spawned.contains(&id.to_string()))
+            && ["p1", "p2"]
+                .iter()
+                .all(|id| killed.contains(&id.to_string()))
+    })
+    .await;
+    // Asked again (an answer lost on the way): nothing moves.
+    rig.host.apply_ops("shop", ops).unwrap();
+    assert_eq!(rig.host.revision(), after);
+
+    // One op that cannot be applied refuses them all.
+    let mixed = vec![
+        HostedOp::PatchWorkspace {
+            patch: WorkspaceFields {
+                name: Some("Never".into()),
+                cwd: Some("/no/such/folder".into()),
+                ..WorkspaceFields::default()
+            },
+        },
+        HostedOp::ClosePane { pane: "p3".into() },
+    ];
+    assert!(rig.host.apply_ops("shop", mixed).is_err());
+    assert!(
+        rig.host
+            .apply_ops("nowhere", vec![HostedOp::RemoveWorkspace])
+            .is_err()
+    );
+    assert_eq!(rig.host.revision(), after);
+
+    rig.host
+        .apply_ops("shop", vec![HostedOp::RemoveWorkspace])
+        .unwrap();
+    let snapshot = rig.host.snapshot();
+    assert!(snapshot.state.workspaces.is_empty());
+    assert!(snapshot.opened.is_empty());
+    eventually("its shells killed", || {
+        let killed = locked(&rig.shells.killed).clone();
+        ["p1b", "p3"]
+            .iter()
+            .all(|id| killed.contains(&id.to_string()))
+    })
+    .await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_revision_moves_with_the_state_and_not_with_an_agent_s_activity() {
+    let rig = rig(Some(shop()));
+    rig.host.start();
+    eventually("Leo mounted", || {
+        locked(&rig.host.0.model).panes.machines.contains_key("p1")
+    })
+    .await;
+    assert_eq!(rig.host.revision(), 0);
+    let mut news = rig.host.news();
+    rig.host.feed(Event::BridgeEvent {
+        pane_id: "p1".into(),
+        event: json!({"kind": "turn", "phase": "start"}),
+    });
+    eventually("Leo working", || {
+        rig.host
+            .snapshot()
+            .activity
+            .get("p1")
+            .is_some_and(|a| a.activity == AgentActivity::Working)
+    })
+    .await;
+    assert!(
+        std::iter::from_fn(|| news.try_recv().ok()).any(|said| said == News::Changed),
+        "those who follow are told"
+    );
+    assert_eq!(rig.host.revision(), 0, "nothing to save, nothing moved");
+    rig.host.edit(StoreAction::UpdateWorkspace(
+        "shop".into(),
+        crate::state::WorkspacePatch::new(|ws| ws.name = "Renamed".into()),
+    ));
+    assert_eq!(rig.host.revision(), 1);
+}
+
+/// A real shell told its new size, and its screen with it.
+#[cfg(unix)]
+#[test]
+fn a_real_shell_and_its_screen_take_a_new_size() {
+    let ptys = CorePtys::new(Arc::new(hangar_core::pty::PtyManager::default()));
+    let cwd = scratch("engine-pty-size");
+    ptys.spawn(
+        Spawn {
+            id: "sized".into(),
+            cwd: cwd.to_string_lossy().into_owned(),
+            name: "Sized".into(),
+            agent: "shell".into(),
+            ..Spawn::default()
+        },
+        Arc::new(|_| {}),
+    )
+    .expect("a shell");
+    assert_eq!(
+        ptys.screen("sized").unwrap().len(),
+        usize::from(terminals::ROWS)
+    );
+    ptys.resize("sized", 100, 30).unwrap();
+    assert_eq!(ptys.screen("sized").unwrap().len(), 30);
+    ptys.write("sized", "stty size\r").unwrap();
+    let mut seen = false;
+    for _ in 0..300 {
+        let lines = ptys.lines("sized", 50).unwrap_or_default();
+        if lines.iter().any(|line| line.trim() == "30 100") {
+            seen = true;
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert!(seen, "{:?}", ptys.lines("sized", 50));
+    assert!(ptys.resize("nobody", 80, 24).is_err());
+    ptys.kill("sized").unwrap();
+}

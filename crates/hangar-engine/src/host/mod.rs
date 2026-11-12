@@ -21,11 +21,16 @@
 //!   over a port of its own (`port.rs`), when asked to
 //!   ([`EngineHost::serve_control`]); a node answers those of its own panes
 //!   only, and hands the others to the desktop that drives it
-//!   ([`EngineHost::answer`]).
+//!   ([`EngineHost::answer`]);
+//! - takes over a workspace a desktop hands it ([`EngineHost::adopt`]) and
+//!   applies what the desktops that mirror its workspaces ask of them
+//!   ([`EngineHost::apply_ops`], `adopt.rs`), its state staying the one
+//!   that counts ([`EngineHost::revision`]).
 //!
 //! What it says happened (an agent's announcement, a change) goes out as
 //! [`News`] to whoever follows it: a connector (Discord) or a desktop.
 
+mod adopt;
 mod desk;
 mod launch;
 mod orchestrate;
@@ -59,6 +64,7 @@ use crate::orchestration::runtime::{self as orchestration_runtime, EngineMsg};
 use crate::panes::bridge_events::carry_key;
 use crate::panes::pane_index::info_of;
 use crate::panes::{self, Ambient, Effect, EpochMs, PaneInfo, wall_clock_ms};
+use crate::state::hosted::HostedOp;
 use crate::state::persist::{SAVE_DEBOUNCE, Writer};
 use crate::state::types::{AppState, Pane, PaneId, Workspace, WsId};
 use crate::state::{PanePatch, Snapshot, Store, StoreAction, StoreOutcome};
@@ -570,6 +576,75 @@ impl EngineHost {
         };
         self.changed();
         Ok(ws)
+    }
+
+    /// The state's revision: it moves when the persisted state changes (a
+    /// workspace, a pane, a setting), never for the read-model alone (an
+    /// agent's activity). It starts again from 0 with the host: whoever
+    /// follows it across restarts tells them apart some other way.
+    pub fn revision(&self) -> u64 {
+        locked(&self.0.model).store.revision()
+    }
+
+    /// The persisted state with its revision, read together: the snapshot
+    /// is published a moment after a change, and a revision read beside it
+    /// could be ahead of the state it is paired with.
+    pub fn revised_state(&self) -> (u64, Arc<AppState>) {
+        let model = locked(&self.0.model);
+        (model.store.revision(), model.store.state_arc())
+    }
+
+    /// Whether `workspace`, which a desktop hands over, can be taken
+    /// ([`EngineHost::adopt`]): `Ok(false)` when this host already has a
+    /// workspace of that id, which leaves nothing to do, and an error when
+    /// it cannot (its folder is not one here, an id is missing or taken).
+    /// Asked before anything is undone on the way to adopting it.
+    pub fn adoptable(&self, workspace: &Workspace) -> Result<bool, String> {
+        adopt::check(self.snapshot().state.as_ref(), workspace)
+    }
+
+    /// Takes over `workspace`, which a desktop ran here or has just made:
+    /// from now on this host holds it and runs its panes, each Claude Code
+    /// resumed on the session its pane names. It is kept under its ids, the
+    /// desktop's, without what was the desktop's presentation of it (its
+    /// node, its folder, its window, its views, its kits); a pane whose
+    /// name another pane here goes by is given a free one. Answers its id.
+    /// A workspace this host already has is left as it is.
+    ///
+    /// A shell some desktop still runs under one of its pane ids must be
+    /// gone first: this host's launch would be refused the id.
+    pub fn adopt(&self, workspace: Workspace) -> Result<WsId, String> {
+        let id = workspace.id.clone();
+        {
+            let mut model = locked(&self.0.model);
+            if !adopt::check(model.store.state(), &workspace)? {
+                return Ok(id);
+            }
+            let taken = crate::state::pane_names::all_pane_names(&model.store.state().workspaces);
+            edited(
+                &mut model,
+                StoreAction::PutWorkspace(Box::new(adopt::stripped(workspace, &taken))),
+            );
+        }
+        self.changed();
+        Ok(id)
+    }
+
+    /// What a mirror of workspace `ws` asks ([`HostedOp`]), applied in
+    /// order: all of it or, when one cannot be (an id that is missing or
+    /// taken, a folder that is not one here), none. Applied again, the
+    /// same ops change nothing.
+    pub fn apply_ops(&self, ws: &str, ops: Vec<HostedOp>) -> Result<(), String> {
+        {
+            let mut model = locked(&self.0.model);
+            adopt::check_ops(model.store.state(), ws, &ops)?;
+            for op in ops {
+                adopt::carry_out(&mut model, ws, op);
+            }
+            model.index();
+        }
+        self.changed();
+        Ok(())
     }
 
     /// The snapshot published again when what it holds changed, and those

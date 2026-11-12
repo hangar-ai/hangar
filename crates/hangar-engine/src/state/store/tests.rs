@@ -971,3 +971,392 @@ fn a_removed_workspace_is_handed_over_for_its_check_to_go() {
     );
     assert!(m.take_removed().is_empty(), "handed over once");
 }
+
+// Hosted workspaces: the mirrors of what a node runs itself (hosted.rs).
+
+/// A workspace as a node lists it.
+fn theirs(id: &str, panes: &[(&str, &str)]) -> Workspace {
+    let panes: Vec<Pane> = panes
+        .iter()
+        .map(|(id, name)| Pane {
+            id: (*id).into(),
+            name: (*name).into(),
+            agent: AgentId::Claude,
+            ..Pane::default()
+        })
+        .collect();
+    let ids: Vec<PaneId> = panes.iter().map(|pane| pane.id.clone()).collect();
+    Workspace {
+        id: id.into(),
+        name: format!("Space {id}"),
+        cwd: format!("/srv/{id}"),
+        tree: Some(preset_tree(&ids)),
+        panes,
+        ..Workspace::default()
+    }
+}
+
+fn sync(model: &mut Store, node: &str, workspaces: &[&Workspace]) -> StoreOutcome {
+    sync_keeping(model, node, workspaces, &[])
+}
+
+fn sync_keeping(
+    model: &mut Store,
+    node: &str,
+    workspaces: &[&Workspace],
+    keep: &[&str],
+) -> StoreOutcome {
+    model.apply(StoreAction::SyncHosted {
+        node: node.into(),
+        workspaces: workspaces.iter().map(|ws| (*ws).clone()).collect(),
+        keep: keep.iter().map(|id| (*id).to_string()).collect(),
+    })
+}
+
+#[test]
+fn a_node_s_workspaces_are_mirrored_after_this_hangar_s_own() {
+    let mut m = model();
+    let local = with_workspace(&mut m, 1, &[]);
+    let site = theirs("site", &[("p1", "Nia"), ("p2", "Bo")]);
+    assert!(sync(&mut m, "n1", &[&site]).changed);
+    let ids: Vec<&str> = m.state().workspaces.iter().map(|w| w.id.as_str()).collect();
+    assert_eq!(ids, [local.as_str(), "site"]);
+    let mirror = ws(&m, "site");
+    assert_eq!(mirror.node.as_deref(), Some("n1"));
+    assert_eq!(mirror.hosted, Some(true));
+    assert_eq!(mirror.panes, site.panes);
+    assert_eq!(tree_ids(&m, "site"), ["p1", "p2"]);
+    assert_eq!(
+        m.state().active_workspace_id.as_deref(),
+        Some(local.as_str()),
+        "what the person looks at stays"
+    );
+    let written = serde_json::to_value(mirror).unwrap();
+    assert_eq!(written["hosted"], true);
+    let own = serde_json::to_value(ws(&m, &local)).unwrap();
+    assert!(own.get("hosted").is_none(), "absent for those it runs");
+}
+
+#[test]
+fn a_sync_keeps_the_mirror_s_folder_tree_and_chat_view() {
+    let mut m = model();
+    let mut site = theirs("site", &[("p1", "Nia"), ("p2", "Bo")]);
+    sync(&mut m, "n1", &[&site]);
+    let folder = m
+        .apply(StoreAction::AddFolder("Servers".into()))
+        .folder
+        .unwrap();
+    m.apply(StoreAction::MoveWorkspace {
+        id: "site".into(),
+        folder: Some(folder.clone()),
+        before: None,
+    });
+    m.apply(StoreAction::MovePane {
+        ws: "site".into(),
+        drag: "p1".into(),
+        target: "p2".into(),
+        zone: DropZone::Bottom,
+    });
+    m.apply(StoreAction::SetChatView {
+        ws: "site".into(),
+        on: true,
+    });
+    m.apply(StoreAction::AddView {
+        ws: "site".into(),
+        id: "view".into(),
+        near: Some("p2".into()),
+        dir: None,
+    });
+    let tree = ws(&m, "site").tree.clone();
+
+    site.name = "Shop".into();
+    site.panes[0].session_id = Some("s-1".into());
+    site.tree = Some(preset_tree(&["p2".to_string(), "p1".to_string()]));
+    assert!(sync(&mut m, "n1", &[&site]).changed);
+    let mirror = ws(&m, "site");
+    assert_eq!(mirror.name, "Shop");
+    assert_eq!(mirror.panes[0].session_id.as_deref(), Some("s-1"));
+    assert_eq!(mirror.folder_id, Some(folder));
+    assert_eq!(mirror.chat_view, Some(true));
+    assert_eq!(mirror.tree, tree);
+    assert!(mirror.has_view("view"));
+}
+
+#[test]
+fn a_sync_that_says_nothing_new_leaves_the_revision_alone() {
+    let mut m = model();
+    let site = theirs("site", &[("p1", "Nia")]);
+    sync(&mut m, "n1", &[&site]);
+    m.apply(StoreAction::SetChatView {
+        ws: "site".into(),
+        on: true,
+    });
+    let revision = m.revision();
+    assert!(!sync(&mut m, "n1", &[&site]).changed);
+    // The node's own layout and presentation are not the mirror's.
+    let moved = Workspace {
+        theme_id: Some("paper".into()),
+        folder_id: Some("f".into()),
+        ..site.clone()
+    };
+    assert!(!sync(&mut m, "n1", &[&moved]).changed);
+    assert_eq!(m.revision(), revision);
+}
+
+#[test]
+fn a_pane_the_node_respawned_keeps_its_place_and_is_announced() {
+    let mut m = model();
+    let mut site = theirs("site", &[("p1", "Nia"), ("p2", "Bo"), ("p3", "Cy")]);
+    site.panes[1].session_id = Some("s-1".into());
+    sync(&mut m, "n1", &[&site]);
+    // The same pane under a new id, by its name; and a new conversation.
+    site.panes[1].id = "p2b".into();
+    site.panes[1].session_id = None;
+    sync(&mut m, "n1", &[&site]);
+    assert_eq!(pane_ids(&m, "site"), ["p1", "p2b", "p3"]);
+    assert_eq!(tree_ids(&m, "site"), ["p1", "p2b", "p3"]);
+    assert_eq!(
+        m.take_respawns(),
+        [Respawn {
+            ws: "site".into(),
+            from: "p2".into(),
+            to: "p2b".into(),
+            keeps_session: false,
+        }]
+    );
+}
+
+#[test]
+fn a_mirror_goes_when_its_node_no_longer_has_it_and_nothing_is_cleaned_up() {
+    let mut m = model();
+    let local = with_workspace(&mut m, 1, &[]);
+    let site = theirs("site", &[("p1", "Nia")]);
+    let docs = theirs("docs", &[("p2", "Bo")]);
+    sync(&mut m, "n1", &[&site, &docs]);
+    m.apply(StoreAction::SetActiveWorkspace(Some("docs".into())));
+    // Another node's listing says nothing of this one's.
+    assert!(!sync(&mut m, "n2", &[]).changed);
+    assert!(sync(&mut m, "n1", &[&site]).changed);
+    assert!(m.workspace("docs").is_none());
+    assert!(m.workspace("site").is_some());
+    assert_eq!(
+        m.state().active_workspace_id.as_deref(),
+        Some(local.as_str()),
+        "the active one gone, the first one left is"
+    );
+    assert!(
+        m.take_removed().is_empty(),
+        "the node removed it: its worktrees are the node's"
+    );
+    sync(&mut m, "n1", &[]);
+    assert_eq!(m.state().workspaces.len(), 1);
+    assert!(m.take_removed().is_empty());
+}
+
+#[test]
+fn a_workspace_being_handed_over_is_kept_until_the_node_lists_it() {
+    let mut m = model();
+    // One this Hangar drives on the node, and the same once it said the
+    // node would run it, before the node lists it.
+    let mut driven = theirs("site", &[("p1", "Nia")]);
+    driven.node = Some("n1".into());
+    let mut pending = theirs("docs", &[("p2", "Bo")]);
+    pending.node = Some("n1".into());
+    pending.hosted = Some(true);
+    pending.folder_id = None;
+    m.apply(StoreAction::PutWorkspace(Box::new(driven.clone())));
+    m.apply(StoreAction::PutWorkspace(Box::new(pending.clone())));
+
+    assert!(!sync_keeping(&mut m, "n1", &[], &["docs"]).changed);
+    assert_eq!(*ws(&m, "site"), driven, "driven from here: not the node's");
+    assert_eq!(*ws(&m, "docs"), pending);
+
+    // The node lists both: each is its mirror from now on, as it stood.
+    let site = theirs("site", &[("p1", "Nia")]);
+    let docs = theirs("docs", &[("p2", "Bo")]);
+    sync_keeping(&mut m, "n1", &[&site, &docs], &["docs"]);
+    assert!(ws(&m, "site").is_hosted());
+    assert_eq!(*ws(&m, "docs"), pending);
+    assert_eq!(m.state().workspaces.len(), 2, "no second copy");
+    // Without the keep, one the node does not list goes.
+    sync(&mut m, "n1", &[&site]);
+    assert!(m.workspace("docs").is_none());
+}
+
+#[test]
+fn an_id_another_workspace_holds_is_not_mirrored() {
+    let mut m = model();
+    let local = with_workspace(&mut m, 1, &[]);
+    let before = ws(&m, &local).clone();
+    let clash = theirs(&local, &[("p1", "Nia")]);
+    assert!(!sync(&mut m, "n1", &[&clash, &clash]).changed);
+    assert_eq!(*ws(&m, &local), before);
+    assert_eq!(m.state().workspaces.len(), 1);
+}
+
+#[test]
+fn a_workspace_is_put_whole_with_its_ids_or_in_place_of_its_namesake() {
+    let mut m = model();
+    let local = with_workspace(&mut m, 1, &[]);
+    let site = theirs("site", &[("p1", "Nia"), ("p2", "Bo")]);
+    let put = m.apply(StoreAction::PutWorkspace(Box::new(site.clone())));
+    assert_eq!(put.workspace.as_deref(), Some("site"));
+    assert!(put.changed);
+    assert_eq!(*ws(&m, "site"), site);
+    assert_eq!(
+        m.state().active_workspace_id.as_deref(),
+        Some(local.as_str())
+    );
+    assert!(
+        !m.apply(StoreAction::PutWorkspace(Box::new(site.clone())))
+            .changed
+    );
+    let renamed = Workspace {
+        name: "Shop".into(),
+        ..site
+    };
+    assert!(
+        m.apply(StoreAction::PutWorkspace(Box::new(renamed.clone())))
+            .changed
+    );
+    assert_eq!(m.state().workspaces.len(), 2);
+    assert_eq!(*ws(&m, "site"), renamed);
+    assert_eq!(
+        m.apply(StoreAction::PutWorkspace(Box::default())).workspace,
+        None,
+        "a workspace needs an id"
+    );
+}
+
+#[test]
+fn a_pane_is_put_with_its_id_once_and_named_apart() {
+    let mut m = model();
+    let w = with_workspace(&mut m, 1, &[AgentId::Claude]);
+    let first = pane_ids(&m, &w)[0].clone();
+    let other = with_workspace(&mut m, 1, &[]);
+    let put = |m: &mut Store, ws: &str, id: &str, name: &str| {
+        m.apply(StoreAction::PutPane {
+            ws: ws.into(),
+            pane: Box::new(Pane {
+                id: id.into(),
+                name: name.into(),
+                role: Some(PaneRole::Worker),
+                ..Pane::default()
+            }),
+            near: Some(first.clone()),
+            dir: Some(SplitDir::Col),
+        })
+    };
+    assert_eq!(
+        put(&mut m, &w, "desk-1", "Zed").pane.as_deref(),
+        Some("desk-1")
+    );
+    let pane = &ws(&m, &w).panes[1];
+    assert_eq!((pane.id.as_str(), pane.name.as_str()), ("desk-1", "Zed"));
+    assert_eq!(pane.role, Some(PaneRole::Worker));
+    assert_eq!(
+        pane.agent,
+        AgentId::Shell,
+        "as it was put, not as its neighbour"
+    );
+    assert_eq!(tree_ids(&m, &w), [first.clone(), "desk-1".to_string()]);
+    assert!(matches!(
+        ws(&m, &w).tree,
+        Some(SplitNode::Split {
+            dir: SplitDir::Col,
+            ..
+        })
+    ));
+    // Again, or under an id any workspace has: nothing.
+    let again = put(&mut m, &w, "desk-1", "Zed");
+    assert_eq!((again.pane, again.changed), (None, false));
+    assert_eq!(put(&mut m, &other, "desk-1", "Yan").pane, None);
+    assert_eq!(put(&mut m, &w, "", "Yan").pane, None);
+    // A name in use, here or in another workspace, is not taken twice.
+    let taken = ws(&m, &other).panes[0].name.clone();
+    put(&mut m, &w, "desk-2", &taken);
+    let name = ws(&m, &w).panes[2].name.clone();
+    assert!(!name.is_empty() && name != taken && name != "Zed", "{name}");
+}
+
+#[test]
+fn a_pane_is_respawned_as_the_id_given_like_any_respawn() {
+    let mut m = model();
+    let w = with_workspace(&mut m, 2, &[AgentId::Claude, AgentId::Claude]);
+    let ids = pane_ids(&m, &w);
+    let respawn = |m: &mut Store, pane: &str, to: &str| {
+        m.apply(StoreAction::RespawnPaneAs {
+            ws: w.clone(),
+            pane: pane.into(),
+            to: to.into(),
+            patch: Patch::new(|p: &mut Pane| p.agent = AgentId::Shell),
+        })
+    };
+    assert_eq!(
+        respawn(&mut m, &ids[0], "desk-1").pane.as_deref(),
+        Some("desk-1")
+    );
+    assert_eq!(pane_ids(&m, &w), ["desk-1".to_string(), ids[1].clone()]);
+    assert_eq!(tree_ids(&m, &w), ["desk-1".to_string(), ids[1].clone()]);
+    assert_eq!(ws(&m, &w).panes[0].agent, AgentId::Shell);
+    assert_eq!(
+        m.take_respawns(),
+        [Respawn {
+            ws: w.clone(),
+            from: ids[0].clone(),
+            to: "desk-1".into(),
+            keeps_session: true,
+        }]
+    );
+    // Again (the pane no longer goes by its old id), onto an id in use,
+    // or onto none: nothing.
+    for (pane, to) in [
+        (ids[0].as_str(), "desk-1"),
+        (ids[1].as_str(), "desk-1"),
+        (ids[1].as_str(), ""),
+    ] {
+        let again = respawn(&mut m, pane, to);
+        assert_eq!(
+            (again.pane, again.changed),
+            (None, false),
+            "{pane} as {to:?}"
+        );
+    }
+    assert!(m.take_respawns().is_empty());
+}
+
+#[test]
+fn hydration_leaves_the_names_of_a_node_s_panes_alone() {
+    let pane = |id: &str, name: &str| Pane {
+        id: id.into(),
+        name: name.into(),
+        ..Pane::default()
+    };
+    let state = AppState {
+        workspaces: vec![
+            Workspace {
+                id: "mirror".into(),
+                panes: vec![pane("a", "Ava"), pane("b", "")],
+                node: Some("n1".into()),
+                hosted: Some(true),
+                ..Workspace::default()
+            },
+            Workspace {
+                id: "own".into(),
+                panes: vec![pane("c", "Ava"), pane("d", "Ava")],
+                ..Workspace::default()
+            },
+        ],
+        ..AppState::default()
+    };
+    let mut m = Store::default();
+    m.hydrate(state);
+    let names =
+        |id: &str| -> Vec<String> { ws(&m, id).panes.iter().map(|p| p.name.clone()).collect() };
+    assert_eq!(names("mirror"), ["Ava", ""], "the node names its panes");
+    assert_eq!(
+        names("own"),
+        ["Ava", "Max"],
+        "its own are told apart as ever"
+    );
+}

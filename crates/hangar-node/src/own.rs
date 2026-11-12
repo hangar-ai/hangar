@@ -9,6 +9,11 @@
 //! they run with no desktop connected. The node API shows them and changes
 //! them (`/node/own`, below), for a desktop, for `hangar-node workspace …`,
 //! and for the Discord connector.
+//!
+//! A desktop mirrors them (hangar-engine's `state::hosted`): it reads them
+//! whole (`/node/own/state`), sends what the person changes on its copy as
+//! ops (`/node/own/workspaces/{id}/ops`), and hands over a workspace it ran
+//! on this node, or has just made for it (`/node/own/adopt`).
 #![cfg(target_os = "linux")]
 
 use std::sync::Arc;
@@ -21,11 +26,12 @@ use hangar_core::pty::{PtyEvent, PtyManager};
 use hangar_engine::host::screen::{Screen, Screens};
 use hangar_engine::host::terminals::{COLUMNS, ROWS};
 use hangar_engine::host::{EngineHost, Spawn, TermEvent, TermSink, Terminals};
-use hangar_engine::state::StoreAction;
+use hangar_engine::state::hosted::HostedOp;
+use hangar_engine::state::{StoreAction, Workspace};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::api::{error, Shared};
+use crate::api::{blocking, error, Shared};
 use crate::panes::{Observer, Panes};
 
 /// The node's panes, as the engine's terminals: each with a screen the
@@ -99,6 +105,12 @@ impl Terminals for NodeTerminals {
 
     fn alive(&self, pane: &str) -> bool {
         self.panes.alive(pane)
+    }
+
+    fn resize(&self, pane: &str, columns: u16, rows: u16) -> Result<(), String> {
+        self.panes.resize(pane, columns, rows)?;
+        self.screens.resize(pane, columns, rows);
+        Ok(())
     }
 
     fn kill(&self, pane: &str) -> Result<(), String> {
@@ -187,6 +199,32 @@ pub fn listing(own: &EngineHost) -> Value {
     json!({ "workspaces": workspaces })
 }
 
+/// The node's own workspaces as a desktop mirrors them, for `GET
+/// /node/own/state`: each whole, as the state holds it, with the revision
+/// of that state and the daemon's `boot` (the revisions start again with
+/// the daemon). What each pane's agent is doing is beside them, by pane,
+/// for those that said: it is not part of the state, and inside a pane it
+/// would be read as one of its fields and saved with it.
+pub fn full(own: &EngineHost, boot: &str) -> Value {
+    let (revision, state) = own.revised_state();
+    let snapshot = own.snapshot();
+    let activity: serde_json::Map<String, Value> = state
+        .workspaces
+        .iter()
+        .flat_map(|ws| &ws.panes)
+        .filter_map(|pane| {
+            let live = snapshot.activity.get(&pane.id)?;
+            Some((pane.id.clone(), json!(live.activity)))
+        })
+        .collect();
+    json!({
+        "boot": boot,
+        "revision": revision,
+        "workspaces": state.workspaces,
+        "activity": activity,
+    })
+}
+
 /// Said when the node runs no workspace of its own.
 fn unavailable() -> Response {
     error(
@@ -199,6 +237,80 @@ pub async fn list(State(node): State<Shared>) -> Response {
     match node.own.as_ref() {
         Some(own) => Json(listing(own)).into_response(),
         None => unavailable(),
+    }
+}
+
+pub async fn state(State(node): State<Shared>) -> Response {
+    match node.own.as_ref() {
+        Some(own) => Json(full(own, &node.boot)).into_response(),
+        None => unavailable(),
+    }
+}
+
+/// A workspace a desktop hands to the node, whole: one it ran here, its
+/// panes' shells started by that desktop, or one it has just made. Refused
+/// before anything is touched when the node cannot run it. The shells that
+/// run under its pane ids are then taken down, since the node's own must
+/// start under those ids (core makes a start wait for the shell of the same
+/// id to be gone), and each Claude Code comes back on its session. Handed
+/// over again, a workspace the node already has is left as it is, its
+/// shells too.
+pub async fn adopt(State(node): State<Shared>, Json(body): Json<Value>) -> Response {
+    let Some(own) = node.own.as_ref() else {
+        return unavailable();
+    };
+    let workspace: Workspace = match serde_json::from_value(body) {
+        Ok(workspace) => workspace,
+        Err(err) => return error(StatusCode::BAD_REQUEST, &format!("not a workspace: {err}")),
+    };
+    match own.adoptable(&workspace) {
+        Ok(true) => {}
+        Ok(false) => return Json(json!({ "id": workspace.id })).into_response(),
+        Err(err) => return error(StatusCode::BAD_REQUEST, &err),
+    }
+    let ids: Vec<String> = workspace.panes.iter().map(|p| p.id.clone()).collect();
+    let panes = node.panes.clone();
+    let killed = blocking(move || {
+        for id in ids {
+            panes.kill(&id);
+        }
+    })
+    .await;
+    if let Err(failed) = killed {
+        return failed.into_response();
+    }
+    match own.adopt(workspace) {
+        Ok(id) => Json(json!({ "id": id })).into_response(),
+        Err(err) => error(StatusCode::BAD_REQUEST, &err),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct OpsBody {
+    ops: Vec<HostedOp>,
+}
+
+/// What the person changed on a desktop's mirror of workspace `id`,
+/// applied in order: all of it, or none when one op cannot be. Answers the
+/// revision the state stands at afterwards.
+pub async fn ops(
+    State(node): State<Shared>,
+    Path(id): Path<String>,
+    Json(body): Json<Value>,
+) -> Response {
+    let Some(own) = node.own.as_ref() else {
+        return unavailable();
+    };
+    let body: OpsBody = match serde_json::from_value(body) {
+        Ok(body) => body,
+        Err(err) => return error(StatusCode::BAD_REQUEST, &format!("not ops: {err}")),
+    };
+    if !own.snapshot().state.workspaces.iter().any(|ws| ws.id == id) {
+        return error(StatusCode::NOT_FOUND, "no such workspace on this node");
+    }
+    match own.apply_ops(&id, body.ops) {
+        Ok(()) => Json(json!({ "revision": own.revision() })).into_response(),
+        Err(err) => error(StatusCode::BAD_REQUEST, &err),
     }
 }
 

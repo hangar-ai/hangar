@@ -15,6 +15,7 @@ use std::sync::Arc;
 
 use super::Store;
 use super::folders::place_before;
+use super::hosted;
 use super::layout::{
     MAX_PANES, arranged_tree, grid_order, grid_tree, insert_leaf, leaf, move_leaf,
     preset_terminals, preset_tree, reading_order, remove_leaf, rename_leaf,
@@ -235,6 +236,53 @@ pub enum StoreAction {
         ws: WsId,
         id: String,
     },
+    /// A workspace put as it is, with its ids: added last, or in place of
+    /// the one of that id. How a node takes a workspace a desktop hands it
+    /// (`host::EngineHost::adopt`), and how a desktop puts one back. Answers
+    /// its id; the active workspace stays what it was.
+    PutWorkspace(Box<Workspace>),
+    /// `AddPane` for a pane that comes with its id: a pane a mirror opened,
+    /// put on its node under the id the desktop already knows it by
+    /// (`hosted::HostedOp::PutPane`). Its name is kept when no pane uses
+    /// it, else it is given a free one. Answers the id, or none at
+    /// `MAX_PANES`, without an id, or when a pane of that id exists, in
+    /// this workspace or another.
+    PutPane {
+        ws: WsId,
+        pane: Box<Pane>,
+        near: Option<PaneId>,
+        dir: Option<SplitDir>,
+    },
+    /// `RespawnPane` to the id given: the restart a mirror made, repeated
+    /// on its node (`hosted::HostedOp::RespawnPane`). Answers `to`, or none
+    /// when the pane is no longer there, `to` is empty or a pane goes by it.
+    RespawnPaneAs {
+        ws: WsId,
+        pane: PaneId,
+        to: PaneId,
+        patch: PanePatch,
+    },
+    /// What node `node` says it runs itself, taken in: the mirrors of its
+    /// workspaces brought up to date (`hosted::merge`), those this Hangar
+    /// did not know added last (`hosted::mirror_of`), and those it no
+    /// longer has removed, but for the ids in `keep` (a workspace being
+    /// handed to the node, which the node may not list yet).
+    ///
+    /// A workspace of that node this Hangar drove until now, listed by the
+    /// node under the same id, becomes its mirror: that is how handing one
+    /// over completes. Those the node does not list stay as they are. An
+    /// id some other workspace holds (this machine's, another node's) is
+    /// not mirrored.
+    ///
+    /// Nothing here is a removal by the person: no worktree is cleaned up
+    /// after (`take_removed`). A pane the node respawned is announced
+    /// (`take_respawns`) as one respawned here. A listing that changes
+    /// nothing is not a change.
+    SyncHosted {
+        node: String,
+        workspaces: Vec<Workspace>,
+        keep: Vec<WsId>,
+    },
     /// The workspace shown as the chat view (`on`) or as its grid. Off is
     /// written as the field's absence. Nothing restarts: the terminals stay
     /// mounted either way, only what draws them changes.
@@ -405,7 +453,8 @@ impl Store {
 
 /// store.tsx's `load` and `hydrateWorkspace`: missing lists are empty (serde's
 /// defaults), a folder id naming no folder is the top level, pane names are
-/// made unique across every workspace, and the settings are read over
+/// made unique across every workspace this Hangar runs (a node names the
+/// panes of those it runs itself), and the settings are read over
 /// `DEFAULT_SETTINGS` (serde's default too).
 fn fix_up(state: &mut AppState) {
     let folders: HashSet<String> = state
@@ -468,6 +517,139 @@ fn map_commands(
                 Some((next, ()))
             });
         }
+    }
+}
+
+/// Whether some workspace has a terminal or a view of id `id`.
+fn pane_exists(state: &AppState, id: &str) -> bool {
+    state.workspaces.iter().any(|ws| ws.has_leaf(id))
+}
+
+/// `wanted` when it is a name and no pane uses it, else the first free one.
+fn free_name(wanted: &str, taken: &[String]) -> String {
+    if !wanted.is_empty() && !taken.iter().any(|name| name == wanted) {
+        wanted.to_string()
+    } else {
+        pick_pane_name(taken)
+    }
+}
+
+/// A pane added to workspace `ws`, beside `near` (else the last pane) on
+/// the side `dir` says. `make` is given the pane it lands beside, when that
+/// is a terminal, and the names in use everywhere. Answers the new pane's
+/// id; none at `MAX_PANES`, or when `make` gives no pane.
+fn add_pane(
+    model: &mut Store,
+    ws: &str,
+    near: Option<PaneId>,
+    dir: Option<SplitDir>,
+    make: impl FnOnce(Option<&Pane>, &[String]) -> Option<Pane>,
+) -> Option<PaneId> {
+    let mut taken = names_besides(&model.state, ws);
+    let zone = match dir.unwrap_or(SplitDir::Row) {
+        SplitDir::Row => DropZone::Right,
+        SplitDir::Col => DropZone::Bottom,
+    };
+    map_workspace(model, ws, |current| {
+        if current.pane_count() >= MAX_PANES {
+            return None;
+        }
+        let tree = grid_tree(current);
+        let ids = grid_order(current);
+        let near = near
+            .filter(|near| ids.contains(near))
+            .or_else(|| ids.last().cloned())
+            .unwrap_or_default();
+        taken.extend(pane_names(&current.panes));
+        let beside = current.panes.iter().find(|pane| pane.id == near);
+        let pane = make(beside, &taken)?;
+        let id = pane.id.clone();
+        let mut next = current.clone();
+        next.panes.push(pane);
+        next.tree = Some(if current.pane_count() == 0 {
+            leaf(id.clone())
+        } else {
+            insert_leaf(&tree, &near, &id, zone)
+        });
+        Some((next, id))
+    })
+}
+
+/// Pane `pane` of `ws` given the id `to`, which kills its shell and starts
+/// it again, `patch` applied on the way. Answers `to`, or none when the
+/// pane is no longer there.
+fn respawn(
+    model: &mut Store,
+    ws: WsId,
+    pane: PaneId,
+    to: PaneId,
+    patch: PanePatch,
+) -> Option<PaneId> {
+    let keeps_session = map_workspace(model, &ws, |current| {
+        // The pane may have been closed, or respawned already, which
+        // changed its id, since the caller last looked.
+        let at = current.panes.iter().position(|p| p.id == pane)?;
+        let mut next = current.clone();
+        let had_session = current.panes[at].session_id.is_some();
+        patch.apply(&mut next.panes[at]);
+        next.panes[at].id = to.clone();
+        let keeps_session = !(had_session && next.panes[at].session_id.is_none());
+        // The arrangement is keyed by pane id: follow the rename.
+        next.tree = Some(rename_leaf(&grid_tree(current), &pane, &to));
+
+        Some((next, keeps_session))
+    })?;
+    model.unread.rename_pane(&ws, &pane, &to);
+    model.respawned.push(Respawn {
+        ws,
+        from: pane,
+        to: to.clone(),
+        keeps_session,
+    });
+    Some(to)
+}
+
+/// `StoreAction::SyncHosted`: the mirrors of node `node`'s workspaces made
+/// to say what `theirs`, the node's own list, says.
+fn sync_hosted(model: &mut Store, node: &str, theirs: &[Workspace], keep: &[WsId]) {
+    let current = &model.state.workspaces;
+    let mut next: Vec<Workspace> = Vec::with_capacity(current.len());
+    let mut respawns = Vec::new();
+    for ws in current {
+        if ws.node.as_deref() != Some(node) {
+            next.push(ws.clone());
+            continue;
+        }
+        match theirs.iter().find(|their| their.id == ws.id) {
+            Some(their) => {
+                let (merged, moved) = hosted::merge(ws, their);
+                respawns.extend(moved);
+                next.push(merged);
+            }
+            // A mirror of what the node no longer runs.
+            None if ws.is_hosted() && !keep.contains(&ws.id) => {}
+            None => next.push(ws.clone()),
+        }
+    }
+    for their in theirs {
+        if !their.id.is_empty() && !next.iter().any(|ws| ws.id == their.id) {
+            next.push(hosted::mirror_of(node, their));
+        }
+    }
+    if next == *current {
+        return;
+    }
+    let state = model.state_mut();
+    state.workspaces = next;
+    let active = state.active_workspace_id.as_deref();
+    if active.is_some_and(|id| !state.workspaces.iter().any(|ws| ws.id == id)) {
+        state.active_workspace_id = state.workspaces.first().map(|ws| ws.id.clone());
+    }
+    for respawn in respawns {
+        model
+            .unread
+            .rename_pane(&respawn.ws, &respawn.from, &respawn.to);
+        model.respawned.push(respawn);
     }
 }
 
@@ -688,57 +870,41 @@ fn reduce(model: &mut Store, action: StoreAction) -> StoreOutcome {
             name,
             init,
         } => {
-            let others = names_besides(&model.state, &ws);
-            let zone = match dir.unwrap_or(SplitDir::Row) {
-                SplitDir::Row => DropZone::Right,
-                SplitDir::Col => DropZone::Bottom,
-            };
-            outcome.pane = map_workspace(model, &ws, |current| {
-                if current.pane_count() >= MAX_PANES {
-                    return None;
-                }
-                let tree = grid_tree(current);
-                let ids = grid_order(current);
-                let near = near
-                    .filter(|near| ids.contains(near))
-                    .or_else(|| ids.last().cloned())
-                    .unwrap_or_default();
-                // Splitting a Claude Code pane asks for another one, not for a
-                // bare prompt; an agent the caller names still wins.
-                let inherited = current
-                    .panes
-                    .iter()
-                    .find(|pane| pane.id == near)
-                    .map(|pane| pane.agent);
-                let mut taken = others.clone();
-                taken.extend(pane_names(&current.panes));
+            outcome.pane = add_pane(model, &ws, near, dir, |near, taken| {
                 let wanted = name.as_deref().map(str::trim).unwrap_or("");
                 let mut pane = Pane {
                     id: new_id(),
-                    name: if !wanted.is_empty() && !taken.iter().any(|t| t == wanted) {
-                        wanted.to_string()
-                    } else {
-                        pick_pane_name(&taken)
-                    },
-                    agent: agent.or(inherited).unwrap_or(AgentId::Shell),
+                    name: free_name(wanted, taken),
+                    // Splitting a Claude Code pane asks for another one, not
+                    // for a bare prompt; an agent the caller names still wins.
+                    agent: agent
+                        .or(near.map(|pane| pane.agent))
+                        .unwrap_or(AgentId::Shell),
                     // Left alone by default: a pane follows the workspace root.
                     cwd,
                     ..Pane::default()
                 };
-                let id = pane.id.clone();
                 if let Some(init) = &init {
+                    let id = pane.id.clone();
                     init.apply(&mut pane);
-                    pane.id = id.clone();
+                    pane.id = id;
                 }
-                let mut next = current.clone();
-                next.panes.push(pane);
-                next.tree = Some(if current.pane_count() == 0 {
-                    leaf(id.clone())
-                } else {
-                    insert_leaf(&tree, &near, &id, zone)
-                });
-                Some((next, id))
+                Some(pane)
             });
+        }
+
+        StoreAction::PutPane {
+            ws,
+            pane,
+            near,
+            dir,
+        } => {
+            if !pane.id.is_empty() && !pane_exists(&model.state, &pane.id) {
+                outcome.pane = add_pane(model, &ws, near, dir, |_, taken| {
+                    let name = free_name(pane.name.trim(), taken);
+                    Some(Pane { name, ..*pane })
+                });
+            }
         }
 
         StoreAction::AddView { ws, id, near, dir } => {
@@ -819,32 +985,37 @@ fn reduce(model: &mut Store, action: StoreAction) -> StoreOutcome {
         }
 
         StoreAction::RespawnPane { ws, pane, patch } => {
-            let to = new_id();
-            let respawn = map_workspace(model, &ws, |current| {
-                // The pane may have been closed, or respawned already, which
-                // changed its id, since the caller last looked.
-                let at = current.panes.iter().position(|p| p.id == pane)?;
-                let mut next = current.clone();
-                let had_session = current.panes[at].session_id.is_some();
-                patch.apply(&mut next.panes[at]);
-                next.panes[at].id = to.clone();
-                let keeps_session = !(had_session && next.panes[at].session_id.is_none());
-                // The arrangement is keyed by pane id: follow the rename.
-                next.tree = Some(rename_leaf(&grid_tree(current), &pane, &to));
+            outcome.pane = respawn(model, ws, pane, new_id(), patch);
+        }
 
-                Some((next, keeps_session))
-            });
-            if let Some(keeps_session) = respawn {
-                model.unread.rename_pane(&ws, &pane, &to);
-                model.respawned.push(Respawn {
-                    ws,
-                    from: pane,
-                    to: to.clone(),
-                    keeps_session,
-                });
-                outcome.pane = Some(to);
+        StoreAction::RespawnPaneAs {
+            ws,
+            pane,
+            to,
+            patch,
+        } => {
+            if !to.is_empty() && !pane_exists(&model.state, &to) {
+                outcome.pane = respawn(model, ws, pane, to, patch);
             }
         }
+
+        StoreAction::PutWorkspace(ws) => {
+            if !ws.id.is_empty() {
+                outcome.workspace = Some(ws.id.clone());
+                let at = model.state.workspaces.iter().position(|w| w.id == ws.id);
+                match at {
+                    Some(at) if model.state.workspaces[at] == *ws => {}
+                    Some(at) => model.state_mut().workspaces[at] = *ws,
+                    None => model.state_mut().workspaces.push(*ws),
+                }
+            }
+        }
+
+        StoreAction::SyncHosted {
+            node,
+            workspaces,
+            keep,
+        } => sync_hosted(model, &node, &workspaces, &keep),
 
         StoreAction::UpdateSettings(patch) => {
             let mut next = model.state.settings.clone();

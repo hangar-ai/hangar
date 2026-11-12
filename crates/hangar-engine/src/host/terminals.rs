@@ -51,6 +51,14 @@ pub trait Terminals: Send + Sync + 'static {
     fn spawn(&self, spawn: Spawn, sink: TermSink) -> Result<(), String>;
     fn write(&self, pane: &str, data: &str) -> Result<(), String>;
     fn alive(&self, pane: &str) -> bool;
+    /// The pane's shell told its new size, and its screen with it: a pane
+    /// someone looks at through a window is the size of that window, and
+    /// the screen read here has to be the one its program draws on.
+    /// Terminals nobody resizes have nothing to do.
+    fn resize(&self, pane: &str, columns: u16, rows: u16) -> Result<(), String> {
+        let _ = (pane, columns, rows);
+        Ok(())
+    }
     /// Its whole process tree.
     fn kill(&self, pane: &str) -> Result<(), String>;
     /// The last `n` lines it printed, oldest first; `None` for a pane this
@@ -143,6 +151,12 @@ impl Terminals for CorePtys {
 
     fn alive(&self, pane: &str) -> bool {
         pty::pty_alive(&self.pty, pane.to_string())
+    }
+
+    fn resize(&self, pane: &str, columns: u16, rows: u16) -> Result<(), String> {
+        pty::pty_resize(&self.pty, pane.to_string(), columns, rows)?;
+        self.screens.resize(pane, columns, rows);
+        Ok(())
     }
 
     fn kill(&self, pane: &str) -> Result<(), String> {

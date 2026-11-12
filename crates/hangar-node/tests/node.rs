@@ -1712,3 +1712,332 @@ fn the_desktop_s_bot_is_shared_with_the_node_and_given_back() {
     assert_eq!(status["guild"], "7");
     assert_eq!(status["configured"], true);
 }
+
+/// A node started in a home of its own whose Claude Code is a script that
+/// writes down what it was started with (`claude-args`, a line a start) and
+/// stays. With the folder of a project.
+fn node_with_a_recording_claude() -> (Node, PathBuf) {
+    let home = tempfile::tempdir().unwrap();
+    let project = home.path().join("project");
+    std::fs::create_dir_all(&project).unwrap();
+    let fake = home.path().join("fake-claude");
+    std::fs::write(
+        &fake,
+        "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$HOME/claude-args\"\nexec sleep 600\n",
+    )
+    .unwrap();
+    std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+    std::fs::create_dir_all(state_dir(home.path())).unwrap();
+    std::fs::write(
+        state_dir(home.path()).join("state.json"),
+        json!({ "settings": { "agentCommands": { "claude": fake.to_str().unwrap() } } })
+            .to_string(),
+    )
+    .unwrap();
+    let status = command(home.path())
+        .args(["serve", "--detach"])
+        .status()
+        .unwrap();
+    assert!(status.success(), "serve --detach: {status}");
+    (Node::found(home), project)
+}
+
+/// A workspace as a desktop hands it to the node: `panes` are `(id, name,
+/// agent)`, and the desktop's own presentation of it comes along.
+fn handed_over(id: &str, cwd: &Path, panes: &[(&str, &str, &str)]) -> Value {
+    let panes: Vec<Value> = panes
+        .iter()
+        .map(|(id, name, agent)| json!({ "id": id, "name": name, "agent": agent }))
+        .collect();
+    json!({
+        "id": id,
+        "name": "Docs",
+        "cwd": cwd.to_str().unwrap(),
+        "panes": panes,
+        "node": "n1",
+        "hosted": true,
+        "folderId": "work",
+        "chatView": true,
+        "detached": true,
+        "viewPanes": [{ "id": "view" }],
+    })
+}
+
+fn own_state(node: &Node) -> Value {
+    let (status, state) = node.get("/node/own/state");
+    assert_eq!(status, 200, "{state}");
+    state
+}
+
+fn pane_alive(node: &Node, id: &str) -> bool {
+    node.pane(id).is_some_and(|pane| pane["alive"] == true)
+}
+
+/// A desktop ran a workspace on the node, its shells started by that
+/// desktop, and hands it over: the node takes down the shell that runs
+/// under each pane id and starts its own under the same id, Claude Code
+/// back on its session. A workspace it cannot run is refused before any
+/// shell is touched, and once the panes are the node's a desktop can no
+/// longer start or end them.
+#[test]
+fn a_workspace_handed_over_is_restarted_by_the_node_on_its_sessions() {
+    let (node, project) = node_with_a_recording_claude();
+    write_transcript(node.home(), project.to_str().unwrap(), "s-1", &[json!({})]);
+    // The shell the desktop started for the pane.
+    node.spawn("d1", "echo $$ > \"$HOME/old.pid\"; exec sleep 600");
+    let old: i32 = wait_for("the desktop's shell", || {
+        std::fs::read_to_string(node.home().join("old.pid"))
+            .ok()?
+            .trim()
+            .parse()
+            .ok()
+    });
+    let before = own_state(&node);
+    assert_eq!(before["workspaces"], json!([]));
+    assert_eq!(before["revision"], 0);
+    let boot = before["boot"].as_str().unwrap().to_string();
+    assert!(!boot.is_empty());
+
+    let panes = [("d1", "Leo", "claude"), ("d2", "Bo", "shell")];
+    let mut nowhere = handed_over("ws-docs", &project, &panes);
+    nowhere["cwd"] = json!("/no/such/folder");
+    let (status, refused) = node.post("/node/own/adopt", nowhere);
+    assert_eq!(status, 400, "{refused}");
+    assert!(refused["error"]
+        .as_str()
+        .unwrap()
+        .contains("/no/such/folder"));
+    let (status, _) = node.post("/node/own/adopt", json!({ "panes": "none" }));
+    assert_eq!(status, 400);
+    assert!(alive(old), "refused: nothing was killed");
+    assert_eq!(own_state(&node)["revision"], 0);
+
+    let mut workspace = handed_over("ws-docs", &project, &panes);
+    workspace["panes"][0]["sessionId"] = json!("s-1");
+    let (status, adopted) = node.post("/node/own/adopt", workspace.clone());
+    assert_eq!(status, 200, "{adopted}");
+    assert_eq!(adopted["id"], "ws-docs");
+    wait_for("the desktop's shell gone", || (!alive(old)).then_some(()));
+    wait_for("the node's shells", || {
+        (pane_alive(&node, "d1") && pane_alive(&node, "d2")).then_some(())
+    });
+    let args = wait_for("Claude Code started again", || {
+        std::fs::read_to_string(node.home().join("claude-args")).ok()
+    });
+    assert!(args.contains("--resume s-1"), "{args}");
+
+    let state = own_state(&node);
+    assert_eq!(state["boot"], boot.as_str());
+    let revision = state["revision"].as_u64().unwrap();
+    assert!(revision >= 1, "{state}");
+    let kept = &state["workspaces"][0];
+    assert_eq!(kept["id"], "ws-docs");
+    assert_eq!(kept["cwd"], project.to_str().unwrap());
+    assert_eq!(kept["panes"][0]["id"], "d1");
+    assert_eq!(kept["panes"][0]["sessionId"], "s-1");
+    assert_eq!(kept["panes"][1]["id"], "d2");
+    // The desktop's presentation of it stayed with the desktop.
+    for key in ["node", "hosted", "chatView", "detached", "viewPanes"] {
+        assert!(kept.get(key).is_none(), "{key}: {kept}");
+    }
+    assert_eq!(kept["folderId"], Value::Null);
+    assert!(state["activity"].is_object(), "{state}");
+    assert!(kept["panes"][0].get("activity").is_none());
+
+    // Handed over again (the answer was lost): nothing is restarted.
+    let (status, again) = node.post("/node/own/adopt", workspace);
+    assert_eq!((status, &again["id"]), (200, &json!("ws-docs")));
+    assert!(pane_alive(&node, "d1"));
+    assert_eq!(own_state(&node)["revision"], revision);
+
+    // The panes are the node's: a desktop neither starts nor ends them.
+    let (status, refused) = node.post(
+        "/node/panes",
+        json!({ "id": "d1", "cwd": node.home(), "cols": 80, "rows": 24 }),
+    );
+    assert_eq!(status, 409, "{refused}");
+    assert_eq!(node.delete("/node/panes/d2").0, 409);
+    assert!(pane_alive(&node, "d1") && pane_alive(&node, "d2"));
+    // Resized through the API as any pane.
+    let (status, _) = node.post("/node/panes/d2/resize", json!({ "cols": 100, "rows": 30 }));
+    assert_eq!(status, 200);
+    assert_eq!(node.pane("d2").unwrap()["cols"], 100);
+
+    // What the command line and a desktop's card read is as it was.
+    let (_, listed) = node.get("/node/own");
+    let keys = |value: &Value| -> Vec<String> {
+        let mut keys: Vec<String> = value.as_object().unwrap().keys().cloned().collect();
+        keys.sort();
+        keys
+    };
+    assert_eq!(keys(&listed), ["workspaces"]);
+    let listed = &listed["workspaces"][0];
+    assert_eq!(keys(listed), ["cwd", "id", "name", "panes"]);
+    assert_eq!(
+        keys(&listed["panes"][0]),
+        ["activity", "agent", "id", "name", "role", "taskId"]
+    );
+    assert_eq!(listed["panes"][0]["id"], "d1");
+}
+
+/// What the person changes on a desktop's mirror, sent as ops: a pane
+/// opened under the desktop's id, one closed, one restarted under a new id,
+/// names and titles; the shells follow, and asking twice changes nothing.
+#[test]
+fn a_mirror_s_ops_change_the_node_s_workspace_and_its_shells() {
+    let node = Node::start();
+    let panes = [("d1", "Leo", "shell"), ("d2", "Bo", "shell")];
+    let (status, adopted) = node.post(
+        "/node/own/adopt",
+        handed_over("ws-ops", node.home(), &panes),
+    );
+    assert_eq!(status, 200, "{adopted}");
+    wait_for("its shells", || {
+        (pane_alive(&node, "d1") && pane_alive(&node, "d2")).then_some(())
+    });
+    let start = own_state(&node)["revision"].as_u64().unwrap();
+
+    let ops = json!({ "ops": [
+        { "op": "patchWorkspace", "patch": { "name": "Site" } },
+        { "op": "putPane", "pane": { "id": "d3", "name": "Cy", "agent": "shell" } },
+        { "op": "patchPane", "pane": "d3", "patch": { "title": "Logs" } },
+        { "op": "respawnPane", "from": "d1", "to": "d1b" },
+        { "op": "closePane", "pane": "d2" },
+    ] });
+    let (status, done) = node.post("/node/own/workspaces/ws-ops/ops", ops.clone());
+    assert_eq!(status, 200, "{done}");
+    let revision = done["revision"].as_u64().unwrap();
+    assert!(revision > start, "{done}");
+    let state = own_state(&node);
+    assert_eq!(state["revision"], revision);
+    let ws = &state["workspaces"][0];
+    assert_eq!(ws["name"], "Site");
+    let ids: Vec<&str> = ws["panes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|pane| pane["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, ["d1b", "d3"]);
+    assert_eq!(ws["panes"][0]["name"], "Leo");
+    assert_eq!(ws["panes"][1]["title"], "Logs");
+    wait_for("the shells to follow", || {
+        let up = pane_alive(&node, "d1b") && pane_alive(&node, "d3");
+        let down = node.pane("d1").is_none() && node.pane("d2").is_none();
+        (up && down).then_some(())
+    });
+
+    // Asked again: the same revision, the same shells.
+    let (status, again) = node.post("/node/own/workspaces/ws-ops/ops", ops);
+    assert_eq!((status, again["revision"].as_u64()), (200, Some(revision)));
+
+    // One op that cannot be applied refuses them all.
+    let (status, refused) = node.post(
+        "/node/own/workspaces/ws-ops/ops",
+        json!({ "ops": [
+            { "op": "patchWorkspace", "patch": { "name": "Never" } },
+            { "op": "putPane", "pane": { "id": "a/b", "name": "Di" } },
+        ] }),
+    );
+    assert_eq!(status, 400, "{refused}");
+    let (status, _) = node.post(
+        "/node/own/workspaces/ws-ops/ops",
+        json!({ "ops": [{ "op": "explode" }] }),
+    );
+    assert_eq!(status, 400);
+    let (status, _) = node.post(
+        "/node/own/workspaces/nowhere/ops",
+        json!({ "ops": [{ "op": "removeWorkspace" }] }),
+    );
+    assert_eq!(status, 404);
+    let state = own_state(&node);
+    assert_eq!(state["revision"], revision);
+    assert_eq!(state["workspaces"][0]["name"], "Site");
+
+    let (status, _) = node.post(
+        "/node/own/workspaces/ws-ops/ops",
+        json!({ "ops": [{ "op": "removeWorkspace" }] }),
+    );
+    assert_eq!(status, 200);
+    assert_eq!(own_state(&node)["workspaces"], json!([]));
+    wait_for("its shells gone", || {
+        (node.pane("d1b").is_none() && node.pane("d3").is_none()).then_some(())
+    });
+}
+
+/// A desktop following the node's events is told when the state of the
+/// node's own workspaces changed, with its revision, and not when an agent
+/// of theirs only got busy: that is not in the state, and the mod's report
+/// already said it.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_change_to_the_node_s_own_state_is_told_and_an_agent_s_activity_is_not() {
+    let (node, project) = tokio::task::spawn_blocking(node_with_a_recording_claude)
+        .await
+        .unwrap();
+    let node = Arc::new(node);
+    let setting_up = node.clone();
+    tokio::task::spawn_blocking(move || {
+        let node = setting_up;
+        let panes = [("c1", "Leo", "claude")];
+        let (status, adopted) =
+            node.post("/node/own/adopt", handed_over("ws-told", &project, &panes));
+        assert_eq!(status, 200, "{adopted}");
+        // Its Claude Code runs: its pane hears the mod from here on.
+        wait_for("Claude Code started", || {
+            std::fs::read_to_string(node.home().join("claude-args")).ok()
+        });
+    })
+    .await
+    .unwrap();
+    let mut events = node.socket("/node/events").await;
+
+    let working = node.clone();
+    let before = tokio::task::spawn_blocking(move || {
+        let node = working;
+        let before = own_state(&node)["revision"].as_u64().unwrap();
+        let (status, said) = node.post(
+            "/api/bridge/c1/event",
+            json!({ "kind": "turn", "phase": "start" }),
+        );
+        assert_eq!(status, 200, "{said}");
+        wait_for("the agent working", || {
+            (own_state(&node)["activity"]["c1"] == "working").then_some(())
+        });
+        assert_eq!(own_state(&node)["revision"], before, "no change to save");
+        before
+    })
+    .await
+    .unwrap();
+
+    let renaming = node.clone();
+    let revision = tokio::task::spawn_blocking(move || {
+        let (status, done) = renaming.post(
+            "/node/own/workspaces/ws-told/ops",
+            json!({ "ops": [{ "op": "patchWorkspace", "patch": { "name": "Told" } }] }),
+        );
+        assert_eq!(status, 200, "{done}");
+        done["revision"].as_u64().unwrap()
+    })
+    .await
+    .unwrap();
+    assert!(revision > before);
+    loop {
+        let event = events.next().await.expect("an event");
+        if event["event"] == "own:changed" {
+            assert_eq!(
+                event,
+                json!({ "event": "own:changed", "revision": revision })
+            );
+            break;
+        }
+    }
+    let heard = |name: &str| {
+        events
+            .frames
+            .iter()
+            .filter(|frame| frame["event"] == name)
+            .count()
+    };
+    assert_eq!(heard("own:changed"), 1, "{:?}", events.frames);
+    assert!(heard("bridge:event") >= 1, "the mod's report came as ever");
+}

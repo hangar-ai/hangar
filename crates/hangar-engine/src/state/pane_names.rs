@@ -82,10 +82,17 @@ pub fn pane_names(panes: &[Pane]) -> Vec<String> {
 /// it is the first of its kind, in the order the workspaces are listed; only
 /// the later duplicates and the unnamed get a new one. Answers whether
 /// anything changed.
+///
+/// The mirrors of the workspaces a node runs itself (`Workspace::hosted`)
+/// are left out, on both counts: the node names its panes, and a name this
+/// Hangar gave one would only last until the node says its own again.
 pub fn unique_pane_names(workspaces: &mut [Workspace]) -> bool {
     let mut seen = HashSet::new();
     let mut clashing = Vec::new();
     for (w, ws) in workspaces.iter().enumerate() {
+        if ws.is_hosted() {
+            continue;
+        }
         for (p, pane) in ws.panes.iter().enumerate() {
             if pane.name.is_empty() || !seen.insert(pane.name.clone()) {
                 clashing.push((w, p));
