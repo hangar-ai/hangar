@@ -1325,6 +1325,8 @@ fn signature(st: &State, m: &Model) -> u64 {
             continue;
         };
         (&ws.id, &ws.theme_id, ws.detached, ws.is_hosted()).hash(&mut hash);
+        // Handed to its node and not taken yet: its terminals wait.
+        m.live.nodes.outbox.adopting(&ws.id).hash(&mut hash);
         crate::chat_view::shown(m, ws).hash(&mut hash);
         ws.view_panes.len().hash(&mut hash);
         for pane in &ws.panes {
@@ -1376,7 +1378,11 @@ fn sync_if_needed(st: &mut State, m: &mut Model, sv: &Services) -> Task<Message>
 }
 
 /// The terminals that should be running: every one of an opened workspace,
-/// whatever is on screen (a hidden grid, the chat view, another view).
+/// whatever is on screen (a hidden grid, the chat view, another view). None
+/// of a workspace being handed to its node, until the node has taken it:
+/// the shells this computer started there are being replaced by the node's
+/// own under the same ids, and a terminal that followed one of the old
+/// ones would end with it.
 fn wanted_panes(m: &Model) -> Vec<(WsId, PaneId)> {
     if !m.live.hydrated {
         return Vec::new();
@@ -1384,6 +1390,7 @@ fn wanted_panes(m: &Model) -> Vec<(WsId, PaneId)> {
     m.ui.opened_ids
         .iter()
         .filter_map(|id| m.workspace(id))
+        .filter(|ws| !m.live.nodes.outbox.adopting(&ws.id))
         .flat_map(|ws| ws.panes.iter().map(|pane| (ws.id.clone(), pane.id.clone())))
         .collect()
 }

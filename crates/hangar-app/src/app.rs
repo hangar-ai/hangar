@@ -496,6 +496,11 @@ impl App {
         {
             return Task::none();
         }
+        // A workspace on its way to a node is saved once the node took it
+        // or did not (`nodes::hosted::Outbox::handing_over`).
+        if self.model.live.nodes.outbox.handing_over() {
+            return persist::schedule(revision);
+        }
         let host = self.services.core().host().clone();
         let save = self.model.take_save();
         let writer = self.writer.clone();
@@ -537,6 +542,7 @@ impl App {
     /// The main window's end is the app's (inventory §1.6, "On main-window
     /// close"): the last change saved, the core shut down, then exit.
     fn quit(&mut self) -> Task<Message> {
+        crate::nodes::hosted::abandon(&mut self.model);
         if self.model.live.hydrated && self.model.revision() != self.saved {
             // On the UI thread, and waited for: it is what guarantees the
             // last change.

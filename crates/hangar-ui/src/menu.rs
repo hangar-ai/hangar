@@ -132,6 +132,21 @@ pub fn item<M>(label: impl Into<String>) -> Item<M> {
 }
 
 impl<M> Item<M> {
+    /// The line's text, for a check that reads a menu as data.
+    pub fn label(&self) -> &str {
+        &self.label
+    }
+
+    /// What picking the line sends; nothing for a line that is greyed.
+    pub fn selects(&self) -> Option<&M> {
+        self.on_select.as_ref().filter(|_| !self.disabled)
+    }
+
+    /// Why the line is greyed, when it says.
+    pub fn refusal(&self) -> Option<&str> {
+        self.reason.as_deref().filter(|_| self.disabled)
+    }
+
     /// Sets the label in the mono face, for a line whose label is code.
     pub fn mono(mut self) -> Self {
         self.mono = true;

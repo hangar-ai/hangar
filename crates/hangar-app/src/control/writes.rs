@@ -25,181 +25,182 @@ pub fn carry_out(
     let mut then = None;
     let mut touched = None;
     let mut run = Vec::new();
-    let outcome = match cmd {
-        // A pane an agent opens or closes (pane_create, pane_close, the
-        // orchestrator's workers) lays the workspace out again rather than
-        // halving the pane beside it: the orchestrator keeps the biggest
-        // share and the others an even grid (`StoreAction::ArrangePanes`).
-        ModelCmd::AddPane {
-            ws,
-            agent,
-            near,
-            dir,
-            cwd,
-            name,
-            init,
-        } => {
-            let outcome = m.apply(StoreAction::AddPane {
-                ws: ws.clone(),
+    let outcome =
+        match cmd {
+            // A pane an agent opens or closes (pane_create, pane_close, the
+            // orchestrator's workers) lays the workspace out again rather than
+            // halving the pane beside it: the orchestrator keeps the biggest
+            // share and the others an even grid (`StoreAction::ArrangePanes`).
+            ModelCmd::AddPane {
+                ws,
                 agent,
                 near,
                 dir,
                 cwd,
                 name,
                 init,
-            });
-            if outcome.pane.is_some() {
-                m.apply(StoreAction::ArrangePanes(ws));
+            } => {
+                let outcome = m.apply_unattended(StoreAction::AddPane {
+                    ws: ws.clone(),
+                    agent,
+                    near,
+                    dir,
+                    cwd,
+                    name,
+                    init,
+                });
+                if outcome.pane.is_some() {
+                    m.apply_unattended(StoreAction::ArrangePanes(ws));
+                }
+                outcome
             }
-            outcome
-        }
-        ModelCmd::ClosePane { ws, pane } => {
-            let count = |m: &Model| m.workspace(&ws).map_or(0, |w| w.panes.len());
-            let before = count(m);
-            let outcome = m.apply(StoreAction::ClosePane {
-                ws: ws.clone(),
-                pane,
-            });
-            // Only when one did close: a refused close leaves the layout be.
-            if count(m) < before {
-                m.apply(StoreAction::ArrangePanes(ws));
-            }
-            outcome
-        }
-        ModelCmd::RespawnPane {
-            ws,
-            pane,
-            patch,
-            fresh,
-        } => {
-            let outcome = m.apply(StoreAction::RespawnPane {
-                ws: ws.clone(),
-                pane: pane.clone(),
-                patch,
-            });
-            // The focus follows the pane to its new id (App.tsx's respawnPane),
-            // so the person's keys keep reaching it.
-            if let Some(next) = &outcome.pane
-                && m.ui.focus_by_workspace.get(&ws) == Some(&pane)
-            {
-                m.ui.focus_by_workspace.insert(ws, next.clone());
-            }
-            // Restarted while its workspace slept: still owed its session,
-            // unless the restart asked for a fresh one (`carryResume`).
-            if let Some(next) = &outcome.pane
-                && !fresh
-            {
-                m.live.panes_logic.carry_resume(&pane, next);
-            }
-            outcome
-        }
-        ModelCmd::UpdatePane { ws, pane, patch } => {
-            m.apply(StoreAction::UpdatePane { ws, pane, patch })
-        }
-        ModelCmd::UpdateWorkspace { ws, patch } => m.apply(StoreAction::UpdateWorkspace(ws, patch)),
-        ModelCmd::OpenWorkspace(ws) => {
-            // Opened by an agent, an asleep workspace is awake again (P4's
-            // hibernation), and mounted as the shell's ActivateWorkspace
-            // mounts one, without switching to it.
-            m.live.panes_logic.mark_awake(&ws);
-            if !m.ui.opened_ids.contains(&ws) {
-                m.ui.opened_ids.push(ws);
-            }
-            m.live.version += 1;
-            StoreOutcome::default()
-        }
-        ModelCmd::Touch(ws) => {
-            // Sending it something is using it, as typing is: its sleep waits.
-            touched = Some(ws);
-            StoreOutcome::default()
-        }
-        ModelCmd::DevCommand {
-            command,
-            query,
-            stats_project,
-            capture,
-            pane_menu,
-        } => {
-            run.extend(
-                command
-                    .and_then(|id| id.parse::<crate::commands::CommandId>().ok())
-                    .map(Message::Command),
-            );
-            if let Some(pane) = pane_menu {
-                run.push(Message::PaneMenu(crate::pane_menu::Msg::Toggle(
+            ModelCmd::ClosePane { ws, pane } => {
+                let count = |m: &Model| m.workspace(&ws).map_or(0, |w| w.panes.len());
+                let before = count(m);
+                let outcome = m.apply_unattended(StoreAction::ClosePane {
+                    ws: ws.clone(),
                     pane,
-                    crate::pane_menu::Folded::default(),
-                )));
+                });
+                // Only when one did close: a refused close leaves the layout be.
+                if count(m) < before {
+                    m.apply_unattended(StoreAction::ArrangePanes(ws));
+                }
+                outcome
             }
-            if let Some(project) = stats_project {
-                run.push(Message::Stats(crate::stats::Msg::SetProject(Some(project))));
-            }
-            if let Some(query) = query {
-                run.push(Message::Palette(crate::palette::Msg::Ui(
-                    hangar_ui::palette::Msg::Query(query),
-                )));
-            }
-            run.extend(
-                capture.map(|(width, height)| {
-                    Message::DevCapture(Some(iced::Size::new(width, height)))
-                }),
-            );
-            StoreOutcome::default()
-        }
-        ModelCmd::Activate { ws, pane } => {
-            then = Some(Intent::FocusPane {
+            ModelCmd::RespawnPane {
                 ws,
                 pane,
-                terminal: true,
-            });
-            StoreOutcome::default()
-        }
-        ModelCmd::Detach(ws) => {
-            then = Some(Intent::Detach(ws));
-            StoreOutcome::default()
-        }
-        ModelCmd::Reattach(ws) => {
-            then = Some(Intent::Reattach(ws));
-            StoreOutcome::default()
-        }
-        ModelCmd::Announce(event) => {
-            then = Some(Intent::Notice(Notice::Agent(announcement(m, &event))));
-            StoreOutcome::default()
-        }
-        ModelCmd::CreateWorkspace { draft, activate } => {
-            let previous = m.state().active_workspace_id.clone();
-            let outcome = m.apply(StoreAction::AddWorkspace(draft));
-            if !activate && outcome.workspace.is_some() {
-                m.apply(StoreAction::SetActiveWorkspace(previous));
+                patch,
+                fresh,
+            } => {
+                let outcome = m.apply_unattended(StoreAction::RespawnPane {
+                    ws: ws.clone(),
+                    pane: pane.clone(),
+                    patch,
+                });
+                // The focus follows the pane to its new id (App.tsx's respawnPane),
+                // so the person's keys keep reaching it.
+                if let Some(next) = &outcome.pane
+                    && m.ui.focus_by_workspace.get(&ws) == Some(&pane)
+                {
+                    m.ui.focus_by_workspace.insert(ws, next.clone());
+                }
+                // Restarted while its workspace slept: still owed its session,
+                // unless the restart asked for a fresh one (`carryResume`).
+                if let Some(next) = &outcome.pane
+                    && !fresh
+                {
+                    m.live.panes_logic.carry_resume(&pane, next);
+                }
+                outcome
             }
-            outcome
-        }
-        ModelCmd::RemoveWorkspace(ws) => m.apply(StoreAction::RemoveWorkspace(ws)),
-        ModelCmd::BeginDelivery { ws, task } => {
-            m.live.control.begin(ws, task);
-            m.live.version += 1;
-            StoreOutcome::default()
-        }
-        ModelCmd::EndDelivery { ws, task } => {
-            m.live.control.end(&ws, &task);
-            m.live.version += 1;
-            StoreOutcome::default()
-        }
-        // What an agent shows is a pane of the grid: placed (or taken away)
-        // with the preview's entries, then laid out as the panes an agent
-        // opens are, the orchestrator keeping the biggest share.
-        ModelCmd::ViewsChanged { ws, arrange } => {
-            m.live.preview.sync();
-            let synced = crate::preview::panes::sync(m);
-            if let Some(words) = synced.notice(m) {
-                then = Some(Intent::Notice(Notice::Problem(words)));
+            ModelCmd::UpdatePane { ws, pane, patch } => {
+                m.apply_unattended(StoreAction::UpdatePane { ws, pane, patch })
             }
-            if arrange {
-                m.apply(StoreAction::ArrangePanes(ws));
+            ModelCmd::UpdateWorkspace { ws, patch } => {
+                m.apply_unattended(StoreAction::UpdateWorkspace(ws, patch))
             }
-            StoreOutcome::default()
-        }
-    };
+            ModelCmd::OpenWorkspace(ws) => {
+                // Opened by an agent, an asleep workspace is awake again (P4's
+                // hibernation), and mounted as the shell's ActivateWorkspace
+                // mounts one, without switching to it.
+                m.live.panes_logic.mark_awake(&ws);
+                if !m.ui.opened_ids.contains(&ws) {
+                    m.ui.opened_ids.push(ws);
+                }
+                m.live.version += 1;
+                StoreOutcome::default()
+            }
+            ModelCmd::Touch(ws) => {
+                // Sending it something is using it, as typing is: its sleep waits.
+                touched = Some(ws);
+                StoreOutcome::default()
+            }
+            ModelCmd::DevCommand {
+                command,
+                query,
+                stats_project,
+                capture,
+                pane_menu,
+            } => {
+                run.extend(
+                    command
+                        .and_then(|id| id.parse::<crate::commands::CommandId>().ok())
+                        .map(Message::Command),
+                );
+                if let Some(pane) = pane_menu {
+                    run.push(Message::PaneMenu(crate::pane_menu::Msg::Toggle(
+                        pane,
+                        crate::pane_menu::Folded::default(),
+                    )));
+                }
+                if let Some(project) = stats_project {
+                    run.push(Message::Stats(crate::stats::Msg::SetProject(Some(project))));
+                }
+                if let Some(query) = query {
+                    run.push(Message::Palette(crate::palette::Msg::Ui(
+                        hangar_ui::palette::Msg::Query(query),
+                    )));
+                }
+                run.extend(capture.map(|(width, height)| {
+                    Message::DevCapture(Some(iced::Size::new(width, height)))
+                }));
+                StoreOutcome::default()
+            }
+            ModelCmd::Activate { ws, pane } => {
+                then = Some(Intent::FocusPane {
+                    ws,
+                    pane,
+                    terminal: true,
+                });
+                StoreOutcome::default()
+            }
+            ModelCmd::Detach(ws) => {
+                then = Some(Intent::Detach(ws));
+                StoreOutcome::default()
+            }
+            ModelCmd::Reattach(ws) => {
+                then = Some(Intent::Reattach(ws));
+                StoreOutcome::default()
+            }
+            ModelCmd::Announce(event) => {
+                then = Some(Intent::Notice(Notice::Agent(announcement(m, &event))));
+                StoreOutcome::default()
+            }
+            ModelCmd::CreateWorkspace { draft, activate } => {
+                let previous = m.state().active_workspace_id.clone();
+                let outcome = m.apply_unattended(StoreAction::AddWorkspace(draft));
+                if !activate && outcome.workspace.is_some() {
+                    m.apply_unattended(StoreAction::SetActiveWorkspace(previous));
+                }
+                outcome
+            }
+            ModelCmd::RemoveWorkspace(ws) => m.apply_unattended(StoreAction::RemoveWorkspace(ws)),
+            ModelCmd::BeginDelivery { ws, task } => {
+                m.live.control.begin(ws, task);
+                m.live.version += 1;
+                StoreOutcome::default()
+            }
+            ModelCmd::EndDelivery { ws, task } => {
+                m.live.control.end(&ws, &task);
+                m.live.version += 1;
+                StoreOutcome::default()
+            }
+            // What an agent shows is a pane of the grid: placed (or taken away)
+            // with the preview's entries, then laid out as the panes an agent
+            // opens are, the orchestrator keeping the biggest share.
+            ModelCmd::ViewsChanged { ws, arrange } => {
+                m.live.preview.sync();
+                let synced = crate::preview::panes::sync(m);
+                if let Some(words) = synced.notice(m) {
+                    then = Some(Intent::Notice(Notice::Problem(words)));
+                }
+                if arrange {
+                    m.apply_unattended(StoreAction::ArrangePanes(ws));
+                }
+                StoreOutcome::default()
+            }
+        };
     let reply = iced::Task::future(async move {
         answer.send(Ok(outcome));
         Message::Noop

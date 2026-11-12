@@ -1,7 +1,8 @@
 //! The workspaces a node runs itself, mirrored: what its node says is taken
-//! in, what the person changes of the node's is refused, the node's events
-//! reach their panes, and nothing of this machine starts, ends or drives
-//! them.
+//! in, what the person changes of the node's is refused while the node is
+//! away, the node's events reach their panes, and nothing of this machine
+//! starts, ends or drives them. What the person changes while the node is
+//! there is `forward_tests.rs`.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -23,9 +24,9 @@ use crate::state::types::{
 };
 use crate::state::{Model, Patch, Snapshot, StoreAction};
 
-const NOW: u64 = 5_000_000;
+pub(super) const NOW: u64 = 5_000_000;
 
-fn pane(id: &str, name: &str) -> Pane {
+pub(super) fn pane(id: &str, name: &str) -> Pane {
     Pane {
         id: id.into(),
         name: name.into(),
@@ -35,7 +36,7 @@ fn pane(id: &str, name: &str) -> Pane {
 }
 
 /// A workspace as a node holds one of its own.
-fn theirs(id: &str, name: &str, panes: Vec<Pane>) -> Workspace {
+pub(super) fn theirs(id: &str, name: &str, panes: Vec<Pane>) -> Workspace {
     Workspace {
         id: id.into(),
         name: name.into(),
@@ -47,7 +48,7 @@ fn theirs(id: &str, name: &str, panes: Vec<Pane>) -> Workspace {
 
 /// What node `gpu` answers: `nightly` with two agents, at `revision` of
 /// run `boot`.
-fn answered(boot: &str, revision: u64, workspaces: Vec<Workspace>) -> OwnState {
+pub(super) fn answered(boot: &str, revision: u64, workspaces: Vec<Workspace>) -> OwnState {
     OwnState {
         boot: boot.into(),
         revision,
@@ -57,7 +58,7 @@ fn answered(boot: &str, revision: u64, workspaces: Vec<Workspace>) -> OwnState {
     }
 }
 
-fn nightly() -> Workspace {
+pub(super) fn nightly() -> Workspace {
     theirs(
         "o1",
         "nightly",
@@ -66,7 +67,7 @@ fn nightly() -> Workspace {
 }
 
 /// This computer's `site`, and the machines `gpu` and `vps`.
-fn model() -> Model {
+pub(super) fn model() -> Model {
     let mut m = Model::default();
     let mut state = AppState {
         workspaces: vec![Workspace {
@@ -94,13 +95,13 @@ fn model() -> Model {
 }
 
 /// `model`, with `nightly` of `gpu` mirrored.
-fn mirrored() -> Model {
+pub(super) fn mirrored() -> Model {
     let mut m = model();
     hosted::take_in(&mut m, "gpu", answered("b1", 3, vec![nightly()]), NOW);
     m
 }
 
-fn names(m: &Model) -> Vec<&str> {
+pub(super) fn names(m: &Model) -> Vec<&str> {
     m.state()
         .workspaces
         .iter()
@@ -218,8 +219,9 @@ fn a_node_removed_takes_its_mirrors_and_leaves_the_others() {
     assert!(m.live.panes_logic.is_pane_mounted("vp1"));
 }
 
+/// The node is not connected: nothing could tell it.
 #[test]
-fn a_change_to_what_the_node_owns_is_refused_and_nothing_is_applied() {
+fn a_change_to_what_an_offline_node_owns_is_refused_and_nothing_is_applied() {
     let mut m = mirrored();
     let before = m.state_arc();
     let revision = m.revision();
@@ -258,7 +260,8 @@ fn a_change_to_what_the_node_owns_is_refused_and_nothing_is_applied() {
         assert!(m.live.nodes.refused.is_none());
         let outcome = m.apply(action);
         assert!(!outcome.changed, "{said}");
-        let refused = m.live.nodes.refused.take().expect(&said);
+        let (refused, why) = m.live.nodes.refused.take().expect(&said);
+        assert_eq!(why, hosted::Why::Offline, "{said}");
         assert_eq!(
             (refused.node.as_str(), refused.workspace.as_str()),
             ("gpu", "o1")
@@ -275,6 +278,7 @@ fn a_change_to_what_the_node_owns_is_refused_and_nothing_is_applied() {
     assert_eq!(m.revision(), revision);
     assert!(m.take_respawns().is_empty());
     assert!(m.take_removed().is_empty());
+    assert!(!m.live.nodes.outbox.busy("gpu"), "nothing waits for it");
 }
 
 #[test]
@@ -330,10 +334,10 @@ fn the_mirror_s_own_presentation_and_every_other_workspace_change_as_before() {
 fn the_refusal_names_the_workspace_and_its_machine() {
     let mut m = mirrored();
     m.apply(StoreAction::RemoveWorkspace("o1".into()));
-    let refused = m.live.nodes.refused.take().unwrap();
+    let (refused, why) = m.live.nodes.refused.take().unwrap();
     assert_eq!(
-        hosted::refusal_words(&m, &refused),
-        "nightly runs on GPU box: it cannot be changed from here yet."
+        hosted::refusal_words(&m, &refused, why),
+        "GPU box is offline: nightly can be looked at, not changed."
     );
 }
 

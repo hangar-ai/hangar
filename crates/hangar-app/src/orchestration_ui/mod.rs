@@ -103,6 +103,23 @@ fn pin_orchestrator(m: &mut Model, ws_id: &str, pane_id: &str, pinned: bool) -> 
         return Task::none();
     };
     let (name, workspace) = (pane.name.clone(), ws.name.clone());
+    // On a workspace its node runs, the pane is the node's to restart, and
+    // a role given to a running Claude Code only comes with Hangar's tools
+    // at a launch: the pane is restarted with the role, which its node
+    // carries out on the same conversation. (Here, a pane this computer
+    // runs waits for its turn to end first: `panes::controller::role_check`.)
+    if pinned && ws.is_hosted() {
+        if actions::pin_refusal(ws, pane_id).is_some() {
+            return Task::none();
+        }
+        return Task::done(Message::Intent(Intent::ReplacePane {
+            ws: ws_id.to_owned(),
+            pane: pane_id.to_owned(),
+            patch: crate::state::Patch::new(|pane: &mut crate::state::Pane| {
+                pane.role = Some(PaneRole::Orchestrator);
+            }),
+        }));
+    }
     let changed = if pinned {
         actions::pin(m, ws_id, pane_id)
     } else {

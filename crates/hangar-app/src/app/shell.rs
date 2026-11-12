@@ -352,13 +352,17 @@ impl App {
 
         // A change to a workspace a node runs itself was refused: said once,
         // whoever asked for it.
-        if let Some(edit) = self.model.live.nodes.refused.take() {
-            let text = crate::nodes::hosted::refusal_words(&self.model, &edit);
+        if let Some((edit, why)) = self.model.live.nodes.refused.take() {
+            let text = crate::nodes::hosted::refusal_words(&self.model, &edit, why);
             tasks.push(notice::show(
                 &mut self.model,
                 crate::shell::Notice::Problem(text),
             ));
         }
+
+        // What the person changed on the mirrors of the nodes' workspaces
+        // is sent to the nodes, each in the order it was made.
+        tasks.push(crate::nodes::hosted::send_next(&mut self.model));
 
         // Every respawn, whoever applied it, is announced.
         for respawn in self.model.take_respawns() {
@@ -372,8 +376,12 @@ impl App {
 
         // A workspace deleted, whoever deleted it, takes its delivery check
         // worktree with it: git forgets it and the disk lets it go. Git is
-        // waited for, so off the UI thread.
+        // waited for, so off the UI thread. A workspace that lived on a node
+        // had its folder there: nothing of this machine is its to clean.
         for removed in self.model.take_removed() {
+            if removed.node.is_some() {
+                continue;
+            }
             let cleanup = tokio::task::spawn_blocking(move || {
                 hangar_core::delivery::remove_workspace_check(&removed.ws, &removed.cwd, None);
             });

@@ -810,7 +810,7 @@ fn submit_folder(st: &mut State, m: &mut Model, kits: &[WorkspaceKit]) -> Task<M
     let mut tasks = vec![close(m)];
     if let Some(id) = made.workspace {
         // Before its terminals start: they start on the node.
-        if let Some(node) = remote {
+        if let Some(node) = remote.clone() {
             m.apply(StoreAction::UpdateWorkspace(
                 id.clone(),
                 Patch::new(move |workspace: &mut crate::state::Workspace| {
@@ -831,6 +831,14 @@ fn submit_folder(st: &mut State, m: &mut Model, kits: &[WorkspaceKit]) -> Task<M
         // server. The new workspace opens in the panes view, as any other.
         if start == folder::Start::Orchestrator {
             crate::orchestration_ui::actions::pin_first_pane(m, &id);
+        }
+        // A workspace made on a node is the node's own from the start: it
+        // is handed over as it stands, with the ids it was just given, and
+        // runs there whether this computer is on or not. Nothing of it
+        // starts here meanwhile; were the node to refuse it, it is taken
+        // back out and the reason shown.
+        if remote.is_some() {
+            crate::nodes::hosted::hand_over(m, &id, crate::nodes::hosted::Handover::Created);
         }
         // The new workspace is the one in front, and its terminals start.
         tasks.push(Task::done(Message::Intent(Intent::ActivateWorkspace(id))));

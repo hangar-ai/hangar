@@ -323,6 +323,9 @@ pub struct Removed {
     pub ws: WsId,
     /// Its folder, the repository its check worktree was made from.
     pub cwd: String,
+    /// The node it lived on: its folder is that machine's, and nothing of
+    /// this one is to be cleaned up after it.
+    pub node: Option<String>,
 }
 
 /// A fresh id, as `crypto.randomUUID()` made them.
@@ -669,6 +672,7 @@ fn reduce(model: &mut Store, action: StoreAction) -> StoreOutcome {
                 model.removed.push(Removed {
                     ws: ws.id.clone(),
                     cwd: ws.cwd.clone(),
+                    node: ws.node.clone(),
                 });
                 let state = model.state_mut();
                 state.workspaces.retain(|ws| ws.id != id);

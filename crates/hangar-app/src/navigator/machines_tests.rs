@@ -402,3 +402,170 @@ fn the_mirrors_are_listed_in_french_in_a_light_theme() {
     assert!(has(&mut ui, "1 hors ligne"));
     h.shot(&mut ui, "hosted-navigator-fr-github-light");
 }
+
+/// The lines of the menu of workspace `id`: each label, with why it is
+/// greyed when it is.
+fn menu_lines(h: &Harness, id: &str) -> Vec<(String, Option<String>)> {
+    menu::workspace_entries(h.ctx(), id)
+        .into_iter()
+        .filter_map(|entry| match entry {
+            hangar_ui::menu::Entry::Item(item) => {
+                Some((item.label().to_owned(), item.refusal().map(str::to_owned)))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn line<'a>(lines: &'a [(String, Option<String>)], label: &str) -> Option<&'a Option<String>> {
+    lines
+        .iter()
+        .find(|(found, _)| found == label)
+        .map(|(_, refusal)| refusal)
+}
+
+/// A workspace this computer still drives on a node can be handed to it
+/// from its menu; one the node runs already, or one of this computer, has
+/// no such line. A mirror is not put to sleep either.
+#[test]
+fn a_workspace_driven_on_a_node_offers_to_move_there() {
+    let h = mirrors(Locale::En, "graphite");
+    let driven = menu_lines(&h, "w3");
+    assert_eq!(line(&driven, "Move to GPU box"), Some(&None));
+    assert!(line(&driven, "Put to sleep").is_some());
+    let mirror = menu_lines(&h, "o1");
+    assert!(line(&mirror, "Move to GPU box").is_none());
+    assert!(line(&mirror, "Put to sleep").is_none());
+    assert!(line(&mirror, "Delete workspace").is_some());
+    assert!(line(&menu_lines(&h, "w1"), "Move to GPU box").is_none());
+
+    // Picked, the line asks first.
+    let item = menu::workspace_entries(h.ctx(), "w3")
+        .into_iter()
+        .find_map(|entry| match entry {
+            hangar_ui::menu::Entry::Item(item) if item.label() == "Move to GPU box" => Some(item),
+            _ => None,
+        })
+        .expect("the line");
+    assert!(matches!(
+        item.selects(),
+        Some(Message::Navigator(Msg::Menu(menu::Action::MoveToMachine(ws)))) if ws == "w3"
+    ));
+
+    let st = State {
+        menu: Some(MenuState {
+            kind: RowKind::Ws,
+            id: "w3".into(),
+            at: iced::Vector::new(24.0, 20.0),
+            from_keyboard: true,
+        }),
+        ..State::default()
+    };
+    let mut ui = h.show(framed(&st, &h));
+    h.shot(&mut ui, "move-navigator-menu-en-graphite");
+}
+
+/// While the move would break something the line is greyed and says why.
+#[test]
+fn the_move_line_is_greyed_with_its_reason() {
+    let mut h = mirrors(Locale::En, "graphite");
+    h.model.live.control.begin_for_test("w3", "t1");
+    let lines = menu_lines(&h, "w3");
+    assert_eq!(
+        line(&lines, "Move to GPU box"),
+        Some(&Some(
+            "training cannot move to GPU box while one of its deliveries runs.".to_string()
+        ))
+    );
+}
+
+/// The question a move asks, in plain words, with the agents it interrupts.
+#[test]
+fn the_move_asks_first_and_says_what_happens() {
+    use crate::nodes::Ask;
+    let mut h = mirrors(Locale::En, "graphite");
+    let ask = Ask::Move("w3".into());
+    {
+        let mut ui = h.show(crate::nodes::ask::view(h.ctx(), &ask));
+        for text in [
+            "Move training to GPU box?",
+            "Its agents are restarted on GPU box and pick up their Claude sessions.",
+            "From then on it keeps running with this computer off.",
+            "This cannot be undone from here.",
+            "Cancel",
+            "Move to GPU box",
+        ] {
+            assert!(has(&mut ui, text), "{text}");
+        }
+        assert!(!has(&mut ui, "Mia is working and will be interrupted."));
+        h.shot(&mut ui, "move-confirm-en-graphite");
+        ui.click("Move to GPU box").expect("the yes");
+        let sent = messages(ui);
+        assert!(sent.iter().any(|message| matches!(
+            message,
+            Message::Nodes(crate::nodes::Msg::Answer(Ask::Move(ws), true)) if ws == "w3"
+        )));
+    }
+    // An agent in the middle of a turn is named.
+    h.model.live.panes_logic.seed_activity(
+        "w3-p",
+        "w3",
+        crate::state::live::AgentActivity::Working,
+    );
+    let mut ui = h.show(crate::nodes::ask::view(h.ctx(), &ask));
+    assert!(has(&mut ui, "Mia is working and will be interrupted."));
+    h.shot(&mut ui, "move-confirm-working-en-graphite");
+}
+
+#[test]
+fn the_questions_are_asked_in_french_too() {
+    use crate::nodes::Ask;
+    let h = mirrors(Locale::Fr, "github-light");
+    let (moved, removed) = (Ask::Move("w3".into()), Ask::Remove("o1".into()));
+    {
+        let mut ui = h.show(crate::nodes::ask::view(h.ctx(), &moved));
+        assert!(has(&mut ui, "Déplacer training vers GPU box\u{202f}?"));
+        h.shot(&mut ui, "move-confirm-fr-github-light");
+    }
+    let mut ui = h.show(crate::nodes::ask::view(h.ctx(), &removed));
+    assert!(has(
+        &mut ui,
+        "Il tourne sur GPU box\u{202f}: ses agents y sont arrêtés."
+    ));
+    h.shot(&mut ui, "hosted-remove-confirm-fr-github-light");
+}
+
+/// Deleting a workspace its node runs asks first, worded for what it is.
+#[test]
+fn deleting_a_mirror_asks_first() {
+    use crate::nodes::Ask;
+    let mut h = mirrors(Locale::En, "graphite");
+    let mut st = State::default();
+    let _ = run_action(
+        &mut st,
+        &mut h.model,
+        menu::Action::RemoveWorkspace("o1".into()),
+    );
+    assert!(h.model.workspace("o1").is_some(), "not before the yes");
+    let ask = Ask::Remove("o1".into());
+    {
+        let mut ui = h.show(crate::nodes::ask::view(h.ctx(), &ask));
+        for text in [
+            "Delete nightly?",
+            "It runs on GPU box: its agents there are stopped.",
+            "Its folder stays on GPU box.",
+            "Delete workspace",
+        ] {
+            assert!(has(&mut ui, text), "{text}");
+        }
+        h.shot(&mut ui, "hosted-remove-confirm-en-graphite");
+    }
+    // Its node away, nothing is asked: the refusal is said instead.
+    let _ = run_action(
+        &mut st,
+        &mut h.model,
+        menu::Action::RemoveWorkspace("o3".into()),
+    );
+    assert!(h.model.workspace("o3").is_some());
+    assert!(h.model.live.nodes.refused.is_some());
+}

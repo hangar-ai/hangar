@@ -1413,3 +1413,117 @@ fn a_workspace_can_be_made_on_a_connected_node() {
         .expect("the workspace is made");
     assert_eq!(made.node.as_deref(), Some("n1"));
 }
+
+/// A workspace made on a node is the node's own from the start: flagged
+/// here, handed over once, and taken back out when the node refuses it.
+#[test]
+fn a_workspace_made_on_a_node_is_handed_to_it_once_and_taken_back_if_refused() {
+    use crate::nodes::hosted::{self, Handover, Job};
+    use crate::nodes::remote::Listing;
+    use crate::nodes::testing::{machine, up};
+    use crate::state::types::{MachineKind, PaneRole};
+
+    let mut h = Harness::new(Locale::En, "graphite").edit(|state| {
+        state.settings.experiments = vec![crate::settings::experiments::NODES.into()];
+        state.settings.nodes = vec![machine("vps", "vps", MachineKind::Cloud)];
+    });
+    up(&mut h.model, "vps", "vps-01");
+    let mut st = State::default();
+    let _ = form(&mut st, &mut h.model, Msg::Place(Some("vps".into())));
+    let asked = st.place.listing_asked.expect("listed");
+    let listing = Listing {
+        path: "/home/vps/projects".into(),
+        parent: Some("/home/vps".into()),
+        folders: vec!["api".into(), "site".into()],
+    };
+    let _ = form(
+        &mut st,
+        &mut h.model,
+        Msg::NodeListed {
+            asked,
+            result: Ok(listing),
+        },
+    );
+    {
+        let mut ui = h.show(view(&st, h.ctx()));
+        assert!(
+            ui.find(
+                "The node runs this workspace itself: its agents keep working with this \
+                 computer off, and this window shows them."
+            )
+            .is_ok()
+        );
+        h.shot(&mut ui, "create-on-node-en-graphite");
+    }
+
+    st.folder.cwd = "/home/vps/projects/api".into();
+    let _ = form(&mut st, &mut h.model, Msg::Submit(Vec::new()));
+    let made = h
+        .model
+        .state()
+        .workspaces
+        .iter()
+        .find(|ws| ws.cwd == "/home/vps/projects/api")
+        .expect("made here at once")
+        .clone();
+    assert!(made.is_hosted());
+    assert_eq!(made.node.as_deref(), Some("vps"));
+    // Everything the dialog set went into the one workspace handed over:
+    // no edit follows it.
+    let waiting = h.model.live.nodes.outbox.waiting("vps");
+    let [
+        Job::Adopt {
+            workspace,
+            handover: Handover::Created,
+        },
+    ] = waiting.as_slice()
+    else {
+        panic!("one adopt: {waiting:?}");
+    };
+    assert_eq!(workspace.id, made.id);
+    assert_eq!(workspace.panes[0].id, made.panes[0].id);
+    assert_eq!(workspace.panes[0].role, Some(PaneRole::Orchestrator));
+    assert!(h.model.live.nodes.outbox.adopting(&made.id));
+
+    // The node says no: the workspace is not kept, and nothing of this
+    // machine is cleaned up after a folder that is the node's.
+    let _ = hosted::send_next(&mut h.model);
+    let _ = hosted::sent(
+        &mut h.model,
+        "vps",
+        Err("/home/vps/projects/api is not a folder here".into()),
+    );
+    assert!(h.model.workspace(&made.id).is_none());
+    assert!(!h.model.live.nodes.outbox.busy("vps"));
+    let removed = h.model.take_removed();
+    assert_eq!(removed.len(), 1);
+    assert_eq!(removed[0].node.as_deref(), Some("vps"));
+}
+
+#[test]
+fn a_workspace_the_node_takes_stays_as_its_mirror() {
+    use crate::nodes::hosted;
+    use crate::nodes::testing::{machine, up};
+    use crate::state::types::MachineKind;
+
+    let mut h = Harness::new(Locale::En, "graphite").edit(|state| {
+        state.settings.experiments = vec![crate::settings::experiments::NODES.into()];
+        state.settings.nodes = vec![machine("vps", "vps", MachineKind::Cloud)];
+    });
+    up(&mut h.model, "vps", "vps-01");
+    let mut st = State::default();
+    let _ = form(&mut st, &mut h.model, Msg::Place(Some("vps".into())));
+    st.folder.cwd = "/home/vps/projects/api".into();
+    let _ = form(&mut st, &mut h.model, Msg::Submit(Vec::new()));
+    let _ = hosted::send_next(&mut h.model);
+    let _ = hosted::sent(&mut h.model, "vps", Ok(()));
+    let made = h
+        .model
+        .state()
+        .workspaces
+        .iter()
+        .find(|ws| ws.cwd == "/home/vps/projects/api")
+        .expect("kept");
+    assert!(made.is_hosted());
+    assert!(!h.model.live.nodes.outbox.adopting(&made.id));
+}

@@ -340,6 +340,13 @@ fn machine_row<'a>(st: &'a State, ctx: Ctx<'a>, node: &'a NodeConfig) -> Element
     {
         lines = lines.push(typography::subtle(t, words));
     }
+    // Those this computer still drives there stop when it does: said, and
+    // each is handed over from its own menu in the navigator.
+    if node.is_on()
+        && let Some(words) = driven_words(ctx, id)
+    {
+        lines = lines.push(typography::subtle(t, words));
+    }
 
     let end: Element<'a, Message> = if renaming.is_some() {
         row![
@@ -392,6 +399,20 @@ fn own_words(ctx: Ctx<'_>, id: &str) -> Option<String> {
         count => Some(
             ctx.i18n
                 .t_with(Key::NodesOwnMany, &args!("count" => count))
+                .into_owned(),
+        ),
+    }
+}
+
+/// How many workspaces on node `id` this computer still drives, in words;
+/// nothing when there is none.
+fn driven_words(ctx: Ctx<'_>, id: &str) -> Option<String> {
+    match super::hosted::driven_here(ctx.model, id) {
+        0 => None,
+        1 => Some(ctx.t(Key::NodesStillHereOne).into_owned()),
+        count => Some(
+            ctx.i18n
+                .t_with(Key::NodesStillHereMany, &args!("count" => count))
                 .into_owned(),
         ),
     }

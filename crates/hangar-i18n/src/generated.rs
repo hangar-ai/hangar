@@ -2360,6 +2360,10 @@ pub enum Key {
     NodesAddTargetPlaceholder,
     /// `nodes.add.title`
     NodesAddTitle,
+    /// `nodes.adopt.createFailed`
+    NodesAdoptCreateFailed,
+    /// `nodes.adopt.moveFailed`
+    NodesAdoptMoveFailed,
     /// `nodes.claudeFound`
     NodesClaudeFound,
     /// `nodes.claudeMissing`
@@ -2398,8 +2402,14 @@ pub enum Key {
     NodesGitFound,
     /// `nodes.gitMissing`
     NodesGitMissing,
+    /// `nodes.hosted.notDone`
+    NodesHostedNotDone,
     /// `nodes.hosted.refused`
     NodesHostedRefused,
+    /// `nodes.hosted.unattended`
+    NodesHostedUnattended,
+    /// `nodes.hosted.worktree`
+    NodesHostedWorktree,
     /// `nodes.kind.cloud`
     NodesKindCloud,
     /// `nodes.kind.desktop`
@@ -2416,6 +2426,28 @@ pub enum Key {
     NodesKindTower,
     /// `nodes.local.hint`
     NodesLocalHint,
+    /// `nodes.move.action`
+    NodesMoveAction,
+    /// `nodes.move.confirm`
+    NodesMoveConfirm,
+    /// `nodes.move.delivering`
+    NodesMoveDelivering,
+    /// `nodes.move.noUndo`
+    NodesMoveNoUndo,
+    /// `nodes.move.offline`
+    NodesMoveOffline,
+    /// `nodes.move.restart`
+    NodesMoveRestart,
+    /// `nodes.move.starting`
+    NodesMoveStarting,
+    /// `nodes.move.stays`
+    NodesMoveStays,
+    /// `nodes.move.title`
+    NodesMoveTitle,
+    /// `nodes.move.workingMany`
+    NodesMoveWorkingMany,
+    /// `nodes.move.workingOne`
+    NodesMoveWorkingOne,
     /// `nodes.own.many`
     NodesOwnMany,
     /// `nodes.own.one`
@@ -2430,6 +2462,14 @@ pub enum Key {
     NodesPaneOffline,
     /// `nodes.pane.reconnecting`
     NodesPaneReconnecting,
+    /// `nodes.remove.body`
+    NodesRemoveBody,
+    /// `nodes.remove.confirm`
+    NodesRemoveConfirm,
+    /// `nodes.remove.kept`
+    NodesRemoveKept,
+    /// `nodes.remove.title`
+    NodesRemoveTitle,
     /// `nodes.retry`
     NodesRetry,
     /// `nodes.row.cancel`
@@ -2498,6 +2538,10 @@ pub enum Key {
     NodesStepStart,
     /// `nodes.step.tunnel`
     NodesStepTunnel,
+    /// `nodes.stillHere.many`
+    NodesStillHereMany,
+    /// `nodes.stillHere.one`
+    NodesStillHereOne,
     /// `nodes.switchOff`
     NodesSwitchOff,
     /// `nodes.switchOffHint`
@@ -4191,7 +4235,7 @@ pub enum Key {
 }
 
 /// How many keys there are.
-pub const KEY_COUNT: usize = 2087;
+pub const KEY_COUNT: usize = 2109;
 
 impl Key {
     /// Every key, in the order of their ids.
@@ -5369,6 +5413,8 @@ impl Key {
         Key::NodesAddTargetInvalid,
         Key::NodesAddTargetPlaceholder,
         Key::NodesAddTitle,
+        Key::NodesAdoptCreateFailed,
+        Key::NodesAdoptMoveFailed,
         Key::NodesClaudeFound,
         Key::NodesClaudeMissing,
         Key::NodesCreateEmpty,
@@ -5388,7 +5434,10 @@ impl Key {
         Key::NodesErrorUnsupportedArch,
         Key::NodesGitFound,
         Key::NodesGitMissing,
+        Key::NodesHostedNotDone,
         Key::NodesHostedRefused,
+        Key::NodesHostedUnattended,
+        Key::NodesHostedWorktree,
         Key::NodesKindCloud,
         Key::NodesKindDesktop,
         Key::NodesKindLaptop,
@@ -5397,6 +5446,17 @@ impl Key {
         Key::NodesKindServer,
         Key::NodesKindTower,
         Key::NodesLocalHint,
+        Key::NodesMoveAction,
+        Key::NodesMoveConfirm,
+        Key::NodesMoveDelivering,
+        Key::NodesMoveNoUndo,
+        Key::NodesMoveOffline,
+        Key::NodesMoveRestart,
+        Key::NodesMoveStarting,
+        Key::NodesMoveStays,
+        Key::NodesMoveTitle,
+        Key::NodesMoveWorkingMany,
+        Key::NodesMoveWorkingOne,
         Key::NodesOwnMany,
         Key::NodesOwnOne,
         Key::NodesPaneAway,
@@ -5404,6 +5464,10 @@ impl Key {
         Key::NodesPaneOff,
         Key::NodesPaneOffline,
         Key::NodesPaneReconnecting,
+        Key::NodesRemoveBody,
+        Key::NodesRemoveConfirm,
+        Key::NodesRemoveKept,
+        Key::NodesRemoveTitle,
         Key::NodesRetry,
         Key::NodesRowCancel,
         Key::NodesRowConnected,
@@ -5438,6 +5502,8 @@ impl Key {
         Key::NodesStepProbe,
         Key::NodesStepStart,
         Key::NodesStepTunnel,
+        Key::NodesStillHereMany,
+        Key::NodesStillHereOne,
         Key::NodesSwitchOff,
         Key::NodesSwitchOffHint,
         Key::NodesSwitchOn,
@@ -7461,12 +7527,14 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "nodes.add.targetInvalid", en: Text::plain("An SSH target is one word that does not start with a dash."), fr: Text::plain("Une cible SSH est un seul mot qui ne commence pas par un tiret.") },
     Message { id: "nodes.add.targetPlaceholder", en: Text::plain("user@host or a Host of ~/.ssh/config"), fr: Text::plain("user@hôte ou un Host de ~/.ssh/config") },
     Message { id: "nodes.add.title", en: Text::plain("Add a machine"), fr: Text::plain("Ajouter une machine") },
+    Message { id: "nodes.adopt.createFailed", en: Text::plain("{node} could not take {name}: {reason}. The workspace was not made."), fr: Text::plain("{node} n’a pas pu prendre {name}\u{202f}: {reason}. Le workspace n’a pas été créé.") },
+    Message { id: "nodes.adopt.moveFailed", en: Text::plain("{node} could not take {name}: {reason}. It still runs from this computer."), fr: Text::plain("{node} n’a pas pu prendre {name}\u{202f}: {reason}. Il tourne toujours depuis cet ordinateur.") },
     Message { id: "nodes.claudeFound", en: Text::plain("Claude Code"), fr: Text::plain("Claude Code") },
     Message { id: "nodes.claudeMissing", en: Text::plain("No Claude Code"), fr: Text::plain("Pas de Claude Code") },
     Message { id: "nodes.create.empty", en: Text::plain("No sub-folder here."), fr: Text::plain("Aucun sous-dossier ici.") },
     Message { id: "nodes.create.failed", en: Text::plain("The node could not list this folder: {error}"), fr: Text::plain("Le nœud n’a pas pu lister ce dossier\u{202f}: {error}") },
     Message { id: "nodes.create.folder", en: Text::plain("Folder on the node"), fr: Text::plain("Dossier sur le nœud") },
-    Message { id: "nodes.create.hint", en: Text::plain("The workspace’s terminals, board and agents live on the node; this window shows them."), fr: Text::plain("Les terminaux, le tableau et les agents du workspace vivent sur le nœud\u{202f}; cette fenêtre les montre.") },
+    Message { id: "nodes.create.hint", en: Text::plain("The node runs this workspace itself: its agents keep working with this computer off, and this window shows them."), fr: Text::plain("Le nœud fait tourner ce workspace lui-même\u{202f}: ses agents continuent, cet ordinateur éteint, et cette fenêtre les affiche.") },
     Message { id: "nodes.create.loading", en: Text::plain("Reading the node’s folders…"), fr: Text::plain("Lecture des dossiers du nœud…") },
     Message { id: "nodes.create.local", en: Text::plain("This computer"), fr: Text::plain("Cet ordinateur") },
     Message { id: "nodes.create.up", en: Text::plain("Parent folder"), fr: Text::plain("Dossier parent") },
@@ -7480,7 +7548,10 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "nodes.error.unsupportedArch", en: Text::plain("This machine runs {arch}; nodes run on Linux x86_64 and arm64."), fr: Text::plain("Cette machine tourne sur {arch}\u{202f}; les nœuds tournent sur Linux x86_64 et arm64.") },
     Message { id: "nodes.gitFound", en: Text::plain("git"), fr: Text::plain("git") },
     Message { id: "nodes.gitMissing", en: Text::plain("No git"), fr: Text::plain("Pas de git") },
-    Message { id: "nodes.hosted.refused", en: Text::plain("{name} runs on {node}: it cannot be changed from here yet."), fr: Text::plain("{name} tourne sur {node}\u{202f}: impossible de le modifier d’ici pour l’instant.") },
+    Message { id: "nodes.hosted.notDone", en: Text::plain("{node} did not take the change to {name}: {reason}. It is shown as {node} has it."), fr: Text::plain("{node} n’a pas pris la modification de {name}\u{202f}: {reason}. Il est affiché tel que {node} l’a.") },
+    Message { id: "nodes.hosted.refused", en: Text::plain("{node} is offline: {name} can be looked at, not changed."), fr: Text::plain("{node} est hors ligne\u{202f}: {name} peut être consulté, pas modifié.") },
+    Message { id: "nodes.hosted.unattended", en: Text::plain("{name} runs on {node}: only you can change it, from this window."), fr: Text::plain("{name} tourne sur {node}\u{202f}: vous seul pouvez le modifier, depuis cette fenêtre.") },
+    Message { id: "nodes.hosted.worktree", en: Text::plain("{name} runs on {node}: a workspace on one of its worktrees cannot be made from here yet."), fr: Text::plain("{name} tourne sur {node}\u{202f}: un workspace sur l’un de ses worktrees ne peut pas encore être créé d’ici.") },
     Message { id: "nodes.kind.cloud", en: Text::plain("Cloud"), fr: Text::plain("Cloud") },
     Message { id: "nodes.kind.desktop", en: Text::plain("Desktop"), fr: Text::plain("Ordinateur de bureau") },
     Message { id: "nodes.kind.laptop", en: Text::plain("Laptop"), fr: Text::plain("Portable") },
@@ -7489,6 +7560,17 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "nodes.kind.server", en: Text::plain("Server"), fr: Text::plain("Serveur") },
     Message { id: "nodes.kind.tower", en: Text::plain("Tower"), fr: Text::plain("Tour") },
     Message { id: "nodes.local.hint", en: Text::plain("This machine"), fr: Text::plain("Cette machine") },
+    Message { id: "nodes.move.action", en: Text::plain("Move to {node}"), fr: Text::plain("Déplacer vers {node}") },
+    Message { id: "nodes.move.confirm", en: Text::plain("Move to {node}"), fr: Text::plain("Déplacer vers {node}") },
+    Message { id: "nodes.move.delivering", en: Text::plain("{name} cannot move to {node} while one of its deliveries runs."), fr: Text::plain("{name} ne peut pas être déplacé vers {node} pendant l’une de ses livraisons.") },
+    Message { id: "nodes.move.noUndo", en: Text::plain("This cannot be undone from here."), fr: Text::plain("Cela ne peut pas être annulé d’ici.") },
+    Message { id: "nodes.move.offline", en: Text::plain("{node} is offline: {name} cannot move there now."), fr: Text::plain("{node} est hors ligne\u{202f}: {name} ne peut pas y être déplacé pour l’instant.") },
+    Message { id: "nodes.move.restart", en: Text::plain("Its agents are restarted on {node} and pick up their Claude sessions."), fr: Text::plain("Ses agents sont relancés sur {node} et reprennent leurs sessions Claude.") },
+    Message { id: "nodes.move.starting", en: Text::plain("{name} cannot move to {node} while a worker is starting."), fr: Text::plain("{name} ne peut pas être déplacé vers {node} pendant qu’un worker démarre.") },
+    Message { id: "nodes.move.stays", en: Text::plain("From then on it keeps running with this computer off."), fr: Text::plain("Il continue ensuite de tourner, cet ordinateur éteint.") },
+    Message { id: "nodes.move.title", en: Text::plain("Move {name} to {node}?"), fr: Text::plain("Déplacer {name} vers {node}\u{202f}?") },
+    Message { id: "nodes.move.workingMany", en: Text::plain("{count} agents are working and will be interrupted."), fr: Text::plain("{count} agents travaillent et seront interrompus.") },
+    Message { id: "nodes.move.workingOne", en: Text::plain("{name} is working and will be interrupted."), fr: Text::plain("{name} travaille et sera interrompu.") },
     Message { id: "nodes.own.many", en: Text::plain("Runs {count} workspaces itself, listed in the navigator"), fr: Text::plain("Fait tourner {count} workspaces lui-même, listés dans le navigateur") },
     Message { id: "nodes.own.one", en: Text::plain("Runs 1 workspace itself, listed in the navigator"), fr: Text::plain("Fait tourner 1 workspace lui-même, listé dans le navigateur") },
     Message { id: "nodes.pane.away", en: Text::plain("{node} is not connected"), fr: Text::plain("{node} n’est pas connecté") },
@@ -7496,6 +7578,10 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "nodes.pane.off", en: Text::plain("{node} is switched off"), fr: Text::plain("{node} est désactivé") },
     Message { id: "nodes.pane.offline", en: Text::plain("{node} is offline: {reason}"), fr: Text::plain("{node} est hors ligne\u{202f}: {reason}") },
     Message { id: "nodes.pane.reconnecting", en: Text::plain("{node} is reconnecting…"), fr: Text::plain("Reconnexion à {node}…") },
+    Message { id: "nodes.remove.body", en: Text::plain("It runs on {node}: its agents there are stopped."), fr: Text::plain("Il tourne sur {node}\u{202f}: ses agents y sont arrêtés.") },
+    Message { id: "nodes.remove.confirm", en: Text::plain("Delete workspace"), fr: Text::plain("Supprimer le workspace") },
+    Message { id: "nodes.remove.kept", en: Text::plain("Its folder stays on {node}."), fr: Text::plain("Son dossier reste sur {node}.") },
+    Message { id: "nodes.remove.title", en: Text::plain("Delete {name}?"), fr: Text::plain("Supprimer {name}\u{202f}?") },
     Message { id: "nodes.retry", en: Text::plain("Retry now"), fr: Text::plain("Réessayer maintenant") },
     Message { id: "nodes.row.cancel", en: Text::plain("Cancel"), fr: Text::plain("Annuler") },
     Message { id: "nodes.row.connected", en: Text::plain("Connected · hangar-node {version} on {hostname}"), fr: Text::plain("Connecté · hangar-node {version} sur {hostname}") },
@@ -7530,6 +7616,8 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "nodes.step.probe", en: Text::plain("Looking at the machine…"), fr: Text::plain("Examen de la machine…") },
     Message { id: "nodes.step.start", en: Text::plain("Starting hangar-node…"), fr: Text::plain("Démarrage de hangar-node…") },
     Message { id: "nodes.step.tunnel", en: Text::plain("Opening the tunnel…"), fr: Text::plain("Ouverture du tunnel…") },
+    Message { id: "nodes.stillHere.many", en: Text::plain("{count} workspaces here still need this computer on"), fr: Text::plain("{count} workspaces ici ont encore besoin de cet ordinateur allumé") },
+    Message { id: "nodes.stillHere.one", en: Text::plain("1 workspace here still needs this computer on"), fr: Text::plain("1 workspace ici a encore besoin de cet ordinateur allumé") },
     Message { id: "nodes.switchOff", en: Text::plain("Switch off"), fr: Text::plain("Désactiver") },
     Message { id: "nodes.switchOffHint", en: Text::plain("Stops reconnecting and hides this machine’s workspaces. They come back when it is switched on in Settings › Nodes."), fr: Text::plain("Arrête les reconnexions et masque les workspaces de cette machine. Ils reviennent quand elle est réactivée dans Réglages › Nœuds.") },
     Message { id: "nodes.switchOn", en: Text::plain("Switch on"), fr: Text::plain("Activer") },

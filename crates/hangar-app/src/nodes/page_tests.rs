@@ -250,3 +250,47 @@ fn with_no_node_the_list_is_this_computer_and_the_form() {
     assert!(ui.find("Add a machine").is_ok());
     assert_eq!(st.form.kind, MachineKind::Server, "a server until told");
 }
+
+/// Under a machine's row, how many workspaces there still stop with this
+/// computer: one quiet line, and nothing when there is none.
+#[test]
+fn a_machine_says_how_many_workspaces_still_need_this_computer() {
+    let on_gpu = |id: &str, name: &str| Workspace {
+        id: id.into(),
+        name: name.into(),
+        cwd: format!("/srv/{name}"),
+        node: Some("gpu".into()),
+        ..Workspace::default()
+    };
+    let (h, at) = page_at(Locale::En, "graphite");
+    let st = State::default();
+    {
+        let mut ui = h.show(drawn_at(&st, &h, at));
+        assert!(
+            ui.find("1 workspace here still needs this computer on")
+                .is_err()
+        );
+    }
+    let mut h = h;
+    h.model
+        .apply(StoreAction::PutWorkspace(Box::new(on_gpu("d1", "api"))));
+    {
+        let mut ui = h.show(drawn_at(&st, &h, at));
+        assert!(
+            ui.find("1 workspace here still needs this computer on")
+                .is_ok()
+        );
+        assert!(
+            ui.find("Runs 2 workspaces itself, listed in the navigator")
+                .is_ok()
+        );
+    }
+    h.model
+        .apply(StoreAction::PutWorkspace(Box::new(on_gpu("d2", "site"))));
+    let mut ui = h.show(drawn_at(&st, &h, at));
+    assert!(
+        ui.find("2 workspaces here still need this computer on")
+            .is_ok()
+    );
+    h.shot(&mut ui, "machines-settings-still-here-en-graphite");
+}

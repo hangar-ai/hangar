@@ -262,8 +262,11 @@ streams them as any pane of the node.
   /node/own/state` at the connection, at `own:changed` and after lost
   events, their panes followed and never started or killed from there.
   `bridged`, beside `activity` in that answer, lists the panes whose agent
-  reports through its mod. Changing what is the node's from the desktop is
-  refused for now; the ops above are what it will send.
+  reports through its mod. What the person changes of the node's on a
+  mirror is sent as the ops above, in order, one request at a time for
+  each node; a workspace made from the desktop on a node, and one the
+  desktop drove there (« Move to {machine} » in the navigator), are handed
+  over with the adopt above (nodes.md, same section).
 
 Tested on the binary itself (`hangar-node/tests/node.rs`): a workspace
 made through the API, its orchestrator's shell started and a Claude Code
@@ -323,9 +326,9 @@ hangar-node workspace add ~/projects/shop       # or /workspace on Discord
 The desktop runs the same connector for its own workspaces
 (discord-connector.md, "Where it runs").
 
-Still to do: the remote workspaces a desktop drives on a node moving to the
-node (the desktop then their client), and a phone reaching a node with no
-desktop.
+Still to do: a phone reaching a node with no desktop. The workspaces a
+desktop still drives on a node are moved one at a time, by the person;
+nothing moves them in bulk.
 
 ## What it costs, measured
 

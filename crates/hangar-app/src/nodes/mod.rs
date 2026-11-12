@@ -12,6 +12,7 @@
 //! experiment off or quitting ends its connection and kills its tunnel.
 //! How a machine and its link are shown, everywhere, is `presence.rs`.
 
+pub mod ask;
 pub mod away;
 pub mod commands;
 pub mod connect;
@@ -24,6 +25,8 @@ pub mod remote;
 pub mod runner;
 pub mod wire;
 
+#[cfg(test)]
+mod forward_tests;
 #[cfg(test)]
 mod hosted_tests;
 #[cfg(test)]
@@ -139,11 +142,22 @@ pub struct Live {
     /// what their mirrors say (`hosted::take_in`).
     pub held: HashMap<String, hosted::Held>,
     /// A change to a workspace a node runs itself that was just refused
-    /// (`Model::apply`), until the shell has said so.
-    pub refused: Option<crate::state::HostedEdit>,
+    /// (`Model::apply`), and why, until the shell has said so.
+    pub refused: Option<(crate::state::HostedEdit, hosted::Why)>,
+    /// What the nodes are still to be told of what the person changed on
+    /// their mirrors, and the workspaces being handed to them.
+    pub outbox: hosted::Outbox,
 }
 
 impl Live {
+    /// The person changed a mirror: its node is to be told, and what was
+    /// held of the node's state no longer says what the mirror says, so
+    /// that what the node lists next is taken whole.
+    pub fn edited(&mut self, edit: crate::state::HostedEdit) {
+        self.held.remove(&edit.node);
+        self.outbox.edited(edit);
+    }
+
     pub fn status(&self, id: &str) -> NodeStatus {
         self.statuses.get(id).cloned().unwrap_or_default()
     }
@@ -186,10 +200,31 @@ pub enum Msg {
     /// it connected, it said the state changed, or events were lost.
     SyncOwn(String),
     /// What node `id` answered; `None`: it could not say (an older node).
+    /// `asked`: where its line stood when it was asked
+    /// (`hosted::Outbox::epoch`).
     OwnState {
         id: String,
+        asked: u64,
         state: Option<Box<hosted::OwnState>>,
     },
+    /// Node `id` answered the last thing it was told (`hosted::send_next`).
+    Sent {
+        id: String,
+        result: Result<(), String>,
+    },
+    /// The answer to a question about a workspace on a node
+    /// (`Overlay::NodeAsk`): `true` goes ahead.
+    Answer(Ask, bool),
+}
+
+/// A question asked before something that cannot be undone is done to a
+/// workspace on a node.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Ask {
+    /// Hand a workspace this computer drives to its node.
+    Move(crate::state::WsId),
+    /// Delete a workspace its node runs, there too.
+    Remove(crate::state::WsId),
 }
 
 /// The experiment is on.
@@ -612,12 +647,15 @@ pub fn update(st: &mut State, m: &mut Model, sv: &Services, msg: Msg) -> Task<Me
         }
         Msg::Reconcile => reconcile(st, m, sv),
         Msg::SyncOwn(id) => return hosted::fetch(m, &id),
-        Msg::OwnState { id, state } => {
+        Msg::OwnState { id, asked, state } => {
             if let Some(state) = state {
-                hosted::take_in(m, &id, *state, crate::panes_logic::wall_clock_ms());
+                let now = crate::panes_logic::wall_clock_ms();
+                hosted::take_in_asked(m, &id, asked, *state, now);
                 leave_hidden_workspace(m);
             }
         }
+        Msg::Sent { id, result } => return hosted::sent(m, &id, result),
+        Msg::Answer(ask, yes) => return ask::answered(m, ask, yes),
     }
     Task::none()
 }

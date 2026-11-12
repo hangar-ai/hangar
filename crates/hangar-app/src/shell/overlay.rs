@@ -98,6 +98,9 @@ pub enum Overlay {
     Task { cwd: String, task: Option<String> },
     /// Claude Code is missing: install it, or go on with shells (setup/).
     ClaudeSetup,
+    /// A question about a workspace on a node, before what cannot be
+    /// undone from here (nodes).
+    NodeAsk(crate::nodes::Ask),
 }
 
 /// The overlay drawn by the package that owns it, over everything below.
@@ -128,6 +131,7 @@ pub fn view<'a>(ctx: Ctx<'a>, overlay: &'a Overlay) -> Element<'a, Message> {
         Overlay::Diff { ws, pane } => crate::git_ui::diff_view(&p.git_ui, ctx, ws, pane.as_ref()),
         Overlay::Task { cwd, task } => crate::board::task_view(&p.board, ctx, cwd, task.as_deref()),
         Overlay::ClaudeSetup => crate::shell::setup::view(&p.setup, ctx),
+        Overlay::NodeAsk(ask) => crate::nodes::ask::view(ctx, ask),
     };
     opaque(content)
 }

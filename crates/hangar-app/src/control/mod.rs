@@ -163,6 +163,13 @@ impl Live {
             .collect()
     }
 
+    #[cfg(test)]
+    /// A delivery of `task` running in `ws`, for the tests of what waits
+    /// for deliveries to end.
+    pub fn begin_for_test(&mut self, ws: &str, task: &str) {
+        self.begin(ws.to_owned(), task.to_owned());
+    }
+
     fn begin(&mut self, ws: WsId, task: String) {
         *self.runs.entry(ws).or_default().entry(task).or_default() += 1;
     }

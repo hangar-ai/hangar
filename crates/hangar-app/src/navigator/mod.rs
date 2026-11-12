@@ -790,15 +790,25 @@ fn run_action(st: &mut State, m: &mut Model, action: menu::Action) -> Task<Messa
             Task::none()
         }
         Action::RemoveWorkspace(id) => {
-            // The MCP scope of a workspace its node runs is a file of the
-            // node's, which the node writes and clears.
-            let hosted = m.workspace(&id).is_some_and(|ws| ws.is_hosted());
-            apply(m, StoreAction::RemoveWorkspace(id.clone()));
-            if hosted {
+            // A workspace its node runs is deleted there, its agents with
+            // it: asked first, while the node is there to be told (away,
+            // the store refuses and says why). Its MCP scope is a file of
+            // the node's, which the node writes and clears.
+            let mirror = m.workspace(&id).filter(|ws| ws.is_hosted());
+            if let Some(node) = mirror.and_then(|ws| ws.node.as_deref()) {
+                if crate::nodes::client(m, node).is_some() {
+                    let ask = crate::nodes::Ask::Remove(id);
+                    return Task::done(Message::Intent(Intent::OpenOverlay(
+                        crate::shell::Overlay::NodeAsk(ask),
+                    )));
+                }
+                apply(m, StoreAction::RemoveWorkspace(id));
                 return Task::none();
             }
+            apply(m, StoreAction::RemoveWorkspace(id.clone()));
             Task::done(Message::Navigator(Msg::ClearMcpScope(id)))
         }
+        Action::MoveToMachine(id) => crate::nodes::ask::ask_move(m, &id),
     }
 }
 

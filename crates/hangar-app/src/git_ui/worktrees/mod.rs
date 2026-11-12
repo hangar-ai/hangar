@@ -449,11 +449,13 @@ fn hosted_edit(m: &mut Model, ws: &str) -> bool {
     let Some(found) = m.workspace(ws).filter(|found| found.is_hosted()) else {
         return false;
     };
-    m.live.nodes.refused = Some(crate::state::HostedEdit {
+    let edit = crate::state::HostedEdit {
         node: found.node.clone().unwrap_or_default(),
         workspace: found.id.clone(),
+        name: found.name.clone(),
         ops: Vec::new(),
-    });
+    };
+    m.live.nodes.refused = Some((edit, crate::nodes::hosted::Why::Worktree));
     true
 }
 

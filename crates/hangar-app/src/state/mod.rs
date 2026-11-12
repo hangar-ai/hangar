@@ -51,6 +51,8 @@ use crate::shell::{Drawer, View, WindowKind};
 pub struct HostedEdit {
     pub node: String,
     pub workspace: WsId,
+    /// What the workspace was called before the change.
+    pub name: String,
     pub ops: Vec<hosted::HostedOp>,
 }
 
@@ -100,19 +102,72 @@ impl Model {
         self.store.workspace(id)
     }
 
-    /// Applies one store action (hangar-engine's `Store::apply`).
+    /// Applies one store action (hangar-engine's `Store::apply`), as the
+    /// person's.
     ///
-    /// A workspace a node runs itself is its node's to change: an action
-    /// that would change what the node owns of one ([`Model::hosted_edits`])
+    /// A workspace a node runs itself is its node's to change. An action
+    /// that changes what the node owns of one ([`Model::hosted_edits`]) is
+    /// applied to the mirror at once, so that whoever asked reads its
+    /// result as for any other workspace, and what the node has to be told
+    /// waits in `nodes::Live::outbox`, which the shell sends in the order
+    /// the changes were made. While the node cannot be reached the action
     /// is refused whole, nothing applied, and the shell says so
-    /// (`nodes::Live::refused`). Sending such a change to the node instead
-    /// starts here.
+    /// (`nodes::Live::refused`).
     pub fn apply(&mut self, action: StoreAction) -> StoreOutcome {
-        if let Some(edit) = self.hosted_edits(&action).into_iter().next() {
-            self.live.nodes.refused = Some(edit);
+        self.apply_from(action, true)
+    }
+
+    /// [`Model::apply`] for a change nobody at this computer asked for (an
+    /// agent of this machine acting through the control port): what it
+    /// would change of a workspace a node runs itself is refused, the
+    /// node's agents being the ones that act on it.
+    pub fn apply_unattended(&mut self, action: StoreAction) -> StoreOutcome {
+        self.apply_from(action, false)
+    }
+
+    fn apply_from(&mut self, action: StoreAction, person: bool) -> StoreOutcome {
+        use crate::nodes::hosted::Why;
+        let mut edits = self.hosted_edits(&action);
+        if edits.is_empty() {
+            return self.store.apply(action);
+        }
+        let away = edits
+            .iter()
+            .position(|edit| crate::nodes::client(self, &edit.node).is_none());
+        let refused = match (person, away) {
+            (false, _) => Some((edits.swap_remove(0), Why::Unattended)),
+            (true, Some(at)) => Some((edits.swap_remove(at), Why::Offline)),
+            (true, None) => None,
+        };
+        if refused.is_some() {
+            self.live.nodes.refused = refused;
             return StoreOutcome::default();
         }
-        self.store.apply(action)
+        // The ids the action makes (a new pane's, a restarted one's) are
+        // made as it is applied: what the nodes are told is read from what
+        // it did, not from the trial.
+        let before = self.state_arc();
+        let respawned = self.store.respawns().len();
+        let outcome = self.store.apply(action);
+        let respawns = &self.store.respawns()[respawned..];
+        let edits: Vec<HostedEdit> = before
+            .workspaces
+            .iter()
+            .filter(|ws| ws.is_hosted())
+            .filter_map(|ws| {
+                let ops = hosted::diff(ws, self.store.workspace(&ws.id), respawns);
+                (!ops.is_empty()).then(|| HostedEdit {
+                    node: ws.node.clone().unwrap_or_default(),
+                    workspace: ws.id.clone(),
+                    name: ws.name.clone(),
+                    ops,
+                })
+            })
+            .collect();
+        for edit in edits {
+            self.live.nodes.edited(edit);
+        }
+        outcome
     }
 
     /// What `action` would change in the workspaces a node runs itself, as
@@ -122,7 +177,8 @@ impl Model {
     /// the list, its layout, its views, its window, its chat view).
     ///
     /// The action is tried on a copy of the store, which is thrown away:
-    /// nothing is applied here. What the node itself said
+    /// nothing is applied here, and the ids it makes on the way are not the
+    /// ones applying it will make. What the node itself said
     /// (`SyncHosted`) and a workspace put whole (`PutWorkspace`) are not
     /// edits of the person's, and give nothing.
     pub fn hosted_edits(&self, action: &StoreAction) -> Vec<HostedEdit> {
@@ -147,6 +203,7 @@ impl Model {
                 (!ops.is_empty()).then(|| HostedEdit {
                     node: ws.node.clone().unwrap_or_default(),
                     workspace: ws.id.clone(),
+                    name: ws.name.clone(),
                     ops,
                 })
             })

@@ -114,10 +114,56 @@ never starts, launches or kills one; its orchestration runtime, its
 hibernation, its Discord connector and the answers it gives a node's
 agents leave them out; the reports of their agents and their queues come
 over `/node/events`, so their marks show for a workspace never opened.
-What is the node's of a workspace (its name, its folder, its panes) cannot
-be changed from the desktop yet: such a change is refused with a notice.
-Where it is listed, its layout, its views, its window and its chat view
-are the desktop's own, and change freely.
+Where a mirror is listed, its layout, its views, its window and its chat
+view are the desktop's own, and change freely.
+
+What is the node's of a workspace (its name, its folder, its panes, its
+settings) is changed on the mirror and told to the node. `Model::apply`
+applies the person's change at once, so the pane just opened or restarted
+has its id here, and leaves the ops that say it (`hosted::diff`) in
+`nodes::hosted::Outbox`; after every message the shell sends what waits,
+one request at a time for each node (`POST /node/own/workspaces/{id}/ops`),
+so a node hears the changes in the order they were made. A pane opened or
+restarted on a mirror keeps the id the desktop gave it. Until the node has
+answered everything sent to it, what it lists is older than the mirror and
+is not taken in; then it is read again, and its word is the last. A change
+the node refuses, or that did not reach it, ends the line there: the
+mirror is read again from the node and one notice says what was not done.
+While the node is away or switched off such a change is refused with a
+notice, nothing applied. Only the person's changes are sent: what an agent
+of this computer asks through the control port is refused
+(`Model::apply_unattended`).
+
+Deleting a mirror deletes the workspace on its node, after a question that
+says so; its folder stays there, and nothing of this computer is cleaned
+up after it. Pinning an orchestrator on a mirror restarts the pane with
+the role, on its node and on the same conversation (a pane this computer
+runs waits for its turn to end; the node's is restarted at once). « Put to
+sleep » does not apply to a mirror.
+
+A workspace made from the new-workspace dialog with « Runs on » set to a
+node is the node's own from the start: built here, with the ids the
+desktop gives, flagged `hosted` and handed to the node (`POST
+/node/own/adopt`) through the same line; were the node to refuse it, it is
+taken back out and the reason shown. (A clone from Git is made on this
+computer only, as before.) A workspace the desktop still drives on a node
+(`node` set, not `hosted`: one made before, which stops with this computer)
+has « Move to {machine} » in its menu in the navigator. After a question
+that says what happens, it is flagged `hosted` here first, so that this
+computer's engines let go of it, then handed to the node, which takes down
+the shells the desktop had started and starts its own under the same ids,
+each Claude Code on its session. Nothing of the workspace is followed here
+until the node said yes; if it says no, the workspace is driven from here
+again and its panes are found where they were. The move is refused, with
+the reason, while one of its deliveries runs, while a worker has no
+session yet, or while the node is away. Settings › Nodes says, under a
+machine, how many workspaces there still need this computer on.
+
+The state is not saved while a workspace is on its way to a node, and one
+still on its way when the app closes is saved as this computer's: written
+as the node's before the node took it, it would be a mirror of nothing and
+go at the next sync. A node that did take it lists it at the next
+connection, which makes it its mirror then.
 
 The node API also lets a desktop mirror them, the node staying their owner:
 `GET /node/own/state` (the workspaces whole, with a revision),

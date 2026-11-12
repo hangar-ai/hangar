@@ -966,7 +966,8 @@ fn a_removed_workspace_is_handed_over_for_its_check_to_go() {
         m.take_removed(),
         [Removed {
             ws: id,
-            cwd: "/p".into()
+            cwd: "/p".into(),
+            node: None,
         }]
     );
     assert!(m.take_removed().is_empty(), "handed over once");

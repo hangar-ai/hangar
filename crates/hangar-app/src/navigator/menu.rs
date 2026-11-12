@@ -46,6 +46,8 @@ pub enum Action {
     MoveToNewFolder(WsId),
     RemoveFolder(String),
     RemoveWorkspace(WsId),
+    /// Hands a workspace this computer drives on a node to that node.
+    MoveToMachine(WsId),
 }
 
 fn pick(action: Action) -> Message {
@@ -259,6 +261,26 @@ pub fn workspace_entries(ctx: Ctx<'_>, id: &str) -> Vec<Entry<Message>> {
             .into(),
     );
     entries.push(menu::separator());
+
+    // A workspace on a node that this computer still drives stops when the
+    // computer does: handing it to the node is offered here.
+    if let Some(node) = ws.node.as_deref().filter(|_| !ws.is_hosted()) {
+        let label = crate::nodes::label(ctx.model, node);
+        let item = menu::item(
+            tr.t_with(
+                Key::NodesMoveAction,
+                &hangar_i18n::args!("node" => label.as_str()),
+            )
+            .into_owned(),
+        )
+        .icon(Icon::MoveToMachine);
+        entries.push(match crate::nodes::hosted::move_refusal(ctx.model, ws) {
+            Some(reason) => item.disabled_because(reason).into(),
+            None => item
+                .on_select(pick(Action::MoveToMachine(ws.id.clone())))
+                .into(),
+        });
+    }
 
     // Next to deleting it: the two ways to stop what it runs, for a while or
     // for good. The sleep line is greyed with its reason when a rule says no;
