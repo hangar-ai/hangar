@@ -83,11 +83,21 @@ pub enum Icon {
     Copy,
     Maximize,
     Unmaximize,
+    Server,
+    Cloud,
+    Laptop,
+    Desktop,
+    MiniPc,
+    Tower,
+    Machines,
+    Unplugged,
+    Power,
+    MoveToMachine,
 }
 
 impl Icon {
     /// All of them, in the order of the web app's table.
-    pub const ALL: [Icon; 77] = [
+    pub const ALL: [Icon; 87] = [
         Icon::Layout1,
         Icon::Layout2,
         Icon::Layout4,
@@ -165,6 +175,16 @@ impl Icon {
         Icon::Copy,
         Icon::Maximize,
         Icon::Unmaximize,
+        Icon::Server,
+        Icon::Cloud,
+        Icon::Laptop,
+        Icon::Desktop,
+        Icon::MiniPc,
+        Icon::Tower,
+        Icon::Machines,
+        Icon::Unplugged,
+        Icon::Power,
+        Icon::MoveToMachine,
     ];
 
     /// The name the web app knows it by (`"splitRight"`), which is what the
@@ -248,6 +268,16 @@ impl Icon {
             Icon::Copy => "copy",
             Icon::Maximize => "maximize",
             Icon::Unmaximize => "unmaximize",
+            Icon::Server => "server",
+            Icon::Cloud => "cloud",
+            Icon::Laptop => "laptop",
+            Icon::Desktop => "desktop",
+            Icon::MiniPc => "miniPc",
+            Icon::Tower => "tower",
+            Icon::Machines => "machines",
+            Icon::Unplugged => "unplugged",
+            Icon::Power => "power",
+            Icon::MoveToMachine => "moveToMachine",
         }
     }
 
@@ -336,6 +366,19 @@ impl Icon {
             Icon::Copy => r##"<rect x="5.4" y="5.4" width="8.2" height="8.2" rx="1.6"/><path d="M10.6 5.4V3.9a1.5 1.5 0 0 0-1.5-1.5H3.9a1.5 1.5 0 0 0-1.5 1.5v5.2a1.5 1.5 0 0 0 1.5 1.5h1.5"/>"##,
             Icon::Maximize => r##"<rect x="3.75" y="3.75" width="8.5" height="8.5" rx="1.2"/>"##,
             Icon::Unmaximize => r##"<rect x="3.25" y="5.75" width="7" height="7" rx="1.1"/><path d="M5.75 3.25h5.8a1.2 1.2 0 0 1 1.2 1.2v5.8"/>"##,
+            // The machines a workspace can live on, each its own silhouette at 12 px,
+            // then the link to one being down, switching one on or off, and moving
+            // something onto another one.
+            Icon::Server => r##"<rect x="1.75" y="2.25" width="12.5" height="4.9" rx="1.5"/><rect x="1.75" y="8.85" width="12.5" height="4.9" rx="1.5"/><circle cx="4.6" cy="4.7" r=".8" fill="#000" stroke="none"/><circle cx="4.6" cy="11.3" r=".8" fill="#000" stroke="none"/>"##,
+            Icon::Cloud => r##"<path d="M11.4 12.6H6.1a4.6 4.6 0 1 1 4.4-5.95h.9a2.975 2.975 0 1 1 0 5.95z"/>"##,
+            Icon::Laptop => r##"<path d="M4.35 2.75h7.3a1.6 1.6 0 0 1 1.6 1.6v5.9H2.75v-5.9a1.6 1.6 0 0 1 1.6-1.6zM1.5 13h13"/>"##,
+            Icon::Desktop => r##"<rect x="1.75" y="2.25" width="12.5" height="8.5" rx="1.8"/><path d="M8 10.75v2.75M5.25 13.5h5.5"/>"##,
+            Icon::MiniPc => r##"<rect x="1.75" y="4.5" width="12.5" height="7" rx="2.2"/><circle cx="4.9" cy="8" r=".8" fill="#000" stroke="none"/><path d="M8.6 8h2.9"/>"##,
+            Icon::Tower => r##"<rect x="3.75" y="1.75" width="8.5" height="12.5" rx="1.8"/><path d="M6.25 4.6h3.5M6.25 7.1h3.5"/><circle cx="8" cy="11.3" r=".8" fill="#000" stroke="none"/>"##,
+            Icon::Machines => r##"<rect x="1.75" y="5.75" width="8.5" height="5.75" rx="1.5"/><path d="M6 11.5v2.1M4 13.6h4M5.75 5.75V3.9a1.5 1.5 0 0 1 1.5-1.5h5.5a1.5 1.5 0 0 1 1.5 1.5v3.1a1.5 1.5 0 0 1-1.5 1.5h-2.5"/>"##,
+            Icon::Unplugged => r##"<path d="M6 1.9v3M10 1.9v3M4.3 4.9h7.4v2.5a3.7 3.7 0 0 1-7.4 0zM8 11.1v3M2.5 2.5l11 11"/>"##,
+            Icon::Power => r##"<path d="M8 2.25v5.5M11.6 4.1a5.4 5.4 0 1 1-7.2 0"/>"##,
+            Icon::MoveToMachine => r##"<path d="M8.5 2.75h3.55a2.2 2.2 0 0 1 2.2 2.2v6.1a2.2 2.2 0 0 1-2.2 2.2H8.5M1.75 8h6.5M5.25 5l3 3-3 3"/><circle cx="11.5" cy="8" r=".8" fill="#000" stroke="none"/>"##,
         }
     }
 }
