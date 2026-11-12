@@ -18,12 +18,14 @@ use serde_json::{Value, json};
 use tokio::sync::{broadcast, mpsc};
 
 use crate::hangar::Hangar;
+use hangar_engine::live::{BridgeEvent, ToolPhase};
 use hangar_engine::mobile::contract::ChatPending;
 use hangar_engine::state::types::{AppState, Pane, PaneRole, Workspace};
 
 use crate::cards;
 use crate::config::{Layout, Place, Settings};
 use crate::gateway::{self, Dispatch};
+use crate::lanes::Lanes;
 use crate::rest::{Http, Refused, Upload};
 use crate::words::Words;
 
@@ -98,6 +100,11 @@ pub(crate) struct State {
     pub queues: HashMap<String, Vec<hangar_core::bridge::Queued>>,
     /// Each dashboard's last body, and when it was drawn.
     pub drawn: HashMap<String, (String, Instant)>,
+    /// How many reports each pane's mod made: what tells that a pane's
+    /// ask may have changed.
+    pub reports: HashMap<String, u64>,
+    /// When each pane's ask was last looked at, and what stood then.
+    pub looked: HashMap<String, Looked>,
     /// The structure is to be looked at again.
     pub dirty: bool,
     /// The state the structure was last looked at for.
@@ -109,7 +116,30 @@ pub(crate) struct Inner {
     pub http: Http,
     pub dir: PathBuf,
     pub state: Mutex<State>,
+    /// What waits on Discord, in order per agent, channel and workspace,
+    /// side by side between them (lanes.rs).
+    pub lanes: Lanes,
+    /// Held while a file of the connector's is written: two lanes saving
+    /// at once would write over each other's temporary file.
+    pub saving: Mutex<()>,
 }
+
+/// A pane's ask, as it stood when last looked at (`Bot::asks_due`).
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Looked {
+    pub reports: u64,
+    pub waiting: bool,
+    /// Since when this stands.
+    pub since: Instant,
+    pub at: Instant,
+}
+
+/// A card up is looked at again this often with nothing reported since.
+pub(crate) const ASK_STANDS: Duration = Duration::from_secs(15);
+/// An ask not found yet is looked for at each tick for this long…
+pub(crate) const ASK_SOUGHT: Duration = Duration::from_secs(15);
+/// …then this often.
+pub(crate) const ASK_SOUGHT_LATER: Duration = Duration::from_secs(5);
 
 /// The connector. Cloned freely.
 #[derive(Clone)]
@@ -141,6 +171,7 @@ impl Bot {
     }
 
     pub(crate) fn save_layout(&self) {
+        let _saving = self.0.saving.lock().unwrap_or_else(PoisonError::into_inner);
         let layout = self.state().layout.clone();
         if let Err(error) = layout.save(&self.0.dir) {
             eprintln!("discord: the layout could not be saved: {error}");
@@ -148,6 +179,7 @@ impl Bot {
     }
 
     pub(crate) fn save_settings(&self) {
+        let _saving = self.0.saving.lock().unwrap_or_else(PoisonError::into_inner);
         let settings = self.state().settings.clone();
         if let Err(error) = settings.save(&self.0.dir) {
             eprintln!("discord: the settings could not be saved: {error}");
@@ -426,6 +458,8 @@ pub async fn run(host: Arc<dyn Hangar>, options: Options) -> Result<(), String> 
         host: host.clone(),
         http,
         dir: options.dir.clone(),
+        lanes: Lanes::default(),
+        saving: Mutex::new(()),
         state: Mutex::new(State {
             settings,
             layout,
@@ -435,42 +469,71 @@ pub async fn run(host: Arc<dyn Hangar>, options: Options) -> Result<(), String> 
             ..State::default()
         }),
     }));
+    // What runs beside the loop ends with it (the set aborts its tasks when
+    // dropped): the gateway's connection, and the task that hears core.
+    let mut beside = tokio::task::JoinSet::new();
     // The gateway first: the events of the moments the structure takes to
     // make wait in the channel rather than go unheard.
     let (events, mut dispatches) = mpsc::unbounded_channel::<Dispatch>();
-    let (fatal_tx, mut fatal) = mpsc::unbounded_channel::<String>();
-    tokio::spawn(async move {
-        if let Err(why) = gateway::run(gateway_url, token, gateway::INTENTS, events).await {
-            let _ = fatal_tx.send(why);
-        }
-    });
+    beside.spawn(gateway::run(gateway_url, token, gateway::INTENTS, events));
+    beside.spawn(hear(bot.clone(), host.events()));
     bot.register_commands().await;
     bot.mark_journals_seen();
     bot.sync().await;
-    let mut core = host.events();
     let mut tick = tokio::time::interval(TICK);
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    // Nothing here waits on Discord: what does is given to a lane.
     loop {
         tokio::select! {
-            why = fatal.recv() => {
-                return Err(why.unwrap_or_else(|| "the gateway stopped".into()));
+            ended = beside.join_next() => {
+                return match ended {
+                    Some(Ok(Err(why))) => Err(why),
+                    Some(Err(error)) if error.is_panic() => Err(format!("the connector broke: {error}")),
+                    _ => Ok(()),
+                };
             }
             dispatch = dispatches.recv() => {
                 let Some(dispatch) = dispatch else { return Ok(()) };
-                let bot = bot.clone();
-                tokio::spawn(async move { bot.on_dispatch(dispatch).await });
+                bot.route(dispatch);
             }
-            event = core.recv() => match event {
-                Ok(hangar_core::Event::BridgeEvent { pane_id, event }) => {
-                    bot.on_bridge(&pane_id, &event).await;
+            _ = tick.tick() => bot.tick(),
+        }
+    }
+}
+
+/// core's events, heard as they come and never waited on: each report of a
+/// turn goes to its pane's lane, so a burst from many agents is neither
+/// missed (core keeps a thousand events at most for who lags) nor slowed
+/// by Discord.
+async fn hear(bot: Bot, mut core: broadcast::Receiver<hangar_core::Event>) -> Result<(), String> {
+    loop {
+        match core.recv().await {
+            Ok(hangar_core::Event::BridgeEvent { pane_id, event }) => {
+                let Some(report) = BridgeEvent::parse(&event) else {
+                    continue;
+                };
+                *bot.state().reports.entry(pane_id.clone()).or_default() += 1;
+                if matches!(
+                    report,
+                    BridgeEvent::Turn(_) | BridgeEvent::Tool(ToolPhase::Start { .. })
+                ) {
+                    let (job, pane) = (bot.clone(), pane_id.clone());
+                    bot.0
+                        .lanes
+                        .run(&pane_id, async move { job.on_bridge(&pane, report).await });
                 }
-                Ok(hangar_core::Event::BridgeQueue(queue)) => {
-                    bot.on_queue(&queue.pane_id, &queue.pending).await;
-                }
-                Ok(_) | Err(broadcast::error::RecvError::Lagged(_)) => {}
-                Err(broadcast::error::RecvError::Closed) => return Ok(()),
-            },
-            _ = tick.tick() => bot.tick().await,
+            }
+            Ok(hangar_core::Event::BridgeQueue(queue)) => {
+                let job = bot.clone();
+                bot.0.lanes.run(&queue.pane_id.clone(), async move {
+                    job.on_queue(&queue.pane_id, &queue.pending).await
+                });
+            }
+            Ok(_) => {}
+            Err(broadcast::error::RecvError::Lagged(missed)) => {
+                eprintln!("discord: {missed} of core's events were missed");
+            }
+            Err(broadcast::error::RecvError::Closed) => return Ok(()),
         }
     }
 }
@@ -509,90 +572,173 @@ impl Bot {
         }
     }
 
-    /// What is due: the structure after a change, the turn cards, the
-    /// asks, the journals, the dashboards.
-    pub(crate) async fn tick(&self) {
+    /// What the gateway dispatched, to where it is handled: what the
+    /// person writes, edits or deletes in a channel in that channel's lane
+    /// (two messages sent one after the other reach the agent in that
+    /// order), a click or a command at once (Discord waits 3 s for its
+    /// acknowledgement).
+    fn route(&self, dispatch: Dispatch) {
+        let bot = self.clone();
+        match dispatch.kind.as_str() {
+            "MESSAGE_CREATE" | "MESSAGE_UPDATE" | "MESSAGE_DELETE" => {
+                let channel = dispatch.data["channel_id"].as_str().unwrap_or_default();
+                self.0.lanes.run(&format!("channel:{channel}"), async move {
+                    bot.on_dispatch(dispatch).await
+                });
+            }
+            "INTERACTION_CREATE" => {
+                tokio::spawn(async move { bot.on_dispatch(dispatch).await });
+            }
+            _ => {}
+        }
+    }
+
+    /// `job` given to lane `key`, unless the same (`tag`) still waits there.
+    fn give<F>(&self, key: &str, tag: &'static str, job: impl FnOnce(Bot) -> F)
+    where
+        F: std::future::Future<Output = ()> + Send + 'static,
+    {
+        self.0.lanes.run_once(key, tag, job(self.clone()));
+    }
+
+    /// What is due, given to the lanes: the structure after a change, the
+    /// turn cards, the asks, the journals, the dashboards. Waits on nothing.
+    pub(crate) fn tick(&self) {
         // The state changed since the structure was last looked at.
-        let now = self.host().snapshot().state.clone();
-        {
+        let snapshot = self.host().snapshot();
+        let dirty = {
             let mut state = self.state();
             let changed = state
                 .synced
                 .as_ref()
-                .is_none_or(|synced| !Arc::ptr_eq(synced, &now));
+                .is_none_or(|synced| !Arc::ptr_eq(synced, &snapshot.state));
             if changed {
-                state.synced = Some(now);
-                state.dirty = true;
+                state.synced = Some(snapshot.state.clone());
+            }
+            std::mem::take(&mut state.dirty) || changed
+        };
+        if dirty {
+            self.give("structure", "sync", |bot| async move { bot.sync().await });
+        }
+        for pane in self.turns_due() {
+            self.give(&pane.clone(), "turn", |bot| async move {
+                bot.flush_turn(pane).await
+            });
+        }
+        for (ws, pane) in self.asks_due() {
+            self.give(&pane.clone(), "ask", |bot| async move {
+                bot.check_ask(ws, pane).await
+            });
+        }
+        for ws in &snapshot.state.workspaces {
+            if self.place(&ws.id).is_none() {
+                continue;
+            }
+            let lane = format!("workspace:{}", ws.id);
+            let id = ws.id.clone();
+            self.give(
+                &lane,
+                "journal",
+                |bot| async move { bot.read_journal(id).await },
+            );
+            if self.dashboard_due(ws, &snapshot) {
+                let id = ws.id.clone();
+                self.give(&lane, "dashboard", |bot| async move {
+                    bot.draw_dashboard(id).await
+                });
             }
         }
-        let dirty = std::mem::take(&mut self.state().dirty);
-        if dirty {
-            self.sync().await;
-        }
-        self.flush_turns().await;
-        self.check_asks().await;
-        self.read_journals().await;
-        self.draw_dashboards().await;
     }
 
-    /// A category per folder, a channel (with its webhook) per workspace.
+    /// A category per folder, a channel (with its webhook) per workspace:
+    /// the categories one after the other (each is made once), the
+    /// channels at once.
     pub(crate) async fn sync(&self) {
         let snapshot = self.host().snapshot();
         let state_now = snapshot.state.clone();
-        for ws in &state_now.workspaces {
-            if self.place(&ws.id).is_some() {
-                continue;
+        let missing: Vec<&Workspace> = state_now
+            .workspaces
+            .iter()
+            .filter(|ws| self.place(&ws.id).is_none())
+            .collect();
+        if missing.is_empty() {
+            return;
+        }
+        let mut folders: Vec<String> = Vec::new();
+        for ws in &missing {
+            let folder = ws.folder_id.clone().unwrap_or_default();
+            if !folders.contains(&folder) {
+                folders.push(folder);
             }
-            match self.make_place(&state_now, ws).await {
+        }
+        for folder in folders {
+            if let Err(error) = self.category_of(&state_now, &folder).await {
+                eprintln!("discord: no category for the workspaces: {error}");
+                return;
+            }
+        }
+        let made = futures_util::future::join_all(
+            missing.iter().map(|ws| self.make_place(&state_now, ws)),
+        )
+        .await;
+        for (ws, place) in missing.iter().zip(made) {
+            match place {
                 Ok(place) => {
                     self.state().layout.workspaces.insert(ws.id.clone(), place);
-                    self.save_layout();
                 }
                 Err(error) => {
                     eprintln!("discord: no channel for workspace {}: {error}", ws.name);
                 }
             }
         }
+        self.save_layout();
+    }
+
+    /// The category of folder `folder` (`""`: the workspaces in none), made
+    /// when it is not there yet.
+    async fn category_of(&self, state: &AppState, folder: &str) -> Result<String, Refused> {
+        let known = self.state().layout.categories.get(folder).cloned();
+        if let Some(category) = known {
+            return Ok(category);
+        }
+        let name = state
+            .folders
+            .iter()
+            .find(|f| f.id == folder)
+            .map(|f| f.name.clone())
+            .unwrap_or_else(|| "Hangar".into());
+        // A node sharing the bot with its desktop: its categories say whose
+        // they are.
+        let name = match self.state().settings.label.clone() {
+            Some(label) if !label.trim().is_empty() => format!("{name} · {label}"),
+            _ => name,
+        };
+        let me = self.state().me.clone();
+        let made = self
+            .http()
+            .call(
+                "POST",
+                &format!("/guilds/{}/channels", self.guild()),
+                Some(json!({
+                    "name": cards::clip(&name, 100),
+                    "type": 4,
+                    "permission_overwrites": [
+                        { "id": me, "type": 1, "allow": BOT_ALLOW.to_string() },
+                    ],
+                })),
+            )
+            .await?;
+        let id = made["id"].as_str().unwrap_or_default().to_string();
+        self.state()
+            .layout
+            .categories
+            .insert(folder.to_string(), id.clone());
+        Ok(id)
     }
 
     async fn make_place(&self, state: &AppState, ws: &Workspace) -> Result<Place, Refused> {
         let folder = ws.folder_id.clone().unwrap_or_default();
-        let known = self.state().layout.categories.get(&folder).cloned();
-        let category = match known {
-            Some(category) => category,
-            None => {
-                let name = state
-                    .folders
-                    .iter()
-                    .find(|f| f.id == folder)
-                    .map(|f| f.name.clone())
-                    .unwrap_or_else(|| "Hangar".into());
-                // A node sharing the bot with its desktop: its categories
-                // say whose they are.
-                let name = match self.state().settings.label.clone() {
-                    Some(label) if !label.trim().is_empty() => format!("{name} · {label}"),
-                    _ => name,
-                };
-                let me = self.state().me.clone();
-                let made = self
-                    .http()
-                    .call(
-                        "POST",
-                        &format!("/guilds/{}/channels", self.guild()),
-                        Some(json!({
-                            "name": cards::clip(&name, 100),
-                            "type": 4,
-                            "permission_overwrites": [
-                                { "id": me, "type": 1, "allow": BOT_ALLOW.to_string() },
-                            ],
-                        })),
-                    )
-                    .await?;
-                let id = made["id"].as_str().unwrap_or_default().to_string();
-                self.state().layout.categories.insert(folder, id.clone());
-                id
-            }
-        };
+        let category = self.category_of(state, &folder).await?;
         let channel = self
             .http()
             .call(
@@ -626,49 +772,49 @@ impl Bot {
         })
     }
 
-    /// Each workspace's dashboard, drawn again when what it shows changed.
-    pub(crate) async fn draw_dashboards(&self) {
+    /// Whether workspace `ws`'s dashboard shows something else than when
+    /// it was last drawn, and may be drawn again (every 5 s at most).
+    fn dashboard_due(&self, ws: &Workspace, snapshot: &hangar_engine::state::Snapshot) -> bool {
+        let flat = self.dashboard_of(ws, snapshot, self.words()).to_string();
+        match self.state().drawn.get(&ws.id) {
+            Some((last, at)) => *last != flat && at.elapsed() >= DASHBOARD_EDIT,
+            None => true,
+        }
+    }
+
+    /// Workspace `ws`'s dashboard drawn: posted and pinned the first time,
+    /// edited after. In the workspace's lane.
+    pub(crate) async fn draw_dashboard(&self, ws: String) {
         let snapshot = self.host().snapshot();
-        let words = self.words();
-        for ws in &snapshot.state.workspaces {
-            let Some(place) = self.place(&ws.id) else {
-                continue;
-            };
-            let body = self.dashboard_of(ws, &snapshot, words);
-            let flat = body.to_string();
-            let due = {
-                let state = self.state();
-                match state.drawn.get(&ws.id) {
-                    Some((last, at)) => *last != flat && at.elapsed() >= DASHBOARD_EDIT,
-                    None => true,
-                }
-            };
-            if !due {
-                continue;
-            }
-            self.state()
-                .drawn
-                .insert(ws.id.clone(), (flat, Instant::now()));
-            match &place.dashboard {
-                Some(message) => self.edit(&place.channel, message, body).await,
-                None => match self.post(&place.channel, body, Vec::new()).await {
-                    Ok(message) => {
-                        let _ = self
-                            .http()
-                            .call(
-                                "PUT",
-                                &format!("/channels/{}/messages/pins/{message}", place.channel),
-                                None,
-                            )
-                            .await;
-                        if let Some(place) = self.state().layout.workspaces.get_mut(&ws.id) {
-                            place.dashboard = Some(message);
-                        }
-                        self.save_layout();
+        let Some(ws) = snapshot.state.workspaces.iter().find(|w| w.id == ws) else {
+            return;
+        };
+        let Some(place) = self.place(&ws.id) else {
+            return;
+        };
+        let body = self.dashboard_of(ws, &snapshot, self.words());
+        self.state()
+            .drawn
+            .insert(ws.id.clone(), (body.to_string(), Instant::now()));
+        match &place.dashboard {
+            Some(message) => self.edit(&place.channel, message, body).await,
+            None => match self.post(&place.channel, body, Vec::new()).await {
+                Ok(message) => {
+                    let _ = self
+                        .http()
+                        .call(
+                            "PUT",
+                            &format!("/channels/{}/messages/pins/{message}", place.channel),
+                            None,
+                        )
+                        .await;
+                    if let Some(place) = self.state().layout.workspaces.get_mut(&ws.id) {
+                        place.dashboard = Some(message);
                     }
-                    Err(error) => eprintln!("discord: no dashboard for {}: {error}", ws.name),
-                },
-            }
+                    self.save_layout();
+                }
+                Err(error) => eprintln!("discord: no dashboard for {}: {error}", ws.name),
+            },
         }
     }
 

@@ -82,11 +82,8 @@ impl Bot {
         Some((ws.id.clone(), Some(thread), found.name.clone()))
     }
 
-    /// One of the mod's reports.
-    pub(crate) async fn on_bridge(&self, pane: &str, raw: &Value) {
-        let Some(event) = BridgeEvent::parse(raw) else {
-            return;
-        };
+    /// One of the mod's reports about a turn, in its pane's lane.
+    pub(crate) async fn on_bridge(&self, pane: &str, event: BridgeEvent) {
         match event {
             BridgeEvent::Turn(TurnPhase::Start) => {
                 let Some((ws, thread, name)) = self.shown_in(pane) else {
@@ -167,48 +164,52 @@ impl Bot {
         (!whole.trim().is_empty()).then_some(whole)
     }
 
-    /// The turn cards that changed, edited, at most every two seconds each.
-    pub(crate) async fn flush_turns(&self) {
-        let due: Vec<(String, Turn)> = {
-            let mut state = self.state();
-            state
-                .turns
-                .iter_mut()
-                .filter(|(_, turn)| {
-                    turn.dirty && turn.edited.elapsed() >= crate::bot::TURN_EDIT_DUE
-                })
-                .map(|(pane, turn)| {
-                    turn.dirty = false;
-                    turn.edited = Instant::now();
-                    (pane.clone(), turn.clone())
-                })
-                .collect()
-        };
-        let words = self.words();
-        let snapshot = self.host().snapshot();
-        for (pane, turn) in due {
-            let name = find(&snapshot.state, &pane)
-                .map(|(_, p)| p.name.clone())
-                .unwrap_or_default();
-            let card = cards::turn(words, &name, turn.started, &turn.calls, &pane);
-            self.edit_as(&turn.ws, turn.thread.as_deref(), &turn.message, card)
-                .await;
-        }
+    /// The panes whose turn card changed and is due an edit (at most every
+    /// two seconds each).
+    pub(crate) fn turns_due(&self) -> Vec<String> {
+        self.state()
+            .turns
+            .iter()
+            .filter(|(_, turn)| turn.dirty && turn.edited.elapsed() >= crate::bot::TURN_EDIT_DUE)
+            .map(|(pane, _)| pane.clone())
+            .collect()
     }
 
-    /// What each pane waits on the person for, as a card: posted when it
-    /// starts waiting on something new, marked answered when it no longer
-    /// does.
-    pub(crate) async fn check_asks(&self) {
-        let Some(desk_) = self.host().desk() else {
-            return;
+    /// The turn card of `pane` edited with its calls so far, in the pane's
+    /// lane: never after the turn ended and its card was folded.
+    pub(crate) async fn flush_turn(&self, pane: String) {
+        let turn = {
+            let mut state = self.state();
+            let Some(turn) = state.turns.get_mut(&pane).filter(|turn| turn.dirty) else {
+                return;
+            };
+            turn.dirty = false;
+            turn.edited = Instant::now();
+            turn.clone()
         };
-        let port = self.host().port();
         let snapshot = self.host().snapshot();
-        let words = self.words();
-        let owner = self.owner();
+        let name = find(&snapshot.state, &pane)
+            .map(|(_, p)| p.name.clone())
+            .unwrap_or_default();
+        let card = cards::turn(self.words(), &name, turn.started, &turn.calls, &pane);
+        self.edit_as(&turn.ws, turn.thread.as_deref(), &turn.message, card)
+            .await;
+    }
+
+    /// The panes whose ask is to be looked at now: those that wait on the
+    /// person or have a card up, when their mod reported something since
+    /// the last look (or they started or stopped waiting). Reading what a
+    /// pane asks reads its transcript: a card up with nothing reported
+    /// since still stands, and is looked at again once in a while; an ask
+    /// not found yet is looked for at each tick for a while, then less
+    /// often.
+    pub(crate) fn asks_due(&self) -> Vec<(String, String)> {
+        let snapshot = self.host().snapshot();
+        let mut state = self.state();
+        let now = Instant::now();
+        let mut due = Vec::new();
         for ws in &snapshot.state.workspaces {
-            if self.place(&ws.id).is_none() {
+            if !state.layout.workspaces.contains_key(&ws.id) {
                 continue;
             }
             for pane in &ws.panes {
@@ -216,35 +217,86 @@ impl Bot {
                     .activity
                     .get(&pane.id)
                     .is_some_and(|a| a.activity == AgentActivity::Waiting);
-                let known = self.state().asks.get(&pane.id).cloned();
-                if !waiting && known.is_none() {
+                let known = state.asks.contains_key(&pane.id);
+                if !waiting && !known {
+                    state.looked.remove(&pane.id);
                     continue;
                 }
-                let pending = if waiting {
-                    desk::pending_now(&port, &desk_, ws, pane)
-                        .await
-                        .ok()
-                        .flatten()
-                } else {
-                    None
+                let reports = state.reports.get(&pane.id).copied().unwrap_or(0);
+                let since = match state.looked.get(&pane.id) {
+                    Some(last) if last.reports == reports && last.waiting == waiting => {
+                        let every = if known {
+                            crate::bot::ASK_STANDS
+                        } else if last.since.elapsed() < crate::bot::ASK_SOUGHT {
+                            std::time::Duration::ZERO
+                        } else {
+                            crate::bot::ASK_SOUGHT_LATER
+                        };
+                        if last.at.elapsed() < every {
+                            continue;
+                        }
+                        last.since
+                    }
+                    _ => now,
                 };
-                match (pending, known) {
-                    (Some(pending), Some(known)) if ask_key(&pending) == known.key => {}
-                    (Some(pending), known) => {
-                        if let Some(known) = known.filter(|k| !k.settled) {
-                            self.settle(&known, words.answered_elsewhere(), None).await;
-                        }
-                        self.post_ask(ws, pane, pending, owner.as_deref()).await;
-                    }
-                    (None, Some(known)) => {
-                        self.state().asks.remove(&pane.id);
-                        if !known.settled {
-                            self.settle(&known, words.answered_elsewhere(), None).await;
-                        }
-                    }
-                    (None, None) => {}
+                state.looked.insert(
+                    pane.id.clone(),
+                    crate::bot::Looked {
+                        reports,
+                        waiting,
+                        since,
+                        at: now,
+                    },
+                );
+                due.push((ws.id.clone(), pane.id.clone()));
+            }
+        }
+        due
+    }
+
+    /// What pane `pane` waits on the person for, as a card: posted when it
+    /// starts waiting on something new, marked answered when it no longer
+    /// does. In the pane's lane.
+    pub(crate) async fn check_ask(&self, ws: String, pane: String) {
+        let Some(desk_) = self.host().desk() else {
+            return;
+        };
+        let port = self.host().port();
+        let snapshot = self.host().snapshot();
+        let Some((ws, pane)) = find(&snapshot.state, &pane).filter(|(found, _)| found.id == ws)
+        else {
+            return;
+        };
+        let words = self.words();
+        let waiting = snapshot
+            .activity
+            .get(&pane.id)
+            .is_some_and(|a| a.activity == AgentActivity::Waiting);
+        let known = self.state().asks.get(&pane.id).cloned();
+        let pending = if waiting {
+            desk::pending_now(&port, &desk_, ws, pane)
+                .await
+                .ok()
+                .flatten()
+        } else {
+            None
+        };
+        match (pending, known) {
+            (Some(pending), Some(known)) if ask_key(&pending) == known.key => {}
+            (Some(pending), known) => {
+                if let Some(known) = known.filter(|k| !k.settled) {
+                    self.settle(&known, words.answered_elsewhere(), None).await;
+                }
+                self.post_ask(ws, pane, pending, self.owner().as_deref())
+                    .await;
+            }
+            (None, Some(known)) => {
+                self.state().asks.remove(&pane.id);
+                if !known.settled {
+                    self.settle(&known, words.answered_elsewhere(), None).await;
                 }
             }
+            (None, None) => {}
         }
     }
 
@@ -300,26 +352,28 @@ impl Bot {
         self.edit_as(&ask.ws, None, &ask.message, card).await;
     }
 
-    /// The journal's entries since the last look, as lines and cards.
-    pub(crate) async fn read_journals(&self) {
+    /// The journal's entries of workspace `ws` since the last look, as
+    /// lines and cards, in the workspace's lane.
+    pub(crate) async fn read_journal(&self, ws: String) {
         let snapshot = self.host().snapshot();
-        for ws in &snapshot.state.workspaces {
-            let Some(place) = self.place(&ws.id) else {
-                continue;
-            };
-            let seen = self.state().seen.get(&ws.id).copied().unwrap_or(0);
-            let fresh: Vec<_> = self
-                .host()
-                .journal(&ws.id)
-                .into_iter()
-                .filter(|entry| entry.at > seen)
-                .collect();
-            if let Some(last) = fresh.last() {
-                self.state().seen.insert(ws.id.clone(), last.at);
-            }
-            for entry in fresh {
-                self.on_journal(ws, &place.channel, entry.event).await;
-            }
+        let Some(ws) = snapshot.state.workspaces.iter().find(|w| w.id == ws) else {
+            return;
+        };
+        let Some(place) = self.place(&ws.id) else {
+            return;
+        };
+        let seen = self.state().seen.get(&ws.id).copied().unwrap_or(0);
+        let fresh: Vec<_> = self
+            .host()
+            .journal(&ws.id)
+            .into_iter()
+            .filter(|entry| entry.at > seen)
+            .collect();
+        if let Some(last) = fresh.last() {
+            self.state().seen.insert(ws.id.clone(), last.at);
+        }
+        for entry in fresh {
+            self.on_journal(ws, &place.channel, entry.event).await;
         }
     }
 

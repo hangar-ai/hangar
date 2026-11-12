@@ -142,10 +142,12 @@ impl Http {
             if headers.remaining == Some(0)
                 && let Some(after) = headers.reset_after
             {
-                self.spent
-                    .lock()
-                    .unwrap_or_else(PoisonError::into_inner)
-                    .insert(route.clone(), Instant::now() + after);
+                let now = Instant::now();
+                let mut spent = self.spent.lock().unwrap_or_else(PoisonError::into_inner);
+                // A route is a path, ids included: what is over is forgotten,
+                // or the map would keep one entry per message for good.
+                spent.retain(|_, until| *until > now);
+                spent.insert(route.clone(), now + after);
             }
             if status == 429 {
                 let after = serde_json::from_str::<Value>(&body)

@@ -9,16 +9,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
-use axum::Router;
-use axum::body::Bytes;
-use axum::extract::State;
-use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::http::{Method, Uri};
-use axum::response::{IntoResponse, Response};
-use axum::routing::{any, get};
-use futures_util::{SinkExt, StreamExt};
 use serde_json::{Value, json};
-use tokio::sync::mpsc;
 
 use hangar_engine::control::port::ModelCmd;
 use hangar_engine::host::{Config, EngineHost, Spawn, TermEvent, TermSink, Terminals};
@@ -78,162 +69,9 @@ impl Terminals for Shells {
 
 /* ── a Discord of the test's own ────────────────────────────────── */
 
-#[derive(Debug, Clone)]
-struct Call {
-    method: String,
-    path: String,
-    body: Value,
-}
-
-#[derive(Default)]
-struct Fake {
-    calls: Vec<Call>,
-    next: u64,
-    identified: Option<Value>,
-    /// How many bots identified.
-    identifies: usize,
-    /// Every bot connected: two Hangars may share one.
-    gateway: Vec<mpsc::UnboundedSender<Value>>,
-}
-
-type Shared = Arc<Mutex<Fake>>;
-
-/// A multipart body's `payload_json`, or the JSON itself.
-fn body_of(bytes: &[u8]) -> Value {
-    if let Ok(value) = serde_json::from_slice::<Value>(bytes) {
-        return value;
-    }
-    let text = String::from_utf8_lossy(bytes);
-    text.split("\r\n\r\n")
-        .nth(1)
-        .and_then(|rest| rest.split("\r\n--").next())
-        .and_then(|json| serde_json::from_str(json).ok())
-        .unwrap_or(Value::Null)
-}
-
-async fn rest(State(fake): State<Shared>, method: Method, uri: Uri, body: Bytes) -> Response {
-    let path = uri
-        .path_and_query()
-        .map(|p| p.as_str().to_string())
-        .unwrap_or_default();
-    let path = path.trim_start_matches("/api").to_string();
-    let mut fake = locked(&fake);
-    fake.next += 1;
-    let id = format!("{}", 1000 + fake.next);
-    fake.calls.push(Call {
-        method: method.to_string(),
-        path: path.clone(),
-        body: body_of(&body),
-    });
-    let only = path.split('?').next().unwrap_or_default().to_string();
-    let answer = match (method.as_str(), only.as_str()) {
-        ("GET", "/users/@me") => json!({ "id": "bot1", "username": "Hangar" }),
-        ("GET", "/oauth2/applications/@me") => json!({ "id": "app1" }),
-        ("PUT", p) if p.ends_with("/commands") => json!([]),
-        ("POST", p) if p.ends_with("/webhooks") && p.starts_with("/channels/") => {
-            json!({ "id": format!("hook{id}"), "token": format!("tok{id}") })
-        }
-        ("POST", p) if p.ends_with("/callback") => {
-            return axum::http::StatusCode::NO_CONTENT.into_response();
-        }
-        ("PUT", _) | ("DELETE", _) => return axum::http::StatusCode::NO_CONTENT.into_response(),
-        _ => json!({ "id": id }),
-    };
-    axum::Json(answer).into_response()
-}
-
-async fn gateway(State(fake): State<Shared>, ws: WebSocketUpgrade) -> Response {
-    ws.on_upgrade(move |socket| serve_gateway(fake, socket))
-}
-
-async fn serve_gateway(fake: Shared, socket: WebSocket) {
-    let (mut write, mut read) = socket.split();
-    let hello = json!({ "op": 10, "d": { "heartbeat_interval": 45_000 } });
-    let _ = write.send(Message::Text(hello.to_string().into())).await;
-    let (tx, mut rx) = mpsc::unbounded_channel::<Value>();
-    locked(&fake).gateway.push(tx);
-    let mut seq = 0u64;
-    loop {
-        tokio::select! {
-            frame = read.next() => {
-                let Some(Ok(Message::Text(text))) = frame else { return };
-                let frame: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
-                match frame["op"].as_u64() {
-                    Some(2) => {
-                        {
-                            let mut fake = locked(&fake);
-                            fake.identified = Some(frame["d"].clone());
-                            fake.identifies += 1;
-                        }
-                        seq += 1;
-                        let ready = json!({ "op": 0, "s": seq, "t": "READY", "d": {
-                            "session_id": "s1", "resume_gateway_url": "", "user": { "id": "bot1" } } });
-                        let _ = write.send(Message::Text(ready.to_string().into())).await;
-                    }
-                    Some(1) => {
-                        let _ = write.send(Message::Text(json!({ "op": 11 }).to_string().into())).await;
-                    }
-                    _ => {}
-                }
-            }
-            event = rx.recv() => {
-                let Some(event) = event else { return };
-                seq += 1;
-                let frame = json!({ "op": 0, "s": seq, "t": event["t"], "d": event["d"] });
-                let _ = write.send(Message::Text(frame.to_string().into())).await;
-            }
-        }
-    }
-}
-
-struct Discord {
-    fake: Shared,
-    base: String,
-}
-
-impl Discord {
-    async fn start() -> Discord {
-        let fake: Shared = Arc::default();
-        let app = Router::new()
-            .route("/gateway", get(gateway))
-            .route("/api/{*rest}", any(rest))
-            .with_state(fake.clone());
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let port = listener.local_addr().unwrap().port();
-        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
-        Discord {
-            fake,
-            base: format!("127.0.0.1:{port}"),
-        }
-    }
-
-    fn calls(&self) -> Vec<Call> {
-        locked(&self.fake).calls.clone()
-    }
-
-    /// The calls of `method` whose path starts with `path`.
-    fn calls_to(&self, method: &str, path: &str) -> Vec<Call> {
-        self.calls()
-            .into_iter()
-            .filter(|c| c.method == method && c.path.starts_with(path))
-            .collect()
-    }
-
-    /// A call whose body (or path) holds `needle`, after `from` calls.
-    fn find(&self, method: &str, needle: &str) -> Option<Call> {
-        self.calls().into_iter().find(|c| {
-            c.method == method && (c.body.to_string().contains(needle) || c.path.contains(needle))
-        })
-    }
-
-    fn send(&self, kind: &str, data: Value) {
-        let gateways = locked(&self.fake).gateway.clone();
-        assert!(!gateways.is_empty(), "a bot is connected");
-        for gateway in gateways {
-            let _ = gateway.send(json!({ "t": kind, "d": data }));
-        }
-    }
-}
+#[path = "support/fake.rs"]
+mod fake;
+use fake::Discord;
 
 /// Waits up to twenty seconds for `found` (a loaded machine is slow).
 async fn eventually<T>(what: &str, mut found: impl FnMut() -> Option<T>) -> T {
@@ -300,8 +138,8 @@ async fn rig() -> Rig {
     .save(&dir)
     .unwrap();
     let options = hangar_discord::Options {
-        api: format!("http://{}/api", discord.base),
-        gateway: Some(format!("ws://{}/gateway", discord.base)),
+        api: discord.api(),
+        gateway: Some(discord.gateway_url()),
         dir: dir.clone(),
     };
     let bot_host = host.clone();
@@ -343,7 +181,7 @@ async fn a_workspace_on_discord_from_pairing_to_a_worker_s_thread() {
     let d = &rig.discord;
 
     // The bot identifies with its token and the intents it needs.
-    let identified = eventually("identify", || locked(&d.fake).identified.clone()).await;
+    let identified = eventually("identify", || d.identified()).await;
     assert_eq!(identified["token"], "secret");
     assert_eq!(identified["intents"].as_u64().unwrap() & (1 << 15), 1 << 15);
     // Its commands, on the guild alone.
@@ -433,6 +271,32 @@ async fn a_workspace_on_discord_from_pairing_to_a_worker_s_thread() {
         .pop()
     })
     .await;
+    // Messages sent one after the other reach the agent in that order.
+    for (n, word) in ["premier", "deuxième", "troisième", "quatrième"]
+        .iter()
+        .enumerate()
+    {
+        d.send(
+            "MESSAGE_CREATE",
+            json!({ "id": format!("o{n}"), "channel_id": channel, "content": word,
+            "author": { "id": "u1" } }),
+        );
+    }
+    eventually("the four typed", || {
+        rig.shells
+            .typed_into("leo")
+            .contains("quatrième")
+            .then_some(())
+    })
+    .await;
+    let typed = rig.shells.typed_into("leo");
+    let at = |word: &str| typed.find(word).expect(word);
+    assert!(
+        at("premier") < at("deuxième")
+            && at("deuxième") < at("troisième")
+            && at("troisième") < at("quatrième"),
+        "{typed:?}"
+    );
     // Anyone else is not heard.
     d.send(
         "MESSAGE_CREATE",
@@ -781,8 +645,8 @@ fn side(
     host.start();
     settings.save(&dir).unwrap();
     let options = hangar_discord::Options {
-        api: format!("http://{}/api", d.base),
-        gateway: Some(format!("ws://{}/gateway", d.base)),
+        api: d.api(),
+        gateway: Some(d.gateway_url()),
         dir: dir.clone(),
     };
     let hangar = Arc::new(Sharing {
@@ -848,7 +712,7 @@ async fn a_desktop_and_its_node_share_one_bot() {
     );
     // Both bots hear the gateway before anything is said on it.
     eventually("both bots connected", || {
-        (locked(&d.fake).identifies >= 2).then_some(())
+        (d.identifies() >= 2).then_some(())
     })
     .await;
     let shop = eventually("the desktop's channel", || channel_of(&desktop.dir, "shop")).await;

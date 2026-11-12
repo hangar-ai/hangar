@@ -248,6 +248,8 @@ Radio Group; serenity 0.12.5 no Components V2.)
   settled card, the worker's line with « Ouvrir le fil » / « Voir le fil »,
   the delivery, the dashboard. `ids.rs`: what a click acts on, in its
   `custom_id`.
+- `lanes.rs`: what waits on Discord, in order per agent, channel and
+  workspace, side by side between them ("Under load").
 - `bot.rs`: the server's structure (a category per folder, made with the
   bot's own access; a channel and a webhook per workspace; the dashboard,
   pinned), the slash commands on the guild. `follow.rs`: the turns, the
@@ -287,6 +289,42 @@ Discord of one's own (its REST routes, its gateway, `/fake/calls` and
 2026), the desktop app made its category, channel, webhook and pinned
 dashboard, typed a message written on "Discord" into its orchestrator's
 pane, answered `/status`, and ignored a stranger.
+
+## Under load
+
+What waits on Discord is kept in order where order matters and side by
+side elsewhere (`lanes.rs`): each agent's turn (its card posted, edited,
+folded, its answer), each channel the person writes in (two messages sent
+one after the other reach the agent in that order), each workspace (its
+journal, its dashboard) is a lane of its own. The loop that hears the
+gateway and the task that hears core wait on none of it, so a burst of the
+mods' reports is neither missed (core keeps a thousand events for who lags)
+nor slowed by Discord's answers; what a tick asks again (a dashboard, an
+ask looked at) is not given twice to a lane that is slow. The server's
+channels are made at once, its categories one after the other. A pane's ask
+is read from its transcript only when its mod reported something since the
+last look (a card up with nothing reported still stands, and is looked at
+again every 15 s). The gateway's connection and the task that hears core
+end with the bot (a bot started again leaves no connection behind).
+
+`cargo bench -p hangar-discord --bench bot` (benches/bot.rs) runs the bot
+against the fake Discord, answering each call after 150 ms as Discord does
+from a server far from it, with sixteen agents working at once, each
+through three turns of thirty tool calls, their reports arriving at 800 a
+second (2,976 in 3.7 s). Measured on November 12, 2026 (4-core Xeon at
+2.1 GHz, one run of each):
+
+| | Before | After |
+|---|---|---|
+| The server made for 16 workspaces (68 calls) | 10.3 s | 1.1 s |
+| Answers that reached the server | 33 of 48 | 48 of 48 |
+| Turn cards folded | 24 of 48 | 48 of 48 |
+| Everything there | never: reports were missed | 0.2 s after the last report |
+| 64 agents, 4,000 reports a second, Discord answering in 300 ms | not run | 192 of 192, 0.3 s after the last report |
+
+Before, the loop waited on each call to Discord while the reports queued
+behind it, past what core keeps. A long answer is cut at 450 to 570 MB/s
+and a turn's card built in 7 µs: neither is where the time goes.
 
 ## Sources
 

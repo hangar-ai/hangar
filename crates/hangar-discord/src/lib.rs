@@ -12,7 +12,9 @@
 //! - `rest`, `gateway`: the thin client of Discord's own it speaks with;
 //! - `cards`: the messages, as Components V2; `ids`: what a click acts on;
 //! - `bot`: the connector, the server's structure and the dashboards;
-//!   `follow`: the panes followed; `act`: what the person does.
+//!   `follow`: the panes followed; `act`: what the person does; `lanes`:
+//!   what waits on Discord kept in order per agent and channel, side by
+//!   side between them.
 
 mod act;
 pub mod bot;
@@ -22,6 +24,7 @@ mod follow;
 pub mod gateway;
 pub mod hangar;
 pub mod ids;
+mod lanes;
 pub mod rest;
 pub mod setup;
 pub mod words;

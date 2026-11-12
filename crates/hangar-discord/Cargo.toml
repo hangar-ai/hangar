@@ -30,3 +30,8 @@ futures-util = { version = "0.3", default-features = false, features = ["sink", 
 # A Discord of the tests' own: its REST routes and its gateway.
 axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "query", "tokio", "ws"] }
 tempfile = "3"
+
+# What the connector does under load (benches/bot.rs).
+[[bench]]
+name = "bot"
+harness = false

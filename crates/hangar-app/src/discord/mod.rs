@@ -47,6 +47,9 @@ pub use page::settings_page;
 
 /// How often the settings are read again and the bot made to match.
 const RECONCILE: Duration = Duration::from_secs(2);
+/// The connected nodes are asked about their bot every this many of those
+/// (10 s).
+const NODES_EVERY: u32 = 5;
 
 /// The package's UI state; lives in `App.pkg.discord`.
 #[derive(Default)]
@@ -62,6 +65,8 @@ pub struct State {
     nodes: HashMap<String, NodeBot>,
     /// What was handed to each node, by node: handed again when it changes.
     handed: HashMap<String, String>,
+    /// How many times the settings were read again.
+    reconciles: u32,
 }
 
 /// A node's bot, as `GET /node/discord` says.
@@ -226,7 +231,11 @@ pub fn update(st: &mut State, m: &mut Model, sv: &Services, msg: Msg) -> Task<Me
     match msg {
         Msg::Reconcile => {
             reconcile(st, m, sv);
-            return look_at_nodes(st, m);
+            // The nodes are asked through their tunnels: less often.
+            st.reconciles = st.reconciles.wrapping_add(1);
+            if st.reconciles % NODES_EVERY == 1 {
+                return look_at_nodes(st, m);
+            }
         }
         Msg::NodeBot { node, bot } => {
             match bot {
