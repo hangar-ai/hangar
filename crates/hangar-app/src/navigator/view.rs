@@ -1,6 +1,6 @@
 //! The navigator as it is drawn (`Sidebar.tsx`'s markup, `styles.css`'s
 //! `.nav-*`): the top, the project manager's door, the heading, the tree, the
-//! plan, the filter.
+//! plan, the machines' line, the filter.
 //!
 //! Every row has a fixed height, so a drag needs no layout to ask: a row says
 //! where inside it the pointer is, and the half of it decides before or after.
@@ -20,7 +20,7 @@ use hangar_ui::menu as ui_menu;
 use hangar_ui::{Icon, button as ui_button, glyph, icon, keys, tip};
 
 use super::drag::{self, Drag, DragItem, DragKind, DropTarget, Hit};
-use super::model::{NavFolder, NavInput, RowKind, build_nav_tree, namesake_hints, row_key};
+use super::model::{MachineFilter, NavFolder, RowKind, namesake_hints, row_key};
 use super::{
     MenuState, Msg, State, filter_id, geometry, list_id, menu, plan, reads, rename_id, skin, status,
 };
@@ -28,6 +28,7 @@ use crate::commands::CommandId;
 use crate::ctx::Ctx;
 use crate::inspector::format::prose_time;
 use crate::message::{Intent, Message};
+use crate::nodes::presence;
 use crate::shell::{Focus, Region};
 use crate::state::roles::{orchestrator_of, workers_of};
 use crate::state::types::Workspace;
@@ -41,6 +42,10 @@ const NAME_X: f32 = 32.0;
 /// The padding from a row's edge to its icon, and to a heading's first
 /// letter: they line up, so the eye runs straight down the left edge.
 const PAD: f32 = 8.0;
+
+/// How much of its ink the name of a workspace keeps while its machine
+/// cannot be reached: clearly stepped back, still read at a glance.
+const AWAY_ALPHA: f32 = 0.55;
 
 fn msg(msg: Msg) -> Message {
     Message::Navigator(msg)
@@ -62,19 +67,10 @@ pub fn sidebar<'a>(st: &'a State, ctx: Ctx<'a>) -> Element<'a, Message> {
     let t = ctx.theme;
     let model = ctx.model;
     let state = model.state();
-    let projects: Vec<&Workspace> = state
-        .workspaces
-        .iter()
-        .filter(|ws| ws.hq != Some(true))
-        .collect();
+    let projects = super::projects(model);
     let all: Vec<&Workspace> = state.workspaces.iter().collect();
-    let tree = build_nav_tree(&NavInput {
-        workspaces: &projects,
-        folders: &state.folders,
-        query: &st.query,
-        attention_only: st.attention_only,
-        wants_you: &|pane| reads::wants_you(model, &pane.to_string()),
-    });
+    let tree = super::nav_tree(st, model, &projects);
+    let machine = super::machine_filter(st, model);
     let frame = Frame {
         st,
         ctx,
@@ -104,11 +100,17 @@ pub fn sidebar<'a>(st: &'a State, ctx: Ctx<'a>) -> Element<'a, Message> {
     }
     if tree.filtering && !projects.is_empty() && tree.rows.is_empty() {
         let said = st.query.trim();
-        let words = if said.is_empty() {
-            tr.t(Key::SidebarNoneWaiting).into_owned()
-        } else {
+        let words = if !said.is_empty() {
             tr.t_with(Key::SidebarNoMatch, &args!("query" => said))
                 .into_owned()
+        } else if st.attention_only {
+            tr.t(Key::SidebarNoneWaiting).into_owned()
+        } else {
+            tr.t_with(
+                Key::SidebarMachinesNone,
+                &args!("machine" => machine_name(ctx, &machine)),
+            )
+            .into_owned()
         };
         below = below.push(
             column![
@@ -201,10 +203,13 @@ pub fn sidebar<'a>(st: &'a State, ctx: Ctx<'a>) -> Element<'a, Message> {
     ]
     .width(Length::Fill)
     .height(Length::Fill);
+    if let Some(foot) = machines_foot(ctx) {
+        body = body.push(foot);
+    }
     if let Some(block) = plan::view(reads::plan(model), ctx) {
         body = body.push(block);
     }
-    body = body.push(filter_bar(&frame));
+    body = body.push(filter_bar(&frame, &machine));
     body.into()
 }
 
@@ -556,8 +561,20 @@ fn workspace_row<'a>(f: &Frame<'a>, ws: &'a Workspace) -> Element<'a, Message> {
     let active = Some(ws.id.as_str()) == f.active;
     let key = row_key(RowKind::Ws, &ws.id);
 
+    // The machine a workspace on a node runs on, in the look of its link's
+    // state. A workspace of this computer has none: here is the default.
+    let machine = ws
+        .node
+        .as_deref()
+        .filter(|_| crate::nodes::available(model))
+        .map(|node| presence::look_of(model, node, f.ctx.now));
+    // A row whose machine cannot be reached steps back, name and glyph.
+    let away = machine.is_some_and(|look| look.dimmed);
+
     let glyph_cell = container(icon(Icon::Workspace, 14.0).color(if active {
         t.colors.accent_hi
+    } else if away {
+        t.colors.fg_muted.scale_alpha(AWAY_ALPHA)
     } else {
         t.colors.fg_muted
     }))
@@ -583,6 +600,7 @@ fn workspace_row<'a>(f: &Frame<'a>, ws: &'a Workspace) -> Element<'a, Message> {
                     } else {
                         fonts::ui_medium()
                     })
+                    .color_maybe(away.then(|| t.colors.fg_secondary.scale_alpha(AWAY_ALPHA)))
                     .wrapping(text::Wrapping::None)
             ]
             .spacing(space::SM)
@@ -599,7 +617,17 @@ fn workspace_row<'a>(f: &Frame<'a>, ws: &'a Workspace) -> Element<'a, Message> {
             }
 
             // Whatever ends the row: marks, the agents' summary, the « … ».
+            // The machine comes first, so the eye finds it at one place down
+            // the list.
             let mut end = row![].spacing(2).align_y(Alignment::Center);
+            if let (Some(node), Some(look)) = (ws.node.as_deref(), machine) {
+                end = end.push(mark_in(
+                    t,
+                    look.icon,
+                    look.tone.color(t),
+                    presence::tip_of(model, tr, node, f.ctx.now),
+                ));
+            }
             if ws.claude_account.is_some() {
                 end = end.push(crate::accounts::badge(f.ctx, &ws.id));
             }
@@ -671,9 +699,14 @@ fn workspace_row<'a>(f: &Frame<'a>, ws: &'a Workspace) -> Element<'a, Message> {
 
 /// A small icon at the end of a row with a word in its tooltip (`.nav-mark`).
 fn mark<'a>(t: &'a Theme, which: Icon, words: String) -> Element<'a, Message> {
+    mark_in(t, which, t.colors.fg_muted, words)
+}
+
+/// A mark in a colour of its own: a machine whose link is down.
+fn mark_in<'a>(t: &'a Theme, which: Icon, ink: iced::Color, words: String) -> Element<'a, Message> {
     tip::bottom(
         t,
-        container(icon(which, 12.0).color(t.colors.fg_muted))
+        container(icon(which, 12.0).color(ink))
             .width(18)
             .align_x(Alignment::Center),
         words,
@@ -692,6 +725,7 @@ fn folder_block<'a>(f: &Frame<'a>, entry: &NavFolder<'a>) -> Element<'a, Message
         .workspaces
         .iter()
         .filter(|ws| ws.folder_id.as_deref() == Some(folder.id.as_str()))
+        .filter(|ws| crate::nodes::shown(f.ctx.model, ws))
         .collect();
     // Folded away, the workspace on screen would otherwise be nowhere to see.
     let holds_active = !entry.expanded && filed.iter().any(|ws| Some(ws.id.as_str()) == f.active);
@@ -822,7 +856,7 @@ fn folder_block<'a>(f: &Frame<'a>, entry: &NavFolder<'a>) -> Element<'a, Message
 /// The new-workspace button, the filter field with its « only what waits »
 /// toggle, and the settings (`.nav-filter`): as tall as the status bar beside
 /// it, so their top edges meet in one line.
-fn filter_bar<'a>(f: &Frame<'a>) -> Element<'a, Message> {
+fn filter_bar<'a>(f: &Frame<'a>, machine: &MachineFilter) -> Element<'a, Message> {
     let t = f.ctx.theme;
     let tr = f.ctx.i18n;
     let st = f.st;
@@ -907,7 +941,7 @@ fn filter_bar<'a>(f: &Frame<'a>) -> Element<'a, Message> {
     .align_y(Alignment::Center)
     .style(skin::field(t, narrowing));
 
-    let bar = row![
+    let mut bar = row![
         ui_button::icon_button(t, Icon::Plus)
             .icon_size(16.0)
             .tip(tr.t(Key::CmdWorkspaceNew).into_owned())
@@ -916,16 +950,22 @@ fn filter_bar<'a>(f: &Frame<'a>) -> Element<'a, Message> {
                 crate::shell::Overlay::WorkspaceDialog
             ))),
         field,
-        ui_button::icon_button(t, Icon::Gear)
-            .icon_size(16.0)
-            .tip(tr.t(Key::SidebarSettings).into_owned())
-            .keys(reads::binding(&f.ctx, CommandId::ViewSettings))
-            .on_press(Message::Intent(Intent::OpenSettings(None))),
-    ]
-    .spacing(space::XS)
-    .align_y(Alignment::Center)
-    .height(size::STATUS_BAR_HEIGHT)
-    .padding([0.0, 6.0]);
+    ];
+    if let Some(machines) = machine_button(f, machine) {
+        bar = bar.push(machines);
+    }
+    let bar = bar
+        .push(
+            ui_button::icon_button(t, Icon::Gear)
+                .icon_size(16.0)
+                .tip(tr.t(Key::SidebarSettings).into_owned())
+                .keys(reads::binding(&f.ctx, CommandId::ViewSettings))
+                .on_press(Message::Intent(Intent::OpenSettings(None))),
+        )
+        .spacing(space::XS)
+        .align_y(Alignment::Center)
+        .height(size::STATUS_BAR_HEIGHT)
+        .padding([0.0, 6.0]);
 
     column![
         container(Space::new())
@@ -938,4 +978,178 @@ fn filter_bar<'a>(f: &Frame<'a>) -> Element<'a, Message> {
         bar
     ]
     .into()
+}
+
+// ---- The machines -----------------------------------------------------------------------------
+
+/// What a machine filter keeps, by name: this computer, or a node's label.
+fn machine_name(ctx: Ctx<'_>, machine: &MachineFilter) -> String {
+    match machine {
+        MachineFilter::Node(id) => crate::nodes::label(ctx.model, id),
+        _ => ctx.t(Key::NodesCreateLocal).into_owned(),
+    }
+}
+
+/// What the machine filter offers: every machine, then each by its icon and
+/// its name, this computer first. A machine that is switched off has no
+/// row to keep, and is not offered.
+pub(super) fn machine_choices(ctx: Ctx<'_>) -> Vec<(MachineFilter, Icon, String)> {
+    let mut choices = vec![
+        (
+            MachineFilter::All,
+            Icon::Machines,
+            ctx.t(Key::SidebarMachinesAll).into_owned(),
+        ),
+        (
+            MachineFilter::Local,
+            presence::LOCAL_ICON,
+            ctx.t(Key::NodesCreateLocal).into_owned(),
+        ),
+    ];
+    for node in ctx
+        .model
+        .settings()
+        .nodes
+        .iter()
+        .filter(|node| node.is_on())
+    {
+        choices.push((
+            MachineFilter::Node(node.id.clone()),
+            presence::kind_icon(node.kind),
+            crate::nodes::away::label_of(node),
+        ));
+    }
+    choices
+}
+
+/// The filter's machine button and its menu: every machine, this computer,
+/// or one node. Only there while there is a node to tell apart.
+fn machine_button<'a>(f: &Frame<'a>, machine: &MachineFilter) -> Option<Element<'a, Message>> {
+    let ctx = f.ctx;
+    let t = ctx.theme;
+    let nodes = &ctx.model.settings().nodes;
+    if !crate::nodes::available(ctx.model) || nodes.is_empty() {
+        return None;
+    }
+    let narrowed = *machine != MachineFilter::All;
+    let words = if narrowed {
+        ctx.i18n
+            .t_with(
+                Key::SidebarMachinesFilterOn,
+                &args!("machine" => machine_name(ctx, machine)),
+            )
+            .into_owned()
+    } else {
+        ctx.t(Key::SidebarMachinesFilter).into_owned()
+    };
+    let open = f.st.machine_menu;
+    let button = ui_button::icon_button(t, Icon::Machines)
+        .icon_size(16.0)
+        .tip(words)
+        .toggled(narrowed || open)
+        .on_press(msg(Msg::MachineMenu(!open)));
+    let entries = open.then(|| {
+        let mut entries = Vec::new();
+        for (filter, which, label) in machine_choices(ctx) {
+            let item = ui_menu::item(label).icon(which).checked(filter == *machine);
+            let all = filter == MachineFilter::All;
+            entries.push(item.on_select(msg(Msg::Machine(filter))).into());
+            if all {
+                entries.push(ui_menu::separator());
+            }
+        }
+        entries
+    });
+    Some(
+        ui_menu::dropdown(t, button, entries)
+            .on_dismiss(msg(Msg::MachineMenu(false)))
+            .into(),
+    )
+}
+
+/// How tall the machines' line is.
+const FOOT_HEIGHT: f32 = 26.0;
+
+/// The line at the foot of the list while there is a node: how many
+/// machines, how many of them are down, how many switched off. It opens
+/// their page of the settings.
+fn machines_foot<'a>(ctx: Ctx<'a>) -> Option<Element<'a, Message>> {
+    let t = ctx.theme;
+    let tr = ctx.i18n;
+    if !crate::nodes::available(ctx.model) || ctx.model.settings().nodes.is_empty() {
+        return None;
+    }
+    let census = presence::census(ctx.model, ctx.now);
+    let said = |words: String, ink: iced::Color| {
+        text(words)
+            .size(font_size::MICRO)
+            .color(ink)
+            .wrapping(text::Wrapping::None)
+    };
+    let mut words = row![said(
+        tr.tn(Key::SidebarMachinesCount, census.machines, &[])
+            .into_owned(),
+        t.colors.fg_muted
+    )]
+    .spacing(space::SM)
+    .align_y(Alignment::Center);
+    if census.offline > 0 {
+        words = words.push(said(
+            tr.tn(Key::SidebarMachinesOffline, census.offline, &[])
+                .into_owned(),
+            t.colors.warning,
+        ));
+    }
+    if census.off > 0 {
+        words = words.push(said(
+            tr.tn(Key::SidebarMachinesOff, census.off, &[]).into_owned(),
+            t.colors.fg_subtle,
+        ));
+    }
+    // Laid out as a row is: the icon under the rows' glyphs, the words
+    // under their names.
+    let line = row![
+        container(icon(Icon::Machines, 13.0).color(t.colors.fg_muted))
+            .width(16)
+            .align_x(Alignment::Center),
+        words,
+    ]
+    .spacing(PAD)
+    .align_y(Alignment::Center);
+    // The words may run closer to the edge than a row's marks do, and are
+    // cut there if they are too many.
+    let foot = button(container(line).center_y(Length::Fill).clip(true))
+        .width(Length::Fill)
+        .height(FOOT_HEIGHT)
+        .padding(Padding {
+            top: 0.0,
+            right: 2.0,
+            bottom: 0.0,
+            left: PAD,
+        })
+        .on_press(Message::Intent(Intent::OpenSettings(Some(
+            crate::shell::SettingsCategory::Nodes,
+        ))))
+        .style(move |_: &iced::Theme, status| {
+            let lit = matches!(status, button::Status::Hovered | button::Status::Pressed);
+            button::Style {
+                background: lit.then_some(Background::Color(t.colors.surface_hover)),
+                border: skin::border(iced::Color::TRANSPARENT, radius::MD),
+                ..button::Style::default()
+            }
+        });
+    Some(
+        container(tip::right(
+            t,
+            foot,
+            tr.t(Key::SidebarMachinesOpen).into_owned(),
+        ))
+        .padding(Padding {
+            top: 0.0,
+            right: 6.0,
+            bottom: 4.0,
+            left: PAD,
+        })
+        .into(),
+    )
 }

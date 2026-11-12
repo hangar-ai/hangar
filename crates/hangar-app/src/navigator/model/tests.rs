@@ -84,6 +84,8 @@ fn tree<'a>(
         query,
         attention_only,
         wants_you,
+        machine: &MachineFilter::All,
+        machine_label: &|_| None,
     })
 }
 
@@ -400,4 +402,68 @@ fn attention_combines_with_the_query() {
 fn does_not_keep_a_folder_for_its_name_alone() {
     let w = world();
     assert!(keys_wanting(&w, "clients", &|_| false).is_empty());
+}
+
+// ---- Machines -----------------------------------------------------------------------------
+
+/// The world with `hangar` and `storefront` on node `gpu`, labelled "GPU box".
+fn world_with_a_node() -> World {
+    let mut world = world();
+    for ws in &mut world.workspaces {
+        if ws.id == "hangar" || ws.id == "storefront" {
+            ws.node = Some("gpu".into());
+        }
+    }
+    world
+}
+
+fn keys_on(world: &World, query: &str, machine: &MachineFilter) -> Vec<String> {
+    let all: Vec<&Workspace> = world.workspaces.iter().collect();
+    build_nav_tree(&NavInput {
+        workspaces: &all,
+        folders: &world.folders,
+        query,
+        attention_only: false,
+        wants_you: &|_| false,
+        machine,
+        machine_label: &|ws| ws.node.as_ref().map(|_| "GPU box".to_string()),
+    })
+    .rows
+    .into_iter()
+    .map(|row| row.key)
+    .collect()
+}
+
+#[test]
+fn a_machine_filter_keeps_only_its_workspaces() {
+    let world = world_with_a_node();
+    let everything = keys_on(&world, "", &MachineFilter::All);
+    assert_eq!(everything, keys(&world, ""));
+
+    let gpu = keys_on(&world, "", &MachineFilter::Node("gpu".into()));
+    assert_eq!(gpu, strs(&["ws:hangar", "folder:clients", "ws:storefront"]));
+
+    // Its only workspace is on the node: the folder has nothing to head.
+    let local = keys_on(&world, "", &MachineFilter::Local);
+    assert_eq!(local, strs(&["ws:docs"]));
+
+    assert!(keys_on(&world, "", &MachineFilter::Node("other".into())).is_empty());
+}
+
+#[test]
+fn a_machine_s_label_matches_the_workspaces_it_runs() {
+    let world = world_with_a_node();
+    assert_eq!(
+        keys_on(&world, "gpu b", &MachineFilter::All),
+        strs(&["ws:hangar", "folder:clients", "ws:storefront"])
+    );
+    // The label does not get past a machine filter that excludes it.
+    assert!(keys_on(&world, "gpu", &MachineFilter::Local).is_empty());
+    // A folder's own name does not list it empty under a machine filter.
+    assert!(keys_on(&world, "clients", &MachineFilter::Local).is_empty());
+    // Without a machine filter it still does, as before.
+    assert_eq!(
+        keys_on(&world, "clients", &MachineFilter::All),
+        strs(&["folder:clients", "ws:storefront"])
+    );
 }

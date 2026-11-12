@@ -405,16 +405,16 @@ pub fn view<'a>(ctx: Ctx<'a>, head: Head<'a>) -> Element<'a, Message> {
 
 /// The git branch of the pane's folder, beside its name; a detached head
 /// shows its short sha, marked (`PaneBranchLabel`).
-/// The node a pane of a local workspace runs on, by its label.
+/// The machine a pane of a local workspace runs on: its icon and its
+/// label, in the look of its link's state.
 fn node_label<'a>(ctx: Ctx<'a>, node: &str) -> Element<'a, Message> {
+    use crate::nodes::presence;
     let t = ctx.theme;
     let label = crate::nodes::label(ctx.model, node);
-    let words = ctx
-        .i18n
-        .t_with(Key::NodesCreateOnNode, &args!("node" => label.as_str()))
-        .into_owned();
+    let look = presence::look_of(ctx.model, node, ctx.now);
+    let words = presence::tip_of(ctx.model, ctx.i18n, node, ctx.now);
     let content = row![
-        icon(Icon::Plug, 11.0),
+        icon(look.icon, 11.0).color(look.tone.color(t)),
         text(label)
             .size(tokens::font_size::LABEL)
             .wrapping(text::Wrapping::None)

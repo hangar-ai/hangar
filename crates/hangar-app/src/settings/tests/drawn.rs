@@ -34,7 +34,7 @@ fn model() -> Model {
                     label: id.to_uppercase(),
                     ssh_target: format!("me@{id}"),
                     ssh_config: (id == "vps").then(|| "~/.ssh/other".into()),
-                    extra: Default::default(),
+                    ..Default::default()
                 })
                 .collect(),
             ..crate::state::Settings::default()
@@ -63,7 +63,7 @@ fn model() -> Model {
                 step: crate::nodes::model::Step::Probe,
                 detail: "Permission denied (publickey).".into(),
             },
-            retry_in: Some(4),
+            retry_in: 4,
         },
     );
     model.ui.shells = vec![hangar_core::shells::ShellInfo {

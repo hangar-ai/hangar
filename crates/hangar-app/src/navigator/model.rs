@@ -56,6 +56,26 @@ pub struct NavTree<'a> {
     pub filtering: bool,
 }
 
+/// Which machine's workspaces the list keeps: all of them, this computer's,
+/// or one node's.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum MachineFilter {
+    #[default]
+    All,
+    Local,
+    Node(String),
+}
+
+impl MachineFilter {
+    pub fn keeps(&self, ws: &Workspace) -> bool {
+        match self {
+            MachineFilter::All => true,
+            MachineFilter::Local => ws.node.is_none(),
+            MachineFilter::Node(id) => ws.node.as_deref() == Some(id.as_str()),
+        }
+    }
+}
+
 pub struct NavInput<'a, 'f> {
     pub workspaces: &'f [&'a Workspace],
     pub folders: &'a [WorkspaceFolder],
@@ -66,6 +86,11 @@ pub struct NavInput<'a, 'f> {
     pub attention_only: bool,
     /// Whether a pane wants you now; only asked when `attention_only` is on.
     pub wants_you: &'f dyn Fn(&str) -> bool,
+    /// Keep only the workspaces of this machine.
+    pub machine: &'f MachineFilter,
+    /// The label of the machine a workspace is on, which the filter's text
+    /// finds it by; `None` for one of this computer.
+    pub machine_label: &'f dyn Fn(&Workspace) -> Option<String>,
 }
 
 pub fn row_key(kind: RowKind, id: &str) -> String {
@@ -150,17 +175,24 @@ pub fn namesake_hints(workspaces: &[&Workspace]) -> HashMap<WsId, String> {
 
 pub fn build_nav_tree<'a>(input: &NavInput<'a, '_>) -> NavTree<'a> {
     let needle = fold(input.query.trim());
-    let filtering = !needle.is_empty() || input.attention_only;
+    let one_machine = *input.machine != MachineFilter::All;
+    let filtering = !needle.is_empty() || input.attention_only || one_machine;
     let attention_only = input.attention_only;
 
-    // Found by its own name, its folder's, or one of its agents': their names
-    // are not on screen any more, but "eve" still finds the workspace Eve is
-    // in.
+    // Found by its own name, its folder's, its machine's, or one of its
+    // agents': their names are not on screen any more, but "eve" still finds
+    // the workspace Eve is in, and "vps" those that run on the VPS.
     let shown = |ws: &Workspace, folder_hit: bool| -> bool {
+        if !input.machine.keeps(ws) {
+            return false;
+        }
         if attention_only && !ws.panes.iter().any(|pane| (input.wants_you)(&pane.id)) {
             return false;
         }
         if needle.is_empty() || folder_hit || fold(&ws.name).contains(&needle) {
+            return true;
+        }
+        if (input.machine_label)(ws).is_some_and(|label| fold(&label).contains(&needle)) {
             return true;
         }
         ws.panes.iter().any(|pane| {
@@ -201,7 +233,7 @@ pub fn build_nav_tree<'a>(input: &NavInput<'a, '_>) -> NavTree<'a> {
             .collect();
         // Under a filter a folder is only a heading for what it lets through,
         // held open so that is visible, unless its own name is the match.
-        if filtering && kept.is_empty() && !(folder_hit && !attention_only) {
+        if filtering && kept.is_empty() && !(folder_hit && !attention_only && !one_machine) {
             continue;
         }
         folders.push(NavFolder {

@@ -192,7 +192,12 @@ pub fn dialog<'a>(st: &'a State, ctx: Ctx<'a>) -> Element<'a, Message> {
     let nodes = crate::nodes::connected(ctx.model);
     let chosen = st.place.node.as_ref();
     if st.source == Source::Folder && (!nodes.is_empty() || chosen.is_some()) {
-        let mut options = vec![(None, ctx.t(Key::NodesCreateLocal).into_owned())];
+        // Each machine by its icon and its name, as everywhere else.
+        let mut options = vec![(
+            None,
+            Some(crate::nodes::presence::LOCAL_ICON),
+            ctx.t(Key::NodesCreateLocal).into_owned(),
+        )];
         let mut listed: Vec<(String, String)> = nodes;
         if let Some(node) = chosen
             && !listed.iter().any(|(id, _)| id == node)
@@ -200,16 +205,13 @@ pub fn dialog<'a>(st: &'a State, ctx: Ctx<'a>) -> Element<'a, Message> {
             listed.push((node.clone(), crate::nodes::label(ctx.model, node)));
         }
         for (id, label) in listed {
-            let words = ctx
-                .i18n
-                .t_with(Key::NodesCreateOnNode, &args!("node" => label.as_str()))
-                .into_owned();
-            options.push((Some(id), words));
+            let lead = crate::nodes::presence::icon_of(ctx.model, &id);
+            options.push((Some(id), Some(lead), label));
         }
         form = form.push(labelled(
             ctx,
             Some(ctx.t(Key::NodesCreateWhere).into_owned()),
-            input::segmented_labels(t, options, &st.place.node, |node| msg(Msg::Place(node))),
+            input::segmented_icons(t, options, &st.place.node, |node| msg(Msg::Place(node))),
         ));
     }
 

@@ -6,14 +6,14 @@ use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use super::commands::{self, Cmd, Mux};
 use super::connect::{self, Setup, Timing, TunnelSlot, locked};
 use super::model::*;
 use super::runner::{CmdOutput, Runner, Tunnel, parse_response};
 use super::{AddForm, Live, NodeClient, State, apply_status, node_from_form};
-use crate::state::types::NodeConfig;
+use crate::state::types::{MachineKind, NodeConfig};
 use crate::state::{Model, Settings, read_state};
 
 fn node(config: Option<&str>) -> NodeConfig {
@@ -22,7 +22,7 @@ fn node(config: Option<&str>) -> NodeConfig {
         label: "Box".into(),
         ssh_target: "me@box".into(),
         ssh_config: config.map(str::to_string),
-        extra: Default::default(),
+        ..NodeConfig::default()
     }
 }
 
@@ -432,6 +432,7 @@ fn the_add_form_makes_a_node_only_with_a_usable_target() {
         label: " GPU ".into(),
         target: " me@gpu ".into(),
         config: "".into(),
+        kind: MachineKind::Laptop,
         touched: true,
     };
     assert_eq!(
@@ -441,7 +442,8 @@ fn the_add_form_makes_a_node_only_with_a_usable_target() {
             label: "GPU".into(),
             ssh_target: "me@gpu".into(),
             ssh_config: None,
-            extra: Default::default(),
+            kind: MachineKind::Laptop,
+            ..NodeConfig::default()
         })
     );
     let with_config = AddForm {
@@ -586,6 +588,7 @@ async fn a_status_from_an_older_connection_is_dropped() {
             generation: 2,
             task: tokio::spawn(async {}),
             tunnel: Arc::new(Mutex::new(None)),
+            wake: Arc::default(),
             events: None,
         },
     );
@@ -596,6 +599,7 @@ async fn a_status_from_an_older_connection_is_dropped() {
         "n1".into(),
         1,
         NodeStatus::Connecting(Step::Probe),
+        Instant::now(),
     );
     assert_eq!(live.status("n1"), NodeStatus::Disconnected);
     apply_status(
@@ -604,6 +608,7 @@ async fn a_status_from_an_older_connection_is_dropped() {
         "n1".into(),
         2,
         NodeStatus::Connecting(Step::Start),
+        Instant::now(),
     );
     assert_eq!(live.status("n1"), NodeStatus::Connecting(Step::Start));
     apply_status(
@@ -612,6 +617,7 @@ async fn a_status_from_an_older_connection_is_dropped() {
         "other".into(),
         2,
         NodeStatus::Connecting(Step::Start),
+        Instant::now(),
     );
     assert_eq!(live.status("other"), NodeStatus::Disconnected);
 }
@@ -782,10 +788,14 @@ fn setup(binary_dir: Option<&Path>) -> Setup {
             poll: Duration::from_millis(5),
             first_backoff: Duration::from_millis(5),
             max_backoff: Duration::from_millis(20),
+            jitter: 0.2,
+            spread: || 0.0,
+            stable_after: Duration::from_secs(30),
             handshake_tries: 5,
             handshake_wait: Duration::from_millis(1),
         },
         control_dir: None,
+        wake: Arc::default(),
     }
 }
 
@@ -984,18 +994,52 @@ async fn an_ssh_failure_names_its_step_and_what_ssh_said() {
     )]);
     let slot: TunnelSlot<FakeTunnel> = Arc::default();
     let (reports, report) = reporter();
-    connect::run(fake, setup(None), slot, report).await;
-    // Never connected: it stops and waits for the person.
+    let task = tokio::spawn(connect::run(fake, setup(None), slot, report));
+    let failed = wait_for_report(&reports, |status| {
+        matches!(status, NodeStatus::Unreachable { .. })
+    })
+    .await;
+    // It never connected, and is tried again all the same.
     assert_eq!(
-        locked(&reports).last(),
-        Some(&NodeStatus::Unreachable {
+        failed,
+        NodeStatus::Unreachable {
             failure: Failure::Ssh {
                 step: Step::Probe,
                 detail: "me@box: Permission denied (publickey).".into()
             },
-            retry_in: None
-        })
+            retry_in: 1
+        }
     );
+    wait_for_count(&reports, 2, |status| {
+        matches!(status, NodeStatus::Unreachable { .. })
+    })
+    .await;
+    task.abort();
+}
+
+/// The first status reported that `wanted` takes, waited for.
+async fn wait_for_report(reports: &Reports, wanted: impl Fn(&NodeStatus) -> bool) -> NodeStatus {
+    wait_for_count(reports, 1, wanted).await
+}
+
+/// The `count`th status reported that `wanted` takes, waited for.
+async fn wait_for_count(
+    reports: &Reports,
+    count: usize,
+    wanted: impl Fn(&NodeStatus) -> bool,
+) -> NodeStatus {
+    for _ in 0..800 {
+        let found = locked(reports)
+            .iter()
+            .filter(|status| wanted(status))
+            .nth(count - 1)
+            .cloned();
+        if let Some(found) = found {
+            return found;
+        }
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    panic!("not reported {count} times: {:?}", locked(reports));
 }
 
 #[tokio::test]
@@ -1069,7 +1113,7 @@ async fn a_tunnel_that_dies_is_opened_again_after_a_wait() {
         seen[dropped],
         NodeStatus::Unreachable {
             failure: Failure::Tunnel("Connection reset".into()),
-            retry_in: Some(1)
+            retry_in: 1
         }
     );
     assert_eq!(seen[dropped + 1], NodeStatus::Connecting(Step::Probe));
@@ -1186,7 +1230,7 @@ async fn rig_connects_to_the_test_container_with_a_fake_hangar_node() {
         label: "rig".into(),
         ssh_target: "hangar-node-test".into(),
         ssh_config: Some(config.display().to_string()),
-        extra: Default::default(),
+        ..NodeConfig::default()
     };
     // A version no install has, so the script is uploaded every run.
     let setup = Setup {
@@ -1198,6 +1242,7 @@ async fn rig_connects_to_the_test_container_with_a_fake_hangar_node() {
         version: format!("rig-{}", std::process::id()),
         timing: Timing::default(),
         control_dir: None,
+        wake: Arc::default(),
     };
     let slot: TunnelSlot<super::runner::SystemTunnel> = Arc::default();
     let (reports, report) = reporter();
@@ -1269,4 +1314,282 @@ fn the_workspaces_a_node_runs_itself_are_read_from_its_answer() {
     assert_eq!(own[0].panes[1].activity, None);
     // An answer it cannot read (an older node's 404 body) is no workspace.
     assert!(super::model::parse_own(&serde_json::json!({ "error": "not found" })).is_empty());
+}
+
+// ---- Retrying, switching on and off ---------------------------------------------------------
+
+fn timing(spread: fn() -> f64) -> Timing {
+    Timing {
+        spread,
+        ..Timing::default()
+    }
+}
+
+#[test]
+fn the_waits_double_from_two_seconds_to_a_minute() {
+    let timing = timing(|| 0.0);
+    let mut retry = connect::Retry::new(&timing);
+    let waits: Vec<u64> = (0..7).map(|_| retry.wait(&timing).as_secs()).collect();
+    assert_eq!(waits, [2, 4, 8, 16, 32, 60, 60]);
+}
+
+#[test]
+fn each_wait_is_spread_by_a_fifth_either_way() {
+    let early = timing(|| -1.0);
+    let late = timing(|| 1.0);
+    // A source that strays out of its range is held to it.
+    let wild = timing(|| 7.0);
+    let mut retry = connect::Retry::new(&early);
+    assert_eq!(retry.wait(&early), Duration::from_millis(1600));
+    assert_eq!(retry.wait(&late), Duration::from_millis(4800));
+    assert_eq!(retry.wait(&wild), Duration::from_millis(9600));
+    // The spread is the wait's, not the next one's: the doubling goes on
+    // from the plain length.
+    assert_eq!(retry.wait(&timing(|| 0.0)), Duration::from_secs(16));
+    // At the cap, the spread still applies.
+    let mut capped = connect::Retry::new(&late);
+    let last = (0..8).map(|_| capped.wait(&late)).last().unwrap();
+    assert_eq!(last, Duration::from_secs(72));
+}
+
+#[test]
+fn the_default_spread_stays_in_range_and_varies() {
+    let timing = Timing::default();
+    let drawn: Vec<f64> = (0..64).map(|_| (timing.spread)()).collect();
+    assert!(drawn.iter().all(|x| (-1.0..=1.0).contains(x)), "{drawn:?}");
+    assert!(drawn.iter().any(|x| (x - drawn[0]).abs() > 1e-9));
+    for _ in 0..64 {
+        let wait = connect::Retry::new(&timing).wait(&timing);
+        assert!(
+            (Duration::from_millis(1600)..=Duration::from_millis(2400)).contains(&wait),
+            "{wait:?}"
+        );
+    }
+}
+
+#[test]
+fn the_waits_start_over_only_after_a_connection_that_held() {
+    let timing = timing(|| 0.0);
+    let mut retry = connect::Retry::new(&timing);
+    for _ in 0..3 {
+        retry.wait(&timing);
+    }
+    // Up for a moment, then dropped: a server that accepts and hangs up.
+    retry.held(Duration::from_secs(29), &timing);
+    assert_eq!(retry.wait(&timing), Duration::from_secs(16));
+    retry.held(Duration::from_secs(30), &timing);
+    assert_eq!(retry.wait(&timing), Duration::from_secs(2));
+}
+
+/// A node that fails is waited on for its whole backoff, unless it is
+/// woken: then the next attempt starts at once.
+#[tokio::test]
+async fn a_waiting_connection_tries_at_once_when_woken() {
+    let fake = Fake::answering(vec![failed("ssh: connect: Network is unreachable")]);
+    let mut setup = setup(None);
+    // Long enough that only a wake-up can explain a second attempt.
+    setup.timing.first_backoff = Duration::from_secs(600);
+    setup.timing.max_backoff = Duration::from_secs(600);
+    let wake = setup.wake.clone();
+    let slot: TunnelSlot<FakeTunnel> = Arc::default();
+    let (reports, report) = reporter();
+    let task = tokio::spawn(connect::run(fake.clone(), setup, slot, report));
+
+    let unreachable = |status: &NodeStatus| matches!(status, NodeStatus::Unreachable { .. });
+    let first = wait_for_report(&reports, unreachable).await;
+    assert!(
+        matches!(first, NodeStatus::Unreachable { retry_in: 600, .. }),
+        "{first:?}"
+    );
+    // Left alone, it waits.
+    tokio::time::sleep(Duration::from_millis(60)).await;
+    assert_eq!(locked(&fake.ran).len(), 1);
+
+    // The wake-up reaches the wait however soon after the report it comes.
+    for _ in 0..200 {
+        wake.notify_waiters();
+        if locked(&fake.ran).len() >= 2 {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    assert_eq!(locked(&fake.ran).len(), 2, "woken, it tried again");
+    wait_for_count(&reports, 2, unreachable).await;
+    task.abort();
+}
+
+/// A wake-up that finds nothing waiting is not kept for later: the wait
+/// that follows a later failure runs its course.
+#[tokio::test]
+async fn a_wake_up_while_connected_is_not_kept_for_the_next_wait() {
+    let fake = Fake::answering(vec![keep()]);
+    let mut setup = setup(None);
+    setup.timing.first_backoff = Duration::from_secs(600);
+    setup.timing.max_backoff = Duration::from_secs(600);
+    let wake = setup.wake.clone();
+    let slot: TunnelSlot<FakeTunnel> = Arc::default();
+    let (reports, report) = reporter();
+    let task = tokio::spawn(connect::run(fake.clone(), setup, slot, report));
+    wait_for_report(&reports, |status| *status == connected()).await;
+    wake.notify_waiters();
+    fake.tunnel_dies.store(true, Ordering::SeqCst);
+    wait_for_report(&reports, |status| {
+        matches!(status, NodeStatus::Unreachable { .. })
+    })
+    .await;
+    tokio::time::sleep(Duration::from_millis(60)).await;
+    assert_eq!(locked(&fake.ran).len(), 1, "no second attempt yet");
+    task.abort();
+}
+
+#[test]
+fn a_node_is_on_unless_it_was_switched_off() {
+    let state = read_state(serde_json::json!({"settings": {"nodes": [
+        {"id": "a", "sshTarget": "me@a"},
+        {"id": "b", "sshTarget": "me@b", "enabled": false, "kind": "miniPc"},
+        {"id": "c", "sshTarget": "me@c", "enabled": true, "kind": "mainframe"},
+    ]}}));
+    let nodes = &state.settings.nodes;
+    assert!(nodes[0].is_on());
+    assert_eq!(nodes[0].enabled, None);
+    assert_eq!(nodes[0].kind, MachineKind::Server);
+    assert!(!nodes[1].is_on());
+    assert_eq!(nodes[1].kind, MachineKind::MiniPc);
+    // A kind this version does not know costs the kind, not the node.
+    assert!(nodes[2].is_on());
+    assert_eq!(nodes[2].kind, MachineKind::Server);
+
+    // A node as it was before stays as it was in the file; the kinds are
+    // written in camelCase.
+    let written = serde_json::to_value(&state.settings).unwrap();
+    assert_eq!(
+        written["nodes"][0],
+        serde_json::json!({"id": "a", "label": "", "sshTarget": "me@a"})
+    );
+    assert_eq!(written["nodes"][1]["enabled"], false);
+    assert_eq!(written["nodes"][1]["kind"], "miniPc");
+    let kinds: Vec<String> = MachineKind::ALL
+        .iter()
+        .map(|kind| {
+            serde_json::to_value(kind)
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string()
+        })
+        .collect();
+    assert_eq!(
+        kinds,
+        ["server", "cloud", "laptop", "desktop", "miniPc", "tower"]
+    );
+}
+
+/// A model with the experiment on or off, node `on` switched on and node
+/// `off` switched off, and a workspace on each and one on this computer.
+fn two_nodes(experiment: bool) -> Model {
+    use crate::state::types::Workspace;
+    let mut state = crate::state::AppState::default();
+    if experiment {
+        state.settings.experiments = vec![crate::settings::experiments::NODES.into()];
+    }
+    state.settings.nodes = vec![
+        NodeConfig {
+            id: "on".into(),
+            ..node(None)
+        },
+        NodeConfig {
+            id: "off".into(),
+            enabled: Some(false),
+            ..node(None)
+        },
+    ];
+    let ws = |id: &str, node: Option<&str>| Workspace {
+        id: id.into(),
+        name: id.into(),
+        node: node.map(str::to_string),
+        ..Workspace::default()
+    };
+    state.workspaces = vec![
+        ws("local", None),
+        ws("there", Some("on")),
+        ws("hidden", Some("off")),
+        ws("orphan", Some("removed")),
+    ];
+    let mut m = Model::default();
+    m.hydrate(state);
+    m
+}
+
+#[test]
+fn only_the_nodes_switched_on_are_kept_connected() {
+    let m = two_nodes(true);
+    assert_eq!(super::wanted(&m), ["on"]);
+    // Without the experiment nothing connects.
+    assert!(super::wanted(&two_nodes(false)).is_empty());
+    // Nor before the person's state is read: the nodes are not known yet.
+    let mut early = two_nodes(true);
+    early.live.hydrated = false;
+    assert!(super::wanted(&early).is_empty());
+}
+
+#[test]
+fn the_connections_follow_what_is_wanted() {
+    let ids = |list: &[&str]| list.iter().map(|id| id.to_string()).collect::<Vec<_>>();
+    // As the app starts: every node that is on gets a connection.
+    assert_eq!(
+        super::plan(&[], &ids(&["a", "b"])),
+        (ids(&[]), ids(&["a", "b"]))
+    );
+    // Switched off, or removed: its connection stops; the others stay.
+    assert_eq!(
+        super::plan(&ids(&["a", "b"]), &ids(&["a"])),
+        (ids(&["b"]), ids(&[]))
+    );
+    // Nothing to do when they agree: a running connection is never
+    // started over.
+    assert_eq!(
+        super::plan(&ids(&["a"]), &ids(&["a"])),
+        (ids(&[]), ids(&[]))
+    );
+}
+
+#[test]
+fn the_workspaces_of_a_node_switched_off_are_out_of_the_lists() {
+    let m = two_nodes(true);
+    let shown: Vec<&str> = m
+        .state()
+        .workspaces
+        .iter()
+        .filter(|ws| super::shown(&m, ws))
+        .map(|ws| ws.id.as_str())
+        .collect();
+    // A workspace whose node left the settings stays: nothing switched it
+    // off, and its row is where the person finds out.
+    assert_eq!(shown, ["local", "there", "orphan"]);
+    // They are hidden, not removed.
+    assert_eq!(m.state().workspaces.len(), 4);
+    // Without the experiment nothing is hidden.
+    let plain = two_nodes(false);
+    assert!(
+        plain
+            .state()
+            .workspaces
+            .iter()
+            .all(|ws| super::shown(&plain, ws))
+    );
+}
+
+#[test]
+fn switching_a_node_off_moves_the_window_off_its_workspace() {
+    let mut m = two_nodes(true);
+    m.apply(crate::state::StoreAction::SetActiveWorkspace(Some(
+        "there".into(),
+    )));
+    super::patch_node(&mut m, "on".into(), |node| node.enabled = Some(false));
+    super::leave_hidden_workspace(&mut m);
+    assert_eq!(m.state().active_workspace_id.as_deref(), Some("local"));
+    // Switched back on, its workspaces are in the lists again.
+    super::patch_node(&mut m, "on".into(), |node| node.enabled = None);
+    let there = m.workspace("there").unwrap();
+    assert!(super::shown(&m, there));
 }

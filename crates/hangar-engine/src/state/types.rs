@@ -579,8 +579,53 @@ pub struct NodeConfig {
     /// An SSH config file passed as `-F`; the person's own when `None`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ssh_config: Option<String>,
+    /// What sort of machine it is, which picks the icon it goes by.
+    /// Written only when it is not a server, so a file from before stays
+    /// as it was.
+    #[serde(skip_serializing_if = "MachineKind::is_server")]
+    pub kind: MachineKind,
+    /// `Some(false)`: switched off by the person. It is not connected, and
+    /// its workspaces are out of the lists until it is switched on again.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
     #[serde(flatten)]
     pub extra: Extra,
+}
+
+impl NodeConfig {
+    /// Not switched off: the app keeps it connected.
+    pub fn is_on(&self) -> bool {
+        self.enabled != Some(false)
+    }
+}
+
+/// The sort of machine a node is. Only how it is drawn depends on it.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MachineKind {
+    #[default]
+    Server,
+    Cloud,
+    Laptop,
+    Desktop,
+    MiniPc,
+    Tower,
+}
+
+impl MachineKind {
+    /// Every kind, in the order a picker offers them.
+    pub const ALL: [MachineKind; 6] = [
+        MachineKind::Server,
+        MachineKind::Cloud,
+        MachineKind::Laptop,
+        MachineKind::Desktop,
+        MachineKind::MiniPc,
+        MachineKind::Tower,
+    ];
+
+    fn is_server(&self) -> bool {
+        *self == MachineKind::Server
+    }
 }
 
 impl Default for Settings {

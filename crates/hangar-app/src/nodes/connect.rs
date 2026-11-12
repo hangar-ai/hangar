@@ -1,10 +1,13 @@
 //! One node's connection, on tokio: the steps of docs/native/nodes.md §4 in
 //! order, then the tunnel watched and opened again when it dies.
 //!
-//! A node that never connected stops at its first failure and waits for the
-//! person (a missing binary or a refused key does not mend itself). One that
-//! was connected and dropped is retried with a growing delay: a laptop that
-//! sleeps or changes network gets its node back on its own.
+//! A connection never gives up: an attempt that fails, or a tunnel that
+//! drops, is followed by another after a wait that doubles up to a cap
+//! ([`Retry`]). The waits are spread a little, so that several desktops do
+//! not all come back on a restarted server in the same second, and a wait
+//! is cut short when the person asks or comes back to the window
+//! ([`Setup::wake`]): a laptop that sleeps or changes network gets its node
+//! back on its own, and at once when it is looked at.
 //!
 //! The task owns everything it starts; the tunnel sits in a slot the
 //! package also holds, so quitting can kill it synchronously, without
@@ -14,6 +17,8 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard, OnceLock, RwLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+use tokio::sync::Notify;
 
 use crate::state::types::NodeConfig;
 
@@ -81,10 +86,20 @@ impl<'a> Laps<'a> {
 pub struct Timing {
     /// How often the tunnel is looked at.
     pub poll: Duration,
-    /// The first wait before a reconnection, doubled each time up to
+    /// The first wait before another attempt, doubled each time up to
     /// `max_backoff`.
     pub first_backoff: Duration,
     pub max_backoff: Duration,
+    /// How far a wait may stray from its length, as a share of it: 0.2
+    /// makes a 10 s wait last 8 to 12 s.
+    pub jitter: f64,
+    /// Where in that range a wait falls: a number from -1 to 1, drawn anew
+    /// for each wait. The tests give a fixed one.
+    pub spread: fn() -> f64,
+    /// A connection that held this long was a good one: the waits start
+    /// over from `first_backoff`. One that drops sooner keeps them growing,
+    /// so a server that accepts and hangs up is not hammered.
+    pub stable_after: Duration,
     /// `/node/info` is asked this many times, `handshake_wait` apart, while
     /// the tunnel comes up.
     pub handshake_tries: u32,
@@ -95,14 +110,63 @@ impl Default for Timing {
     fn default() -> Self {
         Timing {
             poll: Duration::from_millis(500),
-            first_backoff: Duration::from_secs(1),
-            max_backoff: Duration::from_secs(30),
+            first_backoff: Duration::from_secs(2),
+            max_backoff: Duration::from_secs(60),
+            jitter: 0.2,
+            spread: random_spread,
+            stable_after: Duration::from_secs(30),
             // A tunnel of its own (no master) listens a moment after its
             // ssh starts: asked often, it answers as soon as it can.
             handshake_tries: 250,
             handshake_wait: Duration::from_millis(20),
         }
     }
+}
+
+/// A number from -1 to 1 that differs from one call, and one process, to
+/// the next: std's hasher is keyed at random for each instance.
+fn random_spread() -> f64 {
+    use std::hash::{BuildHasher, Hasher};
+    let drawn = std::collections::hash_map::RandomState::new()
+        .build_hasher()
+        .finish();
+    (drawn as f64 / u64::MAX as f64) * 2.0 - 1.0
+}
+
+/// The waits between a connection's attempts.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Retry {
+    /// The next wait, before it is spread.
+    next: Duration,
+}
+
+impl Retry {
+    pub fn new(timing: &Timing) -> Retry {
+        Retry {
+            next: timing.first_backoff,
+        }
+    }
+
+    /// The wait before the next attempt; the one after is twice as long, up
+    /// to the cap.
+    pub fn wait(&mut self, timing: &Timing) -> Duration {
+        let base = self.next.min(timing.max_backoff);
+        self.next = (base * 2).min(timing.max_backoff);
+        let stray = timing.jitter.clamp(0.0, 1.0) * (timing.spread)().clamp(-1.0, 1.0);
+        base.mul_f64(1.0 + stray)
+    }
+
+    /// A connection ended after being up for `up`.
+    pub fn held(&mut self, up: Duration, timing: &Timing) {
+        if up >= timing.stable_after {
+            self.next = timing.first_backoff;
+        }
+    }
+}
+
+/// A wait in whole seconds, rounded up, for the status to say.
+fn seconds(wait: Duration) -> u64 {
+    (wait.as_secs() + u64::from(wait.subsec_nanos() > 0)).max(1)
 }
 
 /// What a connection needs besides its runner.
@@ -116,6 +180,9 @@ pub struct Setup {
     /// Where the connection's master socket goes ([`Mux::Own`]); `None`
     /// shares nothing (Windows, no private folder for it).
     pub control_dir: Option<PathBuf>,
+    /// Notified to try now: a connection waiting for its next attempt
+    /// starts it at once. One that is connected or connecting hears nothing.
+    pub wake: Arc<Notify>,
 }
 
 /// The folder of the app's SSH master sockets, made private: under
@@ -367,7 +434,7 @@ pub fn older_daemon(node_json: &str, version: &str) -> Option<u32> {
 }
 
 /// The connection for as long as the task runs: connected, watched, opened
-/// again when it drops.
+/// again when it drops or could not be opened.
 pub async fn run<R: Runner>(
     runner: R,
     setup: Setup,
@@ -375,8 +442,7 @@ pub async fn run<R: Runner>(
     report: impl Fn(NodeStatus) + Send + Sync,
 ) {
     let timing = setup.timing;
-    let mut backoff = timing.first_backoff;
-    let mut was_connected = false;
+    let mut retry = Retry::new(&timing);
     let mux = find_mux(&runner, &setup).await;
     MUXES
         .write()
@@ -390,10 +456,12 @@ pub async fn run<R: Runner>(
                     local_port,
                     token,
                 });
-                was_connected = true;
-                backoff = timing.first_backoff;
+                let since = Instant::now();
                 match watch(&slot, timing.poll).await {
-                    Some(why) => Failure::Tunnel(why),
+                    Some(why) => {
+                        retry.held(since.elapsed(), &timing);
+                        Failure::Tunnel(why)
+                    }
                     // Killed from outside: the app is quitting.
                     None => return,
                 }
@@ -402,22 +470,18 @@ pub async fn run<R: Runner>(
                 if let Some(mut tunnel) = locked(&slot).take() {
                     tunnel.kill();
                 }
-                if !was_connected {
-                    report(NodeStatus::Unreachable {
-                        failure,
-                        retry_in: None,
-                    });
-                    return;
-                }
                 failure
             }
         };
+        let wait = retry.wait(&timing);
         report(NodeStatus::Unreachable {
             failure,
-            retry_in: Some(backoff.as_secs().max(1)),
+            retry_in: seconds(wait),
         });
-        tokio::time::sleep(backoff).await;
-        backoff = (backoff * 2).min(timing.max_backoff);
+        tokio::select! {
+            () = tokio::time::sleep(wait) => {}
+            () = setup.wake.notified() => {}
+        }
     }
 }
 

@@ -177,9 +177,9 @@ repository, in `~/dev/bench/site-shots/`:
   inspector read as with real agents;
 - `shoot.py` starts the debug build per state inside the sandbox
   (`HANGAR_DEV_CAPTURE_DIR`, `kill -USR1` for each capture, `dev_command` to
-  switch to the board; `HANGAR_DEV_SETTINGS=nodes` and
-  `HANGAR_DEV_NODES_CONNECT=1` for the nodes page, against an sshd container
-  of its own on a port of the worker's range).
+  switch to the board; `HANGAR_DEV_SETTINGS=nodes` for the nodes page, against
+  an sshd container of its own on a port of the worker's range: the app
+  connects its nodes as it starts).
 
 The captures are lossless PNGs of the window's client area, Graphite unless
 named, English, permissions in Auto mode:

@@ -6,9 +6,11 @@
 //! this package's: one connection per node runs on tokio (`connect.rs`) and
 //! reports through the inbox; what it reported is `Model.live.nodes`, which
 //! the Settings › Nodes page draws and later packages read with [`client`].
-//! Nothing connects on its own: the person presses Connect, and the
-//! connection then holds until Disconnect, the node's removal, the
-//! experiment turned off, or the app quitting, which kills the tunnels.
+//! A node is connected for as long as it is in the settings, switched on,
+//! and the experiment is on: from the app's start, and again whenever its
+//! link drops (`connect.rs`). Switching it off, removing it, turning the
+//! experiment off or quitting ends its connection and kills its tunnel.
+//! How a machine and its link are shown, everywhere, is `presence.rs`.
 
 pub mod away;
 pub mod commands;
@@ -16,12 +18,15 @@ pub mod connect;
 pub mod engine;
 pub mod model;
 mod page;
+pub mod presence;
 pub mod remote;
 pub mod runner;
 pub mod wire;
 
 #[cfg(test)]
 mod orchestrate_tests;
+#[cfg(test)]
+mod page_tests;
 #[cfg(test)]
 mod remote_tests;
 #[cfg(test)]
@@ -32,24 +37,24 @@ mod tests;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use iced::{Subscription, Task};
 
 use crate::message::{Intent, Message};
 use crate::services::{CoreEvent, Services};
 use crate::settings::experiments;
-use crate::state::types::NodeConfig;
+use crate::state::types::{MachineKind, NodeConfig, Workspace};
 use crate::state::{Model, Patch, Settings, StoreAction};
 
 pub use model::{NodeClient, NodeStatus};
-pub use page::settings_page;
+pub use page::{failure_words, settings_page};
 
 use connect::{Setup, Timing, TunnelSlot, locked};
 use model::{BinarySource, NODE_VERSION, target_problem};
 use runner::{System, SystemTunnel, Tunnel};
 
-/// The running connections, and the page's add form.
+/// The running connections, and what the page has open.
 #[derive(Debug, Default)]
 pub struct State {
     conns: HashMap<String, Conn>,
@@ -57,8 +62,7 @@ pub struct State {
     /// had in flight is told from the new one's.
     generation: u64,
     pub(crate) form: AddForm,
-    /// `HANGAR_DEV_NODES_CONNECT` was acted on.
-    dev_connected: bool,
+    pub(crate) open: Option<Open>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -66,8 +70,26 @@ pub(crate) struct AddForm {
     pub label: String,
     pub target: String,
     pub config: String,
+    pub kind: MachineKind,
     /// Sent once: its problem shows from then on.
     pub touched: bool,
+}
+
+/// What the page has open, one thing at a time: a menu under a row's
+/// button, a name being typed, a removal waiting for its yes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Open {
+    /// The kind picker of this node.
+    Kind(String),
+    /// The kind picker of the add form.
+    AddKind,
+    /// The « … » menu of this node.
+    More(String),
+    Rename {
+        id: String,
+        draft: String,
+    },
+    Remove(String),
 }
 
 /// One running connection.
@@ -75,6 +97,8 @@ struct Conn {
     generation: u64,
     task: tokio::task::JoinHandle<()>,
     tunnel: TunnelSlot<SystemTunnel>,
+    /// Cuts short the wait before the connection's next attempt.
+    wake: Arc<tokio::sync::Notify>,
     /// The node's events followed (`/node/events`), once it connected.
     events: Option<tokio::task::JoinHandle<()>>,
 }
@@ -106,6 +130,8 @@ impl Conn {
 #[derive(Debug, Default)]
 pub struct Live {
     pub statuses: HashMap<String, NodeStatus>,
+    /// What each link went through since it was last up, by node id.
+    pub links: HashMap<String, presence::Link>,
     /// The workspaces each connected node runs itself, as last read.
     pub own: HashMap<String, Vec<model::OwnWorkspace>>,
 }
@@ -125,18 +151,30 @@ pub enum Msg {
         generation: u64,
         status: NodeStatus,
     },
-    Connect(String),
-    Disconnect(String),
+    /// The node's next attempt starts now instead of at the end of its
+    /// wait.
+    Retry(String),
+    /// The same for every node: the window got the focus back, which is
+    /// when a laptop woke or the person came to look.
+    Wake,
+    /// Switched on or off by the person.
+    SetEnabled(String, bool),
+    SetKind(String, MachineKind),
     Remove(String),
+    /// A menu, a rename or a removal's question opened on the page, or
+    /// whatever was open closed.
+    Show(Option<Open>),
+    RenameInput(String),
+    RenameSubmit,
     AddLabel(String),
     AddTarget(String),
     AddConfig(String),
+    AddKind(MachineKind),
     AddSubmit,
-    /// Connections whose node left the settings, or whose experiment was
-    /// turned off, are stopped (every second while any runs).
+    /// The connections brought in line with the settings: one for each
+    /// node that is switched on, none for the others (as the app starts,
+    /// then every second while there is a node to keep connected).
     Reconcile,
-    /// `HANGAR_DEV_NODES_CONNECT`: every node connected as the app starts.
-    DevConnectAll,
     /// The connected nodes asked which workspaces they run themselves
     /// (every 5 s).
     RefreshOwn,
@@ -145,15 +183,6 @@ pub enum Msg {
         id: String,
         workspaces: Option<Vec<model::OwnWorkspace>>,
     },
-}
-
-/// Debug builds started with `HANGAR_DEV_NODES_CONNECT=1` connect every
-/// node of the settings once the state is loaded, as if Connect was pressed
-/// on each: the end-to-end runs of the remote workspaces, which no one
-/// clicks through.
-fn dev_connect_requested() -> bool {
-    cfg!(debug_assertions)
-        && std::env::var("HANGAR_DEV_NODES_CONNECT").is_ok_and(|value| value == "1")
 }
 
 /// The experiment is on.
@@ -205,6 +234,17 @@ pub fn connected(m: &Model) -> Vec<(String, String)> {
         .collect()
 }
 
+/// Whether the lists show workspace `ws`: all but those of a node the
+/// person switched off, which are out of the navigator and the palette
+/// until it is switched on again. Nothing is hidden without the
+/// experiment, which is also what would bring them back.
+pub fn shown(m: &Model, ws: &Workspace) -> bool {
+    let Some(node) = ws.node.as_deref() else {
+        return true;
+    };
+    !available(m) || presence::config(m, node).is_none_or(NodeConfig::is_on)
+}
+
 /// Every tunnel killed: the app is quitting.
 pub fn shutdown(st: &mut State) {
     for (id, conn) in st.conns.drain() {
@@ -223,6 +263,7 @@ fn apply_status(
     id: String,
     generation: u64,
     status: NodeStatus,
+    now: Instant,
 ) -> bool {
     let Some(conn) = st
         .conns
@@ -242,6 +283,11 @@ fn apply_status(
     };
     let follow = client.is_some() && conn.events.is_none();
     remote::publish(&id, client);
+    let before = live.status(&id);
+    live.links
+        .entry(id.clone())
+        .or_default()
+        .note(&before, &status, now);
     live.statuses.insert(id, status);
     follow
 }
@@ -338,6 +384,7 @@ fn disconnect(st: &mut State, live: &mut Live, id: &str) {
     }
     remote::publish(id, None);
     live.statuses.remove(id);
+    live.links.remove(id);
 }
 
 fn connect(st: &mut State, m: &mut Model, sv: &Services, id: &str) {
@@ -350,12 +397,14 @@ fn connect(st: &mut State, m: &mut Model, sv: &Services, id: &str) {
     disconnect(st, &mut m.live.nodes, id);
     st.generation += 1;
     let generation = st.generation;
+    let wake = Arc::new(tokio::sync::Notify::new());
     let setup = Setup {
         node,
         source: BinarySource::from_env(),
         version: NODE_VERSION.to_string(),
         timing: Timing::default(),
         control_dir: connect::control_dir(),
+        wake: wake.clone(),
     };
     let tunnel: TunnelSlot<SystemTunnel> = Arc::new(Mutex::new(None));
     let sender = sv.clone();
@@ -374,13 +423,18 @@ fn connect(st: &mut State, m: &mut Model, sv: &Services, id: &str) {
             generation,
             task,
             tunnel,
+            wake,
             events: None,
         },
     );
-    m.live
-        .nodes
-        .statuses
-        .insert(id.to_string(), NodeStatus::Connecting(model::Step::Probe));
+    let live = &mut m.live.nodes;
+    let status = NodeStatus::Connecting(model::Step::Probe);
+    live.links.entry(id.to_string()).or_default().note(
+        &NodeStatus::Disconnected,
+        &status,
+        Instant::now(),
+    );
+    live.statuses.insert(id.to_string(), status);
 }
 
 /// The node the add form describes, or `None` when its target does not do.
@@ -394,8 +448,36 @@ pub(crate) fn node_from_form(form: &AddForm, id: String) -> Option<NodeConfig> {
         label: form.label.trim().to_string(),
         ssh_target: form.target.trim().to_string(),
         ssh_config: (!config.is_empty()).then(|| config.to_string()),
-        extra: Default::default(),
+        kind: form.kind,
+        ..NodeConfig::default()
     })
+}
+
+/// One field of node `id` changed in the settings.
+fn patch_node(m: &mut Model, id: String, change: impl Fn(&mut NodeConfig) + Send + Sync + 'static) {
+    m.apply(StoreAction::UpdateSettings(Patch::new(
+        move |s: &mut Settings| {
+            if let Some(node) = s.nodes.iter_mut().find(|node| node.id == id) {
+                change(node);
+            }
+        },
+    )));
+}
+
+/// The main window moves on to a workspace the lists still show, when the
+/// one it was on has just gone out of them.
+fn leave_hidden_workspace(m: &mut Model) {
+    if m.active_workspace().is_none_or(|ws| shown(m, ws)) {
+        return;
+    }
+    let state = m.state();
+    let next = crate::state::folders::sidebar_order(&state.workspaces, &state.folders)
+        .into_iter()
+        .find(|ws| shown(m, ws) && ws.detached != Some(true) && ws.hq != Some(true))
+        .map(|ws| ws.id.clone());
+    if let Some(next) = next {
+        m.apply(StoreAction::SetActiveWorkspace(Some(next)));
+    }
 }
 
 pub fn update(st: &mut State, m: &mut Model, sv: &Services, msg: Msg) -> Task<Message> {
@@ -405,23 +487,58 @@ pub fn update(st: &mut State, m: &mut Model, sv: &Services, msg: Msg) -> Task<Me
             generation,
             status,
         } => {
-            if apply_status(st, &mut m.live.nodes, id.clone(), generation, status)
+            let now = Instant::now();
+            if apply_status(st, &mut m.live.nodes, id.clone(), generation, status, now)
                 && let Some(conn) = st.conns.get_mut(&id)
             {
                 conn.events = Some(tokio::spawn(follow_events(sv.clone(), id)));
             }
         }
-        Msg::Connect(id) => connect(st, m, sv, &id),
-        Msg::Disconnect(id) => disconnect(st, &mut m.live.nodes, &id),
+        Msg::Retry(id) => match st.conns.get(&id) {
+            Some(conn) => conn.wake.notify_waiters(),
+            None => reconcile(st, m, sv),
+        },
+        Msg::Wake => {
+            for conn in st.conns.values() {
+                conn.wake.notify_waiters();
+            }
+        }
+        Msg::SetEnabled(id, on) => {
+            patch_node(m, id, move |node| node.enabled = (!on).then_some(false));
+            st.open = None;
+            reconcile(st, m, sv);
+            leave_hidden_workspace(m);
+        }
+        Msg::SetKind(id, kind) => {
+            patch_node(m, id, move |node| node.kind = kind);
+            st.open = None;
+        }
         Msg::Remove(id) => {
+            st.open = None;
             disconnect(st, &mut m.live.nodes, &id);
             m.apply(StoreAction::UpdateSettings(Patch::new(
                 move |s: &mut Settings| s.nodes.retain(|node| node.id != id),
             )));
         }
+        Msg::Show(open) => st.open = open,
+        Msg::RenameInput(value) => {
+            if let Some(Open::Rename { draft, .. }) = &mut st.open {
+                *draft = value;
+            }
+        }
+        Msg::RenameSubmit => {
+            if let Some(Open::Rename { id, draft }) = st.open.take() {
+                let name = draft.trim().to_string();
+                patch_node(m, id, move |node| node.label = name.clone());
+            }
+        }
         Msg::AddLabel(value) => st.form.label = value,
         Msg::AddTarget(value) => st.form.target = value,
         Msg::AddConfig(value) => st.form.config = value,
+        Msg::AddKind(kind) => {
+            st.form.kind = kind;
+            st.open = None;
+        }
         Msg::AddSubmit => {
             st.form.touched = true;
             if let Some(node) = node_from_form(&st.form, crate::state::store::new_id()) {
@@ -429,9 +546,11 @@ pub fn update(st: &mut State, m: &mut Model, sv: &Services, msg: Msg) -> Task<Me
                     move |s: &mut Settings| s.nodes.push(node.clone()),
                 )));
                 st.form = AddForm::default();
+                // A machine is on from the moment it is added.
+                reconcile(st, m, sv);
             }
         }
-        Msg::Reconcile => reconcile(st, m),
+        Msg::Reconcile => reconcile(st, m, sv),
         Msg::RefreshOwn => return refresh_own(m),
         Msg::Own { id, workspaces } => match workspaces {
             Some(workspaces) => {
@@ -441,44 +560,69 @@ pub fn update(st: &mut State, m: &mut Model, sv: &Services, msg: Msg) -> Task<Me
                 m.live.nodes.own.remove(&id);
             }
         },
-        Msg::DevConnectAll => {
-            if !st.dev_connected {
-                st.dev_connected = true;
-                let ids: Vec<String> = m.settings().nodes.iter().map(|n| n.id.clone()).collect();
-                for id in ids {
-                    connect(st, m, sv, &id);
-                }
-            }
-        }
     }
     Task::none()
 }
 
-fn reconcile(st: &mut State, m: &mut Model) {
-    let on = available(m);
-    let gone: Vec<String> = st
-        .conns
-        .keys()
-        .filter(|id| !on || !m.settings().nodes.iter().any(|node| &node.id == *id))
+/// The nodes to keep connected: those of the settings that are switched
+/// on, while the experiment is on and the state is the person's own (not
+/// the empty one the app starts with).
+pub(crate) fn wanted(m: &Model) -> Vec<String> {
+    if !available(m) || !m.live.hydrated {
+        return Vec::new();
+    }
+    m.settings()
+        .nodes
+        .iter()
+        .filter(|node| node.is_on())
+        .map(|node| node.id.clone())
+        .collect()
+}
+
+/// The connections that should not run, and the nodes that should have one
+/// and do not.
+pub(crate) fn plan(running: &[String], wanted: &[String]) -> (Vec<String>, Vec<String>) {
+    let stop = running
+        .iter()
+        .filter(|id| !wanted.contains(id))
         .cloned()
         .collect();
-    for id in gone {
+    let start = wanted
+        .iter()
+        .filter(|id| !running.contains(id))
+        .cloned()
+        .collect();
+    (stop, start)
+}
+
+fn reconcile(st: &mut State, m: &mut Model, sv: &Services) {
+    let running: Vec<String> = st.conns.keys().cloned().collect();
+    let (stop, start) = plan(&running, &wanted(m));
+    for id in stop {
         disconnect(st, &mut m.live.nodes, &id);
+    }
+    for id in start {
+        connect(st, m, sv, &id);
     }
 }
 
 pub fn subscription(st: &State, m: &Model) -> Subscription<Message> {
-    if !st.dev_connected && m.live.hydrated && dev_connect_requested() {
-        return Subscription::run_with("hangar dev nodes connect", |_| {
-            iced::futures::stream::once(async { Message::Nodes(Msg::DevConnectAll) })
-        });
-    }
-    if st.conns.is_empty() {
+    if st.conns.is_empty() && wanted(m).is_empty() {
         return Subscription::none();
     }
     Subscription::batch([
+        // At once, then every second: the first connections do not wait for
+        // the first beat. The beat also redraws what counts time, the grace
+        // period of a link that dropped and the seconds to its next attempt.
+        Subscription::run_with("hangar nodes start", |_| {
+            iced::futures::stream::once(async { Message::Nodes(Msg::Reconcile) })
+        }),
         iced::time::every(Duration::from_secs(1)).map(|_| Message::Nodes(Msg::Reconcile)),
         iced::time::every(OWN_EVERY).map(|_| Message::Nodes(Msg::RefreshOwn)),
+        iced::event::listen_with(|event, _status, _window| match event {
+            iced::Event::Window(iced::window::Event::Focused) => Some(Message::Nodes(Msg::Wake)),
+            _ => None,
+        }),
     ])
 }
 

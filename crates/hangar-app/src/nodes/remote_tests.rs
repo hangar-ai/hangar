@@ -597,17 +597,19 @@ async fn the_directory_follows_the_nodes_status() {
             generation: 1,
             task: tokio::spawn(async {}),
             tunnel: Arc::new(Mutex::new(None)),
+            wake: Arc::default(),
             events: None,
         },
     );
     let mut live = Live::default();
+    let now = std::time::Instant::now();
     let connected = NodeStatus::Connected {
         info: NodeInfo::default(),
         local_port: 21005,
         token: "tok".into(),
     };
     assert!(
-        apply_status(&mut st, &mut live, node.clone(), 1, connected),
+        apply_status(&mut st, &mut live, node.clone(), 1, connected, now),
         "its events are to be followed"
     );
     assert_eq!(
@@ -618,7 +620,14 @@ async fn the_directory_follows_the_nodes_status() {
         })
     );
     let dropped = NodeStatus::Connecting(super::model::Step::Tunnel);
-    assert!(!apply_status(&mut st, &mut live, node.clone(), 1, dropped));
+    assert!(!apply_status(
+        &mut st,
+        &mut live,
+        node.clone(),
+        1,
+        dropped,
+        now
+    ));
     assert_eq!(remote::directory(&node), None, "not while it reconnects");
     super::disconnect(&mut st, &mut live, &node);
     assert_eq!(remote::directory(&node), None);

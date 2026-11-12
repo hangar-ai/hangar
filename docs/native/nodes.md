@@ -51,15 +51,25 @@ history when it reconnects.
    - the existing `/api/board`, `/api/tasks/...`, `/api/memory/...` routes of
      core's server, with the App token.
 4. **Desktop: connection** (`hangar-app/src/nodes/`). A node is
-   `{id, label, ssh target}` in the settings. Connecting runs, with
+   `{id, label, ssh target, kind}` in the settings (the kind, a server,
+   a laptop…, picks the icon it goes by). Connecting runs, with
    `ssh -o BatchMode=yes`: `uname -m` → picks the binary for the target;
    installs or updates `hangar-node` under `~/.local/share/hangar-node/bin`
    when the version differs (the binary comes from beside `hangar-ai`, or
    `HANGAR_NODE_BINARY` for development); starts `hangar-node serve` detached
    (a `systemd-run --user` unit when available, else `setsid nohup`); reads
    `node.json`; opens `ssh -N -L 127.0.0.1:<local>:127.0.0.1:<port>` and keeps
-   it up, reconnecting with backoff. Status per node: connecting, connected,
-   unreachable (with the reason).
+   it up. A node that is switched on (`enabled`, on unless set to `false`) is
+   connected from the app's start and reconnected for as long as it is down,
+   whether or not it ever connected: 2 s doubling to 60 s between attempts,
+   each wait spread by ±20 %, started over only once a connection held 30 s,
+   and cut short when the window gets the focus back or the person asks
+   (« Retry now »). One that is switched off is not connected, and its
+   workspaces are out of the navigator and the palette until it is switched
+   on again. Status per node: connecting, connected, unreachable (with the
+   reason). A link that drops says nothing for 5 s; how a machine and its
+   link are then shown is decided in one place (`nodes/presence.rs`) for
+   the navigator, the palette, the pane's bar and card and the settings.
 5. **Desktop: remote workspaces.** `Workspace.node: Option<NodeId>`; its `cwd`
    is a path on the node. `PaneLink` and the pane controller talk to a
    `PtyBackend` (local: today's `PtyManager`; remote: the node API), so the

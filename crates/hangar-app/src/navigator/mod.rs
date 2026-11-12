@@ -45,7 +45,7 @@ use crate::state::types::Workspace;
 use crate::state::{FolderPatch, Model, PaneId, StoreAction, WorkspacePatch, WsId};
 
 use drag::{Drag, DragItem, DragKind, Hit};
-use model::{NavInput, NavRow, RowKind, build_nav_tree, row_key};
+use model::{MachineFilter, NavInput, NavRow, NavTree, RowKind, build_nav_tree, row_key};
 
 /// The note on why « Open with VS Code » did nothing is gone after this.
 const NOTE_FOR: Duration = Duration::from_secs(6);
@@ -90,6 +90,11 @@ pub struct State {
     query: String,
     /// Keep only the workspaces with an agent that wants you.
     attention_only: bool,
+    /// Keep only the workspaces of one machine. Asked for with
+    /// [`machine_filter`], which forgets a machine that is no longer there.
+    machine: MachineFilter,
+    /// The menu of machines is open over the filter bar.
+    machine_menu: bool,
     /// The row the keyboard is on, which is the tree's one stop.
     cursor: Option<String>,
     rename: Option<Rename>,
@@ -113,6 +118,8 @@ impl Default for State {
         State {
             query: String::new(),
             attention_only: false,
+            machine: MachineFilter::All,
+            machine_menu: false,
             cursor: None,
             rename: None,
             menu: None,
@@ -194,6 +201,10 @@ pub enum Msg {
     Query(String),
     ClearFilter,
     ToggleAttention,
+    /// The menu of machines opened or closed.
+    MachineMenu(bool),
+    /// Keep only this machine's workspaces.
+    Machine(MachineFilter),
     /// Down in the filter field: into the list.
     FilterDown,
     /// Escape in the filter field clears the text, then the toggle, then goes
@@ -266,26 +277,52 @@ pub enum Msg {
 // ---- What the list is -------------------------------------------------------------------------
 
 /// The workspaces the list is about: the HQ is not a project, it shows apart,
-/// above the list.
+/// above the list; and those of a machine that is switched off are out of
+/// it until the machine is back on.
 fn projects(m: &Model) -> Vec<&Workspace> {
     m.state()
         .workspaces
         .iter()
-        .filter(|ws| ws.hq != Some(true))
+        .filter(|ws| ws.hq != Some(true) && crate::nodes::shown(m, ws))
         .collect()
 }
 
-/// The rows the keyboard walks, in screen order.
-fn rows_of(st: &State, m: &Model) -> Vec<NavRow> {
-    let projects = projects(m);
+/// The machine the list is narrowed to. A node that left the settings or
+/// was switched off, or the experiment turned off, narrows nothing: its
+/// rows are gone, and the button that would clear the choice with them.
+fn machine_filter(st: &State, m: &Model) -> MachineFilter {
+    if !crate::nodes::available(m) {
+        return MachineFilter::All;
+    }
+    match &st.machine {
+        MachineFilter::Node(id)
+            if !crate::nodes::presence::config(m, id).is_some_and(|node| node.is_on()) =>
+        {
+            MachineFilter::All
+        }
+        filter => filter.clone(),
+    }
+}
+
+/// The tree of `projects` under the filter as it stands.
+fn nav_tree<'a>(st: &State, m: &'a Model, projects: &[&'a Workspace]) -> NavTree<'a> {
     build_nav_tree(&NavInput {
-        workspaces: &projects,
+        workspaces: projects,
         folders: &m.state().folders,
         query: &st.query,
         attention_only: st.attention_only,
         wants_you: &|pane| reads::wants_you(m, &pane.to_string()),
+        machine: &machine_filter(st, m),
+        machine_label: &|ws| {
+            let node = ws.node.as_deref()?;
+            crate::nodes::available(m).then(|| crate::nodes::label(m, node))
+        },
     })
-    .rows
+}
+
+/// The rows the keyboard walks, in screen order.
+fn rows_of(st: &State, m: &Model) -> Vec<NavRow> {
+    nav_tree(st, m, &projects(m)).rows
 }
 
 /// The row that holds the tab stop: where the keyboard was, else the active
@@ -303,8 +340,8 @@ fn tab_key(st: &State, m: &Model, rows: &[NavRow]) -> Option<String> {
         .or_else(|| rows.first().map(|row| row.key.clone()))
 }
 
-fn filtering(st: &State) -> bool {
-    !st.query.trim().is_empty() || st.attention_only
+fn filtering(st: &State, m: &Model) -> bool {
+    !st.query.trim().is_empty() || st.attention_only || machine_filter(st, m) != MachineFilter::All
 }
 
 fn apply(m: &mut Model, action: StoreAction) -> crate::state::StoreOutcome {
@@ -313,7 +350,7 @@ fn apply(m: &mut Model, action: StoreAction) -> crate::state::StoreOutcome {
 
 fn toggle_folder(st: &State, m: &mut Model, id: &str) {
     // Under a filter a folder is held open: folding it would hide the matches.
-    if filtering(st) {
+    if filtering(st, m) {
         return;
     }
     let Some(folder) = m.state().folders.iter().find(|folder| folder.id == id) else {
@@ -483,10 +520,20 @@ fn step(st: &mut State, m: &mut Model, msg: Msg) -> Task<Message> {
         Msg::ClearFilter => {
             st.query.clear();
             st.attention_only = false;
+            st.machine = MachineFilter::All;
             iced::widget::operation::focus(filter_id())
         }
         Msg::ToggleAttention => {
             st.attention_only = !st.attention_only;
+            Task::none()
+        }
+        Msg::MachineMenu(open) => {
+            st.machine_menu = open;
+            Task::none()
+        }
+        Msg::Machine(machine) => {
+            st.machine = machine;
+            st.machine_menu = false;
             Task::none()
         }
         Msg::FilterDown => {
@@ -771,13 +818,7 @@ fn reveal_cursor(st: &State, m: &Model) -> Task<Message> {
         return Task::none();
     };
     let projects = projects(m);
-    let tree = build_nav_tree(&NavInput {
-        workspaces: &projects,
-        folders: &m.state().folders,
-        query: &st.query,
-        attention_only: st.attention_only,
-        wants_you: &|pane| reads::wants_you(m, &pane.to_string()),
-    });
+    let tree = nav_tree(st, m, &projects);
     let spans = geometry::spans(&tree);
     let Some(span) = spans.iter().find(|span| span.key == key) else {
         return Task::none();
@@ -965,6 +1006,8 @@ pub fn view<'a>(st: &'a State, ctx: Ctx<'a>) -> Element<'a, Message> {
 
 #[cfg(test)]
 mod interaction;
+#[cfg(test)]
+mod machines_tests;
 #[cfg(test)]
 pub(crate) mod testing;
 #[cfg(test)]

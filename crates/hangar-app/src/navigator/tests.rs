@@ -337,7 +337,7 @@ fn clearing_the_filter_clears_both_the_text_and_the_toggle() {
     st.query = "x".into();
     st.attention_only = true;
     let _ = step(&mut st, &mut m, Msg::ClearFilter);
-    assert!(!filtering(&st));
+    assert!(!filtering(&st, &m));
 }
 
 #[test]

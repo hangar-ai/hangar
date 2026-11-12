@@ -736,16 +736,44 @@ where
     V: Clone + PartialEq,
     M: Clone + 'a,
 {
-    let segments = options.into_iter().map(|(value, label)| {
+    segmented_icons(
+        t,
+        options
+            .into_iter()
+            .map(|(value, label)| (value, None, label))
+            .collect(),
+        selected,
+        on_select,
+    )
+}
+
+/// [`segmented_labels`] whose segments may each lead with an icon: a choice
+/// among things that go by one (the machines a workspace can run on).
+pub fn segmented_icons<'a, V, M>(
+    t: &'a Theme,
+    options: Vec<(V, Option<Icon>, String)>,
+    selected: &V,
+    on_select: impl Fn(V) -> M,
+) -> Element<'a, M>
+where
+    V: Clone + PartialEq,
+    M: Clone + 'a,
+{
+    let segments = options.into_iter().map(|(value, lead, label)| {
         let chosen = &value == selected;
-        let segment = button(
-            container(text(label).size(font_size::UI).font(fonts::ui_medium()))
-                .center_y(Length::Fill),
-        )
-        .padding(Padding::from([0.0, space::LG]))
-        .height(Length::Fill)
-        .style(style::button::tab(t, chosen))
-        .on_press(on_select(value));
+        let label = text(label).size(font_size::UI).font(fonts::ui_medium());
+        let face: Element<'a, M> = match lead {
+            Some(lead) => row![icon(lead, size::ICON), label]
+                .spacing(space::SM)
+                .align_y(Alignment::Center)
+                .into(),
+            None => label.into(),
+        };
+        let segment = button(container(face).center_y(Length::Fill))
+            .padding(Padding::from([0.0, space::LG]))
+            .height(Length::Fill)
+            .style(style::button::tab(t, chosen))
+            .on_press(on_select(value));
         Element::from(segment)
     });
     container(row(segments).spacing(space::XXS))

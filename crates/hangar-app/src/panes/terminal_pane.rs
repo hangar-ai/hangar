@@ -1,15 +1,17 @@
 //! One pane drawn (`TerminalPane.tsx`'s view): its header, the notes its
 //! launch left, and its terminal with the search bar floating over it.
 
+use std::time::Duration;
+
 use hangar_i18n::{Key, args};
 use hangar_theme::{style, tokens};
-use hangar_ui::{Icon, button};
+use hangar_ui::{Icon, button, icon};
 use iced::widget::{Column, center, column, container, row, stack, text};
 use iced::{Alignment, Background, Border, Element, Length, Padding};
 
 use crate::ctx::Ctx;
 use crate::message::Message;
-use crate::nodes::NodeStatus;
+use crate::nodes::presence::{self, Presence};
 use crate::panes::controller::{PaneRt, shell_of};
 use crate::panes::header::{self, Head};
 use crate::panes::term_widget::pane_terminal;
@@ -120,70 +122,131 @@ pub fn view<'a>(
 /// How opaque the terminal of a pane whose node is away is.
 const AWAY_OPACITY: f32 = 0.4;
 
-/// The node of a remote workspace that is not connected now, its label,
-/// and whether it is on its way.
+/// The widest the card over a pane whose node is away gets: a failure's
+/// sentence wraps inside it.
+const AWAY_CARD_WIDTH: f32 = 420.0;
+
+/// The node a pane runs on, while nothing can be asked of it, and what is
+/// known of why.
 pub struct Away {
     pub node: String,
     pub label: String,
-    pub connecting: bool,
+    pub presence: Presence,
+    /// How long its link has been down.
+    pub down_for: Option<Duration>,
 }
 
-/// `Some` for a pane on a node that is not connected — of a workspace on a
+/// `Some` for a pane on a node that cannot be reached — of a workspace on a
 /// node, or a worker a local workspace sent to one: its terminal is greyed
-/// and says so, with a way to reconnect. Its state stays as it was, and its
-/// shell runs on in the node.
+/// under a card that says so and offers what can be done. Its state stays
+/// as it was, and its shell runs on in the node. A link that has only just
+/// dropped says nothing yet: most are back within the grace period.
 pub fn node_away(ctx: Ctx<'_>, ws: &Workspace, pane: &Pane) -> Option<Away> {
     let node = crate::nodes::away::node_of(ws, pane)?;
-    if crate::nodes::client(ctx.model, &node).is_some() {
+    let presence = presence::of(ctx.model, &node, ctx.now);
+    if matches!(presence, Presence::Connected | Presence::Settling) {
         return None;
     }
-    let connecting = matches!(
-        ctx.model.live.nodes.status(&node),
-        NodeStatus::Connecting(_)
-    );
+    let down_for = ctx
+        .model
+        .live
+        .nodes
+        .links
+        .get(&node)
+        .and_then(|link| link.down_for(ctx.now));
     Some(Away {
         label: crate::nodes::label(ctx.model, &node),
         node,
-        connecting,
+        presence,
+        down_for,
     })
 }
 
+/// What the card says of the machine, and what it offers: trying again now
+/// for a link that is down, switching the machine off once it has been
+/// down a while, switching it back on for one that is off.
 fn away_card<'a>(ctx: Ctx<'a>, away: Away) -> Element<'a, Message> {
     let t = ctx.theme;
-    let words = if away.connecting {
-        ctx.i18n.t_with(
-            Key::NodesPaneConnecting,
-            &args!("node" => away.label.as_str()),
-        )
-    } else {
+    let said = |key: Key| {
         ctx.i18n
-            .t_with(Key::NodesPaneAway, &args!("node" => away.label.as_str()))
+            .t_with(key, &args!("node" => away.label.as_str()))
+            .into_owned()
+    };
+    let words = match &away.presence {
+        Presence::Connecting { again: true } => said(Key::NodesPaneReconnecting),
+        Presence::Connecting { again: false } => said(Key::NodesPaneConnecting),
+        Presence::Offline(Some(failure)) => ctx
+            .i18n
+            .t_with(
+                Key::NodesPaneOffline,
+                &args!(
+                    "node" => away.label.as_str(),
+                    "reason" => crate::nodes::failure_words(ctx.i18n, failure)
+                ),
+            )
+            .into_owned(),
+        Presence::Off => said(Key::NodesPaneOff),
+        _ => said(Key::NodesPaneAway),
+    };
+    let nodes = |msg: crate::nodes::Msg| Message::Nodes(msg);
+    let mut actions = row![].spacing(tokens::space::MD);
+    if matches!(
+        away.presence,
+        Presence::Connecting { .. } | Presence::Offline(Some(_))
+    ) {
+        actions = actions.push(
+            button::secondary(t, ctx.t(Key::NodesRetry))
+                .on_press(nodes(crate::nodes::Msg::Retry(away.node.clone()))),
+        );
+        if away
+            .down_for
+            .is_some_and(|down| down >= presence::SWITCH_OFF_AFTER)
+        {
+            actions = actions.push(
+                button::ghost(t, ctx.t(Key::NodesSwitchOff))
+                    .tip(ctx.t(Key::NodesSwitchOffHint))
+                    .on_press(nodes(crate::nodes::Msg::SetEnabled(
+                        away.node.clone(),
+                        false,
+                    ))),
+            );
+        }
+    } else if away.presence == Presence::Off {
+        actions = actions.push(
+            button::secondary(t, ctx.t(Key::NodesSwitchOn)).on_press(nodes(
+                crate::nodes::Msg::SetEnabled(away.node.clone(), true),
+            )),
+        );
     }
-    .into_owned();
-    // Connecting needs the experiment and the node in the settings.
-    let known = crate::nodes::available(ctx.model)
-        && ctx
-            .model
-            .settings()
-            .nodes
-            .iter()
-            .any(|node| node.id == away.node);
-    let reconnect = button::secondary(t, ctx.t(Key::NodesPaneReconnect)).on_press_maybe(
-        (known && !away.connecting)
-            .then(|| Message::Nodes(crate::nodes::Msg::Connect(away.node.clone()))),
-    );
+    // The machine by its own icon, as everywhere; the colour is its
+    // state's, and the words say the rest.
+    let look = presence::look_of(ctx.model, &away.node, ctx.now);
+    let machine = presence::icon_of(ctx.model, &away.node);
     let fg = t.colors.fg;
+    let said = column![
+        text(words)
+            .size(tokens::font_size::UI)
+            .style(move |_| text::Style { color: Some(fg) }),
+        actions,
+    ]
+    .spacing(tokens::space::LG);
     let card = container(
-        column![
-            text(words).style(move |_| text::Style { color: Some(fg) }),
-            reconnect,
+        row![
+            // Level with the first line of the words, which may wrap.
+            container(icon(machine, tokens::size::ICON_LG).color(look.tone.color(t))).padding(
+                Padding {
+                    top: 1.0,
+                    ..Padding::ZERO
+                }
+            ),
+            said,
         ]
-        .spacing(tokens::space::MD)
-        .align_x(Alignment::Center),
+        .spacing(tokens::space::LG),
     )
-    .padding(tokens::space::LG)
-    .style(style::container::window(t));
-    center(card).into()
+    .max_width(AWAY_CARD_WIDTH)
+    .padding(Padding::from([tokens::space::XL, tokens::space::XXL]))
+    .style(style::container::popover(t));
+    center(card).padding(tokens::space::XL).into()
 }
 
 /// A note of the launch: a kit left out, an account that is gone. In the
@@ -230,23 +293,125 @@ fn note_row<'a>(ctx: Ctx<'a>, pane: &'a str, note: &'a str) -> Element<'a, Messa
 mod tests {
     use super::*;
 
-    /// A remote workspace whose node is away keeps its panes, greyed, and
-    /// says so with a way back; connected, it is drawn as any other.
-    #[test]
-    fn a_pane_whose_node_is_away_says_so_and_offers_to_reconnect() {
-        use crate::nodes::model::NodeInfo;
-        use crate::state::types::NodeConfig;
-        use crate::workspace_dialog::testing::{Harness, messages};
+    use crate::nodes::model::{Failure, Step};
+    use crate::nodes::testing::{down, machine, up};
+    use crate::state::types::MachineKind;
+    use crate::workspace_dialog::testing::{Harness, messages};
 
-        let mut h = Harness::new(hangar_i18n::Locale::En, "graphite").edit(|state| {
+    /// A window with the experiment on and a node, `GPU box`, that the
+    /// first workspace runs on.
+    fn remote(locale: hangar_i18n::Locale, theme: &str) -> Harness {
+        Harness::new(locale, theme).edit(|state| {
             state.settings.experiments = vec![crate::settings::experiments::NODES.into()];
-            state.settings.nodes = vec![NodeConfig {
-                id: "n1".into(),
-                label: "GPU box".into(),
-                ssh_target: "me@gpu".into(),
-                ..NodeConfig::default()
-            }];
+            state.settings.nodes = vec![machine("n1", "GPU box", MachineKind::Tower)];
             state.workspaces[0].node = Some("n1".into());
+        })
+    }
+
+    fn timed_out() -> Failure {
+        Failure::Ssh {
+            step: Step::Probe,
+            detail: "ssh: connect to host gpu port 22: Connection timed out".into(),
+        }
+    }
+
+    fn sent(
+        ui: iced_test::Simulator<'_, Message>,
+        wanted: impl Fn(&crate::nodes::Msg) -> bool,
+    ) -> bool {
+        messages(ui)
+            .into_iter()
+            .any(|message| matches!(&message, Message::Nodes(msg) if wanted(msg)))
+    }
+
+    /// A link that has only just dropped says nothing; past the grace
+    /// period the pane is greyed under a card that says the machine is
+    /// reconnecting, with a way to try now.
+    #[test]
+    fn a_pane_whose_link_dropped_waits_then_says_it_is_reconnecting() {
+        let mut h = remote(hangar_i18n::Locale::En, "graphite");
+        let ws = h.model.state().workspaces[0].clone();
+        let mut st = State::default();
+        st.mount_for_test(&ws);
+        let id = ws.id.clone();
+
+        up(&mut h.model, "n1", "gpu-01");
+        {
+            let mut ui = h.show(crate::panes::view_workspace(&st, h.ctx(), &id, false));
+            assert!(ui.find("Retry now").is_err());
+        }
+        let at = down(&mut h.model, "n1", 2, None);
+        {
+            let ctx = Ctx { now: at, ..h.ctx() };
+            let mut ui = h.show(crate::panes::view_workspace(&st, ctx, &id, false));
+            assert!(
+                ui.find("GPU box is reconnecting…").is_err(),
+                "no alarm within the grace period"
+            );
+        }
+        down(&mut h.model, "n1", 8, None);
+        let mut ui = h.show(crate::panes::view_workspace(&st, h.ctx(), &id, false));
+        assert!(ui.find("GPU box is reconnecting…").is_ok());
+        assert!(ui.find("Switch off").is_err(), "not offered so soon");
+        h.shot(&mut ui, "machines-card-reconnecting-en-graphite");
+        ui.click("Retry now").expect("a way to try now");
+        assert!(sent(ui, |msg| matches!(
+            msg,
+            crate::nodes::Msg::Retry(node) if node == "n1"
+        )));
+    }
+
+    /// Once an attempt has failed the card gives the reason, and after
+    /// twenty seconds down it also offers to switch the machine off.
+    #[test]
+    fn a_pane_whose_node_is_offline_says_why_and_offers_to_switch_it_off() {
+        let mut h = remote(hangar_i18n::Locale::En, "graphite");
+        let ws = h.model.state().workspaces[0].clone();
+        let mut st = State::default();
+        st.mount_for_test(&ws);
+        let id = ws.id.clone();
+
+        down(&mut h.model, "n1", 10, Some(timed_out()));
+        {
+            let mut ui = h.show(crate::panes::view_workspace(&st, h.ctx(), &id, false));
+            assert!(ui
+                .find("GPU box is offline: SSH failed while Looking at the machine…: ssh: connect to host gpu port 22: Connection timed out")
+                .is_ok());
+            assert!(ui.find("Retry now").is_ok());
+            assert!(ui.find("Switch off").is_err());
+        }
+        down(&mut h.model, "n1", 25, Some(timed_out()));
+        let mut ui = h.show(crate::panes::view_workspace(&st, h.ctx(), &id, false));
+        h.shot(&mut ui, "machines-card-offline-en-graphite");
+        ui.click("Switch off")
+            .expect("offered after twenty seconds");
+        assert!(sent(ui, |msg| matches!(
+            msg,
+            crate::nodes::Msg::SetEnabled(node, false) if node == "n1"
+        )));
+    }
+
+    /// The card in French, in a light theme.
+    #[test]
+    fn the_card_speaks_french_in_a_light_theme() {
+        let mut h = remote(hangar_i18n::Locale::Fr, "github-light");
+        let ws = h.model.state().workspaces[0].clone();
+        let mut st = State::default();
+        st.mount_for_test(&ws);
+        let id = ws.id.clone();
+        down(&mut h.model, "n1", 25, Some(timed_out()));
+        let mut ui = h.show(crate::panes::view_workspace(&st, h.ctx(), &id, false));
+        assert!(ui.find("Réessayer maintenant").is_ok());
+        assert!(ui.find("Désactiver").is_ok());
+        h.shot(&mut ui, "machines-card-offline-fr-github-light");
+    }
+
+    /// A machine that is switched off says so, with the way back on; one
+    /// the settings no longer hold only says it is not connected.
+    #[test]
+    fn a_pane_of_a_machine_switched_off_offers_to_switch_it_on() {
+        let h = remote(hangar_i18n::Locale::En, "graphite").edit(|state| {
+            state.settings.nodes[0].enabled = Some(false);
         });
         let ws = h.model.state().workspaces[0].clone();
         let mut st = State::default();
@@ -254,23 +419,19 @@ mod tests {
         let id = ws.id.clone();
         {
             let mut ui = h.show(crate::panes::view_workspace(&st, h.ctx(), &id, false));
-            assert!(ui.find("Node GPU box is not connected").is_ok());
-            ui.click("Reconnect").expect("a way back");
-            let asked = messages(ui).into_iter().any(|message| {
-                matches!(message, Message::Nodes(crate::nodes::Msg::Connect(node)) if node == "n1")
-            });
-            assert!(asked, "Reconnect connects the node");
+            assert!(ui.find("GPU box is switched off").is_ok());
+            assert!(ui.find("Retry now").is_err());
+            ui.click("Switch on").expect("the way back");
+            assert!(sent(ui, |msg| matches!(
+                msg,
+                crate::nodes::Msg::SetEnabled(node, true) if node == "n1"
+            )));
         }
-        h.model.live.nodes.statuses.insert(
-            "n1".into(),
-            NodeStatus::Connected {
-                info: NodeInfo::default(),
-                local_port: 21012,
-                token: "tok".into(),
-            },
-        );
+        let h = h.edit(|state| state.settings.nodes.clear());
         let mut ui = h.show(crate::panes::view_workspace(&st, h.ctx(), &id, false));
-        assert!(ui.find("Node GPU box is not connected").is_err());
+        assert!(ui.find("n1 is not connected").is_ok());
+        assert!(ui.find("Retry now").is_err());
+        assert!(ui.find("Switch on").is_err());
     }
 
     /// A worker a local workspace sent to a node: its bar names the node,
@@ -278,18 +439,9 @@ mod tests {
     /// other panes, of this machine, are drawn as they are.
     #[test]
     fn a_worker_on_a_node_names_it_and_says_when_it_is_away() {
-        use crate::nodes::model::NodeInfo;
-        use crate::state::types::NodeConfig;
-        use crate::workspace_dialog::testing::Harness;
-
         let mut h = Harness::new(hangar_i18n::Locale::En, "graphite").edit(|state| {
             state.settings.experiments = vec![crate::settings::experiments::NODES.into()];
-            state.settings.nodes = vec![NodeConfig {
-                id: "n1".into(),
-                label: "GPU box".into(),
-                ssh_target: "me@gpu".into(),
-                ..NodeConfig::default()
-            }];
+            state.settings.nodes = vec![machine("n1", "GPU box", MachineKind::Tower)];
             let first = &mut state.workspaces[0].panes[0];
             first.node = Some("n1".into());
         });
@@ -298,21 +450,16 @@ mod tests {
         let mut st = State::default();
         st.mount_for_test(&ws);
         let id = ws.id.clone();
+        down(&mut h.model, "n1", 10, Some(timed_out()));
         {
             let mut ui = h.show(crate::panes::view_workspace(&st, h.ctx(), &id, false));
             assert!(ui.find("GPU box").is_ok(), "the bar names the node");
-            assert!(ui.find("Node GPU box is not connected").is_ok());
+            assert!(ui.find("Retry now").is_ok());
+            h.shot(&mut ui, "machines-card-sent-pane-en-graphite");
         }
-        h.model.live.nodes.statuses.insert(
-            "n1".into(),
-            NodeStatus::Connected {
-                info: NodeInfo::default(),
-                local_port: 21012,
-                token: "tok".into(),
-            },
-        );
+        up(&mut h.model, "n1", "gpu-01");
         let mut ui = h.show(crate::panes::view_workspace(&st, h.ctx(), &id, false));
-        assert!(ui.find("Node GPU box is not connected").is_err());
+        assert!(ui.find("Retry now").is_err());
         assert!(ui.find("GPU box").is_ok());
     }
 

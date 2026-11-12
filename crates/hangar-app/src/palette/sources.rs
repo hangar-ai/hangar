@@ -225,7 +225,8 @@ pub fn workspace_of<'a>(m: &'a Model, pane: &str) -> Option<&'a Workspace> {
 }
 
 /// The workspaces a window offers, and the one it shows: the navigator's in
-/// the main window, its own in a workspace's window.
+/// the main window (so without those of a machine that is switched off),
+/// its own in a workspace's window.
 pub fn window_workspaces(m: &Model, window: window::Id) -> (Vec<&Workspace>, Option<&Workspace>) {
     match m.live.windows.get(&window) {
         Some(WindowKind::Workspace(id)) => {
@@ -236,7 +237,10 @@ pub fn window_workspaces(m: &Model, window: window::Id) -> (Vec<&Workspace>, Opt
         // workspace is shown in a window of its own (`activeWorkspace` was
         // null there): its entry is then listed with the others.
         _ => (
-            folders::sidebar_order(&m.state().workspaces, &m.state().folders),
+            folders::sidebar_order(&m.state().workspaces, &m.state().folders)
+                .into_iter()
+                .filter(|ws| crate::nodes::shown(m, ws))
+                .collect(),
             m.window_workspace(window),
         ),
     }
@@ -575,13 +579,25 @@ fn workspace_entry(
     } else {
         None
     };
+    // The machine it runs on leads what is said of it, and finds it: "vps"
+    // lists what runs on the VPS.
+    let machine = ws
+        .node
+        .as_deref()
+        .filter(|_| crate::nodes::available(m))
+        .map(|node| crate::nodes::label(m, node));
+    let detail = match &machine {
+        Some(label) => Detail::new().plain(format!("{label} · ")),
+        None => Detail::new(),
+    };
     let detail = match busiest {
-        Some((kind, words)) => Detail::new().state(agent_state(kind), words),
-        None if ws.detached == Some(true) => Detail::new().plain(i18n.t(Key::PaletteInWindow)),
-        None => Detail::new().plain(i18n.tn(Key::StatusPanes, ws.panes.len(), &[])),
+        Some((kind, words)) => detail.state(agent_state(kind), words),
+        None if ws.detached == Some(true) => detail.plain(i18n.t(Key::PaletteInWindow)),
+        None => detail.plain(i18n.tn(Key::StatusPanes, ws.panes.len(), &[])),
     };
     let name = ws.name.as_str();
     let mut keywords = vec![ws.cwd.clone()];
+    keywords.extend(machine);
     keywords.extend(elsewhere(locale, Key::PaletteOpen, &args!("name" => name)));
     let keys = WORKSPACE_GO
         .get(at)
@@ -593,9 +609,18 @@ fn workspace_entry(
         i18n.t_with(Key::PaletteOpen, &args!("name" => name)),
     )
     .keywords(keywords)
-    .icon(Icon::Folder)
+    .icon(workspace_icon(m, ws))
     .detail(detail)
     .keys(keys)
+}
+
+/// A workspace's icon in the list: its machine's for one on a node, the
+/// folder's for one of this computer.
+fn workspace_icon(m: &Model, ws: &Workspace) -> Icon {
+    match ws.node.as_deref() {
+        Some(node) if crate::nodes::available(m) => crate::nodes::presence::icon_of(m, node),
+        _ => Icon::Folder,
+    }
 }
 
 #[cfg(test)]
@@ -707,6 +732,47 @@ mod tests {
         let (listed, active) = window_workspaces(&m, main);
         assert_eq!(ids(&listed), ["loose", "lost", "in-a", "in-b"]);
         assert_eq!(active.map(|ws| ws.id.as_str()), Some("loose"));
+    }
+
+    /// A workspace on a node says which machine in its entry, is found by
+    /// the machine's label, and is not offered while the machine is
+    /// switched off.
+    #[test]
+    fn a_workspace_on_a_node_shows_its_machine_and_goes_with_it() {
+        use crate::nodes::testing::machine;
+        use crate::state::types::MachineKind;
+        use hangar_ui::palette::Lead;
+
+        let mut state = model().state().clone();
+        state.settings.experiments = vec![crate::settings::experiments::NODES.into()];
+        state.settings.nodes = vec![machine("gpu", "GPU box", MachineKind::Tower)];
+        state.workspaces[2].node = Some("gpu".into());
+        let mut m = model_of(state.clone());
+        let main = m.main_window().unwrap();
+        let index = KeymapIndex::default();
+        let i18n = Translator::new(Locale::En);
+        let entry = |m: &Model, id: &str| {
+            items(m, main, i18n, &index)
+                .into_iter()
+                .find(|item| item.value == Target::Workspace(id.to_string()))
+        };
+        let remote = entry(&m, "in-a").expect("listed while its machine is on");
+        assert!(remote.keywords.contains(&"GPU box".to_string()));
+        assert_eq!(remote.lead, Lead::Icon(Icon::Tower));
+        assert_eq!(
+            remote.detail,
+            Some(Detail::new().plain("GPU box · ").plain("0 panes"))
+        );
+        let local = entry(&m, "in-b").expect("a workspace of this computer");
+        assert_eq!(local.lead, Lead::Icon(Icon::Folder));
+        assert!(!local.keywords.contains(&"GPU box".to_string()));
+
+        state.settings.nodes[0].enabled = Some(false);
+        m.hydrate(state);
+        assert!(entry(&m, "in-a").is_none(), "hidden with its machine");
+        assert!(entry(&m, "in-b").is_some());
+        let (listed, _) = window_workspaces(&m, main);
+        assert_eq!(ids(&listed), ["loose", "lost", "in-b"]);
     }
 
     #[test]

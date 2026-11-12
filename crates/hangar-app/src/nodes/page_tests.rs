@@ -1,0 +1,254 @@
+//! Settings › Nodes drawn: the machines as rows, each saying how its link
+//! is doing, and what a row's icon, switch and menu ask for.
+
+use hangar_i18n::Locale;
+use std::time::Instant;
+
+use iced_test::Simulator;
+
+use super::model::{Failure, NodeStatus, OwnPane, OwnWorkspace, Step};
+use super::testing::{down, machine, up};
+use super::{Msg, Open, State, settings_page};
+use crate::ctx::Ctx;
+use crate::message::Message;
+use crate::state::types::MachineKind;
+use crate::workspace_dialog::testing::{Harness, messages};
+
+/// Three nodes: `GPU box` connected (no git there, a workspace of its
+/// own), `vps` offline after a failed attempt, `nas` switched off.
+fn page(locale: Locale, theme: &str) -> Harness {
+    page_at(locale, theme).0
+}
+
+/// The same, with the moment its links are as described: the page drawn
+/// then counts the same seconds whenever the test runs.
+fn page_at(locale: Locale, theme: &str) -> (Harness, Instant) {
+    let mut h = Harness::new(locale, theme).edit(|state| {
+        state.settings.experiments = vec![crate::settings::experiments::NODES.into()];
+        state.settings.nodes = vec![
+            machine("gpu", "GPU box", MachineKind::Tower),
+            machine("vps", "vps", MachineKind::Cloud),
+            machine("nas", "nas", MachineKind::MiniPc),
+        ];
+        state.settings.nodes[1].ssh_config = Some("~/.ssh/work".into());
+        state.settings.nodes[2].enabled = Some(false);
+    });
+    up(&mut h.model, "gpu", "gpu-01");
+    if let Some(NodeStatus::Connected { info, .. }) = h.model.live.nodes.statuses.get_mut("gpu") {
+        info.git = false;
+    }
+    h.model.live.nodes.own.insert(
+        "gpu".into(),
+        vec![OwnWorkspace {
+            id: "o1".into(),
+            name: "nightly".into(),
+            cwd: "/srv/nightly".into(),
+            panes: vec![OwnPane {
+                id: "op1".into(),
+                name: "Rorch".into(),
+                role: None,
+                activity: Some("working".into()),
+            }],
+        }],
+    );
+    let at = down(
+        &mut h.model,
+        "vps",
+        40,
+        Some(Failure::Ssh {
+            step: Step::Probe,
+            detail: "ssh: connect to host vps port 22: Connection timed out".into(),
+        }),
+    );
+    (h, at)
+}
+
+/// The page as it is drawn at `now`.
+fn drawn_at<'a>(st: &'a State, h: &'a Harness, now: Instant) -> iced::Element<'a, Message> {
+    settings_page(st, Ctx { now, ..h.ctx() })
+}
+
+fn sent(ui: Simulator<'_, Message>, wanted: impl Fn(&Msg) -> bool) -> bool {
+    messages(ui)
+        .into_iter()
+        .any(|message| matches!(&message, Message::Nodes(msg) if wanted(msg)))
+}
+
+#[test]
+fn each_machine_is_a_row_that_says_how_its_link_is_doing() {
+    let (h, at) = page_at(Locale::En, "graphite");
+    let st = State::default();
+    let mut ui = h.show(drawn_at(&st, &h, at));
+    for text in [
+        // This computer heads the list.
+        "This computer",
+        "This machine",
+        "GPU box",
+        "me@gpu · Connected · hangar-node 2.3.0 on gpu-01",
+        "Claude Code",
+        "No git",
+        "Workspaces this node runs itself",
+        "nightly — /srv/nightly",
+        "vps",
+        "me@vps · -F ~/.ssh/work",
+        "Offline · retrying in 8\u{a0}s: SSH failed while Looking at the machine…: ssh: connect to host vps port 22: Connection timed out",
+        "nas",
+        "me@nas · Switched off",
+        "Add a machine",
+    ] {
+        assert!(ui.find(text).is_ok(), "{text} is on the page");
+    }
+    h.shot(&mut ui, "machines-settings-en-graphite");
+}
+
+#[test]
+fn the_page_speaks_french_in_a_light_theme() {
+    let (h, at) = page_at(Locale::Fr, "github-light");
+    let st = State::default();
+    let mut ui = h.show(drawn_at(&st, &h, at));
+    for text in [
+        "Cet ordinateur",
+        "me@gpu · Connecté · hangar-node 2.3.0 sur gpu-01",
+        "me@nas · Désactivé",
+        "Ajouter une machine",
+    ] {
+        assert!(ui.find(text).is_ok(), "{text} is on the page");
+    }
+    h.shot(&mut ui, "machines-settings-fr-github-light");
+}
+
+#[test]
+fn a_link_on_its_way_says_which_step_and_one_that_dropped_when_it_tries_again() {
+    let mut h = page(Locale::En, "graphite");
+    let st = State::default();
+    // Never connected yet: connecting, with the step under way.
+    h.model.live.nodes.links.remove("gpu");
+    h.model
+        .live
+        .nodes
+        .statuses
+        .insert("gpu".into(), NodeStatus::Connecting(Step::Tunnel));
+    // Dropped, no attempt failed yet: reconnecting, with the seconds left.
+    let at = down(&mut h.model, "vps", 1, None);
+    {
+        let mut ui = h.show(drawn_at(&st, &h, at));
+        assert!(
+            ui.find("me@gpu · Connecting: Opening the tunnel…").is_ok(),
+            "the first connection"
+        );
+        assert!(
+            ui.find("Reconnecting in 8\u{a0}s: The tunnel closed: Connection reset")
+                .is_ok(),
+            "said at once in the settings, without the grace period"
+        );
+        h.shot(&mut ui, "machines-settings-connecting-en-graphite");
+    }
+    // A new attempt after a drop is a reconnection.
+    h.model
+        .live
+        .nodes
+        .statuses
+        .insert("vps".into(), NodeStatus::Connecting(Step::Probe));
+    let mut ui = h.show(settings_page(&st, h.ctx()));
+    assert!(
+        ui.find("me@vps · -F ~/.ssh/work · Reconnecting: Looking at the machine…")
+            .is_ok()
+    );
+}
+
+/// The picker of a row's kind, open under its icon. What it lists is the
+/// kinds and their icons (`presence`'s tests); here it is drawn.
+#[test]
+fn the_icon_of_a_row_opens_the_picker_of_its_kind() {
+    let h = page(Locale::En, "graphite");
+    let st = State {
+        open: Some(Open::Kind("vps".into())),
+        ..State::default()
+    };
+    let mut ui = h.show(settings_page(&st, h.ctx()));
+    assert!(ui.find("vps").is_ok());
+    h.shot(&mut ui, "machines-settings-kind-en-graphite");
+}
+
+fn menu_of(h: &Harness, id: &str) -> Vec<(String, bool, Option<Msg>)> {
+    let ctx = h.ctx();
+    let node = super::presence::config(ctx.model, id).expect("a node of the settings");
+    super::page::more_lines(ctx, node)
+        .into_iter()
+        .map(|line| (ctx.t(line.label).into_owned(), line.danger, line.send))
+        .collect()
+}
+
+#[test]
+fn the_menu_of_a_row_retries_renames_and_removes() {
+    let h = page(Locale::En, "graphite");
+    let lines = menu_of(&h, "vps");
+    let labels: Vec<&str> = lines.iter().map(|(label, ..)| label.as_str()).collect();
+    assert_eq!(
+        labels,
+        ["Retry now", "Rename", "Remove from this computer…"]
+    );
+    assert!(
+        matches!(&lines[0].2, Some(Msg::Retry(node)) if node == "vps"),
+        "a link that is down can be retried"
+    );
+    assert!(matches!(
+        &lines[1].2,
+        Some(Msg::Show(Some(Open::Rename { id, draft }))) if id == "vps" && draft == "vps"
+    ));
+    assert!(lines[2].1, "the removal is marked as one");
+    assert!(
+        matches!(&lines[2].2, Some(Msg::Show(Some(Open::Remove(node)))) if node == "vps"),
+        "it asks before removing"
+    );
+
+    let mut st = State {
+        open: Some(Open::More("vps".into())),
+        ..State::default()
+    };
+    {
+        let mut ui = h.show(settings_page(&st, h.ctx()));
+        h.shot(&mut ui, "machines-settings-menu-en-graphite");
+    }
+    // The question, under the row, and its yes.
+    st.open = Some(Open::Remove("vps".into()));
+    {
+        let mut ui = h.show(settings_page(&st, h.ctx()));
+        assert!(ui.find("Remove vps from this computer? Nothing is deleted on the machine; its workspaces here stay in the list, without a machine to run on.").is_ok());
+        h.shot(&mut ui, "machines-settings-remove-en-graphite");
+        ui.click("Remove").expect("the yes");
+        assert!(sent(
+            ui,
+            |msg| matches!(msg, Msg::Remove(node) if node == "vps")
+        ));
+    }
+    // A name being typed over the row's.
+    st.open = Some(Open::Rename {
+        id: "vps".into(),
+        draft: "Hetzner".into(),
+    });
+    let mut ui = h.show(settings_page(&st, h.ctx()));
+    h.shot(&mut ui, "machines-settings-rename-en-graphite");
+    ui.click("Save").expect("the name is saved");
+    assert!(sent(ui, |msg| matches!(msg, Msg::RenameSubmit)));
+}
+
+#[test]
+fn a_machine_that_is_connected_or_switched_off_has_nothing_to_retry() {
+    let h = page(Locale::En, "graphite");
+    assert!(menu_of(&h, "gpu")[0].2.is_none(), "connected");
+    assert!(menu_of(&h, "nas")[0].2.is_none(), "switched off");
+}
+
+#[test]
+fn with_no_node_the_list_is_this_computer_and_the_form() {
+    let h = Harness::new(Locale::En, "graphite").edit(|state| {
+        state.settings.experiments = vec![crate::settings::experiments::NODES.into()];
+    });
+    let st = State::default();
+    let mut ui = h.show(settings_page(&st, h.ctx()));
+    assert!(ui.find("This computer").is_ok());
+    assert!(ui.find("No other machine yet.").is_ok());
+    assert!(ui.find("Add a machine").is_ok());
+    assert_eq!(st.form.kind, MachineKind::Server, "a server until told");
+}

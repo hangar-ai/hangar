@@ -2364,8 +2364,6 @@ pub enum Key {
     NodesClaudeFound,
     /// `nodes.claudeMissing`
     NodesClaudeMissing,
-    /// `nodes.connect`
-    NodesConnect,
     /// `nodes.create.empty`
     NodesCreateEmpty,
     /// `nodes.create.failed`
@@ -2378,14 +2376,10 @@ pub enum Key {
     NodesCreateLoading,
     /// `nodes.create.local`
     NodesCreateLocal,
-    /// `nodes.create.onNode`
-    NodesCreateOnNode,
     /// `nodes.create.up`
     NodesCreateUp,
     /// `nodes.create.where`
     NodesCreateWhere,
-    /// `nodes.disconnect`
-    NodesDisconnect,
     /// `nodes.error.api`
     NodesErrorApi,
     /// `nodes.error.local`
@@ -2394,8 +2388,6 @@ pub enum Key {
     NodesErrorNoBinary,
     /// `nodes.error.nodeJson`
     NodesErrorNodeJson,
-    /// `nodes.error.retrying`
-    NodesErrorRetrying,
     /// `nodes.error.ssh`
     NodesErrorSsh,
     /// `nodes.error.tunnel`
@@ -2406,8 +2398,22 @@ pub enum Key {
     NodesGitFound,
     /// `nodes.gitMissing`
     NodesGitMissing,
-    /// `nodes.info`
-    NodesInfo,
+    /// `nodes.kind.cloud`
+    NodesKindCloud,
+    /// `nodes.kind.desktop`
+    NodesKindDesktop,
+    /// `nodes.kind.laptop`
+    NodesKindLaptop,
+    /// `nodes.kind.miniPc`
+    NodesKindMiniPc,
+    /// `nodes.kind.pick`
+    NodesKindPick,
+    /// `nodes.kind.server`
+    NodesKindServer,
+    /// `nodes.kind.tower`
+    NodesKindTower,
+    /// `nodes.local.hint`
+    NodesLocalHint,
     /// `nodes.own.hint`
     NodesOwnHint,
     /// `nodes.own.idle`
@@ -2424,24 +2430,68 @@ pub enum Key {
     NodesPaneAway,
     /// `nodes.pane.connecting`
     NodesPaneConnecting,
-    /// `nodes.pane.reconnect`
-    NodesPaneReconnect,
-    /// `nodes.remove`
-    NodesRemove,
+    /// `nodes.pane.off`
+    NodesPaneOff,
+    /// `nodes.pane.offline`
+    NodesPaneOffline,
+    /// `nodes.pane.reconnecting`
+    NodesPaneReconnecting,
+    /// `nodes.retry`
+    NodesRetry,
+    /// `nodes.row.cancel`
+    NodesRowCancel,
+    /// `nodes.row.connected`
+    NodesRowConnected,
+    /// `nodes.row.connecting`
+    NodesRowConnecting,
+    /// `nodes.row.more`
+    NodesRowMore,
+    /// `nodes.row.off`
+    NodesRowOff,
+    /// `nodes.row.offlineIn`
+    NodesRowOfflineIn,
+    /// `nodes.row.offlineNow`
+    NodesRowOfflineNow,
+    /// `nodes.row.reconnecting`
+    NodesRowReconnecting,
+    /// `nodes.row.reconnectingIn`
+    NodesRowReconnectingIn,
+    /// `nodes.row.remove`
+    NodesRowRemove,
+    /// `nodes.row.removeAsk`
+    NodesRowRemoveAsk,
+    /// `nodes.row.removeConfirm`
+    NodesRowRemoveConfirm,
+    /// `nodes.row.rename`
+    NodesRowRename,
+    /// `nodes.row.renameSave`
+    NodesRowRenameSave,
+    /// `nodes.row.starting`
+    NodesRowStarting,
+    /// `nodes.row.toggle`
+    NodesRowToggle,
+    /// `nodes.row.unavailable`
+    NodesRowUnavailable,
     /// `nodes.settings.empty`
     NodesSettingsEmpty,
     /// `nodes.settings.intro`
     NodesSettingsIntro,
     /// `nodes.settings.keywords`
     NodesSettingsKeywords,
-    /// `nodes.status.connected`
-    NodesStatusConnected,
-    /// `nodes.status.connecting`
-    NodesStatusConnecting,
-    /// `nodes.status.disconnected`
-    NodesStatusDisconnected,
-    /// `nodes.status.unreachable`
-    NodesStatusUnreachable,
+    /// `nodes.state.connected`
+    NodesStateConnected,
+    /// `nodes.state.connecting`
+    NodesStateConnecting,
+    /// `nodes.state.off`
+    NodesStateOff,
+    /// `nodes.state.offline`
+    NodesStateOffline,
+    /// `nodes.state.offlineWhy`
+    NodesStateOfflineWhy,
+    /// `nodes.state.reconnecting`
+    NodesStateReconnecting,
+    /// `nodes.state.tip`
+    NodesStateTip,
     /// `nodes.step.config`
     NodesStepConfig,
     /// `nodes.step.handshake`
@@ -2454,6 +2504,12 @@ pub enum Key {
     NodesStepStart,
     /// `nodes.step.tunnel`
     NodesStepTunnel,
+    /// `nodes.switchOff`
+    NodesSwitchOff,
+    /// `nodes.switchOffHint`
+    NodesSwitchOffHint,
+    /// `nodes.switchOn`
+    NodesSwitchOn,
     /// `notify.aborted`
     NotifyAborted,
     /// `notify.dropped`
@@ -3368,6 +3424,22 @@ pub enum Key {
     SidebarHide,
     /// `sidebar.label`
     SidebarLabel,
+    /// `sidebar.machines.all`
+    SidebarMachinesAll,
+    /// `sidebar.machines.count`
+    SidebarMachinesCount,
+    /// `sidebar.machines.filter`
+    SidebarMachinesFilter,
+    /// `sidebar.machines.filterOn`
+    SidebarMachinesFilterOn,
+    /// `sidebar.machines.none`
+    SidebarMachinesNone,
+    /// `sidebar.machines.off`
+    SidebarMachinesOff,
+    /// `sidebar.machines.offline`
+    SidebarMachinesOffline,
+    /// `sidebar.machines.open`
+    SidebarMachinesOpen,
     /// `sidebar.menuRemoveFolder`
     SidebarMenuRemoveFolder,
     /// `sidebar.menuRename`
@@ -4125,7 +4197,7 @@ pub enum Key {
 }
 
 /// How many keys there are.
-pub const KEY_COUNT: usize = 2054;
+pub const KEY_COUNT: usize = 2090;
 
 impl Key {
     /// Every key, in the order of their ids.
@@ -5305,28 +5377,31 @@ impl Key {
         Key::NodesAddTitle,
         Key::NodesClaudeFound,
         Key::NodesClaudeMissing,
-        Key::NodesConnect,
         Key::NodesCreateEmpty,
         Key::NodesCreateFailed,
         Key::NodesCreateFolder,
         Key::NodesCreateHint,
         Key::NodesCreateLoading,
         Key::NodesCreateLocal,
-        Key::NodesCreateOnNode,
         Key::NodesCreateUp,
         Key::NodesCreateWhere,
-        Key::NodesDisconnect,
         Key::NodesErrorApi,
         Key::NodesErrorLocal,
         Key::NodesErrorNoBinary,
         Key::NodesErrorNodeJson,
-        Key::NodesErrorRetrying,
         Key::NodesErrorSsh,
         Key::NodesErrorTunnel,
         Key::NodesErrorUnsupportedArch,
         Key::NodesGitFound,
         Key::NodesGitMissing,
-        Key::NodesInfo,
+        Key::NodesKindCloud,
+        Key::NodesKindDesktop,
+        Key::NodesKindLaptop,
+        Key::NodesKindMiniPc,
+        Key::NodesKindPick,
+        Key::NodesKindServer,
+        Key::NodesKindTower,
+        Key::NodesLocalHint,
         Key::NodesOwnHint,
         Key::NodesOwnIdle,
         Key::NodesOwnTitle,
@@ -5335,21 +5410,46 @@ impl Key {
         Key::NodesOwnYours,
         Key::NodesPaneAway,
         Key::NodesPaneConnecting,
-        Key::NodesPaneReconnect,
-        Key::NodesRemove,
+        Key::NodesPaneOff,
+        Key::NodesPaneOffline,
+        Key::NodesPaneReconnecting,
+        Key::NodesRetry,
+        Key::NodesRowCancel,
+        Key::NodesRowConnected,
+        Key::NodesRowConnecting,
+        Key::NodesRowMore,
+        Key::NodesRowOff,
+        Key::NodesRowOfflineIn,
+        Key::NodesRowOfflineNow,
+        Key::NodesRowReconnecting,
+        Key::NodesRowReconnectingIn,
+        Key::NodesRowRemove,
+        Key::NodesRowRemoveAsk,
+        Key::NodesRowRemoveConfirm,
+        Key::NodesRowRename,
+        Key::NodesRowRenameSave,
+        Key::NodesRowStarting,
+        Key::NodesRowToggle,
+        Key::NodesRowUnavailable,
         Key::NodesSettingsEmpty,
         Key::NodesSettingsIntro,
         Key::NodesSettingsKeywords,
-        Key::NodesStatusConnected,
-        Key::NodesStatusConnecting,
-        Key::NodesStatusDisconnected,
-        Key::NodesStatusUnreachable,
+        Key::NodesStateConnected,
+        Key::NodesStateConnecting,
+        Key::NodesStateOff,
+        Key::NodesStateOffline,
+        Key::NodesStateOfflineWhy,
+        Key::NodesStateReconnecting,
+        Key::NodesStateTip,
         Key::NodesStepConfig,
         Key::NodesStepHandshake,
         Key::NodesStepInstall,
         Key::NodesStepProbe,
         Key::NodesStepStart,
         Key::NodesStepTunnel,
+        Key::NodesSwitchOff,
+        Key::NodesSwitchOffHint,
+        Key::NodesSwitchOn,
         Key::NotifyAborted,
         Key::NotifyDropped,
         Key::NotifyPermission,
@@ -5807,6 +5907,14 @@ impl Key {
         Key::SidebarGoTo,
         Key::SidebarHide,
         Key::SidebarLabel,
+        Key::SidebarMachinesAll,
+        Key::SidebarMachinesCount,
+        Key::SidebarMachinesFilter,
+        Key::SidebarMachinesFilterOn,
+        Key::SidebarMachinesNone,
+        Key::SidebarMachinesOff,
+        Key::SidebarMachinesOffline,
+        Key::SidebarMachinesOpen,
         Key::SidebarMenuRemoveFolder,
         Key::SidebarMenuRename,
         Key::SidebarMore,
@@ -7361,54 +7469,82 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "nodes.add.targetEmpty", en: Text::plain("Give the SSH target."), fr: Text::plain("Indique la cible SSH.") },
     Message { id: "nodes.add.targetInvalid", en: Text::plain("An SSH target is one word that does not start with a dash."), fr: Text::plain("Une cible SSH est un seul mot qui ne commence pas par un tiret.") },
     Message { id: "nodes.add.targetPlaceholder", en: Text::plain("user@host or a Host of ~/.ssh/config"), fr: Text::plain("user@hôte ou un Host de ~/.ssh/config") },
-    Message { id: "nodes.add.title", en: Text::plain("Add a node"), fr: Text::plain("Ajouter un nœud") },
+    Message { id: "nodes.add.title", en: Text::plain("Add a machine"), fr: Text::plain("Ajouter une machine") },
     Message { id: "nodes.claudeFound", en: Text::plain("Claude Code"), fr: Text::plain("Claude Code") },
     Message { id: "nodes.claudeMissing", en: Text::plain("No Claude Code"), fr: Text::plain("Pas de Claude Code") },
-    Message { id: "nodes.connect", en: Text::plain("Connect"), fr: Text::plain("Connecter") },
     Message { id: "nodes.create.empty", en: Text::plain("No sub-folder here."), fr: Text::plain("Aucun sous-dossier ici.") },
     Message { id: "nodes.create.failed", en: Text::plain("The node could not list this folder: {error}"), fr: Text::plain("Le nœud n’a pas pu lister ce dossier\u{202f}: {error}") },
     Message { id: "nodes.create.folder", en: Text::plain("Folder on the node"), fr: Text::plain("Dossier sur le nœud") },
     Message { id: "nodes.create.hint", en: Text::plain("The workspace’s terminals, board and agents live on the node; this window shows them."), fr: Text::plain("Les terminaux, le tableau et les agents du workspace vivent sur le nœud\u{202f}; cette fenêtre les montre.") },
     Message { id: "nodes.create.loading", en: Text::plain("Reading the node’s folders…"), fr: Text::plain("Lecture des dossiers du nœud…") },
     Message { id: "nodes.create.local", en: Text::plain("This computer"), fr: Text::plain("Cet ordinateur") },
-    Message { id: "nodes.create.onNode", en: Text::plain("On node {node}"), fr: Text::plain("Sur le nœud {node}") },
     Message { id: "nodes.create.up", en: Text::plain("Parent folder"), fr: Text::plain("Dossier parent") },
     Message { id: "nodes.create.where", en: Text::plain("Runs on"), fr: Text::plain("S’exécute sur") },
-    Message { id: "nodes.disconnect", en: Text::plain("Disconnect"), fr: Text::plain("Déconnecter") },
     Message { id: "nodes.error.api", en: Text::plain("The node did not answer through the tunnel: {detail}"), fr: Text::plain("Le nœud n’a pas répondu par le tunnel\u{202f}: {detail}") },
     Message { id: "nodes.error.local", en: Text::plain("{detail}"), fr: Text::plain("{detail}") },
     Message { id: "nodes.error.noBinary", en: Text::plain("No hangar-node build for {arch}: set HANGAR_NODE_BINARY or put {file} beside hangar-ai ({dir})."), fr: Text::plain("Aucun hangar-node pour {arch}\u{202f}: définis HANGAR_NODE_BINARY ou place {file} à côté de hangar-ai ({dir}).") },
     Message { id: "nodes.error.nodeJson", en: Text::plain("The node’s node.json could not be read: {detail}"), fr: Text::plain("Le node.json du nœud est illisible\u{202f}: {detail}") },
-    Message { id: "nodes.error.retrying", en: Text::plain("Retrying in {seconds}\u{a0}s."), fr: Text::plain("Nouvel essai dans {seconds}\u{a0}s.") },
     Message { id: "nodes.error.ssh", en: Text::plain("SSH failed while {step}: {detail}"), fr: Text::plain("SSH a échoué pendant l’étape «\u{202f}{step}\u{202f}»\u{202f}: {detail}") },
     Message { id: "nodes.error.tunnel", en: Text::plain("The tunnel closed: {detail}"), fr: Text::plain("Le tunnel s’est fermé\u{202f}: {detail}") },
     Message { id: "nodes.error.unsupportedArch", en: Text::plain("This machine runs {arch}; nodes run on Linux x86_64 and arm64."), fr: Text::plain("Cette machine tourne sur {arch}\u{202f}; les nœuds tournent sur Linux x86_64 et arm64.") },
     Message { id: "nodes.gitFound", en: Text::plain("git"), fr: Text::plain("git") },
     Message { id: "nodes.gitMissing", en: Text::plain("No git"), fr: Text::plain("Pas de git") },
-    Message { id: "nodes.info", en: Text::plain("hangar-node {version} on {hostname} ({target})"), fr: Text::plain("hangar-node {version} sur {hostname} ({target})") },
+    Message { id: "nodes.kind.cloud", en: Text::plain("Cloud"), fr: Text::plain("Cloud") },
+    Message { id: "nodes.kind.desktop", en: Text::plain("Desktop"), fr: Text::plain("Ordinateur de bureau") },
+    Message { id: "nodes.kind.laptop", en: Text::plain("Laptop"), fr: Text::plain("Portable") },
+    Message { id: "nodes.kind.miniPc", en: Text::plain("Mini PC"), fr: Text::plain("Mini PC") },
+    Message { id: "nodes.kind.pick", en: Text::plain("Kind of machine: {kind}"), fr: Text::plain("Type de machine\u{202f}: {kind}") },
+    Message { id: "nodes.kind.server", en: Text::plain("Server"), fr: Text::plain("Serveur") },
+    Message { id: "nodes.kind.tower", en: Text::plain("Tower"), fr: Text::plain("Tour") },
+    Message { id: "nodes.local.hint", en: Text::plain("This machine"), fr: Text::plain("Cette machine") },
     Message { id: "nodes.own.hint", en: Text::plain("They keep running with this computer off: drive them from Discord, or with hangar-node workspace on the server."), fr: Text::plain("Ils continuent sans cet ordinateur\u{202f}: pilotez-les depuis Discord, ou avec hangar-node workspace sur le serveur.") },
     Message { id: "nodes.own.idle", en: Text::plain("idle"), fr: Text::plain("inactif") },
     Message { id: "nodes.own.title", en: Text::plain("Workspaces this node runs itself"), fr: Text::plain("Workspaces que ce nœud fait tourner lui-même") },
     Message { id: "nodes.own.waiting", en: Text::plain("waiting for you"), fr: Text::plain("vous attend") },
     Message { id: "nodes.own.working", en: Text::plain("working"), fr: Text::plain("travaille") },
     Message { id: "nodes.own.yours", en: Text::plain("done"), fr: Text::plain("a fini") },
-    Message { id: "nodes.pane.away", en: Text::plain("Node {node} is not connected"), fr: Text::plain("Le nœud {node} n’est pas connecté") },
-    Message { id: "nodes.pane.connecting", en: Text::plain("Connecting to node {node}…"), fr: Text::plain("Connexion au nœud {node}…") },
-    Message { id: "nodes.pane.reconnect", en: Text::plain("Reconnect"), fr: Text::plain("Reconnecter") },
-    Message { id: "nodes.remove", en: Text::plain("Remove"), fr: Text::plain("Retirer") },
-    Message { id: "nodes.settings.empty", en: Text::plain("No node yet."), fr: Text::plain("Aucun nœud pour l’instant.") },
-    Message { id: "nodes.settings.intro", en: Text::plain("Linux machines Hangar reaches over SSH with your keys. Connecting installs or updates hangar-node there, starts it and keeps a tunnel to it."), fr: Text::plain("Des machines Linux que Hangar joint par SSH avec tes clés. Se connecter y installe ou met à jour hangar-node, le lance et garde un tunnel vers lui.") },
+    Message { id: "nodes.pane.away", en: Text::plain("{node} is not connected"), fr: Text::plain("{node} n’est pas connecté") },
+    Message { id: "nodes.pane.connecting", en: Text::plain("{node} is connecting…"), fr: Text::plain("Connexion à {node}…") },
+    Message { id: "nodes.pane.off", en: Text::plain("{node} is switched off"), fr: Text::plain("{node} est désactivé") },
+    Message { id: "nodes.pane.offline", en: Text::plain("{node} is offline: {reason}"), fr: Text::plain("{node} est hors ligne\u{202f}: {reason}") },
+    Message { id: "nodes.pane.reconnecting", en: Text::plain("{node} is reconnecting…"), fr: Text::plain("Reconnexion à {node}…") },
+    Message { id: "nodes.retry", en: Text::plain("Retry now"), fr: Text::plain("Réessayer maintenant") },
+    Message { id: "nodes.row.cancel", en: Text::plain("Cancel"), fr: Text::plain("Annuler") },
+    Message { id: "nodes.row.connected", en: Text::plain("Connected · hangar-node {version} on {hostname}"), fr: Text::plain("Connecté · hangar-node {version} sur {hostname}") },
+    Message { id: "nodes.row.connecting", en: Text::plain("Connecting: {step}"), fr: Text::plain("Connexion\u{202f}: {step}") },
+    Message { id: "nodes.row.more", en: Text::plain("More for {node}"), fr: Text::plain("Plus pour {node}") },
+    Message { id: "nodes.row.off", en: Text::plain("Switched off"), fr: Text::plain("Désactivé") },
+    Message { id: "nodes.row.offlineIn", en: Text::plain("Offline · retrying in {seconds}\u{a0}s: {reason}"), fr: Text::plain("Hors ligne · nouvel essai dans {seconds}\u{a0}s\u{202f}: {reason}") },
+    Message { id: "nodes.row.offlineNow", en: Text::plain("Offline · retrying now: {reason}"), fr: Text::plain("Hors ligne · nouvel essai en cours\u{202f}: {reason}") },
+    Message { id: "nodes.row.reconnecting", en: Text::plain("Reconnecting: {step}"), fr: Text::plain("Reconnexion\u{202f}: {step}") },
+    Message { id: "nodes.row.reconnectingIn", en: Text::plain("Reconnecting in {seconds}\u{a0}s: {reason}"), fr: Text::plain("Reconnexion dans {seconds}\u{a0}s\u{202f}: {reason}") },
+    Message { id: "nodes.row.remove", en: Text::plain("Remove from this computer…"), fr: Text::plain("Retirer de cet ordinateur…") },
+    Message { id: "nodes.row.removeAsk", en: Text::plain("Remove {node} from this computer? Nothing is deleted on the machine; its workspaces here stay in the list, without a machine to run on."), fr: Text::plain("Retirer {node} de cet ordinateur\u{202f}? Rien n’est supprimé sur la machine\u{202f}; ses workspaces restent ici dans la liste, sans machine où tourner.") },
+    Message { id: "nodes.row.removeConfirm", en: Text::plain("Remove"), fr: Text::plain("Retirer") },
+    Message { id: "nodes.row.rename", en: Text::plain("Rename"), fr: Text::plain("Renommer") },
+    Message { id: "nodes.row.renameSave", en: Text::plain("Save"), fr: Text::plain("Enregistrer") },
+    Message { id: "nodes.row.starting", en: Text::plain("Connecting…"), fr: Text::plain("Connexion…") },
+    Message { id: "nodes.row.toggle", en: Text::plain("Keep {node} connected"), fr: Text::plain("Garder {node} connecté") },
+    Message { id: "nodes.row.unavailable", en: Text::plain("Not connected"), fr: Text::plain("Non connecté") },
+    Message { id: "nodes.settings.empty", en: Text::plain("No other machine yet."), fr: Text::plain("Aucune autre machine pour l’instant.") },
+    Message { id: "nodes.settings.intro", en: Text::plain("Linux machines Hangar reaches over SSH with your keys. A machine that is on is kept connected: Hangar installs or updates hangar-node there, starts it, keeps a tunnel to it and reconnects when the link drops."), fr: Text::plain("Des machines Linux que Hangar joint par SSH avec tes clés. Une machine activée reste connectée\u{202f}: Hangar y installe ou met à jour hangar-node, le lance, garde un tunnel vers lui et se reconnecte quand le lien tombe.") },
     Message { id: "nodes.settings.keywords", en: Text::plain("node nodes ssh server remote tunnel nœud nœuds serveur distant"), fr: Text::plain("node nodes ssh server remote tunnel nœud nœuds serveur distant") },
-    Message { id: "nodes.status.connected", en: Text::plain("Connected"), fr: Text::plain("Connecté") },
-    Message { id: "nodes.status.connecting", en: Text::plain("Connecting"), fr: Text::plain("Connexion") },
-    Message { id: "nodes.status.disconnected", en: Text::plain("Disconnected"), fr: Text::plain("Déconnecté") },
-    Message { id: "nodes.status.unreachable", en: Text::plain("Unreachable"), fr: Text::plain("Injoignable") },
+    Message { id: "nodes.state.connected", en: Text::plain("connected"), fr: Text::plain("connecté") },
+    Message { id: "nodes.state.connecting", en: Text::plain("connecting…"), fr: Text::plain("connexion…") },
+    Message { id: "nodes.state.off", en: Text::plain("switched off"), fr: Text::plain("désactivé") },
+    Message { id: "nodes.state.offline", en: Text::plain("offline"), fr: Text::plain("hors ligne") },
+    Message { id: "nodes.state.offlineWhy", en: Text::plain("offline: {reason}"), fr: Text::plain("hors ligne\u{202f}: {reason}") },
+    Message { id: "nodes.state.reconnecting", en: Text::plain("reconnecting…"), fr: Text::plain("reconnexion…") },
+    Message { id: "nodes.state.tip", en: Text::plain("{node} · {state}"), fr: Text::plain("{node} · {state}") },
     Message { id: "nodes.step.config", en: Text::plain("Reading the node’s address…"), fr: Text::plain("Lecture de l’adresse du nœud…") },
     Message { id: "nodes.step.handshake", en: Text::plain("Asking the node who it is…"), fr: Text::plain("Identification du nœud…") },
     Message { id: "nodes.step.install", en: Text::plain("Installing hangar-node…"), fr: Text::plain("Installation de hangar-node…") },
     Message { id: "nodes.step.probe", en: Text::plain("Looking at the machine…"), fr: Text::plain("Examen de la machine…") },
     Message { id: "nodes.step.start", en: Text::plain("Starting hangar-node…"), fr: Text::plain("Démarrage de hangar-node…") },
     Message { id: "nodes.step.tunnel", en: Text::plain("Opening the tunnel…"), fr: Text::plain("Ouverture du tunnel…") },
+    Message { id: "nodes.switchOff", en: Text::plain("Switch off"), fr: Text::plain("Désactiver") },
+    Message { id: "nodes.switchOffHint", en: Text::plain("Stops reconnecting and hides this machine’s workspaces. They come back when it is switched on in Settings › Nodes."), fr: Text::plain("Arrête les reconnexions et masque les workspaces de cette machine. Ils reviennent quand elle est réactivée dans Réglages › Nœuds.") },
+    Message { id: "nodes.switchOn", en: Text::plain("Switch on"), fr: Text::plain("Activer") },
     Message { id: "notify.aborted", en: Text::plain("Interrupted"), fr: Text::plain("Interrompu") },
     Message { id: "notify.dropped", en: Text::plain("Did not take the prompt held for it: {text}"), fr: Text::plain("N'a pas pris le prompt gardé pour lui\u{202f}: {text}") },
     Message { id: "notify.permission", en: Text::plain("Waiting for your permission: {tool}"), fr: Text::plain("Attend ta permission\u{202f}: {tool}") },
@@ -7866,6 +8002,14 @@ pub(crate) static MESSAGES: [Message; KEY_COUNT] = [
     Message { id: "sidebar.goTo", en: Text::plain("Go to"), fr: Text::plain("Aller à") },
     Message { id: "sidebar.hide", en: Text::plain("Hide the navigator"), fr: Text::plain("Masquer le navigateur") },
     Message { id: "sidebar.label", en: Text::plain("Navigator"), fr: Text::plain("Navigateur") },
+    Message { id: "sidebar.machines.all", en: Text::plain("All machines"), fr: Text::plain("Toutes les machines") },
+    Message { id: "sidebar.machines.count", en: Text::plural("{n} machine", "{n} machines"), fr: Text::plural("{n} machine", "{n} machines") },
+    Message { id: "sidebar.machines.filter", en: Text::plain("Filter by machine"), fr: Text::plain("Filtrer par machine") },
+    Message { id: "sidebar.machines.filterOn", en: Text::plain("Only {machine}"), fr: Text::plain("Seulement {machine}") },
+    Message { id: "sidebar.machines.none", en: Text::plain("No workspace on {machine}."), fr: Text::plain("Aucun workspace sur {machine}.") },
+    Message { id: "sidebar.machines.off", en: Text::plain("{n} switched off"), fr: Text::plural("{n} désactivée", "{n} désactivées") },
+    Message { id: "sidebar.machines.offline", en: Text::plain("{n} offline"), fr: Text::plain("{n} hors ligne") },
+    Message { id: "sidebar.machines.open", en: Text::plain("Machines, in Settings › Nodes"), fr: Text::plain("Les machines, dans Réglages › Nœuds") },
     Message { id: "sidebar.menuRemoveFolder", en: Text::plain("Delete folder"), fr: Text::plain("Supprimer le dossier") },
     Message { id: "sidebar.menuRename", en: Text::plain("Rename"), fr: Text::plain("Renommer") },
     Message { id: "sidebar.more", en: Text::plain("More actions"), fr: Text::plain("Plus d'actions") },

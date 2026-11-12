@@ -838,7 +838,7 @@ fn the_nodes_page_exists_only_while_its_experiment_is_on() {
         .expect("the page exists");
     assert_eq!(order[nodes + 1], SettingsCategory::Experimental);
     let page = category(&on, SettingsCategory::Nodes);
-    assert_eq!(page.icon, Icon::Link);
+    assert_eq!(page.icon, Icon::Machines);
     assert!(matches!(
         items(page)[0].kind,
         Kind::Custom {

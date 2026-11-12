@@ -1,20 +1,24 @@
-//! Settings › Nodes: each node with its status and what it said about
-//! itself, Connect / Disconnect / Remove, and the form that adds one.
+//! Settings › Nodes: the machines as rows, this computer first, each with
+//! its kind's icon (which opens the picker), its name, where it is and how
+//! its link is doing, a switch that keeps it connected or not, and a menu
+//! for the rest; then the form that adds one.
 
 use std::borrow::Cow;
 
-use hangar_i18n::{Key, args};
+use hangar_i18n::{Key, Translator, args};
 use hangar_theme::tokens;
-use hangar_ui::{badge, button as ui_button, form, input, text as typography};
-use iced::widget::{column, container, row};
+use hangar_ui::menu::{self as ui_menu, Entry};
+use hangar_ui::{Icon, button as ui_button, form, icon, input, text as typography, tip};
+use iced::widget::{column, container, row, text};
 use iced::{Alignment, Element, Length, Padding};
 
 use crate::ctx::Ctx;
 use crate::message::Message;
-use crate::state::types::NodeConfig;
+use crate::state::types::{MachineKind, NodeConfig};
 
 use super::model::{Failure, NodeStatus, OwnWorkspace, Step, TargetProblem, target_problem};
-use super::{Msg, State};
+use super::presence::{self, Presence};
+use super::{Msg, Open, State};
 
 fn press(msg: Msg) -> Message {
     Message::Nodes(msg)
@@ -42,8 +46,7 @@ pub fn step_key(step: Step) -> Key {
 
 /// The failure in the person's language; the details stay as the tools said
 /// them.
-pub fn failure_text(ctx: Ctx<'_>, failure: &Failure) -> String {
-    let i18n = ctx.i18n;
+pub fn failure_words(i18n: Translator, failure: &Failure) -> String {
     match failure {
         Failure::Ssh { step, detail } => i18n.t_with(
             Key::NodesErrorSsh,
@@ -73,16 +76,18 @@ pub fn failure_text(ctx: Ctx<'_>, failure: &Failure) -> String {
     .into_owned()
 }
 
+/// The width of the icon at the head of a row, which the lines under a
+/// row are indented by to sit under its name.
+const LEAD: f32 = tokens::size::CONTROL_HEIGHT;
+
 pub fn settings_page<'a>(st: &'a State, ctx: Ctx<'a>) -> Element<'a, Message> {
     let t = ctx.theme;
     let nodes = &ctx.model.settings().nodes;
-    let mut body = column![].spacing(tokens::space::XL);
+    let mut rows: Vec<Element<'a, Message>> = vec![local_row(ctx)];
+    rows.extend(nodes.iter().map(|node| machine_row(st, ctx, node)));
+    let mut body = column![form::group(t, rows)].spacing(tokens::space::XL);
     if nodes.is_empty() {
         body = body.push(typography::hint(t, ctx.t(Key::NodesSettingsEmpty)));
-    } else {
-        let rows: Vec<Element<'a, Message>> =
-            nodes.iter().map(|node| node_row(ctx, node)).collect();
-        body = body.push(form::group(t, rows));
     }
     body = body.push(add_form(st, ctx));
     form::section(t, ctx.t(Key::SettingsCatNodes))
@@ -91,120 +96,385 @@ pub fn settings_page<'a>(st: &'a State, ctx: Ctx<'a>) -> Element<'a, Message> {
         .into()
 }
 
-fn node_row<'a>(ctx: Ctx<'a>, node: &'a NodeConfig) -> Element<'a, Message> {
+/// A row's frame: what leads it, its name over a quieter line, and what
+/// ends it.
+fn row_frame<'a>(
+    lead: Element<'a, Message>,
+    lines: Element<'a, Message>,
+    end: Option<Element<'a, Message>>,
+) -> iced::widget::Row<'a, Message> {
+    let mut head = row![lead, container(lines).width(Length::Fill)]
+        .spacing(tokens::space::LG)
+        .align_y(Alignment::Center);
+    if let Some(end) = end {
+        head = head.push(end);
+    }
+    head
+}
+
+fn name_text<'a>(ctx: Ctx<'a>, name: impl text::IntoFragment<'a>) -> text::Text<'a> {
+    typography::body(ctx.theme, name).font(hangar_theme::fonts::ui_semibold())
+}
+
+/// This computer, which heads the list: it is a machine like the others,
+/// only never away.
+fn local_row<'a>(ctx: Ctx<'a>) -> Element<'a, Message> {
     let t = ctx.theme;
-    let status = ctx.model.live.nodes.status(&node.id);
-    let name = if node.label.trim().is_empty() {
-        node.ssh_target.as_str()
-    } else {
-        node.label.as_str()
-    };
-
-    let (status_label, tone) = match &status {
-        NodeStatus::Disconnected => (Key::NodesStatusDisconnected, badge::Tone::Neutral),
-        NodeStatus::Connecting(_) => (Key::NodesStatusConnecting, badge::Tone::Accent),
-        NodeStatus::Connected { .. } => (Key::NodesStatusConnected, badge::Tone::Success),
-        NodeStatus::Unreachable { .. } => (Key::NodesStatusUnreachable, badge::Tone::Danger),
-    };
-    let head = row![
-        typography::body(t, name).font(hangar_theme::fonts::ui_semibold()),
-        badge::badge(t, ctx.t(status_label), tone),
+    let lead =
+        container(icon(presence::LOCAL_ICON, tokens::size::ICON_LG).color(t.colors.fg_muted))
+            .center_x(LEAD)
+            .center_y(LEAD);
+    let lines = column![
+        name_text(ctx, ctx.t(Key::NodesCreateLocal)),
+        typography::hint(t, ctx.t(Key::NodesLocalHint)),
     ]
-    .spacing(tokens::space::MD)
-    .align_y(Alignment::Center);
-
-    let mut lines = column![head].spacing(tokens::space::SM);
-    let mut target = node.ssh_target.clone();
-    if let Some(config) = node.ssh_config.as_deref() {
-        target = format!("{target} · -F {config}");
-    }
-    lines = lines.push(typography::hint(t, target));
-
-    match &status {
-        NodeStatus::Disconnected => {}
-        NodeStatus::Connecting(step) => {
-            lines = lines.push(typography::hint(t, ctx.t(step_key(*step))));
-        }
-        NodeStatus::Connected { info, .. } => {
-            lines = lines.push(typography::hint(
-                t,
-                ctx.i18n
-                    .t_with(
-                        Key::NodesInfo,
-                        &args!(
-                            "version" => info.version.as_str(),
-                            "hostname" => info.hostname.as_str(),
-                            "target" => info.target.as_str()
-                        ),
-                    )
-                    .into_owned(),
-            ));
-            let present = |found: bool, yes: Key, no: Key| {
-                if found {
-                    badge::badge(t, ctx.t(yes), badge::Tone::Success)
-                } else {
-                    badge::badge(t, ctx.t(no), badge::Tone::Warning)
-                }
-            };
-            lines = lines.push(
-                row![
-                    present(info.claude, Key::NodesClaudeFound, Key::NodesClaudeMissing),
-                    present(info.git, Key::NodesGitFound, Key::NodesGitMissing),
-                ]
-                .spacing(tokens::space::MD),
-            );
-            if let Some(own) = ctx
-                .model
-                .live
-                .nodes
-                .own
-                .get(&node.id)
-                .filter(|own| !own.is_empty())
-            {
-                lines = lines.push(own_workspaces(ctx, own));
-            }
-        }
-        NodeStatus::Unreachable { failure, retry_in } => {
-            let mut text = failure_text(ctx, failure);
-            if let Some(seconds) = retry_in {
-                text.push(' ');
-                text.push_str(&ctx.i18n.t_with(
-                    Key::NodesErrorRetrying,
-                    &args!("seconds" => *seconds as i64),
-                ));
-            }
-            lines = lines.push(typography::danger(t, text));
-        }
-    }
-
-    let idle = matches!(
-        status,
-        NodeStatus::Disconnected | NodeStatus::Unreachable { retry_in: None, .. }
-    );
-    let toggle = if idle {
-        ui_button::primary(t, ctx.t(Key::NodesConnect))
-            .small()
-            .on_press(press(Msg::Connect(node.id.clone())))
-    } else {
-        ui_button::secondary(t, ctx.t(Key::NodesDisconnect))
-            .small()
-            .on_press(press(Msg::Disconnect(node.id.clone())))
-    };
-    lines = lines.push(
-        row![
-            toggle,
-            ui_button::ghost(t, ctx.t(Key::NodesRemove))
-                .small()
-                .on_press(press(Msg::Remove(node.id.clone()))),
-        ]
-        .spacing(tokens::space::MD)
-        .align_y(Alignment::Center),
-    );
-
-    container(lines)
-        .padding(Padding::from([tokens::space::XL, tokens::space::XL]))
+    .spacing(tokens::space::XXS);
+    container(row_frame(lead.into(), lines.into(), None))
+        .padding(Padding::from([tokens::space::LG, tokens::space::XL]))
         .width(Length::Fill)
         .into()
+}
+
+/// The kinds of machine as a menu's lines, the current one checked.
+fn kind_entries(
+    ctx: Ctx<'_>,
+    current: MachineKind,
+    pick: impl Fn(MachineKind) -> Msg,
+) -> Vec<Entry<Message>> {
+    MachineKind::ALL
+        .into_iter()
+        .map(|kind| {
+            ui_menu::item(ctx.t(presence::kind_key(kind)))
+                .icon(presence::kind_icon(kind))
+                .checked(kind == current)
+                .on_select(press(pick(kind)))
+                .into()
+        })
+        .collect()
+}
+
+/// A line of a row's « … » menu: what it says, and what picking it sends
+/// (`None` for one that cannot be picked now).
+pub(crate) struct MoreLine {
+    pub label: Key,
+    pub icon: Icon,
+    pub danger: bool,
+    pub send: Option<Msg>,
+}
+
+/// What a row's « … » menu offers for `node`.
+pub(crate) fn more_lines(ctx: Ctx<'_>, node: &NodeConfig) -> Vec<MoreLine> {
+    let id = &node.id;
+    // Only a link that is down has an attempt to bring forward.
+    let waiting = node.is_on() && presence::exact(ctx.model, id).is_away();
+    vec![
+        MoreLine {
+            label: Key::NodesRetry,
+            icon: Icon::Restart,
+            danger: false,
+            send: waiting.then(|| Msg::Retry(id.clone())),
+        },
+        MoreLine {
+            label: Key::NodesRowRename,
+            icon: Icon::Pencil,
+            danger: false,
+            send: Some(Msg::Show(Some(Open::Rename {
+                id: id.clone(),
+                draft: node.label.clone(),
+            }))),
+        },
+        MoreLine {
+            label: Key::NodesRowRemove,
+            icon: Icon::Trash,
+            danger: true,
+            send: Some(Msg::Show(Some(Open::Remove(id.clone())))),
+        },
+    ]
+}
+
+/// The button a machine's icon is: it opens the picker of its kind.
+fn kind_button<'a>(
+    ctx: Ctx<'a>,
+    current: MachineKind,
+    open: bool,
+    toggle: Open,
+    pick: impl Fn(MachineKind) -> Msg,
+) -> Element<'a, Message> {
+    let t = ctx.theme;
+    let words = ctx
+        .i18n
+        .t_with(
+            Key::NodesKindPick,
+            &args!("kind" => ctx.t(presence::kind_key(current)).into_owned()),
+        )
+        .into_owned();
+    let button = ui_button::icon_button(t, presence::kind_icon(current))
+        .icon_size(tokens::size::ICON_LG)
+        .tip(words)
+        .toggled(open)
+        .on_press(press(Msg::Show((!open).then_some(toggle))));
+    let entries = open.then(|| kind_entries(ctx, current, pick));
+    ui_menu::dropdown(t, button, entries)
+        .on_dismiss(press(Msg::Show(None)))
+        .into()
+}
+
+/// Where the machine is: its SSH target, and its config file when it has
+/// one of its own.
+fn target_words(node: &NodeConfig) -> String {
+    match node.ssh_config.as_deref() {
+        Some(config) => format!("{} · -F {config}", node.ssh_target),
+        None => node.ssh_target.clone(),
+    }
+}
+
+/// How the link is doing, in a sentence, and whether that is something to
+/// look at. The settings say it as it happens, without the grace period
+/// the other surfaces give a link.
+pub(crate) fn state_words(ctx: Ctx<'_>, node: &NodeConfig) -> (String, bool) {
+    let tr = ctx.i18n;
+    let live = &ctx.model.live.nodes;
+    let status = live.status(&node.id);
+    let link = live.links.get(&node.id);
+    let step_words =
+        |key: Key, step: Step| tr.t_with(key, &args!("step" => tr.t(step_key(step)).into_owned()));
+    let words = match presence::exact(ctx.model, &node.id) {
+        Presence::Off => tr.t(Key::NodesRowOff),
+        Presence::Connected | Presence::Settling => match &status {
+            NodeStatus::Connected { info, .. } => tr.t_with(
+                Key::NodesRowConnected,
+                &args!("version" => info.version.as_str(), "hostname" => info.hostname.as_str()),
+            ),
+            _ => tr.t(Key::NodesRowStarting),
+        },
+        Presence::Offline(None) => tr.t(Key::NodesRowUnavailable),
+        Presence::Offline(Some(failure)) => {
+            let reason = failure_words(tr, &failure);
+            match link.and_then(|link| link.retry_in(ctx.now)) {
+                Some(seconds) if seconds > 0 => tr.t_with(
+                    Key::NodesRowOfflineIn,
+                    &args!("seconds" => seconds as i64, "reason" => reason),
+                ),
+                // An attempt is under way.
+                _ => tr.t_with(Key::NodesRowOfflineNow, &args!("reason" => reason)),
+            }
+        }
+        Presence::Connecting { again } => match &status {
+            NodeStatus::Connecting(step) if again => step_words(Key::NodesRowReconnecting, *step),
+            NodeStatus::Connecting(step) => step_words(Key::NodesRowConnecting, *step),
+            NodeStatus::Unreachable { failure, retry_in } => {
+                let seconds = link
+                    .and_then(|link| link.retry_in(ctx.now))
+                    .unwrap_or(*retry_in);
+                tr.t_with(
+                    Key::NodesRowReconnectingIn,
+                    &args!("seconds" => seconds as i64, "reason" => failure_words(tr, failure)),
+                )
+            }
+            _ => tr.t(Key::NodesRowStarting),
+        },
+    };
+    let alert = matches!(
+        presence::exact(ctx.model, &node.id),
+        Presence::Offline(Some(_))
+    ) || matches!(status, NodeStatus::Unreachable { .. });
+    (words.into_owned(), alert)
+}
+
+fn machine_row<'a>(st: &'a State, ctx: Ctx<'a>, node: &'a NodeConfig) -> Element<'a, Message> {
+    let t = ctx.theme;
+    let id = &node.id;
+    let label = super::away::label_of(node);
+    let status = ctx.model.live.nodes.status(id);
+
+    let lead = kind_button(
+        ctx,
+        node.kind,
+        st.open == Some(Open::Kind(id.clone())),
+        Open::Kind(id.clone()),
+        {
+            let id = id.clone();
+            move |kind| Msg::SetKind(id.clone(), kind)
+        },
+    );
+
+    let renaming = match &st.open {
+        Some(Open::Rename { id: renamed, draft }) if renamed == id => Some(draft.as_str()),
+        _ => None,
+    };
+    let (state, alert) = state_words(ctx, node);
+    let mut lines = column![].spacing(tokens::space::XXS);
+    lines = match renaming {
+        Some(draft) => lines.push(
+            input::text_field(t, draft)
+                .placeholder(static_text(ctx.t(Key::NodesAddLabelPlaceholder)))
+                .on_input(|value| press(Msg::RenameInput(value)))
+                .on_submit(press(Msg::RenameSubmit))
+                .width(260.0),
+        ),
+        // A machine that is switched off steps back, as its rows do.
+        None if !node.is_on() => lines.push(name_text(ctx, label.clone()).color(t.colors.fg_muted)),
+        None => lines.push(name_text(ctx, label.clone())),
+    };
+    if alert {
+        // What needs a look gets a line of its own, in the warning colour.
+        let warning = t.colors.warning;
+        lines = lines
+            .push(typography::hint(t, target_words(node)))
+            .push(typography::hint(t, state).color(warning));
+    } else {
+        lines = lines.push(typography::hint(
+            t,
+            format!("{} · {state}", target_words(node)),
+        ));
+    }
+    if let NodeStatus::Connected { info, .. } = &status
+        && node.is_on()
+    {
+        lines = lines.push(tools_line(ctx, info.claude, info.git));
+    }
+
+    let end: Element<'a, Message> = if renaming.is_some() {
+        row![
+            ui_button::primary(t, ctx.t(Key::NodesRowRenameSave))
+                .small()
+                .on_press(press(Msg::RenameSubmit)),
+            ui_button::ghost(t, ctx.t(Key::NodesRowCancel))
+                .small()
+                .on_press(press(Msg::Show(None))),
+        ]
+        .spacing(tokens::space::SM)
+        .align_y(Alignment::Center)
+        .into()
+    } else {
+        let toggle = {
+            let id = id.clone();
+            input::switch(t, node.is_on())
+                .on_toggle(move |on| press(Msg::SetEnabled(id.clone(), on)))
+        };
+        let words = |key: Key| {
+            ctx.i18n
+                .t_with(key, &args!("node" => label.as_str()))
+                .into_owned()
+        };
+        row![
+            tip::bottom(t, toggle, words(Key::NodesRowToggle)),
+            more_menu(st, ctx, node, words(Key::NodesRowMore)),
+        ]
+        .spacing(tokens::space::MD)
+        .align_y(Alignment::Center)
+        .into()
+    };
+
+    let mut block = column![row_frame(lead, lines.into(), Some(end))].spacing(tokens::space::LG);
+    if st.open == Some(Open::Remove(id.clone())) {
+        block = block.push(under(remove_question(ctx, node, &label)));
+    }
+    if matches!(status, NodeStatus::Connected { .. })
+        && let Some(own) = ctx
+            .model
+            .live
+            .nodes
+            .own
+            .get(id)
+            .filter(|own| !own.is_empty())
+    {
+        block = block.push(under(own_workspaces(ctx, own)));
+    }
+    container(block)
+        .padding(Padding::from([tokens::space::LG, tokens::space::XL]))
+        .width(Length::Fill)
+        .into()
+}
+
+/// What sits under a row, in line with its name.
+fn under<'a>(content: Element<'a, Message>) -> Element<'a, Message> {
+    container(content)
+        .padding(Padding {
+            left: LEAD + tokens::space::LG,
+            ..Padding::ZERO
+        })
+        .into()
+}
+
+/// What the machine has of what the agents need, in one quiet line; what
+/// it lacks stands out.
+fn tools_line<'a>(ctx: Ctx<'a>, claude: bool, git: bool) -> Element<'a, Message> {
+    let t = ctx.theme;
+    let note = |found: bool, yes: Key, no: Key| {
+        if found {
+            typography::subtle(t, ctx.t(yes))
+        } else {
+            typography::subtle(t, ctx.t(no)).color(t.colors.warning)
+        }
+    };
+    row![
+        note(claude, Key::NodesClaudeFound, Key::NodesClaudeMissing),
+        typography::subtle(t, "·"),
+        note(git, Key::NodesGitFound, Key::NodesGitMissing),
+    ]
+    .spacing(tokens::space::SM)
+    .into()
+}
+
+/// The « … » at the end of a row, and its menu.
+fn more_menu<'a>(
+    st: &'a State,
+    ctx: Ctx<'a>,
+    node: &'a NodeConfig,
+    words: String,
+) -> Element<'a, Message> {
+    let t = ctx.theme;
+    let id = &node.id;
+    let open = st.open == Some(Open::More(id.clone()));
+    let button = ui_button::icon_button(t, Icon::More)
+        .tip(words)
+        .toggled(open)
+        .on_press(press(Msg::Show((!open).then(|| Open::More(id.clone())))));
+    let entries = open.then(|| {
+        let mut entries = Vec::new();
+        for line in more_lines(ctx, node) {
+            let mut item = ui_menu::item(ctx.t(line.label)).icon(line.icon);
+            if line.danger {
+                // What takes something away sits apart from the rest.
+                entries.push(ui_menu::separator());
+                item = item.danger();
+            }
+            entries.push(match line.send {
+                Some(msg) => item.on_select(press(msg)).into(),
+                None => item.disabled().into(),
+            });
+        }
+        entries
+    });
+    ui_menu::dropdown(t, button, entries)
+        .align_end()
+        .on_dismiss(press(Msg::Show(None)))
+        .into()
+}
+
+/// The question a removal waits on, under the row it is about.
+fn remove_question<'a>(ctx: Ctx<'a>, node: &NodeConfig, label: &str) -> Element<'a, Message> {
+    let t = ctx.theme;
+    let asked = ctx
+        .i18n
+        .t_with(Key::NodesRowRemoveAsk, &args!("node" => label))
+        .into_owned();
+    column![
+        typography::hint(t, asked),
+        row![
+            ui_button::danger(t, ctx.t(Key::NodesRowRemoveConfirm))
+                .small()
+                .on_press(press(Msg::Remove(node.id.clone()))),
+            ui_button::ghost(t, ctx.t(Key::NodesRowCancel))
+                .small()
+                .on_press(press(Msg::Show(None))),
+        ]
+        .spacing(tokens::space::SM)
+        .align_y(Alignment::Center),
+    ]
+    .spacing(tokens::space::MD)
+    .into()
 }
 
 /// The workspaces the node runs itself, each with its panes and what they
@@ -212,7 +482,7 @@ fn node_row<'a>(ctx: Ctx<'a>, node: &'a NodeConfig) -> Element<'a, Message> {
 fn own_workspaces<'a>(ctx: Ctx<'a>, own: &'a [OwnWorkspace]) -> Element<'a, Message> {
     let t = ctx.theme;
     let mut list = column![
-        typography::body(t, ctx.t(Key::NodesOwnTitle)).font(hangar_theme::fonts::ui_semibold()),
+        typography::hint(t, ctx.t(Key::NodesOwnTitle)).font(hangar_theme::fonts::ui_semibold()),
         typography::hint(t, ctx.t(Key::NodesOwnHint)),
     ]
     .spacing(tokens::space::SM);
@@ -232,7 +502,7 @@ fn own_workspaces<'a>(ctx: Ctx<'a>, own: &'a [OwnWorkspace]) -> Element<'a, Mess
             .collect();
         list = list.push(
             column![
-                typography::body(t, format!("{} — {}", ws.name, ws.cwd)),
+                typography::ui(t, format!("{} — {}", ws.name, ws.cwd)),
                 typography::hint(t, panes.join("   ")),
             ]
             .spacing(tokens::space::XS),
@@ -267,6 +537,17 @@ fn add_form<'a>(st: &'a State, ctx: Ctx<'a>) -> Element<'a, Message> {
         .placeholder(static_text(ctx.t(Key::NodesAddConfigPlaceholder)))
         .on_input(|value| press(Msg::AddConfig(value)))
         .on_submit(press(Msg::AddSubmit));
+    let kind = kind_button(
+        ctx,
+        form_state.kind,
+        st.open == Some(Open::AddKind),
+        Open::AddKind,
+        Msg::AddKind,
+    );
+    let named: Element<'a, Message> = row![kind, label]
+        .spacing(tokens::space::MD)
+        .align_y(Alignment::Center)
+        .into();
     let field = |key: Key, input: Element<'a, Message>| -> Element<'a, Message> {
         column![typography::hint(t, ctx.t(key)), input]
             .spacing(tokens::space::SM)
@@ -279,7 +560,7 @@ fn add_form<'a>(st: &'a State, ctx: Ctx<'a>) -> Element<'a, Message> {
                 column![
                     typography::body(t, ctx.t(Key::NodesAddTitle))
                         .font(hangar_theme::fonts::ui_semibold()),
-                    field(Key::NodesAddLabel, label.into()),
+                    field(Key::NodesAddLabel, named),
                     field(Key::NodesAddTarget, target.into()),
                     field(Key::NodesAddConfig, config.into()),
                     row![

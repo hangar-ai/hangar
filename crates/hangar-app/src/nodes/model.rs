@@ -91,11 +91,11 @@ pub enum NodeStatus {
         local_port: u16,
         token: String,
     },
-    /// `retry_in`: seconds before the next attempt, when one is planned (a
-    /// node that was connected and dropped); `None` waits for the person.
+    /// The last attempt failed, or the tunnel dropped; the next attempt
+    /// starts in `retry_in` seconds (sooner when the connection is woken).
     Unreachable {
         failure: Failure,
-        retry_in: Option<u64>,
+        retry_in: u64,
     },
 }
 

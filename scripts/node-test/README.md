@@ -71,7 +71,7 @@ What it does, printing `PASS`/`FAIL` per step:
    remote` on the node (a `Shell` pane and an orchestrator shell `Rorch`) and
    `E2E local`, a git repo in the run's folder (orchestrator shell `Lorch`,
    check `grep -q done work.sh`, automatic landing). Starts the debug app with
-   `HANGAR_DEV_NODES_CONNECT=1` and `HANGAR_NODE_BINARY`.
+   `HANGAR_NODE_BINARY`; the app connects its nodes as it starts.
 3. Checks:
    - the remote `Shell` pane echoes a command, with the node's hostname
      (`pane_send` / `pane_read` on the control API);
@@ -140,8 +140,8 @@ own `mktemp -d` data root and endpoint file, its own container and port, the
 app's process group and the container removed on exit). It builds
 `hangar-node` in release, and `hangar-app` in release with debug assertions
 (`target/bench-app/`, a profile of its own): optimized, so what is measured
-is not a debug build's terminal, and with the assertions
-`HANGAR_DEV_NODES_CONNECT` needs. The isolated app has a remote workspace
+is not a debug build's terminal, and with the assertions the measurements
+written down were taken with. The isolated app has a remote workspace
 (pane `Remote` on node `n1`) and a local one (pane `Local`), both turned into
 a plain `bash --norc` with a fixed prompt. The bench reaches the node's API
 through an SSH tunnel of its own, opened with the app's options.

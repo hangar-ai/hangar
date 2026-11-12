@@ -1263,7 +1263,7 @@ fn nodes(ctx: &Context) -> Option<Category> {
     Some(entry_point(
         SettingsCategory::Nodes,
         tx(Key::SettingsCatNodes),
-        Icon::Link,
+        Icon::Machines,
         "nodes",
         Some(tx(Key::NodesSettingsIntro)),
         tx(Key::NodesSettingsKeywords),

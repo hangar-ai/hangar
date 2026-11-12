@@ -164,3 +164,81 @@ pub async fn read_text(stream: &mut TcpStream, buf: &mut Vec<u8>) -> String {
         buf.extend_from_slice(&chunk[..read]);
     }
 }
+
+/// A machine of the settings, for the tests of what shows one.
+pub fn machine(
+    id: &str,
+    label: &str,
+    kind: crate::state::types::MachineKind,
+) -> crate::state::types::NodeConfig {
+    crate::state::types::NodeConfig {
+        id: id.into(),
+        label: label.into(),
+        ssh_target: format!("me@{id}"),
+        kind,
+        ..Default::default()
+    }
+}
+
+/// Node `id` connected, saying it is `hostname`.
+pub fn up(model: &mut crate::state::Model, id: &str, hostname: &str) {
+    let live = &mut model.live.nodes;
+    live.statuses.insert(
+        id.into(),
+        super::NodeStatus::Connected {
+            info: super::model::NodeInfo {
+                version: "2.3.0".into(),
+                target: "x86_64-unknown-linux-gnu".into(),
+                hostname: hostname.into(),
+                home: "/home/me".into(),
+                claude: true,
+                git: true,
+            },
+            local_port: 21012,
+            token: TOKEN.into(),
+        },
+    );
+    live.links.insert(
+        id.into(),
+        super::presence::Link {
+            was_connected: true,
+            ..Default::default()
+        },
+    );
+}
+
+/// The link of node `id` down for `seconds`, after having been up: waiting
+/// for its first new attempt when `failure` is `None`, else after an
+/// attempt that failed so. Returns the moment that is true of, for a test
+/// that reads a count of seconds to draw at.
+pub fn down(
+    model: &mut crate::state::Model,
+    id: &str,
+    seconds: u64,
+    failure: Option<super::model::Failure>,
+) -> std::time::Instant {
+    let now = std::time::Instant::now();
+    let since = now
+        .checked_sub(std::time::Duration::from_secs(seconds))
+        .unwrap_or(now);
+    let live = &mut model.live.nodes;
+    live.statuses.insert(
+        id.into(),
+        super::NodeStatus::Unreachable {
+            failure: failure
+                .clone()
+                .unwrap_or_else(|| super::model::Failure::Tunnel("Connection reset".into())),
+            retry_in: 8,
+        },
+    );
+    live.links.insert(
+        id.into(),
+        super::presence::Link {
+            down_since: Some(since),
+            failure,
+            was_connected: true,
+            retry_at: Some(now + std::time::Duration::from_secs(8)),
+        },
+    );
+    now
+}

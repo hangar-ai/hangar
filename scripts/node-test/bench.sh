@@ -123,7 +123,7 @@ target="$(cargo metadata --manifest-path "$root/Cargo.toml" --format-version 1 -
 if [ "$build" = 1 ]; then
   # Apart: built together, hangar-app's features would unify into hangar-node.
   # The app: optimized (a debug build's terminal would be what is measured),
-  # with debug assertions, which HANGAR_DEV_NODES_CONNECT needs (nodes/mod.rs),
+  # with debug assertions, as the measurements written down were taken,
   # in a profile of its own (target/bench-app) so the release build stays.
   say "build hangar-node (release) and hangar-app (release + debug assertions)"
   cargo build --manifest-path "$root/Cargo.toml" -p hangar-node --release --locked || die "hangar-node did not build"
@@ -170,7 +170,7 @@ say "app: $app_bin"
 say "node: $node_bin"
 start_app() { # [log]: the isolated app, connecting its node as it starts
   rm -f "$HANGAR_ENDPOINT_FILE"
-  HANGAR_NODE_BINARY="$node_bin" HANGAR_DEV_NODES_CONNECT=1 HANGAR_NODES_TIMING=1 \
+  HANGAR_NODE_BINARY="$node_bin" HANGAR_NODES_TIMING=1 \
     setsid "$app_bin" >> "${1:-$work/app.log}" 2>&1 < /dev/null &
   app_pid=$!
 }

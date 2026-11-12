@@ -1337,7 +1337,7 @@ fn a_workspace_can_be_made_on_a_connected_node() {
     {
         // Not connected: nothing to offer.
         let mut ui = h.show(view(&st, h.ctx()));
-        assert!(ui.find("On node GPU box").is_err());
+        assert!(ui.find("GPU box").is_err());
     }
     h.model.live.nodes.statuses.insert(
         "n1".into(),
@@ -1351,7 +1351,8 @@ fn a_workspace_can_be_made_on_a_connected_node() {
         let mut ui = h.show(view(&st, h.ctx()));
         assert!(ui.find("Runs on").is_ok());
         assert!(ui.find("This computer").is_ok());
-        ui.click("On node GPU box").expect("the node is offered");
+        h.shot(&mut ui, "machines-dialog-runs-on-en-graphite");
+        ui.click("GPU box").expect("the node is offered");
         assert!(sent(&messages(ui), |msg| matches!(
             msg,
             Msg::Place(Some(node)) if node == "n1"

@@ -47,6 +47,8 @@ fn tree_of(world: &World) -> crate::navigator::model::NavTree<'_> {
         query: "",
         attention_only: false,
         wants_you: &|_| false,
+        machine: &crate::navigator::model::MachineFilter::All,
+        machine_label: &|_| None,
     })
 }
 
@@ -195,6 +197,8 @@ fn the_rows_are_where_the_view_draws_them() {
         query: "",
         attention_only: false,
         wants_you: &|_| false,
+        machine: &crate::navigator::model::MachineFilter::All,
+        machine_label: &|_| None,
     });
     let spans = spans(&tree);
 

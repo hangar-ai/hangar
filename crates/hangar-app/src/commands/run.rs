@@ -70,7 +70,12 @@ impl<'a> Scope<'a> {
         Scope {
             main,
             workspaces: if main {
+                // As the navigator lists them: without those of a machine
+                // that is switched off.
                 sidebar_order(&state.workspaces, &state.folders)
+                    .into_iter()
+                    .filter(|ws| crate::nodes::shown(m, ws))
+                    .collect()
             } else {
                 Vec::new()
             },

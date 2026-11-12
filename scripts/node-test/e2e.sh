@@ -242,7 +242,7 @@ JSON
 
 start_app() {
   rm -f "$HANGAR_ENDPOINT_FILE"
-  HANGAR_NODE_BINARY="$node_bin" HANGAR_DEV_NODES_CONNECT=1 PATH="$work/bin:$PATH" \
+  HANGAR_NODE_BINARY="$node_bin" PATH="$work/bin:$PATH" \
     setsid "$app_bin" >> "$work/app.log" 2>&1 < /dev/null &
   app_pid=$!
   retry 90 test -s "$HANGAR_ENDPOINT_FILE" || { echo "no endpoint after 90 s"; tail -n 20 "$work/app.log"; return 1; }
@@ -253,7 +253,7 @@ start_app() {
 
 step "seed the node (git repo, transcript)" seed_node || exit 1
 step "seed the isolated state (node n1, remote + local workspace)" seed_local || exit 1
-step "start the isolated app (HANGAR_DEV_NODES_CONNECT=1)" start_app || exit 1
+step "start the isolated app (it connects its node as it starts)" start_app || exit 1
 
 # --- 3. Checks ---------------------------------------------------------------
 # A remote shell pane echoes a command (the node's hostname proves where).
