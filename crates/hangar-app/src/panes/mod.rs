@@ -1326,7 +1326,7 @@ fn signature(st: &State, m: &Model) -> u64 {
         };
         (&ws.id, &ws.theme_id, ws.detached, ws.is_hosted()).hash(&mut hash);
         // Handed to its node and not taken yet: its terminals wait.
-        m.live.nodes.outbox.adopting(&ws.id).hash(&mut hash);
+        crate::nodes::hosted::unfollowed(m, ws).hash(&mut hash);
         crate::chat_view::shown(m, ws).hash(&mut hash);
         ws.view_panes.len().hash(&mut hash);
         for pane in &ws.panes {
@@ -1355,6 +1355,9 @@ fn signature(st: &State, m: &Model) -> u64 {
             .map(|(id, _)| id),
     )
     .hash(&mut hash);
+    // A node that reconnected or changed its state: the panes it runs
+    // whose shell had ended are looked for again.
+    unordered(m.live.nodes.reattach.iter()).hash(&mut hash);
     hash.finish()
 }
 
@@ -1390,7 +1393,7 @@ fn wanted_panes(m: &Model) -> Vec<(WsId, PaneId)> {
     m.ui.opened_ids
         .iter()
         .filter_map(|id| m.workspace(id))
-        .filter(|ws| !m.live.nodes.outbox.adopting(&ws.id))
+        .filter(|ws| !crate::nodes::hosted::unfollowed(m, ws))
         .flat_map(|ws| ws.panes.iter().map(|pane| (ws.id.clone(), pane.id.clone())))
         .collect()
 }
@@ -1420,6 +1423,7 @@ fn sync(st: &mut State, m: &mut Model, sv: &Services) -> Task<Message> {
     let moved = |id: &PaneId, rt: &PaneRt| {
         m.find_pane(id)
             .is_some_and(|(ws, _)| ws.is_hosted() != rt.hosted)
+            || controller::stale(rt, m)
     };
     let gone: Vec<PaneId> = st
         .panes

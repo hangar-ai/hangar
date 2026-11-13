@@ -104,6 +104,15 @@ pub struct Timing {
     /// the tunnel comes up.
     pub handshake_tries: u32,
     pub handshake_wait: Duration,
+    /// How long one step of an attempt may take (a remote command, the
+    /// tunnel's connection): past it the attempt has failed, and the next
+    /// one is waited for like after any other failure. Without it a
+    /// command that hangs on the node, or a link that dies under one,
+    /// would leave the node "connecting" with nothing left to try again.
+    pub step_limit: Duration,
+    /// The same for the upload of the binary, which is tens of megabytes
+    /// over what may be a slow link.
+    pub upload_limit: Duration,
 }
 
 impl Default for Timing {
@@ -119,6 +128,8 @@ impl Default for Timing {
             // ssh starts: asked often, it answers as soon as it can.
             handshake_tries: 250,
             handshake_wait: Duration::from_millis(20),
+            step_limit: Duration::from_secs(90),
+            upload_limit: Duration::from_secs(15 * 60),
         }
     }
 }
@@ -239,10 +250,12 @@ async fn find_mux<R: Runner>(runner: &R, setup: &Setup) -> Mux {
     let Some(dir) = &setup.control_dir else {
         return Mux::Off;
     };
-    let said = runner
-        .run(commands::config_query(&setup.node))
+    // No connection is made for it, yet nothing is waited for without end.
+    let asked = runner.run(commands::config_query(&setup.node));
+    let said = tokio::time::timeout(setup.timing.step_limit, asked)
         .await
         .ok()
+        .and_then(Result::ok)
         .filter(|output| output.success)
         .map(|output| output.stdout);
     let path = control_path(dir, &setup.node.id);
@@ -261,6 +274,27 @@ fn reason(output: &CmdOutput) -> String {
         .filter(|line| !line.trim().is_empty())
         .map(str::to_string)
         .unwrap_or_else(|| "failed without a word".to_string())
+}
+
+/// What a step that did not end within `limit` failed with. The step's
+/// future is dropped with it, and the command it ran is killed.
+fn overdue(step: Step, limit: Duration) -> Failure {
+    Failure::Ssh {
+        step,
+        detail: format!("no answer after {} s", limit.as_secs().max(1)),
+    }
+}
+
+/// `work`, one step of an attempt, given `limit` to end.
+async fn within<T>(
+    step: Step,
+    limit: Duration,
+    work: impl Future<Output = Result<T, Failure>>,
+) -> Result<T, Failure> {
+    match tokio::time::timeout(limit, work).await {
+        Ok(done) => done,
+        Err(_) => Err(overdue(step, limit)),
+    }
 }
 
 async fn run_ok<R: Runner>(
@@ -298,6 +332,7 @@ pub async fn connect_once<R: Runner>(
     report: &(impl Fn(NodeStatus) + Send + Sync),
 ) -> Result<(NodeInfo, u16, String), Failure> {
     let node = &setup.node;
+    let limit = setup.timing.step_limit;
     let mut laps = Laps::new(&node.id);
 
     report(NodeStatus::Connecting(Step::Probe));
@@ -308,13 +343,16 @@ pub async fn connect_once<R: Runner>(
         Mux::Own(path) => {
             // What a killed master left would keep this one from listening.
             let _ = std::fs::remove_file(path);
-            let (tunnel, output) = runner
-                .open_link(
-                    commands::link(node, path, &setup.version),
-                    PathBuf::from(path),
-                )
-                .await
-                .map_err(Failure::Local)?;
+            let opened = async {
+                runner
+                    .open_link(
+                        commands::link(node, path, &setup.version),
+                        PathBuf::from(path),
+                    )
+                    .await
+                    .map_err(Failure::Local)
+            };
+            let (tunnel, output) = within(Step::Probe, limit, opened).await?;
             *locked(slot) = Some(tunnel);
             if !output.success {
                 return Err(Failure::Ssh {
@@ -325,12 +363,8 @@ pub async fn connect_once<R: Runner>(
             output
         }
         Mux::Off | Mux::Theirs => {
-            run_ok(
-                runner,
-                commands::probe(node, mux, &setup.version),
-                Step::Probe,
-            )
-            .await?
+            let probe = commands::probe(node, mux, &setup.version);
+            within(Step::Probe, limit, run_ok(runner, probe, Step::Probe)).await?
         }
     };
     let probe = parse_probe(&output.stdout).map_err(|detail| Failure::Ssh {
@@ -356,19 +390,20 @@ pub async fn connect_once<R: Runner>(
     } else {
         report(NodeStatus::Connecting(Step::Install));
         let binary = setup.source.binary_for(&probe.arch)?;
-        run_ok(runner, commands::upload(node, mux, &binary), Step::Install).await?;
+        let upload = run_ok(runner, commands::upload(node, mux, &binary), Step::Install);
+        within(Step::Install, setup.timing.upload_limit, upload).await?;
         laps.lap("upload");
         let stop = match decision {
             Decision::Update { .. } => older_daemon(&probe.node_json, &setup.version),
             _ => None,
         };
         report(NodeStatus::Connecting(Step::Start));
-        let output = run_ok(
+        let start = run_ok(
             runner,
             commands::install_and_start(node, mux, stop),
             Step::Start,
-        )
-        .await?;
+        );
+        let output = within(Step::Start, limit, start).await?;
         laps.lap("start");
         output.stdout
     };
@@ -380,12 +415,12 @@ pub async fn connect_once<R: Runner>(
     let local = runner.free_port().map_err(Failure::Local)?;
     match mux {
         Mux::Own(path) => {
-            run_ok(
+            let forward = run_ok(
                 runner,
                 commands::forward(node, path, local, json.port),
                 Step::Tunnel,
-            )
-            .await?;
+            );
+            within(Step::Tunnel, limit, forward).await?;
         }
         Mux::Off | Mux::Theirs => {
             let tunnel = runner
@@ -410,12 +445,14 @@ pub async fn connect_once<R: Runner>(
             locked(slot).take();
             return Err(Failure::Tunnel(why));
         }
-        match runner.node_info(local, json.token.clone()).await {
-            Ok(info) => {
+        let asked = tokio::time::timeout(limit, runner.node_info(local, json.token.clone()));
+        match asked.await {
+            Ok(Ok(info)) => {
                 laps.lap("handshake");
                 return Ok((info, local, json.token));
             }
-            Err(err) => last = err,
+            Ok(Err(err)) => last = err,
+            Err(_) => last = format!("no answer after {} s", limit.as_secs().max(1)),
         }
     }
     if let Some(mut tunnel) = locked(slot).take() {

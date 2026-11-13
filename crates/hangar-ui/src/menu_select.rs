@@ -38,6 +38,7 @@ use crate::menu::{Entry, menu};
 pub struct MenuSelect<'a, M> {
     theme: &'a Theme,
     shown: String,
+    lead: Option<Icon>,
     placeholder: bool,
     entries: Vec<Entry<M>>,
     open: bool,
@@ -56,6 +57,7 @@ pub fn menu_select<'a, M>(
     MenuSelect {
         theme: t,
         shown: shown.into(),
+        lead: None,
         placeholder: false,
         entries,
         open: false,
@@ -71,6 +73,13 @@ impl<'a, M> MenuSelect<'a, M> {
     /// is set in the quiet colour.
     pub fn placeholder(mut self, placeholder: bool) -> Self {
         self.placeholder = placeholder;
+        self
+    }
+
+    /// The icon the choice shown goes by, before its name: for a choice
+    /// among things whose lines in the menu each lead with one.
+    pub fn icon(mut self, lead: Icon) -> Self {
+        self.lead = Some(lead);
         self
     }
 
@@ -109,16 +118,19 @@ impl<'a, M: Clone + 'a> From<MenuSelect<'a, M>> for Element<'a, M> {
         let t = s.theme;
         let c = &t.colors;
         let ink = if s.placeholder { c.fg_subtle } else { c.fg };
-        let line = row![
-            text(s.shown)
-                .size(font_size::UI)
-                .style(move |_: &iced::Theme| text::Style { color: Some(ink) })
-                .width(Length::Fill)
-                .wrapping(text::Wrapping::None),
-            icon(Icon::ChevronDown, 10.0).color(c.fg_muted),
-        ]
-        .spacing(space::MD)
-        .align_y(Alignment::Center);
+        let mut line = row![].spacing(space::MD).align_y(Alignment::Center);
+        if let Some(lead) = s.lead {
+            line = line.push(icon(lead, size::ICON).color(ink));
+        }
+        let line = line
+            .push(
+                text(s.shown)
+                    .size(font_size::UI)
+                    .style(move |_: &iced::Theme| text::Style { color: Some(ink) })
+                    .width(Length::Fill)
+                    .wrapping(text::Wrapping::None),
+            )
+            .push(icon(Icon::ChevronDown, 10.0).color(c.fg_muted));
 
         let open = s.open;
         let look = move |_: &iced::Theme, status: button::Status| {

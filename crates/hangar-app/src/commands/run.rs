@@ -144,7 +144,11 @@ fn live(m: &Model, w: window::Id) -> HashSet<CommandId> {
 
     live.extend(GO.iter().take(scope.workspaces.len()));
     if scope.workspaces.len() > 1 && scope.ws.is_some() {
-        live.extend([WorkspaceNext, WorkspacePrev, WorkspaceSleep]);
+        live.extend([WorkspaceNext, WorkspacePrev]);
+    }
+    // A workspace its node runs is not this computer's to put to sleep.
+    if scope.workspaces.len() > 1 && scope.ws.is_some_and(|ws| !ws.is_hosted()) {
+        live.insert(WorkspaceSleep);
     }
 
     let Some(ws) = scope.ws else {

@@ -7,7 +7,7 @@ use std::path::Path;
 
 use super::Model;
 use crate::state::StoreAction;
-use crate::state::hosted::{self, HostedOp};
+use crate::state::hosted::{self, HostedOp, PaneFields, WorkspaceFields};
 use crate::state::layout::MAX_PANES;
 use crate::state::pane_names::pick_pane_name;
 use crate::state::types::{AppState, Pane, Workspace};
@@ -42,18 +42,25 @@ fn pane_exists(state: &AppState, id: &str) -> bool {
     state.workspaces.iter().any(|ws| ws.has_leaf(id))
 }
 
-/// A pane this host can run: an id, a folder of its own that is absolute
-/// when it has one (a worker's worktree that has since gone fails that
-/// pane's start, not the whole workspace), and no other machine to run on.
+/// A pane's folder of its own: absolute when it has one (a worker's
+/// worktree that has since gone fails that pane's start, not the whole
+/// workspace).
+fn pane_folder_fits(cwd: Option<&str>) -> Result<(), String> {
+    match cwd.filter(|cwd| !cwd.is_empty()) {
+        Some(cwd) if !Path::new(cwd).is_absolute() => {
+            Err(format!("{cwd}: a pane's folder is an absolute path"))
+        }
+        _ => Ok(()),
+    }
+}
+
+/// A pane this host can run: an id, a folder that fits, and no other
+/// machine to run on.
 fn pane_fits(pane: &Pane) -> Result<(), String> {
     if !sane_id(&pane.id) {
         return Err(format!("{:?} is not a pane's id", pane.id));
     }
-    if let Some(cwd) = pane.cwd.as_deref().filter(|cwd| !cwd.is_empty())
-        && !Path::new(cwd).is_absolute()
-    {
-        return Err(format!("{cwd}: a pane's folder is an absolute path"));
-    }
+    pane_folder_fits(pane.cwd.as_deref())?;
     if pane.node.is_some() {
         return Err(format!(
             "pane {} runs on another machine: a node runs its own panes only",
@@ -61,6 +68,44 @@ fn pane_fits(pane: &Pane) -> Result<(), String> {
         ));
     }
     Ok(())
+}
+
+/// What a patch would make of a pane, held to what a pane put whole is
+/// held to ([`pane_fits`]): the fields it does not name are not looked at.
+fn pane_patch_fits(patch: &PaneFields) -> Result<(), String> {
+    if patch.node.as_ref().is_some_and(Option::is_some) {
+        return Err("a node runs its own panes only".into());
+    }
+    match &patch.cwd {
+        Some(cwd) => pane_folder_fits(cwd.as_deref()),
+        None => Ok(()),
+    }
+}
+
+/// What a patch would make of a workspace, held to what one handed over
+/// whole is held to ([`check`]): a folder of this machine, every other
+/// folder absolute, and a name.
+fn workspace_patch_fits(patch: &WorkspaceFields) -> Result<(), String> {
+    if let Some(cwd) = &patch.cwd {
+        folder_here(cwd)?;
+    }
+    roots_fit(patch.extra_roots.as_deref().unwrap_or_default())?;
+    if patch
+        .name
+        .as_ref()
+        .is_some_and(|name| name.trim().is_empty())
+    {
+        return Err("a workspace has a name".into());
+    }
+    Ok(())
+}
+
+/// The other folders of a workspace: paths of this machine, so absolute.
+fn roots_fit(roots: &[String]) -> Result<(), String> {
+    match roots.iter().find(|root| !Path::new(root).is_absolute()) {
+        Some(root) => Err(format!("{root}: a workspace's folders are absolute paths")),
+        None => Ok(()),
+    }
 }
 
 /// Whether `ws` can be adopted into `state`: `Ok(false)` when a workspace
@@ -73,6 +118,7 @@ pub(super) fn check(state: &AppState, ws: &Workspace) -> Result<bool, String> {
         return Ok(false);
     }
     folder_here(&ws.cwd)?;
+    roots_fit(&ws.extra_roots)?;
     if ws.panes.is_empty() || ws.panes.len() > MAX_PANES {
         return Err(format!(
             "a workspace has between 1 and {MAX_PANES} panes, not {}",
@@ -104,6 +150,7 @@ pub(super) fn stripped(ws: Workspace, taken: &[String]) -> Workspace {
         view_panes: Vec::new(),
         chat_view: None,
         kits: None,
+        handover: None,
         ..ws
     };
     let mut used: HashSet<String> = taken.iter().cloned().collect();
@@ -136,20 +183,10 @@ pub(super) fn check_ops(state: &AppState, ws: &str, ops: &[HostedOp]) -> Result<
                 if !sane_id(to) || !free(to) {
                     return Err(format!("{to:?} cannot be a pane's new id"));
                 }
-                if patch.node.as_ref().is_some_and(Option::is_some) {
-                    return Err("a node runs its own panes only".into());
-                }
+                pane_patch_fits(patch)?;
             }
-            HostedOp::PatchWorkspace { patch } => {
-                if let Some(cwd) = &patch.cwd {
-                    folder_here(cwd)?;
-                }
-            }
-            HostedOp::PatchPane { patch, .. } => {
-                if patch.node.as_ref().is_some_and(Option::is_some) {
-                    return Err("a node runs its own panes only".into());
-                }
-            }
+            HostedOp::PatchWorkspace { patch } => workspace_patch_fits(patch)?,
+            HostedOp::PatchPane { patch, .. } => pane_patch_fits(patch)?,
             HostedOp::ClosePane { .. } | HostedOp::RemoveWorkspace => {}
         }
     }

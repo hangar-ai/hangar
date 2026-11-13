@@ -120,6 +120,14 @@ pub struct PaneRt {
     /// The launch's wait for the shell, then its check that the command
     /// ran, aborted with the pane.
     launch: Option<iced::task::Handle>,
+    /// The search for its shell on the node that runs it, which goes on
+    /// until the shell is found: ended with the pane.
+    attach: Option<iced::task::Handle>,
+    /// Where its node's story stood when the pane was mounted
+    /// (`nodes::Live::reattach`): a pane its node runs whose shell ended is
+    /// mounted afresh once the node has reconnected or changed its state
+    /// since, in case the node started it again.
+    pub seen: u64,
     /// The agent's command as it was typed, for the check to type again.
     typed: Option<String>,
     /// The launch put off while its resume waits its wave (`waves`): what
@@ -485,6 +493,8 @@ pub fn mount(
         look,
         focused: false,
         launch: None,
+        attach: None,
+        seen: reattach_mark(m, ws),
         typed: None,
         parked: None,
     };
@@ -540,9 +550,13 @@ pub fn start(
         let id = spawn.id.clone();
         let label = crate::nodes::label(m, &node);
         if spawn.hosted {
-            return Task::perform(attach_hosted(node, label, id.clone()), move |result| {
-                Message::Panes(Msg::Spawned(id.clone(), result))
-            });
+            let (looking, handle) =
+                Task::perform(attach_hosted(node, label, id.clone()), move |result| {
+                    Message::Panes(Msg::Spawned(id.clone(), result))
+                })
+                .abortable();
+            rt.attach = Some(handle.abort_on_drop());
+            return looking;
         }
         let asked = spawn.remote(columns, rows);
         let tr = Translator::new(m.locale());
@@ -591,23 +605,19 @@ async fn start_remote(
     Ok(remote_report(&spawn, started, tr))
 }
 
-/// How many times, and how far apart, a pane its node runs itself is looked
-/// for on the node before its terminal says it did not start: the time the
-/// node takes to start a pane it has just been given.
-const HOSTED_TRIES: u32 = 60;
+/// How far apart a pane its node runs itself is looked for on the node
+/// while the node has not started it, or could not be asked.
 const HOSTED_EVERY: Duration = Duration::from_millis(500);
 
 /// Finds the shell of a pane its node runs itself, once the node is
-/// connected, and follows it: nothing is started, and nothing typed.
+/// connected, and follows it: nothing is started, and nothing typed. It
+/// is looked for until it is found, for as long as the pane is mounted
+/// (the task is the pane's, `PaneRt::attach`): a look that fails, or a
+/// node that has not started it yet, is no reason to call it ended and
+/// offer a restart that would take down an agent that runs.
 async fn attach_hosted(node: String, label: String, pane: PaneId) -> Result<SpawnReport, String> {
-    let client = loop {
-        if let Some(client) = remote::wait_for(&node, NODE_WAIT).await {
-            break client;
-        }
-    };
-    let started = remote::attach(&client, &pane, HOSTED_TRIES, HOSTED_EVERY)
-        .await
-        .map_err(|error| format!("{label}: {error}"))?;
+    let found = || remote::wait_for(&node, NODE_WAIT);
+    let started = remote::attach_for_good(&pane, HOSTED_EVERY, found).await;
     let Started::Attached { seq } = started else {
         return Err(format!("{label}: its node has not started this pane"));
     };
@@ -1302,6 +1312,28 @@ pub fn unmount(hub: &Hub, sv: &Services, m: &mut Model, rt: PaneRt) -> Task<Mess
     Task::batch([unmounted, kill])
 }
 
+/// Where the story of the node of `ws` stands (`nodes::Live::reattach`); 0
+/// for a workspace of this machine.
+pub fn reattach_mark(m: &Model, ws: &Workspace) -> u64 {
+    ws.node
+        .as_ref()
+        .and_then(|node| m.live.nodes.reattach.get(node))
+        .copied()
+        .unwrap_or(0)
+}
+
+/// Whether the pane is to be mounted afresh to find its shell again: its
+/// node runs it, its shell ended as far as this terminal knows, and the
+/// node has reconnected or changed its state since the pane was mounted.
+/// The node may have started it again (it does after a restart of its
+/// own), which a terminal that stopped at the shell's end would never see.
+pub fn stale(rt: &PaneRt, m: &Model) -> bool {
+    rt.hosted
+        && rt.status == PaneStatus::Exited
+        && m.workspace(&rt.ws)
+            .is_some_and(|ws| reattach_mark(m, ws) != rt.seen)
+}
+
 /// What becomes of the shell of a pane that is unmounted.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum ShellEnd {
@@ -1463,6 +1495,8 @@ pub(crate) fn mounted(ws: &Workspace, pane: &Pane) -> PaneRt {
         look: look::look(&crate::state::Settings::default(), ws, pane.agent),
         focused: false,
         launch: None,
+        attach: None,
+        seen: 0,
         typed: None,
         parked: None,
     }

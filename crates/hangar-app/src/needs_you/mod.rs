@@ -178,7 +178,13 @@ struct Look {
 
 fn look(m: &Model, waiting: &HashSet<String>, boards: &impl BoardSource) -> Look {
     let state = m.state();
-    let workspaces = sidebar_order(&state.workspaces, &state.folders);
+    // Only the workspaces the lists show: an agent of a machine that was
+    // switched off waits where it was left, on a workspace the row could
+    // only bring to the front from out of the lists.
+    let workspaces: Vec<_> = sidebar_order(&state.workspaces, &state.folders)
+        .into_iter()
+        .filter(|ws| crate::nodes::shown(m, ws))
+        .collect();
     let items = model::needs_you_items(&workspaces, waiting, boards);
     let loaded = watched_boards(&workspaces)
         .into_iter()

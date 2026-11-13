@@ -66,7 +66,8 @@ fn every_ssh_step_is_batch_mode_with_a_bounded_wait() {
 fn the_probe_asks_everything_in_one_command() {
     assert_eq!(
         line(&commands::probe(&node(None), &Mux::Off, "1.2.3")),
-        "ssh | -o | BatchMode=yes | -o | ConnectTimeout=10 | me@box | \
+        "ssh | -o | BatchMode=yes | -o | ConnectTimeout=10 | \
+         -o | ServerAliveInterval=15 | -o | ServerAliveCountMax=3 | me@box | \
          mkdir -p ~/.local/share/hangar-node/bin; uname -m; echo @@hangar; \
          ~/.local/share/hangar-node/bin/hangar-node version 2>/dev/null; echo @@hangar; \
          ~/.local/share/hangar-node/bin/hangar-node serve --detach --if-version 1.2.3 2>&1 \
@@ -80,12 +81,14 @@ fn a_config_file_is_passed_as_dash_f_before_the_target() {
     let cmd = commands::ssh(&n, &Mux::Off, "true");
     assert_eq!(
         line(&cmd),
-        "ssh | -o | BatchMode=yes | -o | ConnectTimeout=10 | -F | /tmp/rig/ssh_config | me@box | true"
+        "ssh | -o | BatchMode=yes | -o | ConnectTimeout=10 | -F | /tmp/rig/ssh_config | \
+         -o | ServerAliveInterval=15 | -o | ServerAliveCountMax=3 | me@box | true"
     );
     let upload = commands::upload(&n, &Mux::Off, Path::new("/opt/hangar/hangar-node-x86_64"));
     assert_eq!(
         line(&upload),
-        "scp | -o | BatchMode=yes | -o | ConnectTimeout=10 | -F | /tmp/rig/ssh_config | -q | \
+        "scp | -o | BatchMode=yes | -o | ConnectTimeout=10 | -F | /tmp/rig/ssh_config | \
+         -o | ServerAliveInterval=15 | -o | ServerAliveCountMax=3 | -q | \
          /opt/hangar/hangar-node-x86_64 | me@box:.local/share/hangar-node/bin/hangar-node.new"
     );
     assert_eq!(
@@ -140,7 +143,7 @@ fn the_tunnel_forwards_loopback_to_loopback_and_runs_no_command() {
 fn the_target_is_trimmed() {
     let mut n = node(None);
     n.ssh_target = "  me@box ".into();
-    assert_eq!(commands::ssh(&n, &Mux::Off, "true").args[4], "me@box");
+    assert_eq!(commands::ssh(&n, &Mux::Off, "true").args[8], "me@box");
 }
 
 #[test]
@@ -636,6 +639,9 @@ struct Fake {
     tunnel_fails: bool,
     /// `/node/info` answers after this many refusals.
     info_refusals: Arc<Mutex<u32>>,
+    /// The command of this rank (0: the first one run) never answers, as
+    /// one does on a link that died under it.
+    hangs_at: Option<usize>,
 }
 
 struct FakeTunnel {
@@ -706,7 +712,14 @@ impl Runner for Fake {
     type Tunnel = FakeTunnel;
 
     async fn run(&self, cmd: Cmd) -> Result<CmdOutput, String> {
-        locked(&self.ran).push(cmd);
+        let rank = {
+            let mut ran = locked(&self.ran);
+            ran.push(cmd);
+            ran.len() - 1
+        };
+        if self.hangs_at == Some(rank) {
+            std::future::pending::<()>().await;
+        }
         Ok(self.next())
     }
 
@@ -793,6 +806,8 @@ fn setup(binary_dir: Option<&Path>) -> Setup {
             stable_after: Duration::from_secs(30),
             handshake_tries: 5,
             handshake_wait: Duration::from_millis(1),
+            step_limit: Duration::from_secs(5),
+            upload_limit: Duration::from_secs(5),
         },
         control_dir: None,
         wake: Arc::default(),
@@ -859,6 +874,56 @@ async fn a_node_with_this_version_is_probed_started_and_tunnelled_in_one_command
             NodeStatus::Connecting(Step::Tunnel),
             NodeStatus::Connecting(Step::Handshake),
         ]
+    );
+}
+
+/// A step that never answers (a command hung on the machine, a link that
+/// died under it) fails its attempt once its time is up, like any other
+/// failure: the node is not left "connecting" with nothing to try again.
+/// The upload has a longer time of its own.
+#[tokio::test]
+async fn a_step_that_never_answers_fails_the_attempt_when_its_time_is_up() {
+    let slot: TunnelSlot<FakeTunnel> = Arc::default();
+    let (_, report) = reporter();
+    let mut quick = setup(None);
+    quick.timing.step_limit = Duration::from_millis(30);
+    let fake = Fake {
+        hangs_at: Some(0),
+        ..Fake::answering(vec![keep()])
+    };
+    let started = Instant::now();
+    let result = connect::connect_once(&fake, &quick, &Mux::Off, &slot, &report).await;
+    assert_eq!(
+        result,
+        Err(Failure::Ssh {
+            step: Step::Probe,
+            detail: "no answer after 1 s".into()
+        })
+    );
+    assert!(started.elapsed() < Duration::from_secs(4));
+
+    // The upload hangs: it is given its own, longer, time, and no more.
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("hangar-node-x86_64"), "x").unwrap();
+    let mut slow = setup(Some(dir.path()));
+    slow.timing.step_limit = Duration::from_millis(10);
+    slow.timing.upload_limit = Duration::from_millis(200);
+    let fake = Fake {
+        hangs_at: Some(1),
+        ..Fake::answering(vec![probed("x86_64", None, false, "")])
+    };
+    let started = Instant::now();
+    let result = connect::connect_once(&fake, &slow, &Mux::Off, &slot, &report).await;
+    assert_eq!(
+        result,
+        Err(Failure::Ssh {
+            step: Step::Install,
+            detail: "no answer after 1 s".into()
+        })
+    );
+    assert!(
+        started.elapsed() >= Duration::from_millis(200),
+        "past the step's own time"
     );
 }
 
@@ -1554,6 +1619,51 @@ fn the_workspaces_of_a_node_switched_off_are_out_of_the_lists() {
             .iter()
             .all(|ws| super::shown(&plain, ws))
     );
+}
+
+/// The workspace the window was on is deleted, and the next one in the
+/// state is of a machine that is switched off: the window does not land on
+/// it.
+#[test]
+fn a_removal_never_brings_a_hidden_workspace_to_the_front() {
+    let mut m = two_nodes(true);
+    let mut state = m.state().clone();
+    state.workspaces.swap(0, 2);
+    state.active_workspace_id = Some("there".into());
+    m.hydrate(state);
+    m.apply(crate::state::StoreAction::RemoveWorkspace("there".into()));
+    assert_eq!(
+        m.state().active_workspace_id.as_deref(),
+        Some("hidden"),
+        "the store takes the first one, whatever it is"
+    );
+    super::leave_hidden_workspace(&mut m);
+    assert_eq!(m.state().active_workspace_id.as_deref(), Some("local"));
+}
+
+/// The window of a detached workspace closes when its machine is switched
+/// off, as one whose workspace was deleted does; the others stay.
+#[test]
+fn the_window_of_a_workspace_whose_machine_is_switched_off_closes() {
+    use crate::shell::WindowKind;
+    let mut m = two_nodes(true);
+    let (main, there, hidden, gone) = (
+        iced::window::Id::unique(),
+        iced::window::Id::unique(),
+        iced::window::Id::unique(),
+        iced::window::Id::unique(),
+    );
+    m.window_opened(main, WindowKind::Main);
+    m.window_opened(there, WindowKind::Workspace("there".into()));
+    m.window_opened(hidden, WindowKind::Workspace("hidden".into()));
+    m.window_opened(gone, WindowKind::Workspace("deleted".into()));
+    let mut closing = super::windows_to_close(&m);
+    closing.sort();
+    let mut wanted = vec![hidden, gone];
+    wanted.sort();
+    assert_eq!(closing, wanted);
+    super::patch_node(&mut m, "on".into(), |node| node.enabled = Some(false));
+    assert!(super::windows_to_close(&m).contains(&there));
 }
 
 #[test]

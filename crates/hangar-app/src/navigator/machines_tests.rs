@@ -428,6 +428,61 @@ fn line<'a>(lines: &'a [(String, Option<String>)], label: &str) -> Option<&'a Op
         .map(|(_, refusal)| refusal)
 }
 
+/// A mirror its machine started again without stays in the list, marked:
+/// its menu offers to run it there again, greyed with the reason while the
+/// machine is away, and it is not moved, which it already was.
+#[test]
+fn a_mirror_its_machine_no_longer_has_offers_to_run_there_again() {
+    let mut h = mirrors(Locale::En, "graphite");
+    assert!(line(&menu_lines(&h, "o1"), "Run on GPU box again").is_none());
+    h.model.live.nodes.lost.insert("o1".into());
+    let lines = menu_lines(&h, "o1");
+    assert_eq!(line(&lines, "Run on GPU box again"), Some(&None));
+    assert!(line(&lines, "Delete workspace").is_some());
+    let item = menu::workspace_entries(h.ctx(), "o1")
+        .into_iter()
+        .find_map(|entry| match entry {
+            hangar_ui::menu::Entry::Item(item) if item.label() == "Run on GPU box again" => {
+                Some(item)
+            }
+            _ => None,
+        })
+        .expect("the line");
+    assert!(matches!(
+        item.selects(),
+        Some(Message::Navigator(Msg::Menu(menu::Action::RunAgain(ws)))) if ws == "o1"
+    ));
+    {
+        let st = State {
+            menu: Some(MenuState {
+                kind: RowKind::Ws,
+                id: "o1".into(),
+                at: iced::Vector::new(24.0, 20.0),
+                from_keyboard: true,
+            }),
+            ..State::default()
+        };
+        let mut ui = h.show(framed(&st, &h));
+        h.shot(&mut ui, "lost-navigator-menu-en-graphite");
+    }
+    {
+        let st = State::default();
+        let mut ui = h.show(framed(&st, &h));
+        h.shot(&mut ui, "lost-navigator-en-graphite");
+    }
+    // Its machine away: there is nobody to hand it to.
+    h.model
+        .live
+        .nodes
+        .statuses
+        .insert("gpu".into(), crate::nodes::model::NodeStatus::Disconnected);
+    let lines = menu_lines(&h, "o1");
+    assert!(
+        matches!(line(&lines, "Run on GPU box again"), Some(Some(_))),
+        "{lines:?}"
+    );
+}
+
 /// A workspace this computer still drives on a node can be handed to it
 /// from its menu; one the node runs already, or one of this computer, has
 /// no such line. A mirror is not put to sleep either.

@@ -95,7 +95,12 @@ fn say(notice: Notice) -> Task<Message> {
 
 /// Pins or unpins a pane as its workspace's orchestrator, and says so. The
 /// session is told of its new role by a message queued for it (P19).
-fn pin_orchestrator(m: &mut Model, ws_id: &str, pane_id: &str, pinned: bool) -> Task<Message> {
+pub(crate) fn pin_orchestrator(
+    m: &mut Model,
+    ws_id: &str,
+    pane_id: &str,
+    pinned: bool,
+) -> Task<Message> {
     let Some(ws) = m.workspace(ws_id) else {
         return Task::none();
     };
@@ -108,15 +113,21 @@ fn pin_orchestrator(m: &mut Model, ws_id: &str, pane_id: &str, pinned: bool) -> 
     // at a launch: the pane is restarted with the role, which its node
     // carries out on the same conversation. (Here, a pane this computer
     // runs waits for its turn to end first: `panes::controller::role_check`.)
-    if pinned && ws.is_hosted() {
-        if actions::pin_refusal(ws, pane_id).is_some() {
-            return Task::none();
-        }
+    // A role taken away goes the same way: nothing on this computer can
+    // tell the node's agent it no longer orchestrates (the runtime that
+    // would does not know the workspace), and left running it would keep
+    // its brief and its tools while its pane says it has no role.
+    if ws.is_hosted() {
+        let role = match pinned {
+            true if actions::pin_refusal(ws, pane_id).is_none() => Some(PaneRole::Orchestrator),
+            false if pane.role == Some(PaneRole::Orchestrator) => None,
+            _ => return Task::none(),
+        };
         return Task::done(Message::Intent(Intent::ReplacePane {
             ws: ws_id.to_owned(),
             pane: pane_id.to_owned(),
-            patch: crate::state::Patch::new(|pane: &mut crate::state::Pane| {
-                pane.role = Some(PaneRole::Orchestrator);
+            patch: crate::state::Patch::new(move |pane: &mut crate::state::Pane| {
+                pane.role = role;
             }),
         }));
     }

@@ -167,9 +167,16 @@ fn each_state_has_one_look() {
         tone: Tone::Warning,
         dimmed: true,
     };
+    // So does a first connection that takes its time: nothing failed.
+    let first = Presence::Connecting { again: false };
+    assert_eq!(look(MachineKind::Tower, &first), calm);
+    assert!(!first.is_down());
+    assert!(
+        first.is_away(),
+        "nothing can be asked of it yet all the same"
+    );
     for presence in [
         Presence::Connecting { again: true },
-        Presence::Connecting { again: false },
         Presence::Offline(Some(ssh_failure())),
         Presence::Offline(None),
     ] {
@@ -245,6 +252,24 @@ fn the_census_counts_this_computer_and_what_is_down_or_off() {
             offline: 0,
             off: 0
         }
+    );
+    // A machine on its first connection for longer than the grace period
+    // (its binary is being uploaded) is not one that is offline.
+    let start = Instant::now();
+    m.live.nodes.links.insert(
+        "vps".into(),
+        Link {
+            down_since: Some(start),
+            ..Link::default()
+        },
+    );
+    m.live
+        .nodes
+        .statuses
+        .insert("vps".into(), NodeStatus::Connecting(Step::Install));
+    assert_eq!(
+        census(&m, start + GRACE + Duration::from_secs(30)).offline,
+        0
     );
     down(&mut m, "gpu", 30, Some(ssh_failure()));
     let mut state = m.state().clone();

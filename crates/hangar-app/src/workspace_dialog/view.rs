@@ -258,42 +258,107 @@ pub fn dialog<'a>(st: &'a State, ctx: Ctx<'a>) -> Element<'a, Message> {
     modal(ctx, panel)
 }
 
-/// Where the workspace runs, whatever it is made from: this computer and
-/// every node, each by its icon and its name, as everywhere else. A node
-/// that is switched off or cannot be reached keeps its place, greyed, its
-/// state beside its name: it is there, and why it cannot be picked is
-/// said. Nothing without a node to choose.
-fn machines<'a>(st: &'a State, ctx: Ctx<'a>) -> Option<Element<'a, Message>> {
+/// How many machines, this computer counted, « Runs on » holds side by
+/// side: one more and they no longer sit on one line of the dialog, so
+/// they are listed in a menu instead.
+const MACHINES_ABREAST: usize = 3;
+
+/// A machine « Runs on » offers: this computer (`id` is `None`) or a node.
+pub(super) struct MachineLine {
+    pub id: Option<String>,
+    pub icon: Icon,
+    pub label: String,
+    /// Its state, when it cannot be chosen now: switched off, offline.
+    pub away: Option<String>,
+}
+
+/// The machines « Runs on » offers, this computer first: every node, each
+/// by its icon and its name, as everywhere else. A node that is switched
+/// off or cannot be reached keeps its place, with its state: it is there,
+/// and why it cannot be picked is said. Empty without a node to choose.
+pub(super) fn machine_lines(ctx: Ctx<'_>) -> Vec<MachineLine> {
     use crate::nodes::presence;
     let model = ctx.model;
     let nodes = &model.settings().nodes;
     if !crate::nodes::available(model) || nodes.is_empty() {
+        return Vec::new();
+    }
+    let here = MachineLine {
+        id: None,
+        icon: presence::LOCAL_ICON,
+        label: ctx.t(Key::NodesCreateLocal).into_owned(),
+        away: None,
+    };
+    let there = nodes.iter().map(|node| MachineLine {
+        id: Some(node.id.clone()),
+        icon: presence::kind_icon(node.kind),
+        label: crate::nodes::away::label_of(node),
+        away: crate::nodes::client(model, &node.id)
+            .is_none()
+            .then(|| presence::short_words(ctx.i18n, &presence::exact(model, &node.id))),
+    });
+    std::iter::once(here).chain(there).collect()
+}
+
+/// Where the workspace runs, whatever it is made from ([`machine_lines`]):
+/// side by side while they sit on one line of the dialog, a machine that
+/// cannot be chosen greyed with its state beside its name; a field that
+/// opens their list beyond that, the same icons, names and states in it.
+fn machines<'a>(st: &'a State, ctx: Ctx<'a>) -> Option<Element<'a, Message>> {
+    let lines = machine_lines(ctx);
+    if lines.is_empty() {
         return None;
     }
-    let mut options = vec![input::Segment::new(
-        None,
-        Some(presence::LOCAL_ICON),
-        ctx.t(Key::NodesCreateLocal),
-    )];
-    for node in nodes {
-        let option = input::Segment::new(
-            Some(node.id.clone()),
-            Some(presence::kind_icon(node.kind)),
-            crate::nodes::away::label_of(node),
-        );
-        options.push(if crate::nodes::client(model, &node.id).is_some() {
-            option
-        } else {
-            let state = presence::exact(model, &node.id);
-            option.unavailable(presence::short_words(ctx.i18n, &state))
-        });
+    if lines.len() > MACHINES_ABREAST {
+        return Some(machine_list(st, ctx, lines));
     }
+    let options = lines
+        .into_iter()
+        .map(|line| {
+            let option = input::Segment::new(line.id, Some(line.icon), line.label);
+            match line.away {
+                Some(why) => option.unavailable(why),
+                None => option,
+            }
+        })
+        .collect();
     Some(input::segmented_icons(
         ctx.theme,
         options,
         &st.place.node,
         |node| msg(Msg::Place(node)),
     ))
+}
+
+/// The machines as a field that opens their list: the one chosen shown in
+/// the field, by its icon and its name.
+fn machine_list<'a>(st: &'a State, ctx: Ctx<'a>, lines: Vec<MachineLine>) -> Element<'a, Message> {
+    let chosen = lines
+        .iter()
+        .find(|line| line.id == st.place.node)
+        .or(lines.first());
+    let (icon, shown) = chosen.map_or(
+        (crate::nodes::presence::LOCAL_ICON, String::new()),
+        |line| (line.icon, line.label.clone()),
+    );
+    let entries = lines
+        .into_iter()
+        .map(|line| {
+            let entry = hangar_ui::menu::item(line.label)
+                .icon(line.icon)
+                .checked(line.id == st.place.node);
+            match line.away {
+                Some(why) => entry.detail(why).disabled().into(),
+                None => entry.on_select(msg(Msg::Place(line.id))).into(),
+            }
+        })
+        .collect();
+    hangar_ui::menu_select::menu_select(ctx.theme, shown, entries)
+        .icon(icon)
+        .open(st.place.picking)
+        .on_toggle(msg(Msg::PlaceList(!st.place.picking)))
+        .on_dismiss(msg(Msg::PlaceList(false)))
+        .into()
 }
 
 /// Repository, destination.

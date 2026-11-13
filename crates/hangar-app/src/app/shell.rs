@@ -361,6 +361,13 @@ impl App {
             ));
         }
 
+        // What was found out about the nodes' workspaces (one on its way
+        // that its node took after all, or never did; one a node no longer
+        // has) is said.
+        for told in std::mem::take(&mut self.model.live.nodes.told) {
+            tasks.push(notice::show(&mut self.model, told));
+        }
+
         // What the person changed on the mirrors of the nodes' workspaces
         // is sent to the nodes, each in the order it was made.
         tasks.push(crate::nodes::hosted::send_next(&mut self.model));
@@ -395,6 +402,11 @@ impl App {
             });
             tasks.push(Task::future(cleanup).discard());
         }
+
+        // The main window is never left on a workspace of a machine that
+        // is switched off, whatever made it the active one (the one before
+        // it deleted, say).
+        crate::nodes::leave_hidden_workspace(&mut self.model);
 
         // Workspaces stay opened once visited, so their panes live on while
         // hidden; nothing spawns for one never opened.
@@ -448,19 +460,7 @@ impl App {
         self.measure_windows();
         self.settle_drawers();
 
-        // A workspace window whose workspace was deleted closes; its panes
-        // went with the workspace.
-        let orphans: Vec<window::Id> = self
-            .model
-            .live
-            .windows
-            .iter()
-            .filter(|(_, kind)| match kind {
-                WindowKind::Workspace(ws) => self.model.workspace(ws).is_none(),
-                WindowKind::Main => false,
-            })
-            .map(|(id, _)| *id)
-            .collect();
+        let orphans = crate::nodes::windows_to_close(&self.model);
         tasks.extend(orphans.into_iter().map(window::close));
         tasks
     }

@@ -48,7 +48,8 @@ fn git_reaches_the_node_with_the_connection_s_ssh() {
             "-C",
             "/home/me/site",
             "-c",
-            "core.sshCommand=ssh -o BatchMode=yes -o ConnectTimeout=10 -F '/home/me/my ssh/config'",
+            "core.sshCommand=ssh -o BatchMode=yes -o ConnectTimeout=10 -F '/home/me/my ssh/config' \
+             -o ServerAliveInterval=15 -o ServerAliveCountMax=3",
             "push",
             "--quiet",
             "--force",
@@ -71,7 +72,8 @@ fn git_reaches_the_node_with_the_connection_s_ssh() {
             "-C",
             "/home/me/site",
             "-c",
-            "core.sshCommand=ssh -o BatchMode=yes -o ConnectTimeout=10",
+            "core.sshCommand=ssh -o BatchMode=yes -o ConnectTimeout=10 \
+             -o ServerAliveInterval=15 -o ServerAliveCountMax=3",
             "fetch",
             "--quiet",
             "--no-tags",
@@ -80,7 +82,9 @@ fn git_reaches_the_node_with_the_connection_s_ssh() {
         ]
     );
     // A quote in a config's path stays one word for the shell git uses.
-    assert!(commands::git_ssh_command(&node(Some("/it's")), &Mux::Off).ends_with(r"-F '/it'\''s'"));
+    assert!(
+        commands::git_ssh_command(&node(Some("/it's")), &Mux::Off).contains(r" -F '/it'\''s' ")
+    );
 }
 
 #[test]
@@ -88,13 +92,15 @@ fn git_goes_through_the_connection_s_master_when_it_has_one() {
     let own = Mux::Own("/run/user/1000/hangar-ssh/42-ab".into());
     assert_eq!(
         commands::git_ssh_command(&node(None), &own),
-        "ssh -o BatchMode=yes -o ConnectTimeout=10 -o ControlMaster=no \
+        "ssh -o BatchMode=yes -o ConnectTimeout=10 \
+         -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o ControlMaster=no \
          -o ControlPath=/run/user/1000/hangar-ssh/42-ab"
     );
     // The person's own sharing: their config applies, nothing is added.
     assert_eq!(
         commands::git_ssh_command(&node(None), &Mux::Theirs),
-        "ssh -o BatchMode=yes -o ConnectTimeout=10"
+        "ssh -o BatchMode=yes -o ConnectTimeout=10 \
+         -o ServerAliveInterval=15 -o ServerAliveCountMax=3"
     );
 }
 

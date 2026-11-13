@@ -301,9 +301,14 @@ impl PaneLink {
                 feeder.exit();
             }
         };
+        let whose = match side.hosted {
+            true => remote::Runs::Node,
+            false => remote::Runs::Here,
+        };
         let task = tokio::spawn(remote::follow(
             side.node.clone(),
             self.id.clone(),
+            whose,
             replay_until,
             outgoing,
             emit,

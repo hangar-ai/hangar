@@ -326,6 +326,9 @@ fn what_is_only_the_mirror_s_presentation_sends_the_node_nothing() {
                 ws.window_bounds = Some(WindowBounds::default());
                 ws.theme_id = Some("paper".into());
                 ws.mobile_ports = Some(vec![5173]);
+                // Its kits are what this Hangar shows of them: a node starts
+                // its agents without any.
+                ws.kits = Some(vec![crate::state::types::WorkspaceKit::default()]);
             }),
         ),
         StoreAction::MovePane {
@@ -698,4 +701,42 @@ fn a_tree_without_its_views_is_what_a_node_is_handed() {
     workspace.view_panes.push(ViewPane::new("view"));
     workspace.tree = Some(insert_leaf(&terminals, &panes[1], "view", DropZone::Bottom));
     assert_eq!(terminals_tree(&workspace), terminals);
+}
+
+/// The kits chosen for a mirror are this Hangar's: a merge keeps them
+/// whatever the node holds, and a workspace on its way to its node keeps
+/// saying so through one.
+#[test]
+fn a_merge_keeps_the_mirror_s_kits_and_its_way_to_the_node() {
+    use crate::state::types::{Handover, WorkspaceKit};
+    let (mut node, id) = node_with(1);
+    let mut desktop = mirroring(&node);
+    assert_eq!(ws(&desktop, &id).kits, None);
+    desktop.apply(StoreAction::UpdateWorkspace(
+        id.clone(),
+        WorkspacePatch::new(|ws: &mut Workspace| {
+            ws.kits = Some(vec![WorkspaceKit::default()]);
+            ws.handover = Some(Handover::Moved);
+        }),
+    ));
+    node.apply(StoreAction::UpdateWorkspace(
+        id.clone(),
+        WorkspacePatch::new(|ws: &mut Workspace| ws.name = "Shop".into()),
+    ));
+    sync(&mut desktop, &node);
+    let mirror = ws(&desktop, &id);
+    assert_eq!(mirror.name, "Shop");
+    assert_eq!(mirror.kits, Some(vec![WorkspaceKit::default()]));
+    assert_eq!(mirror.handover, Some(Handover::Moved));
+    // An older desktop's patch that names kits changes nothing here.
+    let op: HostedOp = serde_json::from_value(json!({
+        "op": "patchWorkspace", "patch": { "kits": [] }
+    }))
+    .unwrap();
+    assert_eq!(
+        op,
+        HostedOp::PatchWorkspace {
+            patch: WorkspaceFields::default()
+        }
+    );
 }

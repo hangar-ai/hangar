@@ -595,6 +595,49 @@ fn the_kits_dialog_names_the_workspace_and_closes_with_done() {
     assert!(closed(&messages(ui)));
 }
 
+/// On a workspace its node runs, the dialog says what a kit chosen there
+/// is: its tabs in this window, and nothing the node's agents start with.
+#[test]
+fn the_kits_dialog_of_a_mirror_says_its_kits_stay_in_this_window() {
+    let plain = Harness::new(Locale::En, "graphite");
+    let ws = "w1".to_string();
+    let name = plain.model.workspace(&ws).unwrap().name.clone();
+    let note = format!(
+        "{name} runs on vps, which starts its agents without kits. \
+         A kit chosen here only shows its tabs in this window."
+    );
+    let mut st = State::default();
+    st.kits = kits_dialog::KitsDialog::open(&plain.model, &ws);
+    {
+        let mut ui = plain.show(kits_dialog_view(&st, plain.ctx(), &ws));
+        assert!(
+            ui.find(note.as_str()).is_err(),
+            "not on one of this computer"
+        );
+    }
+    let h = Harness::new(Locale::En, "graphite").edit(|state| {
+        state.settings.experiments = vec![crate::settings::experiments::NODES.into()];
+        state.settings.nodes = vec![crate::nodes::testing::machine(
+            "vps",
+            "vps",
+            crate::state::types::MachineKind::Cloud,
+        )];
+        state.workspaces[0].node = Some("vps".into());
+        state.workspaces[0].hosted = Some(true);
+    });
+    let mut ui = h.show(kits_dialog_view(&st, h.ctx(), &ws));
+    assert!(ui.find(note.as_str()).is_ok());
+    assert!(
+        ui.find(
+            "Enable the kits this workspace uses. Their skills, commands, agents and \
+             MCP servers load in its Claude Code panes."
+        )
+        .is_err(),
+        "they do not load in the node's panes"
+    );
+    h.shot(&mut ui, "dialog-kits-mirror-en-graphite");
+}
+
 // ── the update logic that needs no service ────────────────────────────
 
 fn on_top() -> Model {
@@ -1493,7 +1536,9 @@ fn a_workspace_made_on_a_node_is_handed_to_it_once_and_taken_back_if_refused() {
     let _ = hosted::sent(
         &mut h.model,
         "vps",
-        Err("/home/vps/projects/api is not a folder here".into()),
+        Err(hosted::NotTaken::Refused(
+            "/home/vps/projects/api is not a folder here".into(),
+        )),
     );
     assert!(h.model.workspace(&made.id).is_none());
     assert!(!h.model.live.nodes.outbox.busy("vps"));
@@ -1533,6 +1578,11 @@ fn a_workspace_the_node_takes_stays_as_its_mirror() {
 /// Three nodes beside this computer: `GPU box` connected, `vps` whose link
 /// is down, `nas` switched off.
 fn with_machines(locale: Locale, theme: &str) -> Harness {
+    with_nodes(locale, theme, 3)
+}
+
+/// The first `count` of the nodes of [`with_machines`].
+fn with_nodes(locale: Locale, theme: &str, count: usize) -> Harness {
     use crate::nodes::model::{Failure, Step};
     use crate::nodes::testing::{down, machine, up};
     use crate::state::types::MachineKind;
@@ -1544,6 +1594,7 @@ fn with_machines(locale: Locale, theme: &str) -> Harness {
             machine("nas", "nas", MachineKind::MiniPc),
         ];
         state.settings.nodes[2].enabled = Some(false);
+        state.settings.nodes.truncate(count);
     });
     up(&mut h.model, "gpu", "gpu-01");
     down(
@@ -1564,33 +1615,22 @@ fn with_machines(locale: Locale, theme: &str) -> Harness {
 /// cannot be chosen, from the pointer or otherwise.
 #[test]
 fn runs_on_lists_every_machine_in_clone_mode_and_an_offline_one_cannot_be_chosen() {
-    let mut h = with_machines(Locale::En, "graphite");
+    let mut h = with_nodes(Locale::En, "graphite", 2);
     let mut st = git_state("acme/shop", Some(parsed_ok("acme/shop", "shop")));
     {
         let mut ui = h.show(view(&st, h.ctx()));
-        for text in [
-            "Runs on",
-            "This computer",
-            "GPU box",
-            "vps",
-            "offline",
-            "nas",
-            "switched off",
-        ] {
+        for text in ["Runs on", "This computer", "GPU box", "vps", "offline"] {
             assert!(ui.find(text).is_ok(), "{text} is on the form");
         }
         h.shot(&mut ui, "clone-runs-on-en-graphite");
         let _ = ui.click("vps");
-        let _ = ui.click("nas");
         assert!(
             !sent(&messages(ui), |msg| matches!(msg, Msg::Place(_))),
             "a machine that is away is not a button"
         );
     }
-    for away in ["vps", "nas"] {
-        let _ = form(&mut st, &mut h.model, Msg::Place(Some(away.into())));
-        assert_eq!(st.place.node, None, "{away} cannot be chosen");
-    }
+    let _ = form(&mut st, &mut h.model, Msg::Place(Some("vps".into())));
+    assert_eq!(st.place.node, None, "vps cannot be chosen");
     // The connected one can, and the clone then lands in its `projects`.
     {
         let mut ui = h.show(view(&st, h.ctx()));
@@ -1627,14 +1667,93 @@ fn runs_on_lists_every_machine_in_clone_mode_and_an_offline_one_cannot_be_chosen
     h.shot(&mut ui, "clone-on-node-en-graphite");
 }
 
+/// From four machines on they no longer sit side by side on one line of
+/// the dialog: « Runs on » is a field that shows the machine chosen and
+/// opens the list of them all, each by its icon and its name, one that is
+/// away greyed with its state and not to be picked.
+#[test]
+fn runs_on_is_a_list_from_four_machines_on() {
+    let mut h = with_machines(Locale::En, "graphite");
+    let mut st = git_state("acme/shop", Some(parsed_ok("acme/shop", "shop")));
+    {
+        let mut ui = h.show(view(&st, h.ctx()));
+        assert!(ui.find("Runs on").is_ok());
+        assert!(ui.find("This computer").is_ok(), "the one chosen");
+        for text in ["GPU box", "vps", "nas"] {
+            assert!(ui.find(text).is_err(), "{text} waits in the list");
+        }
+        h.shot(&mut ui, "clone-runs-on-list-closed-en-graphite");
+        ui.click("This computer").expect("the field");
+        assert!(sent(&messages(ui), |msg| matches!(
+            msg,
+            Msg::PlaceList(true)
+        )));
+    }
+    let _ = form(&mut st, &mut h.model, Msg::PlaceList(true));
+    assert!(st.place.picking);
+    {
+        // The list is drawn over the form: what it holds is read from what
+        // it is made of, and looked at in the picture.
+        let lines: Vec<(Option<String>, String, Option<String>)> =
+            super::view::machine_lines(h.ctx())
+                .into_iter()
+                .map(|line| (line.id, line.label, line.away))
+                .collect();
+        let line = |id: Option<&str>, label: &str, away: Option<&str>| {
+            (
+                id.map(str::to_string),
+                label.to_string(),
+                away.map(str::to_string),
+            )
+        };
+        assert_eq!(
+            lines,
+            [
+                line(None, "This computer", None),
+                line(Some("gpu"), "GPU box", None),
+                line(Some("vps"), "vps", Some("offline")),
+                line(Some("nas"), "nas", Some("switched off")),
+            ]
+        );
+        let mut ui = h.show(view(&st, h.ctx()));
+        h.shot(&mut ui, "clone-runs-on-list-en-graphite");
+    }
+    // One that is away cannot be chosen, whatever sends it.
+    for away in ["vps", "nas"] {
+        let _ = form(&mut st, &mut h.model, Msg::Place(Some(away.into())));
+        assert_eq!(st.place.node, None, "{away} cannot be chosen");
+    }
+    let _ = form(&mut st, &mut h.model, Msg::PlaceList(true));
+    let _ = form(&mut st, &mut h.model, Msg::Place(Some("gpu".into())));
+    assert_eq!(st.place.node.as_deref(), Some("gpu"));
+    assert!(!st.place.picking, "picking one closes the list");
+    let mut ui = h.show(view(&st, h.ctx()));
+    assert!(ui.find("GPU box").is_ok(), "the field shows the one chosen");
+    assert!(ui.find("This computer").is_err());
+}
+
 #[test]
 fn the_clone_form_lists_the_machines_in_french_in_a_light_theme() {
-    let h = with_machines(Locale::Fr, "github-light");
-    let st = git_state("acme/shop", Some(parsed_ok("acme/shop", "shop")));
+    let mut h = with_machines(Locale::Fr, "github-light");
+    let mut st = git_state("acme/shop", Some(parsed_ok("acme/shop", "shop")));
+    let _ = form(&mut st, &mut h.model, Msg::PlaceList(true));
     let mut ui = h.show(view(&st, h.ctx()));
-    for text in ["S’exécute sur", "Cet ordinateur", "hors ligne", "désactivé"] {
+    for text in ["S’exécute sur", "Cet ordinateur"] {
         assert!(ui.find(text).is_ok(), "{text} is on the form");
     }
+    let states: Vec<Option<String>> = super::view::machine_lines(h.ctx())
+        .into_iter()
+        .map(|line| line.away)
+        .collect();
+    assert_eq!(
+        states,
+        [
+            None,
+            None,
+            Some("hors ligne".to_string()),
+            Some("désactivé".to_string())
+        ]
+    );
     h.shot(&mut ui, "clone-runs-on-fr-github-light");
 }
 

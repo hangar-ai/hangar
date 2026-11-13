@@ -24,7 +24,7 @@ use super::layout::{preset_tree, rename_leaf};
 use super::store::{PanePatch, Respawn, StoreAction, StoreOutcome, WorkspacePatch};
 use super::types::{
     AgentId, DropZone, Extra, OrchestrationSettings, Pane, PaneId, PaneRole, SplitNode, Workspace,
-    WorkspaceKit, WorkspaceMcp, WorktreeHooks,
+    WorkspaceMcp, WorktreeHooks,
 };
 
 /// A field that is there, whatever it holds: a `null` reads as `Some(None)`
@@ -95,7 +95,6 @@ fields! {
         extra_roots: Vec<String>,
         shell_id: Option<String>,
         mcp: Option<WorkspaceMcp>,
-        kits: Option<Vec<WorkspaceKit>>,
         orchestration: Option<OrchestrationSettings>,
         hq: Option<bool>,
         claude_account: Option<String>,
@@ -139,12 +138,15 @@ fn workspace_fields(ws: &Workspace) -> WorkspaceFields {
         panes: _,
         shell_id,
         mcp,
-        kits,
         orchestration,
         hq,
         claude_account,
         worktree_hooks,
-        // The mirror's own: how this Hangar shows it and files it.
+        // The mirror's own: how this Hangar shows it and files it. Its
+        // kits are among them: a node starts its agents without any, so
+        // the ones chosen here are what this window shows of them (their
+        // tabs), and the node is told nothing of them.
+        kits: _,
         theme_id: _,
         tree: _,
         view_panes: _,
@@ -157,6 +159,7 @@ fn workspace_fields(ws: &Workspace) -> WorkspaceFields {
         // Where this Hangar reaches it.
         node: _,
         hosted: _,
+        handover: _,
         extra: _,
     } = ws;
     WorkspaceFields {
@@ -165,7 +168,6 @@ fn workspace_fields(ws: &Workspace) -> WorkspaceFields {
         extra_roots: Some(extra_roots.clone()),
         shell_id: Some(shell_id.clone()),
         mcp: Some(mcp.clone()),
-        kits: Some(kits.clone()),
         orchestration: Some(orchestration.clone()),
         hq: Some(*hq),
         claude_account: Some(claude_account.clone()),

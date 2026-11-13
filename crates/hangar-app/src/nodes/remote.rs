@@ -183,6 +183,29 @@ pub struct RemoteScope {
     pub missing: Vec<String>,
 }
 
+/// [`attach`], for as long as it takes: the node is waited for while it is
+/// away (`resolve` finds it; `None` after it waited a while, to be asked
+/// again), a look that could not be made (the link dropped under it) is
+/// made again, and a pane the node does not list yet is looked for again
+/// `every` so often. A pane its node runs is the node's to start, so a
+/// look that fails says nothing about the pane: giving up would show an
+/// agent that runs as one that ended.
+pub async fn attach_for_good<F, Fut>(pane: &str, every: Duration, resolve: F) -> Started
+where
+    F: Fn() -> Fut,
+    Fut: std::future::Future<Output = Option<NodeClient>>,
+{
+    loop {
+        let Some(client) = resolve().await else {
+            continue;
+        };
+        if let Ok(started) = attach(&client, pane, 1, every).await {
+            return started;
+        }
+        tokio::time::sleep(every).await;
+    }
+}
+
 /// The shell of pane `pane`, which the node runs itself: found there and
 /// never started from here, since the node starts its own panes and a
 /// second shell under the same id would be a second agent. A pane the node
@@ -334,14 +357,30 @@ enum Ended {
     Dropped,
 }
 
+/// Who runs a pane that is followed on a node, which says what a node
+/// that does not know the pane means.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Runs {
+    /// This computer started its shell there: a node without it lost it
+    /// (it restarted), and nothing will come of waiting.
+    Here,
+    /// Its node runs it itself, and starts it again by itself after a
+    /// restart of its own: a node without it has not started it yet, and
+    /// the stream waits for it as it waits for the node.
+    Node,
+}
+
 /// Follows pane `pane` of node `node` until its shell ends or the pane goes
 /// (`outgoing` closed): its output to `emit`, from the start, then from the
 /// last byte seen at each reconnection; what comes on `outgoing` to the
 /// node, the last size again at each reconnection. The output up to
-/// `replay_until` was printed before the pane was followed.
+/// `replay_until` was printed before the pane was followed. `whose` says who
+/// runs the pane, and so what a node that does not know it means.
+#[allow(clippy::too_many_arguments)]
 pub async fn follow(
     node: String,
     pane: String,
+    whose: Runs,
     replay_until: u64,
     mut outgoing: UnboundedReceiver<Outgoing>,
     mut emit: impl FnMut(StreamEvent),
@@ -387,7 +426,7 @@ pub async fn follow(
             }
             // The node has no such pane: it ended and was forgotten (a
             // node that restarted), and nothing will come of it.
-            Some(Err(WsError::Refused(404, _))) => {
+            Some(Err(WsError::Refused(404, _))) if whose == Runs::Here => {
                 emit(StreamEvent::Exit);
                 return;
             }

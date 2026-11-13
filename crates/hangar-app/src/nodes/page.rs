@@ -141,8 +141,11 @@ pub(crate) struct MoreLine {
 /// What a row's « … » menu offers for `node`.
 pub(crate) fn more_lines(ctx: Ctx<'_>, node: &NodeConfig) -> Vec<MoreLine> {
     let id = &node.id;
-    // Only a link that is down has an attempt to bring forward.
-    let waiting = node.is_on() && presence::exact(ctx.model, id).is_away();
+    // Only a link that is down has an attempt to bring forward, and only
+    // while that attempt is waited for: one that is running cannot be
+    // hurried.
+    let waiting =
+        node.is_on() && presence::exact(ctx.model, id).is_away() && !super::trying(ctx.model, id);
     vec![
         MoreLine {
             label: Key::NodesRetry,

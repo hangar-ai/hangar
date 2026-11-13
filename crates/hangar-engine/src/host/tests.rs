@@ -720,6 +720,7 @@ fn handed_over(cwd: &std::path::Path) -> Workspace {
         window_bounds: Some(WindowBounds::default()),
         chat_view: Some(true),
         kits: Some(vec![WorkspaceKit::default()]),
+        handover: Some(crate::state::types::Handover::Moved),
         theme_id: Some("paper".into()),
         ..workspace(
             "docs",
@@ -775,6 +776,7 @@ async fn a_workspace_handed_over_is_kept_without_the_desktop_s_presentation_and_
         window_bounds: None,
         chat_view: None,
         kits: None,
+        handover: None,
         ..handed.clone()
     };
     assert_eq!(*kept, expected);
@@ -884,6 +886,55 @@ async fn what_a_mirror_asks_is_applied_and_the_shells_follow() {
             .apply_ops("nowhere", vec![HostedOp::RemoveWorkspace])
             .is_err()
     );
+    // A patch is held to what a pane or a workspace put whole is held to.
+    let patched = |patch: PaneFields| HostedOp::PatchPane {
+        pane: "p3".into(),
+        patch,
+    };
+    let relative = PaneFields {
+        cwd: Some(Some("worktrees/a".into())),
+        ..PaneFields::default()
+    };
+    let elsewhere = PaneFields {
+        node: Some(Some("n2".into())),
+        ..PaneFields::default()
+    };
+    let workspace = |patch: WorkspaceFields| HostedOp::PatchWorkspace { patch };
+    let refused = [
+        patched(relative.clone()),
+        patched(elsewhere),
+        HostedOp::RespawnPane {
+            from: "p3".into(),
+            to: "p3b".into(),
+            patch: relative,
+        },
+        workspace(WorkspaceFields {
+            extra_roots: Some(vec!["../docs".into()]),
+            ..WorkspaceFields::default()
+        }),
+        workspace(WorkspaceFields {
+            name: Some("  ".into()),
+            ..WorkspaceFields::default()
+        }),
+    ];
+    for op in refused {
+        let said = format!("{op:?}");
+        assert!(rig.host.apply_ops("shop", vec![op]).is_err(), "{said}");
+    }
+    let taken = vec![
+        patched(PaneFields {
+            cwd: Some(Some("/srv/worktrees/a".into())),
+            ..PaneFields::default()
+        }),
+        patched(PaneFields {
+            cwd: Some(None),
+            ..PaneFields::default()
+        }),
+    ];
+    let before = rig.host.revision();
+    rig.host.apply_ops("shop", taken).unwrap();
+    assert!(rig.host.revision() > before);
+    let after = rig.host.revision();
     assert_eq!(rig.host.revision(), after);
 
     rig.host

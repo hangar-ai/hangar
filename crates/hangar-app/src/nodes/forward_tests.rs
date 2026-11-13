@@ -9,7 +9,7 @@ use iced_runtime::Action;
 use serde_json::{Value, json};
 use tokio::net::TcpListener;
 
-use super::hosted::{self, Handover, Job, Why};
+use super::hosted::{self, Handover, Job, NotTaken, Why};
 use super::hosted_tests::{NOW, answered, mirrored, nightly, pane, theirs};
 use super::model::{NodeClient, NodeInfo};
 use super::testing::{TOKEN, answer, listen, read_request, up};
@@ -20,7 +20,7 @@ use crate::state::types::{DropZone, Pane, PaneRole, Workspace};
 use crate::state::{Model, Patch, StoreAction};
 
 /// `nightly` of `gpu` mirrored, `gpu` connected.
-fn connected() -> Model {
+pub(super) fn connected() -> Model {
     let mut m = mirrored();
     up(&mut m, "gpu", "gpu-01");
     m
@@ -212,7 +212,7 @@ fn a_change_nobody_here_asked_for_is_refused() {
 }
 
 /// The messages a task gives, run to its end.
-async fn outputs(task: Task<Message>) -> Vec<Message> {
+pub(super) async fn outputs(task: Task<Message>) -> Vec<Message> {
     let Some(stream) = iced_runtime::task::into_stream(task) else {
         return Vec::new();
     };
@@ -228,7 +228,7 @@ async fn outputs(task: Task<Message>) -> Vec<Message> {
 }
 
 /// Node `id` connected through `client`, a fake node's.
-fn reach(m: &mut Model, id: &str, client: &NodeClient) {
+pub(super) fn reach(m: &mut Model, id: &str, client: &NodeClient) {
     let port = client.base_url.rsplit(':').next().unwrap().parse().unwrap();
     m.live.nodes.statuses.insert(
         id.into(),
@@ -242,7 +242,7 @@ fn reach(m: &mut Model, id: &str, client: &NodeClient) {
 
 /// A fake node that answers each request with the next `(status, body)`;
 /// what it was asked, once all are answered: each request's line and body.
-fn serve(
+pub(super) fn serve(
     listener: TcpListener,
     answers: Vec<(u16, Value)>,
 ) -> tokio::task::JoinHandle<Vec<(String, Value)>> {
@@ -263,7 +263,7 @@ fn serve(
 /// What waits is sent until every line is empty: each task run to its end
 /// and its answer taken in, as the app's loop does. The notices shown on
 /// the way.
-async fn deliver(m: &mut Model) -> Vec<String> {
+pub(super) async fn deliver(m: &mut Model) -> Vec<String> {
     let mut notices = Vec::new();
     let mut tasks = vec![hosted::send_next(m)];
     while let Some(task) = tasks.pop() {
@@ -285,10 +285,41 @@ async fn deliver(m: &mut Model) -> Vec<String> {
             }
         }
     }
+    notices.extend(told(m));
     notices
 }
 
-fn own_state(revision: u64, workspaces: &[Workspace]) -> Value {
+/// What the model left for the shell to say, taken as the shell takes it.
+pub(super) fn told(m: &mut Model) -> Vec<String> {
+    std::mem::take(&mut m.live.nodes.told)
+        .into_iter()
+        .map(|notice| match notice {
+            crate::shell::Notice::Problem(text) | crate::shell::Notice::Agent(text) => text,
+            other => panic!("not expected: {other:?}"),
+        })
+        .collect()
+}
+
+/// A fake node that takes the next request and hangs up without a word,
+/// as a link that drops on the way does; then answers the rest as
+/// [`serve`] does.
+fn serve_after_a_lost_answer(
+    listener: TcpListener,
+    answers: Vec<(u16, Value)>,
+) -> tokio::task::JoinHandle<Vec<(String, Value)>> {
+    tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        let request = read_request(&mut stream).await;
+        let line = request.line().trim_end_matches(" HTTP/1.1").to_owned();
+        let sent = serde_json::from_str(&request.body).unwrap_or(Value::Null);
+        drop(stream);
+        let mut asked = vec![(line, sent)];
+        asked.extend(serve(listener, answers).await.unwrap());
+        asked
+    })
+}
+
+pub(super) fn own_state(revision: u64, workspaces: &[Workspace]) -> Value {
     json!({ "boot": "b1", "revision": revision, "workspaces": workspaces, "activity": {} })
 }
 
@@ -486,13 +517,16 @@ async fn a_change_that_cannot_be_sent_is_said_and_the_line_emptied() {
     m.apply(rename("lost"));
     m.live.nodes.statuses.remove("gpu");
     let notices = deliver(&mut m).await;
+    // The mirror still shows the change until the node is read again, and
+    // the notice does not say otherwise.
     assert_eq!(
         notices,
         [
-            "GPU box did not take the change to nightly: GPU box is not connected. \
-          It is shown as GPU box has it."
+            "The change to nightly may not have reached GPU box: GPU box is not connected. \
+          Once GPU box answers again, nightly is shown as GPU box has it."
         ]
     );
+    assert_eq!(m.workspace("o1").unwrap().name, "lost");
     assert!(!m.live.nodes.outbox.busy("gpu"));
     assert!(
         !m.live.nodes.held.contains_key("gpu"),
@@ -504,7 +538,7 @@ async fn a_change_that_cannot_be_sent_is_said_and_the_line_emptied() {
 }
 
 /// `api` on `gpu`, driven from this computer: two agents with a session.
-fn driven(m: &mut Model) {
+pub(super) fn driven(m: &mut Model) {
     let mut state = m.state().clone();
     let mut worker = pane("ap2", "Wes");
     worker.role = Some(PaneRole::Worker);
@@ -686,23 +720,457 @@ fn the_failure_words_say_what_became_of_the_workspace() {
         handover: Handover::Created,
     };
     assert_eq!(
-        hosted::failure_words(&m, "gpu", &job, "/srv/fresh is not a folder here"),
+        hosted::failure_words(
+            &m,
+            "gpu",
+            &job,
+            &NotTaken::Refused("/srv/fresh is not a folder here".into())
+        ),
         "GPU box could not take fresh: /srv/fresh is not a folder here. \
          The workspace was not made."
     );
+    // Without an answer nothing is said to be undone: it is not known.
+    assert_eq!(
+        hosted::failure_words(
+            &m,
+            "gpu",
+            &job,
+            &NotTaken::Unknown("POST /node/own/adopt: no answer".into())
+        ),
+        "GPU box did not say whether it took fresh: POST /node/own/adopt: no answer. \
+         It is left as it is until GPU box answers again."
+    );
 }
 
-/// Closing the app with a workspace on its way to a node saves it as this
-/// computer's: as the node's, before the node took it, it would be a mirror
-/// of nothing at the next start.
-#[test]
-fn a_workspace_on_its_way_when_the_app_closes_is_saved_as_this_computer_s() {
+/// `a1` as its node holds it once taken.
+fn taken(m: &Model) -> Workspace {
+    let mut theirs = m.workspace("a1").unwrap().clone();
+    theirs.node = None;
+    theirs.hosted = None;
+    theirs.handover = None;
+    theirs.folder_id = None;
+    theirs
+}
+
+/// The answer to a move is lost on the way (the link dropped, the laptop
+/// slept): the node may have taken the workspace. It is not taken back,
+/// which would have this computer drive what the node now runs; it stays
+/// on its way, not followed and not run from here, and what the node lists
+/// next settles it. Here the node did take it.
+#[tokio::test]
+async fn a_move_whose_answer_is_lost_is_settled_by_the_node_s_list_when_it_took_it() {
+    let (listener, client) = listen().await;
     let mut m = connected();
     driven(&mut m);
-    assert!(!m.live.nodes.outbox.handing_over());
+    reach(&mut m, "gpu", &client);
+    let _ = super::ask::answered(&mut m, Ask::Move("a1".into()), true);
+    let theirs = taken(&m);
+    let server =
+        serve_after_a_lost_answer(listener, vec![(200, own_state(4, &[nightly(), theirs]))]);
+    let notices = deliver(&mut m).await;
+    let asked = server.await.unwrap();
+    assert_eq!(asked[0].0, "POST /node/own/adopt");
+    assert_eq!(asked[1].0, "GET /node/own/state");
+    assert_eq!(notices.len(), 2, "{notices:?}");
+    assert!(
+        notices[0].starts_with("GPU box did not say whether it took api: "),
+        "{notices:?}"
+    );
+    assert!(notices[0].ends_with("It is left as it is until GPU box answers again."));
+    assert_eq!(notices[1], "GPU box did take api: it runs there now.");
+    let mirror = m.workspace("a1").unwrap();
+    assert!(mirror.is_hosted() && mirror.handover.is_none());
+    assert!(!hosted::unfollowed(&m, mirror));
+    assert_eq!(mirror.folder_id.as_deref(), Some("clients"));
+}
+
+/// The same, and the node never had it: only then is the workspace this
+/// computer's again, and said to be.
+#[tokio::test]
+async fn a_move_whose_answer_is_lost_is_taken_back_once_the_node_does_not_list_it() {
+    let (listener, client) = listen().await;
+    let mut m = connected();
+    driven(&mut m);
+    reach(&mut m, "gpu", &client);
+    let _ = super::ask::answered(&mut m, Ask::Move("a1".into()), true);
+    // The link is down when the answer is lost: nothing settles it yet.
+    let server = serve_after_a_lost_answer(listener, Vec::new());
+    let _ = hosted::send_next(&mut m);
+    m.live.nodes.statuses.remove("gpu");
+    let lost = NotTaken::Unknown("connection reset".into());
+    let _ = hosted::sent(&mut m, "gpu", Err(lost));
+    server.abort();
+    let waiting = m.workspace("a1").unwrap().clone();
+    assert!(
+        waiting.is_hosted(),
+        "not this computer's to drive meanwhile"
+    );
+    assert_eq!(waiting.handover, Some(Handover::Moved));
+    assert!(hosted::unfollowed(&m, &waiting), "nor followed on the node");
+    assert!(
+        !m.live.nodes.outbox.busy("gpu"),
+        "what it lists is taken in"
+    );
+    let engines = crate::state::snapshot::own(std::sync::Arc::new(crate::state::snapshot_of(&m)));
+    assert!(engines.state.workspaces.iter().all(|ws| ws.id != "a1"));
+    // Written as it is: on its way, to be settled whenever the node is
+    // next heard, by this run of the app or the next.
+    let saved = m.to_json();
+    let written = saved["workspaces"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|ws| ws["id"] == "a1")
+        .unwrap();
+    assert_eq!(
+        (&written["hosted"], &written["handover"]),
+        (&json!(true), &json!("moved"))
+    );
+    assert!(told(&mut m).is_empty());
+
+    // Back, the node lists what it runs: not this one.
+    hosted::take_in(&mut m, "gpu", answered("b1", 3, vec![nightly()]), NOW);
+    assert_eq!(
+        told(&mut m),
+        ["GPU box never took api. It still runs from this computer."]
+    );
+    let back = m.workspace("a1").expect("kept");
+    assert!(!back.is_hosted() && back.handover.is_none());
+    assert_eq!(back.node.as_deref(), Some("gpu"));
+    assert!(m.take_removed().is_empty());
+}
+
+/// A workspace made for a node whose answer is lost: listed, it is the
+/// node's; not listed, it was never made, and only then goes.
+#[test]
+fn a_workspace_made_for_a_node_waits_for_the_node_s_list_too() {
+    let made = |m: &mut Model| {
+        let mut state = m.state().clone();
+        state.workspaces.push(Workspace {
+            node: Some("gpu".into()),
+            ..theirs("n1", "fresh", vec![pane("np1", "Ava")])
+        });
+        m.hydrate(state);
+        assert!(hosted::hand_over(m, "n1", Handover::Created));
+        let _ = hosted::send_next(m);
+        let _ = hosted::sent(m, "gpu", Err(NotTaken::Unknown("no answer".into())));
+        assert!(m.workspace("n1").is_some(), "not taken back out on a guess");
+    };
+    let mut m = connected();
+    made(&mut m);
+    let fresh = theirs("n1", "fresh", vec![pane("np1", "Ava")]);
+    hosted::take_in(
+        &mut m,
+        "gpu",
+        answered("b1", 4, vec![nightly(), fresh]),
+        NOW,
+    );
+    assert!(m.workspace("n1").is_some_and(|ws| ws.handover.is_none()));
+    assert_eq!(told(&mut m), ["GPU box did take fresh: it runs there now."]);
+
+    let mut m = connected();
+    made(&mut m);
+    hosted::take_in(&mut m, "gpu", answered("b1", 3, vec![nightly()]), NOW);
+    assert!(m.workspace("n1").is_none());
+    assert_eq!(
+        told(&mut m),
+        ["GPU box never took fresh. The workspace was not made."]
+    );
+}
+
+/// A state read back with a workspace still on its way (the app closed
+/// before its node answered) is settled the same way by the first list.
+#[test]
+fn a_workspace_saved_on_its_way_is_settled_at_the_next_start() {
+    let mut m = connected();
+    driven(&mut m);
+    let mut state = m.state().clone();
+    for ws in state.workspaces.iter_mut().filter(|ws| ws.id == "a1") {
+        ws.hosted = Some(true);
+        ws.handover = Some(Handover::Moved);
+    }
+    let mut next = Model::default();
+    next.hydrate(state);
+    up(&mut next, "gpu", "gpu-01");
+    let waiting = next.workspace("a1").unwrap().clone();
+    assert!(hosted::unfollowed(&next, &waiting));
+    let theirs = taken(&next);
+    hosted::take_in(
+        &mut next,
+        "gpu",
+        answered("b2", 1, vec![nightly(), theirs]),
+        NOW,
+    );
+    let mirror = next.workspace("a1").unwrap();
+    assert!(mirror.is_hosted() && mirror.handover.is_none());
+    assert_eq!(
+        told(&mut next),
+        ["GPU box did take api: it runs there now."]
+    );
+}
+
+/// A node removed while a workspace is on its way there: the workspace
+/// stays this computer's, as one it drives there does, whether the request
+/// waited, was on its way, or had no answer.
+#[test]
+fn a_node_removed_during_a_move_leaves_the_workspace_here() {
+    for stage in 0..3 {
+        let mut m = connected();
+        driven(&mut m);
+        hosted::hand_over(&mut m, "a1", Handover::Moved);
+        if stage >= 1 {
+            let _ = hosted::send_next(&mut m);
+        }
+        if stage == 2 {
+            let _ = hosted::sent(&mut m, "gpu", Err(NotTaken::Unknown("no answer".into())));
+        }
+        hosted::forget(&mut m, "gpu", NOW);
+        assert!(m.workspace("o1").is_none(), "its mirrors go");
+        let kept = m
+            .workspace("a1")
+            .unwrap_or_else(|| panic!("kept at stage {stage}"));
+        assert!(!kept.is_hosted() && kept.handover.is_none());
+        assert_eq!(kept.panes.len(), 2);
+        assert!(!m.live.nodes.outbox.busy("gpu"));
+        // A late answer for a node that is gone changes nothing.
+        let _ = hosted::sent(&mut m, "gpu", Ok(()));
+        assert!(m.workspace("a1").is_some_and(|ws| !ws.is_hosted()));
+    }
+}
+
+/// A workspace on its way to its node is not deleted meanwhile: were the
+/// node then to refuse it, the shells this computer started for it there
+/// would be nobody's. It is said, and nothing is queued.
+#[test]
+fn a_workspace_on_its_way_is_not_deleted_before_its_node_answered() {
+    let mut m = connected();
+    driven(&mut m);
     hosted::hand_over(&mut m, "a1", Handover::Moved);
-    assert!(m.live.nodes.outbox.handing_over(), "no save meanwhile");
-    hosted::abandon(&mut m);
-    assert!(!m.workspace("a1").unwrap().is_hosted());
-    assert!(!m.live.nodes.outbox.handing_over());
+    let before = m.live.nodes.outbox.waiting("gpu").len();
+    m.apply(StoreAction::RemoveWorkspace("a1".into()));
+    assert!(m.workspace("a1").is_some());
+    assert_eq!(m.live.nodes.outbox.waiting("gpu").len(), before);
+    let (edit, why) = m.live.nodes.refused.take().expect("refused");
+    assert_eq!(why, Why::OnItsWay);
+    assert_eq!(
+        hosted::refusal_words(&m, &edit, why),
+        "api is on its way to GPU box: it can be deleted once GPU box has said whether it took it."
+    );
+    // Any other change to it is made and waits behind it.
+    m.apply(StoreAction::UpdateWorkspace(
+        "a1".into(),
+        Patch::new(|ws: &mut Workspace| ws.name = "api v2".into()),
+    ));
+    assert!(m.live.nodes.refused.is_none());
+    assert_eq!(m.workspace("a1").unwrap().name, "api v2");
+}
+
+/// What a fake node was asked, in order: each request's line and body.
+type Asked = std::sync::Arc<std::sync::Mutex<Vec<(String, Value)>>>;
+
+/// A fake node that answers every request with what `answer` gives for
+/// its line, for as long as it is asked.
+fn serve_all(
+    listener: TcpListener,
+    answer_for: fn(&str) -> (u16, Value),
+) -> (tokio::task::JoinHandle<()>, Asked) {
+    let asked = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let seen = asked.clone();
+    let server = tokio::spawn(async move {
+        loop {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let request = read_request(&mut stream).await;
+            let line = request.line().trim_end_matches(" HTTP/1.1").to_owned();
+            let sent = serde_json::from_str(&request.body).unwrap_or(Value::Null);
+            let (status, body) = answer_for(&line);
+            seen.lock().unwrap().push((line, sent));
+            answer(&mut stream, status, &body.to_string()).await;
+        }
+    });
+    (server, asked)
+}
+
+/// Closing the app sends what the nodes were still to be told, in order,
+/// the one on its way included: left unsent, a change saved with the
+/// mirror would be undone without a word at the next start.
+#[tokio::test(flavor = "multi_thread")]
+async fn what_waits_for_a_node_is_sent_as_the_app_closes() {
+    let (listener, client) = listen().await;
+    let mut m = connected();
+    driven(&mut m);
+    reach(&mut m, "gpu", &client);
+    m.apply(rename("one"));
+    m.apply(rename("two"));
+    hosted::hand_over(&mut m, "a1", Handover::Moved);
+    // The first is on its way, its answer not in yet.
+    let _ = hosted::send_next(&mut m);
+    let (server, asked) = serve_all(listener, |_| (200, json!({ "revision": 9, "id": "a1" })));
+    let unsent = tokio::task::block_in_place(|| hosted::flush(&mut m, hosted::FLUSH));
+    server.abort();
+    assert_eq!(unsent, Vec::<String>::new());
+    let asked = asked.lock().unwrap().clone();
+    let lines: Vec<&str> = asked.iter().map(|(line, _)| line.as_str()).collect();
+    assert_eq!(
+        lines,
+        [
+            "POST /node/own/workspaces/o1/ops",
+            "POST /node/own/workspaces/o1/ops",
+            "POST /node/own/adopt",
+        ]
+    );
+    assert_eq!(asked[0].1["ops"][0]["patch"]["name"], "one");
+    assert_eq!(asked[1].1["ops"][0]["patch"]["name"], "two");
+    assert!(!m.live.nodes.outbox.busy("gpu"));
+    // The node took it: saved as its mirror, no longer on its way.
+    let mirror = m.workspace("a1").unwrap();
+    assert!(mirror.is_hosted() && mirror.handover.is_none());
+}
+
+/// A node that does not answer in time does not hold the app open: what
+/// did not get through is listed for the log, a workspace whose answer did
+/// not come stays on its way in what is saved, and one never sent is this
+/// computer's again.
+#[tokio::test(flavor = "multi_thread")]
+async fn closing_does_not_wait_long_for_a_node_that_does_not_answer() {
+    let (listener, client) = listen().await;
+    let mut m = connected();
+    driven(&mut m);
+    reach(&mut m, "gpu", &client);
+    hosted::hand_over(&mut m, "a1", Handover::Moved);
+    m.apply(rename("unheard"));
+    // Connections are taken and never answered.
+    let server = tokio::spawn(async move {
+        let mut held = Vec::new();
+        loop {
+            held.push(listener.accept().await.unwrap());
+        }
+    });
+    let started = std::time::Instant::now();
+    let within = std::time::Duration::from_millis(300);
+    let unsent = tokio::task::block_in_place(|| hosted::flush(&mut m, within));
+    server.abort();
+    assert!(started.elapsed() < std::time::Duration::from_secs(3));
+    assert_eq!(unsent.len(), 2, "{unsent:?}");
+    assert!(
+        unsent[0].starts_with("GPU box did not say whether it took api"),
+        "{unsent:?}"
+    );
+    assert!(unsent[1].starts_with("The change to nightly may not have reached GPU box"));
+    let waiting = m.workspace("a1").unwrap();
+    assert!(waiting.is_hosted());
+    assert_eq!(waiting.handover, Some(Handover::Moved));
+
+    // With the node away, nothing was sent: the workspace was never the
+    // node's.
+    let mut m = connected();
+    driven(&mut m);
+    hosted::hand_over(&mut m, "a1", Handover::Moved);
+    m.live.nodes.statuses.remove("gpu");
+    let unsent = hosted::flush(&mut m, within);
+    assert_eq!(unsent.len(), 1);
+    let back = m.workspace("a1").unwrap();
+    assert!(!back.is_hosted() && back.handover.is_none());
+}
+
+/// An edit made while the link is only just down, or coming up, is refused
+/// for what is going on: the machine is not said to be offline while every
+/// surface shows it connected or connecting.
+#[test]
+fn an_edit_refused_while_the_link_comes_back_says_so() {
+    let refusal = |m: &mut Model| {
+        m.apply(rename("later"));
+        let (edit, why) = m.live.nodes.refused.take().expect("refused");
+        assert_eq!(
+            m.workspace("o1").unwrap().name,
+            "nightly",
+            "nothing applied"
+        );
+        (hosted::refusal_words(m, &edit, why), why)
+    };
+    // The link dropped two seconds ago.
+    let mut m = connected();
+    super::testing::down(&mut m, "gpu", 2, None);
+    assert_eq!(
+        refusal(&mut m),
+        (
+            "GPU box is reconnecting: nightly can be changed once it is back.".to_string(),
+            Why::Reconnecting
+        )
+    );
+    // Still trying past the grace period, no attempt failed yet.
+    super::testing::down(&mut m, "gpu", 30, None);
+    assert_eq!(refusal(&mut m).1, Why::Reconnecting);
+    // An attempt failed: it is offline.
+    let failure = super::model::Failure::Tunnel("Connection reset".into());
+    super::testing::down(&mut m, "gpu", 30, Some(failure));
+    assert_eq!(
+        refusal(&mut m),
+        (
+            "GPU box is offline: nightly can be looked at, not changed.".to_string(),
+            Why::Offline
+        )
+    );
+    // Never connected since the app started, its first attempt running.
+    let mut m = mirrored();
+    m.live.nodes.statuses.insert(
+        "gpu".into(),
+        NodeStatus::Connecting(super::model::Step::Install),
+    );
+    assert_eq!(
+        refusal(&mut m),
+        (
+            "GPU box is still connecting: nightly can be changed once it is connected.".to_string(),
+            Why::Connecting
+        )
+    );
+}
+
+/// A role given to, or taken from, a pane of a mirror restarts the pane on
+/// its node, on the same conversation: the node's agent only learns what
+/// it is at a launch, and nothing on this computer can tell it. Taking the
+/// role away is no different: left running, the agent would go on
+/// orchestrating a workspace that shows no orchestrator.
+#[tokio::test]
+async fn a_role_given_or_taken_on_a_mirror_restarts_the_pane_on_its_node() {
+    let mut m = connected();
+    let restart = |m: &mut Model, pinned: bool| {
+        let asked = crate::orchestration_ui::pin_orchestrator(m, "o1", "op1", pinned);
+        async move { outputs(asked).await }
+    };
+    let said = restart(&mut m, true).await;
+    let [Message::Intent(crate::message::Intent::ReplacePane { ws, pane, patch })] =
+        said.as_slice()
+    else {
+        panic!("a restart, not {said:?}");
+    };
+    assert_eq!((ws.as_str(), pane.as_str()), ("o1", "op1"));
+    let mut pinned = m.workspace("o1").unwrap().panes[0].clone();
+    patch.apply(&mut pinned);
+    assert_eq!(pinned.role, Some(PaneRole::Orchestrator));
+
+    // The node has it as its orchestrator.
+    let mut theirs = nightly();
+    theirs.panes[0].role = Some(PaneRole::Orchestrator);
+    hosted::take_in(&mut m, "gpu", answered("b1", 4, vec![theirs]), NOW);
+    let said = restart(&mut m, false).await;
+    let [Message::Intent(crate::message::Intent::ReplacePane { pane, patch, .. })] =
+        said.as_slice()
+    else {
+        panic!("a restart without the role, not {said:?}");
+    };
+    assert_eq!(pane, "op1");
+    let mut unpinned = m.workspace("o1").unwrap().panes[0].clone();
+    patch.apply(&mut unpinned);
+    assert_eq!(unpinned.role, None);
+    // The mirror itself is only changed by the restart, which is what the
+    // node is told.
+    assert!(!m.live.nodes.outbox.busy("gpu"));
+    assert_eq!(
+        m.workspace("o1").unwrap().panes[0].role,
+        Some(PaneRole::Orchestrator)
+    );
+    // A pane that has no role to lose is left alone.
+    assert!(restart(&mut m, false).await.len() == 1);
+    let said = crate::orchestration_ui::pin_orchestrator(&mut m, "o1", "op2", false);
+    assert!(outputs(said).await.is_empty());
 }

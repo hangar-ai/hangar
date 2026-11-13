@@ -204,6 +204,18 @@ fn the_menu_of_a_row_retries_renames_and_removes() {
         &lines[1].2,
         Some(Msg::Show(Some(Open::Rename { id, draft }))) if id == "vps" && draft == "vps"
     ));
+    // While an attempt is running there is none to bring forward: the
+    // line is there, and cannot be picked.
+    let mut trying = page(Locale::En, "graphite");
+    trying
+        .model
+        .live
+        .nodes
+        .statuses
+        .insert("vps".into(), NodeStatus::Connecting(Step::Install));
+    let lines = menu_of(&trying, "vps");
+    assert_eq!(lines[0].0, "Retry now");
+    assert!(lines[0].2.is_none(), "nothing to retry mid-attempt");
     assert!(lines[2].1, "the removal is marked as one");
     assert!(
         matches!(&lines[2].2, Some(Msg::Show(Some(Open::Remove(node)))) if node == "vps"),
@@ -222,7 +234,7 @@ fn the_menu_of_a_row_retries_renames_and_removes() {
     st.open = Some(Open::Remove("vps".into()));
     {
         let mut ui = h.show(settings_page(&st, h.ctx()));
-        assert!(ui.find("Remove vps from this computer? Nothing is deleted on the machine; its workspaces here stay in the list, without a machine to run on.").is_ok());
+        assert!(ui.find("Remove vps from this computer? Nothing is deleted on the machine. The workspaces it runs itself leave the list here; those this computer drives there stay, without a machine to run on.").is_ok());
         h.shot(&mut ui, "machines-settings-remove-en-graphite");
         ui.click("Remove").expect("the yes");
         assert!(sent(

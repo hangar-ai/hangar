@@ -144,6 +144,13 @@ pub fn on_intent(
     _sv: &Services,
     intent: &Intent,
 ) -> Option<Task<Message>> {
+    // The workers of a workspace its node runs are the node's to stop:
+    // this computer's runtime does not know them.
+    if let Intent::StopWorkers(ws) = intent
+        && let Some(hosted) = m.workspace(ws).filter(|found| found.is_hosted())
+    {
+        return Some(crate::nodes::desk::stop_all(m, hosted));
+    }
     // Before hydration there is no runtime, and nothing to stop or tell.
     st.runtime.as_ref()?;
     match intent {
@@ -153,24 +160,45 @@ pub fn on_intent(
             let locale = m.locale();
             let ws = ws.clone();
             Some(Task::perform(
-                async move { handle.stop_all_workers(&ws).await },
-                move |stopped| {
-                    let text = if stopped > 0 {
-                        tn(
-                            locale,
-                            Key::OrchStopped,
-                            stopped,
-                            &args!("workspace" => &name),
-                        )
-                    } else {
-                        t_with(locale, Key::OrchStoppedNone, &args!("workspace" => &name))
-                    };
-                    Message::Intent(Intent::Notice(Notice::Agent(text.into_owned())))
-                },
+                async move { Ok(handle.stop_all_workers(&ws).await as u64) },
+                move |stopped| stopped_words(locale, &name, stopped),
             ))
         }
         _ => role_told(intent).map(|msg| Task::done(Message::Orchestration(msg))),
     }
+}
+
+/// What is said once the workers of workspace `name` were asked to stop,
+/// by this computer's runtime or by the node that runs the workspace: how
+/// many were, or why they could not be.
+pub(crate) fn stopped_words(
+    locale: hangar_i18n::Locale,
+    name: &str,
+    stopped: Result<u64, String>,
+) -> Message {
+    let notice = match stopped {
+        Ok(0) => Notice::Agent(
+            t_with(locale, Key::OrchStoppedNone, &args!("workspace" => name)).into_owned(),
+        ),
+        Ok(stopped) => Notice::Agent(
+            tn(
+                locale,
+                Key::OrchStopped,
+                stopped as usize,
+                &args!("workspace" => name),
+            )
+            .into_owned(),
+        ),
+        Err(reason) => Notice::Problem(
+            t_with(
+                locale,
+                Key::NodesStopFailed,
+                &args!("name" => name, "reason" => reason.trim_end_matches('.')),
+            )
+            .into_owned(),
+        ),
+    };
+    Message::Intent(Intent::Notice(notice))
 }
 
 /// The session to tell of a role given or taken, from P10's

@@ -236,7 +236,14 @@ streams them as any pane of the node.
   `{revision}`: `putPane` (a pane under the id the desktop chose),
   `closePane`, `respawnPane` (`from`, `to`), `patchWorkspace` and
   `patchPane` (the fields named, `null` emptying one), `removeWorkspace`.
-  Applied twice, they change nothing the second time.
+  Applied twice, they change nothing the second time. A patch is held to
+  what a pane or a workspace put whole is (absolute folders, a name, no
+  other machine), and the state is written before the answer.
+- **What the person asks of them from a desktop.** `POST /node/own/desk
+  {op, args}` runs one of a short list on the node's own engines, as the
+  phone's desk does: `remote_delivery`, `remote_delivery_file`,
+  `remote_land`, `remote_rework` (`{task}`), and `stop_workers`
+  (`{workspace}`, answered `{stopped}`). Anything else is a 400.
 - **Handing a workspace over.** `POST /node/own/adopt` takes a whole
   workspace, with its ids: one a desktop ran on this node, or one it has
   just made for it. It is checked first (its folder is one of the node's,
@@ -247,7 +254,10 @@ streams them as any pane of the node.
   presentation (its folder in the navigator, its window, its views, its
   kits) is left out, and a pane whose name is taken on the node gets a free
   one. A workspace the node already has is answered as done, nothing
-  restarted.
+  restarted. An adoption is one task behind a node-wide lock: a desktop
+  that hangs up does not stop it half-way, two never cross, a pane started
+  by a desktop waits for it, and a shell the node already runs itself is
+  not taken down. The state is written before the node says yes.
 - **The node's panes are the node's.** `POST /node/panes` and `DELETE
   /node/panes/{id}` answer 409 for a pane of the node's own: a desktop
   that started or ended one would run an agent twice, or kill one the node

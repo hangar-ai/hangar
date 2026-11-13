@@ -134,6 +134,9 @@ pub struct Away {
     pub presence: Presence,
     /// How long its link has been down.
     pub down_for: Option<Duration>,
+    /// An attempt to connect is running now: there is none to bring
+    /// forward.
+    pub trying: bool,
 }
 
 /// `Some` for a pane on a node that cannot be reached — of a workspace on a
@@ -154,11 +157,13 @@ pub fn node_away(ctx: Ctx<'_>, ws: &Workspace, pane: &Pane) -> Option<Away> {
         .links
         .get(&node)
         .and_then(|link| link.down_for(ctx.now));
+    let trying = crate::nodes::trying(ctx.model, &node);
     Some(Away {
         label: crate::nodes::label(ctx.model, &node),
         node,
         presence,
         down_for,
+        trying,
     })
 }
 
@@ -194,13 +199,20 @@ fn away_card<'a>(ctx: Ctx<'a>, away: Away) -> Element<'a, Message> {
         away.presence,
         Presence::Connecting { .. } | Presence::Offline(Some(_))
     ) {
-        actions = actions.push(
-            button::secondary(t, ctx.t(Key::NodesRetry))
-                .on_press(nodes(crate::nodes::Msg::Retry(away.node.clone()))),
-        );
-        if away
-            .down_for
-            .is_some_and(|down| down >= presence::SWITCH_OFF_AFTER)
+        // Trying now is offered while the next attempt is waited for: one
+        // that is running cannot be hurried.
+        if !away.trying {
+            actions = actions.push(
+                button::secondary(t, ctx.t(Key::NodesRetry))
+                    .on_press(nodes(crate::nodes::Msg::Retry(away.node.clone()))),
+            );
+        }
+        // Not during a first connection, which may be in the middle of
+        // installing the machine's side.
+        if away.presence.is_down()
+            && away
+                .down_for
+                .is_some_and(|down| down >= presence::SWITCH_OFF_AFTER)
         {
             actions = actions.push(
                 button::ghost(t, ctx.t(Key::NodesSwitchOff))
@@ -300,7 +312,7 @@ fn note_row<'a>(ctx: Ctx<'a>, pane: &'a str, note: &'a str) -> Element<'a, Messa
 mod tests {
     use super::*;
 
-    use crate::nodes::model::{Failure, Step};
+    use crate::nodes::model::{Failure, NodeStatus, Step};
     use crate::nodes::testing::{down, machine, up};
     use crate::state::types::MachineKind;
     use crate::workspace_dialog::testing::{Harness, messages};
@@ -397,6 +409,72 @@ mod tests {
             msg,
             crate::nodes::Msg::SetEnabled(node, false) if node == "n1"
         )));
+    }
+
+    /// While an attempt to connect is running there is none to bring
+    /// forward: the card says what is going on and offers no retry, which
+    /// would do nothing. It comes back once the attempt failed.
+    #[test]
+    fn retry_is_not_offered_while_an_attempt_is_running() {
+        let mut h = remote(hangar_i18n::Locale::En, "graphite");
+        let ws = h.model.state().workspaces[0].clone();
+        let mut st = State::default();
+        st.mount_for_test(&ws);
+        let id = ws.id.clone();
+
+        down(&mut h.model, "n1", 10, Some(timed_out()));
+        h.model
+            .live
+            .nodes
+            .statuses
+            .insert("n1".into(), NodeStatus::Connecting(Step::Probe));
+        {
+            let mut ui = h.show(crate::panes::view_workspace(&st, h.ctx(), &id, false));
+            assert!(
+                ui.find("GPU box is offline: unreachable over SSH (Connection timed out)")
+                    .is_ok()
+            );
+            assert!(ui.find("Retry now").is_err());
+        }
+        down(&mut h.model, "n1", 10, Some(timed_out()));
+        let mut ui = h.show(crate::panes::view_workspace(&st, h.ctx(), &id, false));
+        assert!(ui.find("Retry now").is_ok());
+    }
+
+    /// A first connection that takes more than a moment (the machine's
+    /// side is being installed) is said as what it is: the machine is
+    /// connecting. No retry, which has nothing to bring forward, and no
+    /// way to switch the machine off in the middle of its install, however
+    /// long it has been.
+    #[test]
+    fn a_first_connection_under_way_is_connecting_and_offers_nothing() {
+        let mut h = remote(hangar_i18n::Locale::En, "graphite");
+        let ws = h.model.state().workspaces[0].clone();
+        let mut st = State::default();
+        st.mount_for_test(&ws);
+        let id = ws.id.clone();
+
+        let now = std::time::Instant::now();
+        let since = now.checked_sub(Duration::from_secs(40)).unwrap_or(now);
+        let live = &mut h.model.live.nodes;
+        live.statuses
+            .insert("n1".into(), NodeStatus::Connecting(Step::Install));
+        live.links.insert(
+            "n1".into(),
+            presence::Link {
+                down_since: Some(since),
+                ..Default::default()
+            },
+        );
+        let ctx = Ctx {
+            now: since + Duration::from_secs(40),
+            ..h.ctx()
+        };
+        let mut ui = h.show(crate::panes::view_workspace(&st, ctx, &id, false));
+        assert!(ui.find("GPU box is connecting…").is_ok());
+        assert!(ui.find("Retry now").is_err());
+        assert!(ui.find("Switch off").is_err());
+        h.shot(&mut ui, "machines-card-connecting-en-graphite");
     }
 
     /// The card in French, in a light theme.

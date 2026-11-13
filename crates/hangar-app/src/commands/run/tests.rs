@@ -238,6 +238,22 @@ fn saved_commands_count_the_workspace_s_then_the_global_ones() {
     ));
 }
 
+/// A workspace its node runs is not this computer's to put to sleep: the
+/// command is not offered in it, while stepping to the next one is.
+#[test]
+fn a_workspace_its_node_runs_is_not_put_to_sleep_from_here() {
+    let (mut m, w) = model();
+    add(&mut m, &[AgentId::Shell]);
+    let mirror = add(&mut m, &[AgentId::Shell]);
+    assert!(has(&m, w, &[WorkspaceSleep]));
+    let mut theirs = m.workspace(&mirror).unwrap().clone();
+    theirs.node = Some("gpu".into());
+    theirs.hosted = Some(true);
+    m.apply(StoreAction::PutWorkspace(Box::new(theirs)));
+    assert!(has(&m, w, &[WorkspaceNext, WorkspacePrev]));
+    assert!(lacks(&m, w, &[WorkspaceSleep]));
+}
+
 #[test]
 fn several_workspaces_step_in_navigator_order() {
     let (mut m, w) = model();

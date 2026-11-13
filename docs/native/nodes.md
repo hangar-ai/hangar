@@ -68,10 +68,19 @@ history when it reconnects.
    whether or not it ever connected: 2 s doubling to 60 s between attempts,
    each wait spread by ±20 %, started over only once a connection held 30 s,
    and cut short when the window gets the focus back or the person asks
-   (« Retry now »). One that is switched off is not connected, and its
-   workspaces are out of the navigator and the palette until it is switched
-   on again. Status per node: connecting, connected, unreachable (with the
-   reason). A link that drops says nothing for 5 s; how a machine and its
+   (« Retry now », offered while the next attempt is waited for, not while
+   one is running). Each step of an attempt has a deadline (90 s; 15 min
+   for the upload of the binary) and every ssh is given `ServerAlive`
+   options, so a command that hangs or a link that dies under one fails
+   the attempt instead of leaving the node connecting for good. One that
+   is switched off is not connected, and its workspaces are out of the
+   navigator, the palette and Needs-you until it is switched on again;
+   their detached windows close, and the main window moves off them.
+   Status per node: connecting, connected, unreachable (with the reason).
+   A first connection that takes its time (the binary is uploaded after an
+   update) is shown as connecting, never as offline: no warning colour, not
+   counted at the navigator's foot, no « Switch off » on its panes' cards.
+   A link that drops says nothing for 5 s; how a machine and its
    link are then shown is decided in one place (`nodes/presence.rs`) for
    the navigator, the palette, the pane's bar and card and the settings.
    Why an attempt failed is one short phrase for each thing that can fail
@@ -113,8 +122,15 @@ the machine's other workspaces and opened like them. Their state is read
 when the node connects, when it says `own:changed` and when events were
 lost; an answer older than what is held (same `boot`, lower `revision`)
 changes nothing. While the node is away the mirrors stay as last seen, and
-a node removed from Settings takes them with it. Settings › Nodes says how
-many a machine runs.
+a node removed from Settings takes them with it (the workspaces this
+computer drives there stay, and so does one still on its way there). A
+workspace the node deleted goes from the list at the next read. One
+missing from the list of a node that started again (another `boot` than
+the one the mirrors last agreed with, kept in `NodeConfig.boot`) was not
+deleted: the node came back without it. Its mirror is kept, marked on its
+row, not followed, and its menu offers « Run on {machine} again », the
+same hand-over as a move, or its removal from the list; one notice says
+so. Settings › Nodes says how many a machine runs.
 
 The node stays their owner. The desktop follows their panes' streams and
 never starts, launches or kills one; its orchestration runtime, its
@@ -122,7 +138,21 @@ hibernation, its Discord connector and the answers it gives a node's
 agents leave them out; the reports of their agents and their queues come
 over `/node/events`, so their marks show for a workspace never opened.
 Where a mirror is listed, its layout, its views, its window and its chat
-view are the desktop's own, and change freely.
+view are the desktop's own, and change freely. So are its kits: a node
+starts its agents without any, so a kit chosen on a mirror only shows its
+tabs in this window, which its kits dialog says.
+
+A pane the node runs is looked for on the node until it is found, for as
+long as it is mounted: a look that fails says nothing about the pane, and
+no restart is offered for it. A pane whose shell ended is looked for again
+when the node reconnects or says its state changed, and its stream waits
+for a node that has not started it yet.
+
+What only the node's engines can do is asked of the node (`POST
+/node/own/desk`, `nodes/desk.rs`): « Merge » on a delivery of a mirror, the
+phone's calls about such a delivery (shown, landed, sent back), and « Stop
+workers ». The outcome is said here as for a workspace of this computer;
+nothing of it runs in the desktop's engines.
 
 What is the node's of a workspace (its name, its folder, its panes, its
 settings) is changed on the mirror and told to the node. `Model::apply`
@@ -135,9 +165,12 @@ restarted on a mirror keeps the id the desktop gave it. Until the node has
 answered everything sent to it, what it lists is older than the mirror and
 is not taken in; then it is read again, and its word is the last. A change
 the node refuses, or that did not reach it, ends the line there: the
-mirror is read again from the node and one notice says what was not done.
+mirror is read again from the node and one notice says what was not done
+(or, when no answer came, that the change may not have reached the node).
 While the node is away or switched off such a change is refused with a
-notice, nothing applied. Only the person's changes are sent: what an agent
+notice that says which it is (offline, reconnecting, still connecting),
+nothing applied. When the app closes, what still waits is sent, with a few
+seconds for the nodes to answer. Only the person's changes are sent: what an agent
 of this computer asks through the control port is refused
 (`Model::apply_unattended`).
 
@@ -145,8 +178,9 @@ Deleting a mirror deletes the workspace on its node, after a question that
 says so; its folder stays there, and nothing of this computer is cleaned
 up after it. Pinning an orchestrator on a mirror restarts the pane with
 the role, on its node and on the same conversation (a pane this computer
-runs waits for its turn to end; the node's is restarted at once). « Put to
-sleep » does not apply to a mirror.
+runs waits for its turn to end; the node's is restarted at once), and
+unpinning it restarts it without the role the same way. « Put to sleep »
+is not offered for a mirror.
 
 A workspace made from the new-workspace dialog with « Runs on » set to a
 node is the node's own from the start: built here, with the ids the
@@ -168,24 +202,29 @@ that says what happens, it is flagged `hosted` here first, so that this
 computer's engines let go of it, then handed to the node, which takes down
 the shells the desktop had started and starts its own under the same ids,
 each Claude Code on its session. Nothing of the workspace is followed here
-until the node said yes; if it says no, the workspace is driven from here
-again and its panes are found where they were. The move is refused, with
+until the node said yes; if it says no (a 4xx answer), the workspace is
+driven from here again and its panes are found where they were. The move is refused, with
 the reason, while one of its deliveries runs, while a worker has no
 session yet, or while the node is away. Settings › Nodes says, under a
 machine, how many workspaces there still need this computer on.
 
-The state is not saved while a workspace is on its way to a node, and one
-still on its way when the app closes is saved as this computer's: written
-as the node's before the node took it, it would be a mirror of nothing and
-go at the next sync. A node that did take it lists it at the next
-connection, which makes it its mirror then.
+A workspace handed over is on its way (`Workspace.handover`: created,
+moved or restored) until the node answered, and is saved so. When no answer
+comes (the link dropped, the request timed out, a 5xx), nothing says
+whether the node took it: it stays on its way, neither followed there nor
+run from here, and the next `GET /node/own/state` settles it. Listed, it is
+the node's; not listed, it is taken back (driven from here again, taken
+back out, or a mirror the node does not have again), and a notice says
+which. The same holds across a quit. A node removed meanwhile leaves it
+this computer's, and it cannot be deleted before the node answered.
 
 The node API also lets a desktop mirror them, the node staying their owner:
 `GET /node/own/state` (the workspaces whole, with a revision),
 `own:changed` on `/node/events`, `POST /node/own/workspaces/{id}/ops` (what
-the person changed on the desktop's copy) and `POST /node/own/adopt` (a
+the person changed on the desktop's copy), `POST /node/own/adopt` (a
 workspace the desktop ran on the node, or has just made, handed to the
-node). `POST /node/panes` and `DELETE /node/panes/{id}` answer 409 for a
+node) and `POST /node/own/desk` (a delivery shown, landed or sent back,
+the workers stopped). `POST /node/panes` and `DELETE /node/panes/{id}` answer 409 for a
 pane of the node's own. The shapes are in headless.md, step 3.
 
 ## One repository on several machines

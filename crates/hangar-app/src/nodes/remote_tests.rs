@@ -7,7 +7,7 @@ use std::time::Duration;
 use serde_json::{Value, json};
 
 use super::model::{NodeClient, NodeInfo, NodeStatus};
-use super::remote::{self, Backoff, Outgoing, RemoteSpawn, Started, StreamEvent};
+use super::remote::{self, Backoff, Outgoing, RemoteSpawn, Runs, Started, StreamEvent};
 use super::testing::{
     accept_ws, answer, listen, read_request, read_text, send_output, send_text, server_frame,
 };
@@ -169,6 +169,7 @@ async fn a_dropped_stream_resumes_from_the_last_byte_seen() {
     let follow = tokio::spawn(remote::follow(
         "n".into(),
         "p 1".into(),
+        Runs::Here,
         0,
         inbox,
         emit,
@@ -224,9 +225,16 @@ async fn a_found_shells_history_is_replayed_and_a_reset_says_so() {
     let (events, emit) = gathered();
     tokio::time::timeout(
         Duration::from_secs(10),
-        remote::follow("n".into(), "p".into(), 10, inbox, emit, FAST, move |_| {
-            Some(client.clone())
-        }),
+        remote::follow(
+            "n".into(),
+            "p".into(),
+            Runs::Here,
+            10,
+            inbox,
+            emit,
+            FAST,
+            move |_| Some(client.clone()),
+        ),
     )
     .await
     .expect("the stream ended");
@@ -280,9 +288,16 @@ async fn binary_output_frames_are_read_and_split_at_the_replay() {
     let (events, emit) = gathered();
     tokio::time::timeout(
         Duration::from_secs(10),
-        remote::follow("n".into(), "p".into(), 5, inbox, emit, FAST, move |_| {
-            Some(client.clone())
-        }),
+        remote::follow(
+            "n".into(),
+            "p".into(),
+            Runs::Here,
+            5,
+            inbox,
+            emit,
+            FAST,
+            move |_| Some(client.clone()),
+        ),
     )
     .await
     .expect("the stream ended");
@@ -346,9 +361,16 @@ async fn a_pane_the_node_lost_ends() {
     let (events, emit) = gathered();
     tokio::time::timeout(
         Duration::from_secs(10),
-        remote::follow("n".into(), "gone".into(), 0, inbox, emit, FAST, move |_| {
-            Some(client.clone())
-        }),
+        remote::follow(
+            "n".into(),
+            "gone".into(),
+            Runs::Here,
+            0,
+            inbox,
+            emit,
+            FAST,
+            move |_| Some(client.clone()),
+        ),
     )
     .await
     .expect("the stream gave up");
@@ -364,6 +386,7 @@ async fn a_stream_waits_for_its_node_and_ends_with_its_pane() {
     let follow = tokio::spawn(remote::follow(
         "away".into(),
         "p".into(),
+        Runs::Here,
         0,
         inbox,
         emit,
@@ -399,6 +422,7 @@ async fn a_waiting_stream_follows_its_node_once_it_is_published() {
     let follow = tokio::spawn(remote::follow(
         node.clone(),
         "p".into(),
+        Runs::Here,
         0,
         inbox,
         emit,

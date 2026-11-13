@@ -623,7 +623,22 @@ fn workspace_row<'a>(f: &Frame<'a>, ws: &'a Workspace) -> Element<'a, Message> {
             // A row of this computer has one only when its repository is
             // open on another machine too, and then a fainter one: it says
             // where else, not where this is.
-            if let (Some(node), Some(look)) = (ws.node.as_deref(), machine) {
+            if let Some(node) = ws
+                .node
+                .as_deref()
+                .filter(|_| crate::nodes::hosted::is_lost(model, &ws.id))
+            {
+                // Its machine started again without it: the mark says so,
+                // whatever the machine's own state.
+                let label = crate::nodes::label(model, node);
+                let tip = tr.t_with(Key::NodesLostTip, &args!("node" => label.as_str()));
+                end = end.push(mark_in(
+                    t,
+                    Icon::Unplugged,
+                    t.colors.warning,
+                    tip.into_owned(),
+                ));
+            } else if let (Some(node), Some(look)) = (ws.node.as_deref(), machine) {
                 let tip = presence::tip_of(model, tr, node, f.ctx.now);
                 end = end.push(mark_in(
                     t,

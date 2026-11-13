@@ -136,6 +136,36 @@ fn the_shell_is_told_how_many_things_wait() {
     assert_eq!(st.items().len(), 3);
 }
 
+/// What waits on a workspace of a machine that is switched off is out of
+/// the list and of the count, as the workspace is out of the navigator;
+/// switched on again, it is back.
+#[test]
+fn what_waits_on_a_machine_switched_off_is_not_listed() {
+    let mut m = orchestrated();
+    let mut state = m.state().clone();
+    state.settings.experiments = vec![crate::settings::experiments::NODES.into()];
+    state.settings.nodes = vec![crate::state::types::NodeConfig {
+        id: "n1".into(),
+        ssh_target: "me@box".into(),
+        enabled: Some(false),
+        ..Default::default()
+    }];
+    state.workspaces[0].node = Some("n1".into());
+    m.hydrate(state.clone());
+    let mut st = State::default();
+    let boards = board_of(&m, &[("1", &["needs-you"]), ("2", &["ready-to-land"])]);
+    let seen = look(&m, &waiting(&["leo"]), &boards);
+    let _ = settle(&mut st, &mut m, seen);
+    assert_eq!(m.live.signals.needs_you, 0);
+    assert!(st.items().is_empty());
+
+    state.settings.nodes[0].enabled = None;
+    m.hydrate(state);
+    let seen = look(&m, &waiting(&["leo"]), &boards);
+    let _ = settle(&mut st, &mut m, seen);
+    assert_eq!(m.live.signals.needs_you, 3);
+}
+
 #[test]
 fn a_waiting_pane_and_a_needs_you_task_make_the_command_live_and_nothing_kills_it() {
     let mut m = orchestrated();

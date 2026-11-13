@@ -31,7 +31,7 @@ use hangar_engine::state::{StoreAction, Workspace};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::api::{blocking, error, Shared};
+use crate::api::{error, Shared};
 use crate::panes::{Observer, Panes};
 
 /// The node's panes, as the engine's terminals: each with a screen the
@@ -291,32 +291,65 @@ pub async fn state(State(node): State<Shared>) -> Response {
 /// over again, a workspace the node already has is left as it is, its
 /// shells too.
 pub async fn adopt(State(node): State<Shared>, Json(body): Json<Value>) -> Response {
-    let Some(own) = node.own.as_ref() else {
+    if node.own.is_none() {
         return unavailable();
-    };
+    }
     let workspace: Workspace = match serde_json::from_value(body) {
         Ok(workspace) => workspace,
         Err(err) => return error(StatusCode::BAD_REQUEST, &format!("not a workspace: {err}")),
     };
-    match own.adoptable(&workspace) {
-        Ok(true) => {}
-        Ok(false) => return Json(json!({ "id": workspace.id })).into_response(),
-        Err(err) => return error(StatusCode::BAD_REQUEST, &err),
+    // A task of its own: a desktop that hangs up while it waits (its link
+    // dropped, it gave up, it quit) ends this handler where it stands, and
+    // an adoption stopped after its shells were taken down and before the
+    // workspace was the node's would leave neither side running it.
+    match tokio::spawn(take_over(node, workspace)).await {
+        Ok(Ok(id)) => Json(json!({ "id": id })).into_response(),
+        Ok(Err(err)) => error(StatusCode::BAD_REQUEST, &err),
+        Err(err) => error(StatusCode::INTERNAL_SERVER_ERROR, &err.to_string()),
     }
-    let ids: Vec<String> = workspace.panes.iter().map(|p| p.id.clone()).collect();
+}
+
+/// One adoption, start to end, alone on the node ([`Node::adopting`]): two
+/// of the same workspace at once (a desktop asking again after no answer)
+/// would have the second take down the shells the first had just started.
+/// The workspace is saved before the desktop hears yes: from then on the
+/// desktop keeps no copy to run, and a node stopped a moment later must
+/// find the workspace in its state when it starts again.
+async fn take_over(node: Shared, workspace: Workspace) -> Result<String, String> {
+    let Some(own) = node.own.as_ref() else {
+        return Err("this node runs no workspace of its own".into());
+    };
+    let _alone = node.adopting.clone().write_owned().await;
+    if !own.adoptable(&workspace)? {
+        return Ok(workspace.id);
+    }
+    // A shell of the node's own is never one to take down, whatever the
+    // check above let through.
+    let ids: Vec<String> = workspace
+        .panes
+        .iter()
+        .map(|pane| pane.id.clone())
+        .filter(|id| !own.has_pane(id))
+        .collect();
     let panes = node.panes.clone();
-    let killed = blocking(move || {
+    tokio::task::spawn_blocking(move || {
         for id in ids {
             panes.kill(&id);
         }
     })
-    .await;
-    if let Err(failed) = killed {
-        return failed.into_response();
-    }
-    match own.adopt(workspace) {
-        Ok(id) => Json(json!({ "id": id })).into_response(),
-        Err(err) => error(StatusCode::BAD_REQUEST, &err),
+    .await
+    .map_err(|err| err.to_string())?;
+    let id = own.adopt(workspace)?;
+    saved(own).await;
+    Ok(id)
+}
+
+/// The state written now rather than a moment later (the host saves by
+/// itself after each change): what a desktop is about to be told was done
+/// is on the disk first. A save that fails is the host's to try again.
+async fn saved(own: &EngineHost) {
+    if let Err(err) = own.save().await {
+        eprintln!("the state could not be saved: {err}");
     }
 }
 
@@ -344,7 +377,10 @@ pub async fn ops(
         return error(StatusCode::NOT_FOUND, "no such workspace on this node");
     }
     match own.apply_ops(&id, body.ops) {
-        Ok(()) => Json(json!({ "revision": own.revision() })).into_response(),
+        Ok(()) => {
+            saved(own).await;
+            Json(json!({ "revision": own.revision() })).into_response()
+        }
         Err(err) => error(StatusCode::BAD_REQUEST, &err),
     }
 }
@@ -413,4 +449,61 @@ pub async fn send(
     }
     hangar_core::bridge::bridge_enqueue(own.core(), pane, body.text, None);
     Json(json!({ "ok": true })).into_response()
+}
+
+#[derive(Deserialize)]
+pub struct DeskBody {
+    op: String,
+    #[serde(default)]
+    args: Value,
+}
+
+/// What the person does about a delivery of one of the node's own
+/// workspaces from a desktop that mirrors it, or from a phone paired with
+/// that desktop, by the names the desk is called with: what waits and what
+/// it changes, land it, send it back to its worker.
+const DESK_OPS: [&str; 4] = hangar_engine::mobile::delivery::OPS;
+/// Every worker of a workspace of the node's own stopped: `{workspace}`,
+/// answered `{stopped}`.
+const STOP_WORKERS: &str = "stop_workers";
+
+/// One thing the person asked of a workspace the node runs, from a desktop
+/// that mirrors it: run here, by the node's own engines, since the desktop
+/// has none for it. Only what is listed above is taken; the desk's other
+/// calls stay the phone's and the connector's.
+pub async fn desk(State(node): State<Shared>, Json(body): Json<DeskBody>) -> Response {
+    let Some(own) = node.own.as_ref() else {
+        return unavailable();
+    };
+    let done = if body.op == STOP_WORKERS {
+        stop_workers(own, &body.args).await
+    } else if DESK_OPS.contains(&body.op.as_str()) {
+        match own.desk() {
+            Some(desk) => {
+                hangar_engine::mobile::engine::run(&body.op, &body.args, &own.port(), &desk).await
+            }
+            None => Err("the node is still starting".into()),
+        }
+    } else {
+        Err(format!("{:?} is not asked of a node", body.op))
+    };
+    match done {
+        Ok(answer) => Json(answer).into_response(),
+        Err(err) => error(StatusCode::BAD_REQUEST, &err),
+    }
+}
+
+async fn stop_workers(own: &EngineHost, args: &Value) -> Result<Value, String> {
+    let ws = args
+        .get("workspace")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if !own.snapshot().state.workspaces.iter().any(|w| w.id == ws) {
+        return Err("no such workspace on this node".into());
+    }
+    let Some(runtime) = own.orchestration() else {
+        return Err("the node is still starting".into());
+    };
+    let stopped = runtime.stop_all_workers(ws).await;
+    Ok(json!({ "stopped": stopped }))
 }

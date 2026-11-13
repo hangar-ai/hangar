@@ -2126,3 +2126,168 @@ fn a_clone_the_node_cannot_make_says_why() {
     assert_eq!(status, 200);
     assert_eq!(cancelled["value"], false, "nothing runs under it any more");
 }
+
+/// The node says yes to a workspace handed over once it is written: a
+/// desktop that hears yes keeps no copy to run, so a daemon stopped the
+/// moment after must find the workspace in its state. The same holds for
+/// what a mirror changed.
+#[test]
+fn a_workspace_handed_over_is_saved_before_the_node_says_yes() {
+    let node = Node::start();
+    let saved = |node: &Node| -> Value {
+        let raw = std::fs::read_to_string(state_dir(node.home()).join("state.json"))
+            .unwrap_or_else(|_| "{}".to_string());
+        serde_json::from_str(&raw).unwrap()
+    };
+    let panes = [("d1", "Leo", "shell")];
+    let (status, adopted) = node.post(
+        "/node/own/adopt",
+        handed_over("ws-kept", node.home(), &panes),
+    );
+    assert_eq!(status, 200, "{adopted}");
+    let written = saved(&node);
+    assert_eq!(written["workspaces"][0]["id"], "ws-kept", "{written}");
+
+    let (status, done) = node.post(
+        "/node/own/workspaces/ws-kept/ops",
+        json!({ "ops": [{ "op": "patchWorkspace", "patch": { "name": "Site" } }] }),
+    );
+    assert_eq!(status, 200, "{done}");
+    assert_eq!(saved(&node)["workspaces"][0]["name"], "Site");
+}
+
+/// The same workspace handed over twice at once (a desktop that asked
+/// again, having had no answer): the two never cross, so the second finds
+/// the workspace there and leaves the shells the first started alone.
+#[test]
+fn two_adoptions_at_once_start_each_pane_once() {
+    let (node, project) = node_with_a_recording_claude();
+    let node = Arc::new(node);
+    let workspace = handed_over("ws-twice", &project, &[("d1", "Leo", "claude")]);
+    let asked: Vec<_> = (0..4)
+        .map(|_| {
+            let (node, workspace) = (node.clone(), workspace.clone());
+            std::thread::spawn(move || node.post("/node/own/adopt", workspace))
+        })
+        .collect();
+    for asked in asked {
+        let (status, answer) = asked.join().unwrap();
+        assert_eq!((status, &answer["id"]), (200, &json!("ws-twice")));
+    }
+    wait_for("its shell", || pane_alive(&node, "d1").then_some(()));
+    // Long enough for a shell taken down by a second adoption to show.
+    std::thread::sleep(Duration::from_millis(600));
+    assert!(pane_alive(&node, "d1"));
+    let started = std::fs::read_to_string(node.home().join("claude-args")).unwrap();
+    assert_eq!(started.lines().count(), 1, "{started}");
+    assert_eq!(own_state(&node)["workspaces"].as_array().unwrap().len(), 1);
+}
+
+/// A desktop that hangs up before the node answered (its link dropped, it
+/// gave up waiting): the adoption it asked for is carried to its end all
+/// the same. Stopped half-way, the desktop's shells would be gone and the
+/// workspace nobody's.
+#[test]
+fn an_adoption_whose_desktop_hung_up_is_carried_through() {
+    let node = Node::start();
+    node.spawn("d1", "echo $$ > \"$HOME/old.pid\"; exec sleep 600");
+    let old: i32 = wait_for("the desktop's shell", || {
+        std::fs::read_to_string(node.home().join("old.pid"))
+            .ok()?
+            .trim()
+            .parse()
+            .ok()
+    });
+    let body = handed_over("ws-cut", node.home(), &[("d1", "Leo", "shell")]).to_string();
+    let mut socket = std::net::TcpStream::connect(("127.0.0.1", node.port)).unwrap();
+    write!(
+        socket,
+        "POST /node/own/adopt HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
+        node.token,
+        body.len()
+    )
+    .unwrap();
+    socket.flush().unwrap();
+    // Time for the request to be read: one hung up on before that was
+    // never asked.
+    std::thread::sleep(Duration::from_millis(150));
+    drop(socket);
+
+    wait_for("the workspace taken all the same", || {
+        (own_state(&node)["workspaces"][0]["id"] == "ws-cut").then_some(())
+    });
+    wait_for("the desktop's shell gone", || (!alive(old)).then_some(()));
+    wait_for("the node's own shell", || {
+        pane_alive(&node, "d1").then_some(())
+    });
+}
+
+/// What the person does about a workspace of the node's own from a desktop
+/// that mirrors it is done here, by the node: a delivery landed or sent
+/// back, its workers stopped. Nothing else of the desk is asked this way.
+#[test]
+fn a_desktop_asks_the_node_to_act_on_its_own_workspaces() {
+    let node = Node::start();
+    let mut workspace = handed_over(
+        "ws-desk",
+        node.home(),
+        &[("d1", "Leo", "shell"), ("w1", "Bo", "shell")],
+    );
+    workspace["panes"][1]["role"] = json!("worker");
+    workspace["panes"][1]["sharedFolder"] = json!(true);
+    let (status, adopted) = node.post("/node/own/adopt", workspace);
+    assert_eq!(status, 200, "{adopted}");
+    wait_for("its shells", || {
+        (pane_alive(&node, "d1") && pane_alive(&node, "w1")).then_some(())
+    });
+
+    // The node's own desk answers: no worker of its workspaces holds it.
+    let land = json!({ "op": "remote_land", "args": { "task": "t-none" } });
+    let (status, refused) = node.post("/node/own/desk", land);
+    assert_eq!(status, 400, "{refused}");
+    assert!(
+        refused["error"]
+            .as_str()
+            .unwrap()
+            .contains("No worker holds this task"),
+        "{refused}"
+    );
+    let rework = json!({ "op": "remote_rework", "args": { "task": "t-none", "text": "fix" } });
+    let (status, refused) = node.post("/node/own/desk", rework);
+    assert_eq!(status, 400, "{refused}");
+    assert!(
+        refused["error"]
+            .as_str()
+            .unwrap()
+            .contains("No worker holds this task"),
+        "{refused}"
+    );
+
+    // What is not the person's to ask from a mirror is not run.
+    let (status, refused) = node.post(
+        "/node/own/desk",
+        json!({ "op": "remote_send", "args": { "pane": "d1", "text": "rm -rf" } }),
+    );
+    assert_eq!(status, 400, "{refused}");
+    assert!(refused["error"]
+        .as_str()
+        .unwrap()
+        .contains("not asked of a node"));
+
+    let stop = |ws: &str| {
+        node.post(
+            "/node/own/desk",
+            json!({ "op": "stop_workers", "args": { "workspace": ws } }),
+        )
+    };
+    assert_eq!(stop("nowhere").0, 400);
+    let (status, stopped) = stop("ws-desk");
+    assert_eq!((status, &stopped["stopped"]), (200, &json!(1)), "{stopped}");
+    wait_for("the worker gone, the other pane left", || {
+        let state = own_state(&node);
+        let panes = state["workspaces"][0]["panes"].as_array()?.clone();
+        (panes.len() == 1 && panes[0]["id"] == "d1" && node.pane("w1").is_none()).then_some(())
+    });
+    assert!(pane_alive(&node, "d1"));
+    assert_eq!(stop("ws-desk").1["stopped"], 0);
+}

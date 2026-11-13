@@ -98,9 +98,15 @@ pub enum Presence {
 }
 
 impl Presence {
-    /// The link should be up and is not, past the grace period.
+    /// The link was up, or was tried, and is not up, past the grace
+    /// period. A first connection still under way is not down: nothing
+    /// failed, the machine is being set up (after an update of the app
+    /// its binary is uploaded, which takes more than a moment).
     pub fn is_down(&self) -> bool {
-        matches!(self, Presence::Connecting { .. } | Presence::Offline(_))
+        matches!(
+            self,
+            Presence::Connecting { again: true } | Presence::Offline(_)
+        )
     }
 
     /// Nothing can be asked of the machine now.
@@ -219,12 +225,14 @@ pub struct Look {
 /// The one mapping from a state to a look.
 pub fn look(kind: MachineKind, presence: &Presence) -> Look {
     match presence {
-        Presence::Connected | Presence::Settling => Look {
+        // A first connection under way is drawn as calmly as a link that
+        // is up: nothing is wrong, and the words say it is connecting.
+        Presence::Connected | Presence::Settling | Presence::Connecting { again: false } => Look {
             icon: kind_icon(kind),
             tone: Tone::Muted,
             dimmed: false,
         },
-        Presence::Connecting { .. } | Presence::Offline(_) => Look {
+        Presence::Connecting { again: true } | Presence::Offline(_) => Look {
             icon: Icon::Unplugged,
             tone: Tone::Warning,
             dimmed: true,
@@ -290,7 +298,7 @@ pub fn tip_of(m: &Model, tr: Translator, node: &str, now: Instant) -> String {
 
 /// How many machines the settings hold, this computer counted, and how many
 /// of the others are down past the grace period or switched off: the
-/// navigator's foot.
+/// navigator's foot. One still on its first connection is neither.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Census {
     pub machines: usize,

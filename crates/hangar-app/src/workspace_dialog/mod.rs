@@ -198,6 +198,9 @@ impl Git {
 struct Place {
     /// The node chosen; `None` is this computer.
     node: Option<String>,
+    /// The list of machines is open under « Runs on », when there are
+    /// enough of them for it to be a list (`view::machines`).
+    picking: bool,
     /// The node's folders are on show under « Clone into », to pick one.
     browsing: bool,
     /// The node's folder listed, once its answer came.
@@ -310,6 +313,8 @@ pub enum Msg {
     // Where it runs (experiment `nodes`).
     /// This computer (`None`) or a connected node.
     Place(Option<String>),
+    /// The list of machines under « Runs on », opened or closed.
+    PlaceList(bool),
     /// The node answered the clone it was asked for under `job`.
     NodeCloned {
         job: String,
@@ -463,7 +468,12 @@ fn form(st: &mut State, m: &mut Model, msg: Msg) -> Task<Message> {
         }
 
         // ── where it runs ──
+        Msg::PlaceList(open) => {
+            st.place.picking = open && !st.git.running;
+            Task::none()
+        }
         Msg::Place(node) => {
+            st.place.picking = false;
             if st.place.node == node || st.git.running {
                 return Task::none();
             }

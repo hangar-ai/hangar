@@ -794,6 +794,11 @@ fn run_action(st: &mut State, m: &mut Model, action: menu::Action) -> Task<Messa
             // it: asked first, while the node is there to be told (away,
             // the store refuses and says why). Its MCP scope is a file of
             // the node's, which the node writes and clears.
+            // One its node no longer has is only a line of this list.
+            if crate::nodes::hosted::is_lost(m, &id) {
+                crate::nodes::hosted::remove_lost(m, &id);
+                return Task::none();
+            }
             let mirror = m.workspace(&id).filter(|ws| ws.is_hosted());
             if let Some(node) = mirror.and_then(|ws| ws.node.as_deref()) {
                 if crate::nodes::client(m, node).is_some() {
@@ -809,6 +814,10 @@ fn run_action(st: &mut State, m: &mut Model, action: menu::Action) -> Task<Messa
             Task::done(Message::Navigator(Msg::ClearMcpScope(id)))
         }
         Action::MoveToMachine(id) => crate::nodes::ask::ask_move(m, &id),
+        Action::RunAgain(id) => {
+            crate::nodes::hosted::restore(m, &id);
+            Task::none()
+        }
     }
 }
 

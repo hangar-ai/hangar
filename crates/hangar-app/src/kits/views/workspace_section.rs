@@ -328,7 +328,22 @@ pub fn view<'a>(st: &'a State, ctx: Ctx<'a>, ws: Option<&'a WsId>) -> Element<'a
         restart: st.restart.as_ref().filter(|r| Some(&r.ws) == ws),
         restarted: ws.is_some() && st.restarted.as_ref() == ws,
     };
-    let model = SectionModel::build(ctx.i18n, &input);
+    let mut model = SectionModel::build(ctx.i18n, &input);
+    // A workspace its node runs: the node starts its agents without kits,
+    // so the section says what a kit chosen here is (its tabs in this
+    // window) rather than that it loads in the panes.
+    if let Some(mirror) = workspace.filter(|ws| ws.is_hosted())
+        && let Some(node) = mirror.node.as_deref()
+    {
+        let node = crate::nodes::label(ctx.model, node);
+        model.hint = ctx
+            .i18n
+            .t_with(
+                Key::NodesKitsNote,
+                &args!("name" => mirror.name.as_str(), "node" => node.as_str()),
+            )
+            .into_owned();
+    }
     draw(ctx, ws, &model, live.kits())
 }
 

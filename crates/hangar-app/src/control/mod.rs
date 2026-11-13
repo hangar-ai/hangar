@@ -282,10 +282,18 @@ async fn answer(op: &str, args: Value, channel: Channel, port: &Port) -> Result<
             Some(engine) => engine.briefing(port.clone(), args).await,
             None => Err("The orchestration engine is not running yet.".into()),
         },
-        Channel::Internal if op.starts_with("remote_") => match port.mobile() {
-            Some(mobile) => mobile.remote(port.clone(), op.to_string(), args).await,
-            None => Err("Hangar Mobile is not ready in this window yet.".into()),
-        },
+        Channel::Internal if op.starts_with("remote_") => {
+            // A delivery of a workspace its node runs is the node's to
+            // show, land or send back.
+            let state = port.snapshot().state.clone();
+            if let Some(node) = crate::nodes::desk::node_for(op, &args, &state) {
+                return crate::nodes::desk::forward(&node, op, args).await;
+            }
+            match port.mobile() {
+                Some(mobile) => mobile.remote(port.clone(), op.to_string(), args).await,
+                None => Err("Hangar Mobile is not ready in this window yet.".into()),
+            }
+        }
         Channel::Internal => Err(run::unknown(op)),
     }
 }
@@ -308,8 +316,11 @@ pub fn on_intent(
     let Intent::Land { ws, task } = intent else {
         return None;
     };
+    if let Some(landing) = landing_on_its_node(m, intent) {
+        return Some(landing);
+    }
     let workspace = m.workspace(ws)?.clone();
-    // A workspace on a node lands there.
+    // A workspace this computer drives on a node lands there.
     let port = match &workspace.node {
         Some(node) => Arc::new(remote::RemotePort::new(st.port(sv), node.clone())) as Port,
         None => st.port(sv),
@@ -318,17 +329,28 @@ pub fn on_intent(
     Some(Task::future(landing).then(|said| Task::batch(said.into_iter().map(Task::done))))
 }
 
+/// « Fusionner » on a delivery of a workspace its node runs itself: landed
+/// by the node, never from here. This computer's delivery engine does not
+/// hold such a workspace: run here, the landing would go beside whatever
+/// the node itself is doing with it, and end by removing a worktree whose
+/// worker still runs there. `None` for any other workspace, and any other
+/// intent.
+pub(crate) fn landing_on_its_node(m: &Model, intent: &Intent) -> Option<Task<Message>> {
+    let Intent::Land { ws, task } = intent else {
+        return None;
+    };
+    let workspace = m.workspace(ws).filter(|found| found.is_hosted())?;
+    Some(crate::nodes::desk::land_task(m, workspace, task))
+}
+
 /// The key « Besoin de toi » gives a delivery's row (`needs_you::model`), so
 /// a failure reaches that row.
 fn land_key(workspace: &Workspace, task: &str) -> String {
     format!("task:{}:{task}:{READY_TO_LAND_LABEL}", workspace.cwd)
 }
 
-/// Lands a delivery for the person, and what is then said: a notice either
-/// way, and on a failure the row's own word for it (`LandFailed`), as the
-/// TS's `landItem` threw back to its row. The notice is said too: a landing
-/// refused because its worker moved past it leaves the list, and its row
-/// with it.
+/// Lands a delivery for the person, and what is then said
+/// ([`landed_words`]).
 async fn land(workspace: Workspace, task: String, port: Port, locale: Locale) -> Vec<Message> {
     let title = match port.delivery() {
         Some(delivery) => delivery
@@ -342,14 +364,24 @@ async fn land(workspace: Workspace, task: String, port: Port, locale: Locale) ->
     let mut run = delivery::begin_delivery(&port, &workspace.id, &task).await;
     let landed = delivery::land_delivery(&workspace, &task, &port).await;
     run.end().await;
+    landed_words(&workspace, &task, &title, landed, locale)
+}
+
+/// What is said once a landing the person asked for ended, wherever it
+/// ran: a notice either way, and on a failure the row's own word for it
+/// (`LandFailed`), as the TS's `landItem` threw back to its row. The notice
+/// is said too: a landing refused because its worker moved past it leaves
+/// the list, and its row with it.
+pub(crate) fn landed_words(
+    workspace: &Workspace,
+    task: &str,
+    title: &str,
+    landed: Result<(), String>,
+    locale: Locale,
+) -> Vec<Message> {
     match landed {
         Ok(()) => vec![Message::Intent(Intent::Notice(Notice::Agent(
-            t_with(
-                locale,
-                Key::NeedsYouLanded,
-                &args!("title" => title.as_str()),
-            )
-            .into_owned(),
+            t_with(locale, Key::NeedsYouLanded, &args!("title" => title)).into_owned(),
         )))],
         Err(error) => vec![
             Message::Intent(Intent::Notice(Notice::Problem(
@@ -361,7 +393,7 @@ async fn land(workspace: Workspace, task: String, port: Port, locale: Locale) ->
                 .into_owned(),
             ))),
             Message::NeedsYou(crate::needs_you::Msg::LandFailed {
-                key: land_key(&workspace, &task),
+                key: land_key(workspace, task),
                 error,
             }),
         ],

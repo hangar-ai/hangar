@@ -110,9 +110,10 @@ impl Model {
     /// applied to the mirror at once, so that whoever asked reads its
     /// result as for any other workspace, and what the node has to be told
     /// waits in `nodes::Live::outbox`, which the shell sends in the order
-    /// the changes were made. While the node cannot be reached the action
-    /// is refused whole, nothing applied, and the shell says so
-    /// (`nodes::Live::refused`).
+    /// the changes were made. While the node cannot be told
+    /// (`nodes::hosted::edit_refusal`: it is away, it no longer has the
+    /// workspace) the action is refused whole, nothing applied, and the
+    /// shell says so (`nodes::Live::refused`).
     pub fn apply(&mut self, action: StoreAction) -> StoreOutcome {
         self.apply_from(action, true)
     }
@@ -131,12 +132,13 @@ impl Model {
         if edits.is_empty() {
             return self.store.apply(action);
         }
-        let away = edits
-            .iter()
-            .position(|edit| crate::nodes::client(self, &edit.node).is_none());
-        let refused = match (person, away) {
+        // The first of them that cannot be told to its node now, and why.
+        let held_back = edits.iter().enumerate().find_map(|(at, edit)| {
+            crate::nodes::hosted::edit_refusal(self, edit).map(|why| (at, why))
+        });
+        let refused = match (person, held_back) {
             (false, _) => Some((edits.swap_remove(0), Why::Unattended)),
-            (true, Some(at)) => Some((edits.swap_remove(at), Why::Offline)),
+            (true, Some((at, why))) => Some((edits.swap_remove(at), why)),
             (true, None) => None,
         };
         if refused.is_some() {

@@ -44,6 +44,9 @@ pub enum Frame {
     Exit {
         code: Option<u32>,
     },
+    /// The pane never was one: its shell did not start. Whoever follows
+    /// it is let go without being told of an end, to look again.
+    Gone,
 }
 
 /// A pane's output, oldest chunk first, whole chunks only, at most
@@ -171,6 +174,7 @@ pub fn gather(
                 }
             }
             Ok(Frame::Exit { code }) => return (joined, Some(Then::Exit(code))),
+            Ok(Frame::Gone) => return (joined, Some(Then::Closed)),
             Err(RecvError::Lagged(_)) => return (joined, Some(Then::Lagged)),
             Err(RecvError::Closed) => return (joined, Some(Then::Closed)),
         }
@@ -218,6 +222,8 @@ struct State {
     history: History,
     /// `Some` once ended: the code, which core never knows (`PtyExit`).
     exit: Option<Option<u32>>,
+    /// Its shell did not start ([`Pane::never_started`]).
+    gone: bool,
 }
 
 pub struct Pane {
@@ -241,6 +247,7 @@ impl Pane {
                 info,
                 history: History::new(capacity, join),
                 exit: None,
+                gone: false,
             }),
             live: broadcast::channel(LIVE_CAPACITY).0,
         }
@@ -252,11 +259,31 @@ impl Pane {
 
     pub fn attach(&self, from: u64) -> Attached {
         let state = self.lock();
+        // A stream that comes for a pane that never started (it found it
+        // listed a moment before) gets a channel nothing is sent on, which
+        // reads as the pane gone.
+        let live = match state.gone {
+            true => broadcast::channel(1).1,
+            false => self.live.subscribe(),
+        };
         Attached {
             replay: state.history.after(from),
             exit: state.exit,
-            live: self.live.subscribe(),
+            live,
         }
+    }
+
+    /// The shell this pane was booked for did not start. The pane was
+    /// listed while it was starting, and a stream may be following it:
+    /// left as it is, that stream would wait for ever on a pane that is no
+    /// longer in the list, showing a terminal that looks alive. It is let
+    /// go instead, without an end: the pane did not end, there never was
+    /// one, and whoever followed it looks again and finds what is there
+    /// (the shell still running under that id, or nothing).
+    fn never_started(&self) {
+        let mut state = self.lock();
+        state.gone = true;
+        let _ = self.live.send(Frame::Gone);
     }
 
     pub fn info(&self) -> Info {
@@ -372,7 +399,7 @@ impl Panes {
         });
         // Booked before the shell starts, so its first bytes have a pane to
         // land in; put back as it was when the spawn fails.
-        let previous = self.map().insert(spawn.id.clone(), pane);
+        let previous = self.map().insert(spawn.id.clone(), pane.clone());
         let spawned = pty::pty_spawn_with(
             &self.pty,
             sink,
@@ -392,11 +419,14 @@ impl Panes {
             false,
         );
         if spawned.is_err() {
-            let mut map = self.map();
-            match previous {
-                Some(previous) => map.insert(spawn.id, previous),
-                None => map.remove(&spawn.id),
-            };
+            {
+                let mut map = self.map();
+                match previous {
+                    Some(previous) => map.insert(spawn.id, previous),
+                    None => map.remove(&spawn.id),
+                };
+            }
+            pane.never_started();
         }
         spawned
     }
@@ -608,6 +638,34 @@ mod tests {
             gather(Err(RecvError::Closed), &mut gone, 0, 1024),
             (None, Some(Then::Closed))
         );
+    }
+
+    /// A pane whose shell did not start lets go of the stream that found
+    /// it listed while it was starting, and of one that comes just after,
+    /// without telling either of an end: neither is left waiting on it.
+    #[test]
+    fn a_pane_that_never_started_lets_go_of_who_follows_it() {
+        let info = Info {
+            id: "p".into(),
+            cwd: "/".into(),
+            name: None,
+            agent: None,
+            cols: 80,
+            rows: 24,
+            seq: 0,
+            alive: true,
+        };
+        let pane = Pane::new(info, HISTORY_BYTES, HISTORY_JOIN);
+        let mut before = pane.attach(0);
+        pane.never_started();
+        let first = before.live.try_recv().map_err(|_| RecvError::Closed);
+        assert_eq!(
+            gather(first, &mut before.live, 0, 1024),
+            (None, Some(Then::Closed))
+        );
+        let mut after = pane.attach(0);
+        assert_eq!(after.exit, None, "it did not end: it never was");
+        assert!(matches!(after.live.try_recv(), Err(TryRecvError::Closed)));
     }
 
     #[test]

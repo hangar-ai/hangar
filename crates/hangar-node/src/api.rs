@@ -26,7 +26,8 @@
 //! - `GET /node/events?control=1`: the same, from a desktop that drives the
 //!   node's orchestration: core's control requests are its to answer, with
 //!   `POST /node/control/{id}/reply` (control.rs);
-//! - `/node/own/*`: the workspaces the node runs itself (own.rs); a change
+//! - `/node/own/*`: the workspaces the node runs itself (own.rs), and what
+//!   the person does about them from a desktop (`POST /node/own/desk`); a change
 //!   to their state is told on `GET /node/events` as `{"event":
 //!   "own:changed", "revision"}`;
 //! - `/node/worktree`, `/node/branch`, `/node/git`, `/node/board/*`,
@@ -72,6 +73,12 @@ pub struct Node {
     /// (`/node/own/state`) start again with it, and who follows them tells
     /// one run of the daemon from the next by this.
     pub boot: String,
+    /// Held whole while a workspace is taken over (`/node/own/adopt`), and
+    /// shared by each desktop's start of a pane: between the moment an
+    /// adoption takes down the shells under its ids and the moment the
+    /// workspace is the node's, nobody starts a shell under one of them,
+    /// and two adoptions never cross.
+    pub adopting: Arc<tokio::sync::RwLock<()>>,
 }
 
 impl Node {
@@ -93,6 +100,7 @@ impl Node {
             own,
             discord: crate::discord::Connector::default(),
             boot: hangar_engine::state::store::new_id(),
+            adopting: Arc::default(),
         }
     }
 
@@ -147,6 +155,7 @@ pub fn router(node: Shared) -> Router {
         .route("/node/own/workspaces/{id}", delete(crate::own::remove))
         .route("/node/own/workspaces/{id}/ops", post(crate::own::ops))
         .route("/node/own/panes/{id}/send", post(crate::own::send))
+        .route("/node/own/desk", post(crate::own::desk))
         .route("/node/discord", get(crate::discord::get_status))
         .route("/node/discord/reload", post(crate::discord::reload))
         .route(
@@ -345,6 +354,9 @@ async fn spawn(State(node): State<Shared>, Json(body): Json<SpawnBody>) -> Respo
     if !std::path::Path::new(&body.cwd).is_dir() {
         return error(StatusCode::BAD_REQUEST, "the pane's folder does not exist");
     }
+    // Not while a workspace is being taken over: its ids are the node's
+    // from the moment their shells are taken down.
+    let _adopting = node.adopting.clone().read_owned().await;
     if node.owner_of(&body.id).is_some() {
         return error(StatusCode::CONFLICT, OWN_PANE);
     }

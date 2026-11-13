@@ -13,7 +13,7 @@ use serde_json::json;
 
 use super::hosted::{self, OwnState};
 use super::remote::{self, Started};
-use super::testing::{answer, listen, machine, read_request};
+use super::testing::{answer, listen, machine, read_request, up};
 use super::{Msg, event_messages};
 use crate::message::Message;
 use crate::panes::controller::{ShellEnd, shell_end};
@@ -102,6 +102,12 @@ pub(super) fn mirrored() -> Model {
     m
 }
 
+/// Node `id` away for a while, an attempt to reach it having failed.
+pub(super) fn offline(m: &mut Model, id: &str) {
+    let failure = super::model::Failure::Tunnel("Connection reset".into());
+    super::testing::down(m, id, 30, Some(failure));
+}
+
 pub(super) fn names(m: &Model) -> Vec<&str> {
     m.state()
         .workspaces
@@ -156,9 +162,147 @@ fn a_sync_makes_the_mirrors_and_an_older_answer_changes_nothing() {
     assert_eq!(m.workspace("o1").unwrap().panes.len(), 1);
 
     // The daemon restarted: its revisions start again, and it is believed.
-    hosted::take_in(&mut m, "gpu", answered("b2", 0, Vec::new()), NOW);
-    assert_eq!(names(&m), ["site"]);
+    let renamed = theirs("o1", "builds", vec![pane("op1", "Rorch")]);
+    hosted::take_in(&mut m, "gpu", answered("b2", 0, vec![renamed]), NOW);
+    assert_eq!(names(&m), ["site", "builds"]);
     assert_eq!(m.live.nodes.held["gpu"].boot, "b2");
+    // A workspace the node no longer lists, in the same run, was deleted
+    // there: its mirror goes.
+    hosted::take_in(&mut m, "gpu", answered("b2", 1, Vec::new()), NOW);
+    assert_eq!(names(&m), ["site"]);
+    assert!(m.live.nodes.lost.is_empty() && m.live.nodes.told.is_empty());
+}
+
+/// The run of node `id` its mirrors last agreed with, as the settings keep
+/// it.
+fn agreed(m: &Model, id: &str) -> Option<String> {
+    let node = m.settings().nodes.iter().find(|node| node.id == id);
+    node.and_then(|node| node.boot.clone())
+}
+
+/// A node that comes back as another run of its daemon, without a
+/// workspace it ran (stopped before it wrote its state, its state folder
+/// gone): the mirror may be all that is left of the workspace. It is kept,
+/// marked, not followed, and the person is told once; it can be sent back
+/// to the node or removed, and nothing else is done to it meanwhile.
+#[test]
+fn a_mirror_its_node_came_back_without_is_kept_and_marked() {
+    let mut m = mirrored();
+    up(&mut m, "gpu", "gpu-01");
+    assert_eq!(agreed(&m, "gpu").as_deref(), Some("b1"));
+    let other = theirs("o9", "evals", vec![pane("ep1", "Kit")]);
+    hosted::take_in(&mut m, "gpu", answered("b2", 0, vec![other.clone()]), NOW);
+    assert_eq!(names(&m), ["site", "nightly", "evals"]);
+    assert!(hosted::is_lost(&m, "o1") && !hosted::is_lost(&m, "o9"));
+    let kept = m.workspace("o1").unwrap().clone();
+    assert!(kept.is_hosted() && hosted::unfollowed(&m, &kept));
+    assert_eq!(kept.panes.len(), 2, "whole, as last seen");
+    assert_eq!(hosted::count(&m, "gpu"), 1, "the node runs one");
+    assert_eq!(
+        std::mem::take(&mut m.live.nodes.told),
+        [crate::shell::Notice::Problem(
+            "GPU box started again without nightly. Kept here: its menu can run it on GPU box \
+             again, or remove it."
+                .into()
+        )]
+    );
+    // Not the run agreed with while one of its mirrors is unaccounted for:
+    // found again at the next start of this app.
+    assert_eq!(agreed(&m, "gpu").as_deref(), Some("b1"));
+
+    // Said once, and kept at each later list.
+    hosted::take_in(&mut m, "gpu", answered("b2", 1, vec![other.clone()]), NOW);
+    assert!(hosted::is_lost(&m, "o1") && m.live.nodes.told.is_empty());
+
+    // The node cannot be told anything about it.
+    m.apply(StoreAction::UpdateWorkspace(
+        "o1".into(),
+        Patch::new(|ws: &mut Workspace| ws.name = "mine".into()),
+    ));
+    let (edit, why) = m.live.nodes.refused.take().expect("refused");
+    assert_eq!(why, hosted::Why::Lost);
+    assert_eq!(
+        hosted::refusal_words(&m, &edit, why),
+        "nightly is no longer on GPU box: its menu can run it there again, or remove it."
+    );
+    assert!(!m.live.nodes.outbox.busy("gpu"));
+
+    // Sent back: handed over as a workspace moved there is.
+    assert!(hosted::restore(&mut m, "o1"));
+    assert!(!hosted::is_lost(&m, "o1"));
+    let waiting = m.live.nodes.outbox.waiting("gpu");
+    let [
+        hosted::Job::Adopt {
+            workspace,
+            handover: hosted::Handover::Restored,
+        },
+    ] = waiting.as_slice()
+    else {
+        panic!("one adoption");
+    };
+    assert_eq!(workspace.id, "o1");
+    assert_eq!(workspace.panes.len(), 2);
+    // The node refuses (its folder is gone too): a mirror the node does
+    // not have, again.
+    let _ = hosted::send_next(&mut m);
+    let refused = hosted::NotTaken::Refused("/srv/nightly is not a folder here".into());
+    let _ = hosted::sent(&mut m, "gpu", Err(refused));
+    assert!(hosted::is_lost(&m, "o1"));
+    assert!(m.workspace("o1").is_some_and(Workspace::is_hosted));
+
+    // Sent back again, and taken: a mirror like any other, and the run is
+    // the one agreed with.
+    assert!(hosted::restore(&mut m, "o1"));
+    let _ = hosted::send_next(&mut m);
+    let _ = hosted::sent(&mut m, "gpu", Ok(()));
+    hosted::take_in(
+        &mut m,
+        "gpu",
+        answered("b2", 2, vec![nightly(), other]),
+        NOW,
+    );
+    let mirror = m.workspace("o1").unwrap().clone();
+    assert!(!hosted::unfollowed(&m, &mirror) && mirror.handover.is_none());
+    assert_eq!(agreed(&m, "gpu").as_deref(), Some("b2"));
+}
+
+/// Removed from its menu, a mirror its node no longer has only leaves this
+/// list: there is nothing to delete on the node, and nothing is sent.
+#[test]
+fn a_mirror_its_node_no_longer_has_is_removed_here_alone() {
+    let mut m = mirrored();
+    up(&mut m, "gpu", "gpu-01");
+    hosted::take_in(&mut m, "gpu", answered("b2", 0, Vec::new()), NOW);
+    assert!(hosted::is_lost(&m, "o1"));
+    // Its node away, it cannot be sent back, and says why.
+    m.live.nodes.statuses.remove("gpu");
+    let lost = m.workspace("o1").unwrap().clone();
+    assert_eq!(
+        hosted::restore_refusal(&m, &lost).as_deref(),
+        Some("GPU box is offline: nightly cannot move there now.")
+    );
+    assert!(!hosted::restore(&mut m, "o1"));
+    hosted::remove_lost(&mut m, "o1");
+    assert!(m.workspace("o1").is_none());
+    assert!(m.live.nodes.lost.is_empty());
+    assert!(!m.live.nodes.outbox.busy("gpu"));
+    // Nothing is unaccounted for any more: the run is agreed with at the
+    // next list.
+    hosted::take_in(&mut m, "gpu", answered("b2", 1, Vec::new()), NOW);
+    assert_eq!(agreed(&m, "gpu").as_deref(), Some("b2"));
+}
+
+/// A state read back with mirrors of a node whose run is another now (the
+/// app was closed while the node lost its state): they are found missing
+/// at the first list, as when the app is open.
+#[test]
+fn a_node_that_lost_its_state_while_the_app_was_closed_is_found_out() {
+    let m = mirrored();
+    let mut next = Model::default();
+    next.hydrate(m.state().clone());
+    hosted::take_in(&mut next, "gpu", answered("b7", 0, Vec::new()), NOW);
+    assert_eq!(names(&next), ["site", "nightly"]);
+    assert!(hosted::is_lost(&next, "o1"));
 }
 
 #[test]
@@ -224,6 +368,7 @@ fn a_node_removed_takes_its_mirrors_and_leaves_the_others() {
 #[test]
 fn a_change_to_what_an_offline_node_owns_is_refused_and_nothing_is_applied() {
     let mut m = mirrored();
+    offline(&mut m, "gpu");
     let before = m.state_arc();
     let revision = m.revision();
     let node_owned = [
@@ -334,6 +479,7 @@ fn the_mirror_s_own_presentation_and_every_other_workspace_change_as_before() {
 #[test]
 fn the_refusal_names_the_workspace_and_its_machine() {
     let mut m = mirrored();
+    offline(&mut m, "gpu");
     m.apply(StoreAction::RemoveWorkspace("o1".into()));
     let (refused, why) = m.live.nodes.refused.take().unwrap();
     assert_eq!(
@@ -423,7 +569,7 @@ async fn a_pane_its_node_runs_is_found_there_and_never_started() {
 }
 
 #[tokio::test]
-async fn a_pane_the_node_never_lists_says_so_without_starting_it() {
+async fn a_pane_the_node_does_not_list_is_not_started_from_here() {
     let (listener, client) = listen().await;
     let server = tokio::spawn(async move {
         for _ in 0..3 {
@@ -436,6 +582,136 @@ async fn a_pane_the_node_never_lists_says_so_without_starting_it() {
     let started = remote::attach(&client, "op1", 3, Duration::from_millis(5)).await;
     assert_eq!(started, Err("its node has not started this pane".into()));
     server.await.unwrap();
+}
+
+/// A pane its node runs is looked for until it is found: a look that the
+/// link dropped under, and a node that has not started the pane yet, are
+/// both tried again, where giving up would show a running agent as ended
+/// and offer to restart it.
+#[tokio::test]
+async fn an_attach_that_fails_is_tried_again_until_the_pane_is_found() {
+    let (listener, client) = listen().await;
+    let server = tokio::spawn(async move {
+        // The link drops under the first look.
+        let (stream, _) = listener.accept().await.unwrap();
+        drop(stream);
+        // The node answers with an error, then has not started it yet.
+        let answers = [
+            (500, json!({ "error": "starting" })),
+            (200, json!({ "panes": [] })),
+            (
+                200,
+                json!({ "panes": [{ "id": "op1", "alive": true, "seq": 7 }] }),
+            ),
+        ];
+        for (status, body) in answers {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let request = read_request(&mut stream).await;
+            assert!(request.line().starts_with("GET /node/panes "));
+            answer(&mut stream, status, &body.to_string()).await;
+        }
+    });
+    // The node is away at first, then found.
+    let asked = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let resolve = || {
+        let (asked, client) = (asked.clone(), client.clone());
+        async move {
+            let nth = asked.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            (nth > 0).then_some(client)
+        }
+    };
+    let started = tokio::time::timeout(
+        Duration::from_secs(10),
+        remote::attach_for_good("op1", Duration::from_millis(5), resolve),
+    )
+    .await
+    .expect("found in the end");
+    assert_eq!(started, Started::Attached { seq: 7 });
+    server.await.unwrap();
+}
+
+/// The stream of a pane its node runs waits when the node does not know
+/// the pane (the node restarted and has not started it again yet), and
+/// follows it once it is there: only a pane this computer started is over
+/// when its node lost it.
+#[tokio::test]
+async fn the_stream_of_a_pane_its_node_runs_waits_for_the_node_to_start_it_again() {
+    use super::remote::{Backoff, Runs, StreamEvent};
+    use super::testing::{accept_ws, send_text};
+    let (listener, client) = listen().await;
+    let server = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        let _ = read_request(&mut stream).await;
+        answer(&mut stream, 404, r#"{"error":"pty not found"}"#).await;
+        let (mut stream, request) = accept_ws(&listener).await;
+        assert!(request.line().contains("/node/panes/op1/stream"));
+        send_text(
+            &mut stream,
+            &json!({ "seq": 1, "data": "back" }).to_string(),
+        )
+        .await;
+        send_text(&mut stream, &json!({ "exit": { "code": 0 } }).to_string()).await;
+    });
+    let (_outgoing, inbox) = tokio::sync::mpsc::unbounded_channel();
+    let events = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let seen = events.clone();
+    let fast = Backoff {
+        first: Duration::from_millis(5),
+        max: Duration::from_millis(20),
+    };
+    tokio::time::timeout(
+        Duration::from_secs(10),
+        remote::follow(
+            "n".into(),
+            "op1".into(),
+            Runs::Node,
+            0,
+            inbox,
+            move |event| seen.lock().unwrap().push(event),
+            fast,
+            move |_| Some(client.clone()),
+        ),
+    )
+    .await
+    .expect("followed to its end");
+    server.await.unwrap();
+    let events = events.lock().unwrap();
+    assert!(
+        matches!(events.first(), Some(StreamEvent::Output { data, .. }) if data == "back"),
+        "{events:?}"
+    );
+    assert_eq!(events.last(), Some(&StreamEvent::Exit));
+}
+
+/// A pane its node runs whose shell ended here is mounted afresh once its
+/// node has reconnected or changed its state: the node may have started it
+/// again. One that runs is left alone, as is a pane this computer runs.
+#[test]
+fn a_pane_whose_shell_ended_is_looked_for_again_when_its_node_comes_back() {
+    use crate::panes::controller::{mounted, stale};
+    use crate::state::live::PaneStatus;
+    let mut m = mirrored();
+    let ws = m.workspace("o1").unwrap().clone();
+    let mut rt = mounted(&ws, &ws.panes[0]);
+    rt.seen = crate::panes::controller::reattach_mark(&m, &ws);
+    rt.status = PaneStatus::Exited;
+    assert!(!stale(&rt, &m), "nothing happened on its node since");
+    // The node says its state changed.
+    hosted::take_in(&mut m, "gpu", answered("b1", 4, vec![nightly()]), NOW);
+    assert!(stale(&rt, &m));
+    rt.status = PaneStatus::Running;
+    assert!(!stale(&rt, &m), "a shell that runs is followed as it is");
+    // Mounted since, then the node reconnects.
+    rt.status = PaneStatus::Exited;
+    rt.seen = crate::panes::controller::reattach_mark(&m, &ws);
+    assert!(!stale(&rt, &m));
+    *m.live.nodes.reattach.entry("gpu".into()).or_default() += 1;
+    assert!(stale(&rt, &m));
+
+    let local = m.workspace("w1").unwrap().clone();
+    let mut here = mounted(&local, &local.panes[0]);
+    here.status = PaneStatus::Exited;
+    assert!(!stale(&here, &m));
 }
 
 /// Letting go of a pane its node runs kills nothing: not at the unmount,

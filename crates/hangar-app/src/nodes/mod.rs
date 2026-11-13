@@ -16,6 +16,7 @@ pub mod ask;
 pub mod away;
 pub mod commands;
 pub mod connect;
+pub mod desk;
 pub mod engine;
 pub mod failure;
 pub mod hosted;
@@ -27,6 +28,8 @@ pub mod repos;
 pub mod runner;
 pub mod wire;
 
+#[cfg(test)]
+mod desk_tests;
 #[cfg(test)]
 mod forward_tests;
 #[cfg(test)]
@@ -150,6 +153,17 @@ pub struct Live {
     /// What the nodes are still to be told of what the person changed on
     /// their mirrors, and the workspaces being handed to them.
     pub outbox: hosted::Outbox,
+    /// The mirrors their node no longer has: it started again without
+    /// them (`hosted::take_in`). Kept in the list, not followed, until the
+    /// person sends each back to its machine or removes it.
+    pub lost: std::collections::HashSet<crate::state::WsId>,
+    /// Moves on, for each node, when it connects and when the state of
+    /// what it runs itself changed: a pane it runs whose shell had ended
+    /// here is looked for again then (`panes::controller::stale`).
+    pub reattach: HashMap<String, u64>,
+    /// What there is to tell the person about the nodes' workspaces, said
+    /// by the shell after the message that found it out.
+    pub told: Vec<crate::shell::Notice>,
     /// The repository of each workspace, read where its folder is: what
     /// says that one repository is open on several machines.
     pub repos: repos::Known,
@@ -216,7 +230,7 @@ pub enum Msg {
     /// Node `id` answered the last thing it was told (`hosted::send_next`).
     Sent {
         id: String,
-        result: Result<(), String>,
+        result: Result<(), hosted::NotTaken>,
     },
     /// The answer to a question about a workspace on a node
     /// (`Overlay::NodeAsk`): `true` goes ahead.
@@ -261,6 +275,16 @@ pub fn client(m: &Model, node_id: &str) -> Option<NodeClient> {
     }
 }
 
+/// An attempt to connect node `node_id` is running now. "Retry now" is not
+/// offered meanwhile: it brings the next attempt forward, and there is
+/// none to bring forward until this one ended.
+pub fn trying(m: &Model, node_id: &str) -> bool {
+    matches!(
+        m.live.nodes.statuses.get(node_id),
+        Some(NodeStatus::Connecting(_))
+    )
+}
+
 /// The label node `node_id` goes by: its name, else its SSH target, else
 /// its id (a node removed from the settings that a workspace still names).
 pub fn label(m: &Model, node_id: &str) -> String {
@@ -300,6 +324,24 @@ pub fn shown(m: &Model, ws: &Workspace) -> bool {
         return true;
     };
     !available(m) || presence::config(m, node).is_none_or(NodeConfig::is_on)
+}
+
+/// The workspace windows that have nothing left to show, to be closed: one
+/// whose workspace was deleted (its panes went with the workspace), and
+/// one whose workspace is out of the lists because its machine was
+/// switched off. That workspace comes back in the main window when the
+/// machine is switched on again.
+pub fn windows_to_close(m: &Model) -> Vec<iced::window::Id> {
+    use crate::shell::WindowKind;
+    m.live
+        .windows
+        .iter()
+        .filter(|(_, kind)| match kind {
+            WindowKind::Workspace(ws) => m.workspace(ws).is_none_or(|ws| !shown(m, ws)),
+            WindowKind::Main => false,
+        })
+        .map(|(id, _)| *id)
+        .collect()
 }
 
 /// Every tunnel killed: the app is quitting.
@@ -588,8 +630,10 @@ fn patch_node(m: &mut Model, id: String, change: impl Fn(&mut NodeConfig) + Send
 }
 
 /// The main window moves on to a workspace the lists still show, when the
-/// one it was on has just gone out of them.
-fn leave_hidden_workspace(m: &mut Model) {
+/// one it is on is out of them: its machine was just switched off, or the
+/// workspace the window was on went and the next one in the state is of a
+/// machine that is off.
+pub fn leave_hidden_workspace(m: &mut Model) {
     if m.active_workspace().is_none_or(|ws| shown(m, ws)) {
         return;
     }
@@ -620,6 +664,7 @@ pub fn update(st: &mut State, m: &mut Model, sv: &Services, msg: Msg) -> Task<Me
             // Just connected: what the node runs itself is read at once,
             // and the repositories of what this computer drives there.
             if !was && client(m, &id).is_some() {
+                *m.live.nodes.reattach.entry(id.clone()).or_default() += 1;
                 m.live.nodes.repos.stale_node(&id);
                 return hosted::fetch(m, &id);
             }

@@ -117,7 +117,10 @@ fn who_names(workspaces: &[Workspace], default: Option<&str>, id: &str) -> Forgo
         default: names_account(default, id),
         ..Forgotten::default()
     };
-    for ws in workspaces {
+    // A workspace its node runs names an account of that machine, which
+    // has its own: an account removed from this computer is not one of
+    // them, whatever its name.
+    for ws in workspaces.iter().filter(|ws| !ws.is_hosted()) {
         if names_account(ws.claude_account.as_deref(), id) {
             forgotten.workspaces.push(ws.id.clone());
         }
@@ -754,5 +757,12 @@ mod tests {
             }
         );
         assert_eq!(who_names(&all, None, "gone"), Forgotten::default());
+
+        // A workspace its node runs names that machine's accounts: nothing
+        // of it is touched, and its node is told nothing.
+        let mut mirror = workspace("w4", Some("perso"), &[("e", Some("perso"))]);
+        mirror.node = Some("n1".into());
+        mirror.hosted = Some(true);
+        assert_eq!(who_names(&[mirror], None, "perso"), Forgotten::default());
     }
 }

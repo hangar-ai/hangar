@@ -48,6 +48,8 @@ pub enum Action {
     RemoveWorkspace(WsId),
     /// Hands a workspace this computer drives on a node to that node.
     MoveToMachine(WsId),
+    /// Hands a mirror its node no longer has back to that node.
+    RunAgain(WsId),
 }
 
 /// The checkouts of the repository of `ws` on other machines, to go to:
@@ -344,6 +346,28 @@ pub fn workspace_entries(ctx: Ctx<'_>, id: &str) -> Vec<Entry<Message>> {
             None => item
                 .on_select(pick(Action::MoveToMachine(ws.id.clone())))
                 .into(),
+        });
+    }
+
+    // A mirror its node started again without: sent back to it from here,
+    // or deleted below, which is then only a line leaving this list.
+    if let Some(node) = ws
+        .node
+        .as_deref()
+        .filter(|_| crate::nodes::hosted::is_lost(ctx.model, &ws.id))
+    {
+        let label = crate::nodes::label(ctx.model, node);
+        let item = menu::item(
+            tr.t_with(
+                Key::NodesLostRestore,
+                &hangar_i18n::args!("node" => label.as_str()),
+            )
+            .into_owned(),
+        )
+        .icon(Icon::MoveToMachine);
+        entries.push(match crate::nodes::hosted::restore_refusal(ctx.model, ws) {
+            Some(reason) => item.disabled_because(reason).into(),
+            None => item.on_select(pick(Action::RunAgain(ws.id.clone()))).into(),
         });
     }
 

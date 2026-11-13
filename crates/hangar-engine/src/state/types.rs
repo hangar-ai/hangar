@@ -255,8 +255,30 @@ pub struct Workspace {
     /// for a workspace this Hangar runs, on this machine or on a node.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hosted: Option<bool>,
+    /// On its way to its node (`hosted` is set too), which has not said
+    /// whether it took it: how it came to be handed over, kept until the
+    /// node's own list settles it. Nothing of it is followed on the node
+    /// meanwhile, and nothing of it is run from here. Written with the
+    /// rest, so a Hangar closed before the answer settles it at its next
+    /// start. Absent otherwise.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub handover: Option<Handover>,
     #[serde(flatten)]
     pub extra: Extra,
+}
+
+/// How a workspace came to be handed to its node (`Workspace::handover`),
+/// which says what becomes of it if the node did not take it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Handover {
+    /// Just made here, for the node to run from the start: taken back out.
+    Created,
+    /// Driven from this computer until then: driven from here again.
+    Moved,
+    /// A mirror its node no longer had, sent back to it: a mirror the node
+    /// does not have again.
+    Restored,
 }
 
 /// A pane of the grid that shows a preview rather than a terminal. Its id is
@@ -600,6 +622,13 @@ pub struct NodeConfig {
     /// its workspaces are out of the lists until it is switched on again.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enabled: Option<bool>,
+    /// The run of its daemon (`boot` of `GET /node/own/state`) whose list
+    /// of workspaces the mirrors here last agreed with. A list that comes
+    /// under another run and lacks one of them is a node that started
+    /// again without it (its state lost, another home), not a workspace
+    /// deleted there: that mirror is kept.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub boot: Option<String>,
     #[serde(flatten)]
     pub extra: Extra,
 }

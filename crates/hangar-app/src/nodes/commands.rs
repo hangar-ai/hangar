@@ -102,11 +102,23 @@ fn base(node: &NodeConfig) -> Vec<String> {
     args
 }
 
-/// [`base`], and a session of the master when it is ours. `ControlMaster=no`:
-/// a command never becomes a master itself, and goes over a connection of
-/// its own while the master is not up (or no more).
+/// A link that died under a command is noticed within a minute, whatever
+/// connection the command goes over: left to TCP, a remote command on a
+/// dead link waits for as long as the kernel does, and the node stays
+/// "connecting" all that time.
+const ALIVE: [&str; 4] = [
+    "-o",
+    "ServerAliveInterval=15",
+    "-o",
+    "ServerAliveCountMax=3",
+];
+
+/// [`base`], [`ALIVE`], and a session of the master when it is ours.
+/// `ControlMaster=no`: a command never becomes a master itself, and goes
+/// over a connection of its own while the master is not up (or no more).
 fn common(node: &NodeConfig, mux: &Mux) -> Vec<String> {
     let mut args = base(node);
+    args.extend(ALIVE.map(String::from));
     if let Mux::Own(path) = mux {
         args.extend([
             "-o".to_string(),
