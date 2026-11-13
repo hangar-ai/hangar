@@ -921,9 +921,11 @@ async fn what_a_mirror_asks_is_applied_and_the_shells_follow() {
         let said = format!("{op:?}");
         assert!(rig.host.apply_ops("shop", vec![op]).is_err(), "{said}");
     }
+    // Absolute on the machine that runs the shells, whichever system it has.
+    let worktree = scratch("engine-ops-worktree");
     let taken = vec![
         patched(PaneFields {
-            cwd: Some(Some("/srv/worktrees/a".into())),
+            cwd: Some(Some(worktree.to_string_lossy().into_owned())),
             ..PaneFields::default()
         }),
         patched(PaneFields {
