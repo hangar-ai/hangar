@@ -10,6 +10,8 @@ Every release, with its installers, is on the
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-11-13
+
 ### Added
 
 - **A Hangar with no window, on a server.** A node runs workspaces of its own now, with no desktop connected: their state is kept on the node, their panes start there with Claude Code, and their agents' requests (workers, deliveries, the board) are answered there, so they keep working with your computer off. Make one with `hangar-node workspace add <folder>` on the server (or from Discord); `hangar-node workspaces` lists them, and a connected desktop lists them in its navigator among the others, opens them with their terminals live, and changes them there (a rename, a pane opened, closed or restarted, a preset, a deletion: each is sent to the node, which stays their owner; while the node is offline they can be looked at, not changed). Merge on one of their deliveries and Stop workers are carried out by the node. A workspace made from the desktop with « Runs on » set to a node is the node's own from the start, and one made before, which still stops with your computer, has « Move to {machine} » in its menu in the navigator: its agents are restarted on the machine on their sessions. If the machine's answer is lost on the way, the workspace waits as it is and the machine's own list settles it at the next read; and a workspace a machine came back without after a restart is kept in the list, marked, with « Run on {machine} again » in its menu. `hangar-node service install` makes the node a systemd service that starts on its own.
@@ -789,6 +791,7 @@ statistics, workspace sleep and per-workspace MCP servers.
 - Automatic updates from signed GitHub releases.
 - An interface in English and French (0.1.1).
 
+[2.3.0]: https://github.com/simnJS/hangar-ai/releases/tag/v2.3.0
 [2.2.1]: https://github.com/simnJS/hangar-ai/releases/tag/v2.2.1
 [2.2.0]: https://github.com/simnJS/hangar-ai/releases/tag/v2.2.0
 [2.1.0]: https://github.com/simnJS/hangar-ai/releases/tag/v2.1.0
