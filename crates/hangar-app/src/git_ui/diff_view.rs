@@ -1157,8 +1157,8 @@ fn table<'a>(
 
     let (first, last) = visible_range(ds.diff_scroll.y, ds.diff_scroll.height, shown.rows.len());
     let mut lines = column![filler::vertical().height(first as f32 * ROW)].width(total);
-    for at in first..last {
-        lines = lines.push(diff_row(t, &shown.rows[at], number_w, sign_w, total));
+    for row in &shown.rows[first..last] {
+        lines = lines.push(diff_row(t, row, number_w, sign_w, total));
     }
     lines = lines.push(filler::vertical().height((shown.rows.len() - last) as f32 * ROW));
 
