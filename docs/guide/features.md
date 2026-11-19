@@ -6,7 +6,7 @@
 
 <p align="center"><sub>Hangar 2.0's panes view on checkout-v2, a sample repository.</sub></p>
 
-HangarAI is an open-source desktop app for Windows, macOS and Linux. It runs coding agents,
+HangarAI is a native desktop app for Windows, macOS and Linux. It runs coding agents,
 Claude Code and Codex (beta), as many sessions as you need, each in a real terminal next to
 plain shells, and gives them a shared place to coordinate.
 
@@ -131,8 +131,7 @@ until you enable them, and each can be turned off again without losing anything.
   with its SSH target: Hangar installs it with your SSH keys, starts it and keeps a tunnel
   to it, with nothing to open on the server. A workspace can then live on the node: its
   terminals, agents, board and memory run there, the window shows them like a local
-  workspace's, and it catches up on what happened while your computer was off. Design:
-  [docs/native/nodes.md](../native/nodes.md).
+  workspace's, and it catches up on what happened while your computer was off.
 - **Pane scopes** (Linux). Each pane runs in a systemd scope of its own, so when memory runs
   out the system stops the pane that uses it, a build for instance, rather than Hangar and
   every agent with it.
@@ -152,21 +151,18 @@ agents, MCP servers, hooks), setup commands that you see verbatim and run once, 
 pages of its own that talk to Hangar through a small, declared API, each permission accepted
 by you. Claude Code loads the whole plugin; Codex loads its MCP servers at each launch, and
 its skills and hooks once you **Add to Codex** the kit; each kit lists what reaches which
-agent ([details](../kits.md#claude-code-and-codex)).
+agent.
 
 - **HTML tabs** are the tabs of 1.x, with the same `window.hangar` API, the same
-  permissions, and [Hangar UI](../kit-ui.md), the stylesheet that makes them look like
-  Hangar. In 2.0 they open in the `hangar-webview` helper, in a window of their own.
+  permissions, and Hangar UI, the stylesheet that makes them look like Hangar. In 2.0 they
+  open in the `hangar-webview` helper, in a window of their own.
 - **Native tabs** (new in 2.0) are Rust compiled to WebAssembly with the kit SDK,
   `hangar-kit-sdk`. A tab describes its page as widgets, and Hangar draws them with its own,
   in your theme and language. The module runs in a sandbox with time and memory limits, and
   Hangar answers only the calls its manifest declares. A kit can carry both kinds, so that it
   still opens on 1.x.
 
-Add a kit from a folder, a GitHub link or the Library. To write one, read
-[docs/kits.md](../kits.md) (the contract) and
-[docs/native/kits-native.md](../native/kits-native.md) (native tabs and the SDK), look at
-[`examples/kits/hello-native`](../../examples/kits/hello-native), and start from
+Add a kit from a folder, a GitHub link or the Library. To write one, start from
 [`kit-template`](https://github.com/hangar-ai/kit-template).
 
 ## Performance

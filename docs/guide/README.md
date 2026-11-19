@@ -12,4 +12,4 @@ The details behind the [README](../../README.md):
 - [MCP server](mcp.md): how agents reach Hangar, and every tool they get.
 - [Privacy](privacy.md): what stays on your machine, and when Hangar goes online.
 
-Deeper references: [kits](../kits.md), [Hangar UI](../kit-ui.md), [native kit tabs](../native/kits-native.md), [nodes](../native/nodes.md), [packaging](../native/PACKAGING.md), [benchmark](../native/BENCHMARK.md).
+Deeper reference: [benchmark](../native/BENCHMARK.md), how 2.0 against 1.12.1 was measured.

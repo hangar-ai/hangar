@@ -158,14 +158,9 @@
       note.appendChild(why);
       note.appendChild(document.createTextNode('.'));
     }
-    // Releases after 2.2.0 are not built for the Mac: the button gets its last disk image.
+    // Releases after 2.2.0 are not built for the Mac yet: the button gets its latest disk image.
     if (note && os === 'macos') {
-      note.appendChild(document.createTextNode(' On a Mac that is 2.2.0, the last version built for it; for a later one, '));
-      var build = document.createElement('a');
-      build.href = 'https://github.com/hangar-ai/hangar#build-on-macos';
-      build.textContent = 'build it on your Mac';
-      note.appendChild(build);
-      note.appendChild(document.createTextNode('.'));
+      note.appendChild(document.createTextNode(' On a Mac that is 2.2.0, the latest for it for now; new macOS builds are on their way.'));
     }
   })();
 

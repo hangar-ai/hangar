@@ -29,8 +29,7 @@ what it prints:
 - Windows, in PowerShell: `irm https://chatgpt.com/codex/install.ps1 | iex`
 
 `npm install -g @openai/codex` and `brew install --cask codex` work too: Hangar finds `codex`
-on your `PATH` and in the installer's folders. On NixOS, the installer's binary starts as it
-is. Hangar never updates Codex itself.
+on your `PATH` and in the installer's folders. Hangar never updates Codex itself.
 
 **Sign in** opens Codex in a pane, where it asks for your ChatGPT account or an OpenAI API
 key the first time; the sheet notices when you are signed in. Hangar never sees the key.
@@ -146,7 +145,7 @@ changes with them.
 | `usage.context` | from the transcript | from the protocol, live | from the history files |
 | `usage.limits` | reported by the mod | from the protocol, exact | Claude Code: unknown; Codex: from its session files |
 | `mcp` | a file per launch (`--mcp-config`); a custom set keeps the others out | `-c` overrides, never written to Codex's configuration; a custom set turns the others off | the same |
-| `extensions`: what a [kit](../kits.md#claude-code-and-codex) brings | MCP servers, skills, hooks, commands, agents, output styles, at each launch | MCP servers at each launch; skills and hooks once added to Codex; no commands, agents or output styles | the same |
+| `extensions`: what a kit brings | MCP servers, skills, hooks, commands, agents, output styles, at each launch | MCP servers at each launch; skills and hooks once added to Codex; no commands, agents or output styles | the same |
 | `accounts` | a folder per account (`CLAUDE_CONFIG_DIR`) | a folder per account (`CODEX_HOME`) | the same |
 | `images` | takes images in | generates images, takes images in | the same |
 | `headless`: reviewer, `delegate` | one-shot (`claude -p`) | one-shot (`codex exec`) and its app-server | the same |
@@ -167,7 +166,7 @@ changes with them.
 - **Kits.** Codex cannot load a kit's skills and hooks for one session, so **Add to Codex**
   installs them for every Codex session on the machine, until you remove them; Codex runs a
   kit's hooks only once you trust them in its `/hooks`. A kit's commands, agents and output
-  styles are Claude Code's only. [Kits](../kits.md#claude-code-and-codex).
+  styles are Claude Code's only.
 - **The playbook.** The MCP panel's **Write the agent playbook** writes `CLAUDE.md`, and
   Codex reads `AGENTS.md`. Codex orchestrators and workers get their role from Hangar at
   launch either way.
