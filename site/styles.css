@@ -1,0 +1,1531 @@
+/* ═══════════════════════════════════════════════════════════════
+   HangarAI site
+
+   The page wears the app's own tokens. The values below are Graphite,
+   the default theme, exactly as crates/hangar-theme derives them for
+   the app's chrome, and GitHub Light for a visitor whose system is
+   light; main.js swaps in another theme's set when a visitor picks
+   one, as the app's setting does for its window.
+
+   Graphite is near-monochrome on purpose: colour means something.
+   Green is an agent at work, amber one waiting on you, cyan your turn,
+   blue the focus and the thing to click. The page keeps to that.
+   ═══════════════════════════════════════════════════════════════ */
+
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url(fonts/inter-latin-opsz.woff2) format("woff2-variations"),
+    url(fonts/inter-latin-opsz.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  /* Graphite, from deriveChromeTokens() */
+  --bg: #121316;
+  --bg-sunken: #0c0c0e;
+  --chrome: #1b1c1f;
+  --chrome-bar: #202124;
+  --raised: #232426;
+  --border: #2c2d30;
+  --border-strong: #414245;
+  --sep: #090a0b;
+  --line: rgba(255, 255, 255, 0.07);
+  --line-strong: rgba(255, 255, 255, 0.12);
+  --fg-hi: #ecedf0;
+  --fg: #c8c9ce;
+  --fg-secondary: #9c9da2;
+  --fg-muted: #8c8d91;
+  --accent: #3e8bff;
+  --accent-hi: #68a5ff;
+  --accent-fg: #0b192e;
+  --accent-soft: rgba(62, 139, 255, 0.14);
+  --state-working: #5fd27f;
+  --state-waiting: #e7c06b;
+  --state-yours: #6fd4df;
+  --danger: #ff7b72;
+  --seg-track: #121316;
+  --seg-thumb: #3d3e41;
+  --shadow: rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
+
+  /* the app's radii: controls 4–6, cards 8, floating panels 10 */
+  --r-xs: 4px;
+  --r: 6px;
+  --r-lg: 8px;
+  --r-xl: 10px;
+
+  --ui: "Inter Variable", -apple-system, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI",
+    system-ui, sans-serif;
+  --mono: "Cascadia Mono", "SF Mono", ui-monospace, Consolas, "Liberation Mono", monospace;
+
+  --wrap: 1120px;
+  --wrap-wide: 1280px;
+  --gutter: clamp(16px, 4vw, 40px);
+  --bar-h: 52px;
+  --sec-pad: clamp(88px, 11vw, 152px);
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* A light system gets GitHub Light, one of the app's two light themes,
+   until the visitor picks a theme (main.js sets data-theme to its id). */
+@media (prefers-color-scheme: light) {
+  :root[data-theme="auto"] {
+    --bg: #ffffff;
+    --bg-sunken: #ffffff;
+    --chrome: #f5f5f5;
+    --chrome-bar: #f0f0f0;
+    --raised: #ededed;
+    --border: #e3e3e3;
+    --border-strong: #cccccc;
+    --sep: #dbdbdb;
+    --line: rgba(0, 0, 0, 0.08);
+    --line-strong: rgba(0, 0, 0, 0.14);
+    --fg-hi: #1b1f23;
+    --fg: #24292f;
+    --fg-secondary: #595c61;
+    --fg-muted: #686c71;
+    --accent: #0969da;
+    --accent-hi: #085cc0;
+    --accent-fg: #ffffff;
+    --accent-soft: rgba(9, 105, 218, 0.14);
+    --state-working: #116329;
+    --state-waiting: #9b4708;
+    --state-yours: #166a6d;
+    --danger: #ba1f29;
+    --seg-track: #dedede;
+    --seg-thumb: #ffffff;
+    --shadow: rgba(0, 0, 0, 0.12);
+    color-scheme: light;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-padding-top: calc(var(--bar-h) + 16px);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--ui);
+  font-size: 16px;
+  line-height: 1.6;
+  font-feature-settings: "cv11", "ss01";
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+}
+
+h1,
+h2,
+h3,
+p,
+figure,
+ol,
+ul {
+  margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  color: var(--fg-hi);
+  font-weight: 620;
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+a {
+  color: var(--accent-hi);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  color: var(--fg-hi);
+}
+
+b,
+strong {
+  color: var(--fg-hi);
+  font-weight: 600;
+}
+
+code {
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: 0.875em;
+  overflow-wrap: anywhere;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--fg-hi);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-hi);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+
+.wrap,
+.wrap-wide {
+  width: 100%;
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.wrap {
+  max-width: calc(var(--wrap) + 2 * var(--gutter));
+}
+
+.wrap-wide {
+  max-width: calc(var(--wrap-wide) + 2 * var(--gutter));
+}
+
+/* Without script there is no theme to try: that part steps aside. */
+html:not(.js) .js-only {
+  display: none;
+}
+
+.skip {
+  position: absolute;
+  top: 8px;
+  left: -9999px;
+  z-index: 100;
+  padding: 8px 14px;
+  border-radius: var(--r);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.skip:focus {
+  left: 8px;
+}
+
+/* ── buttons ─────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r);
+  background: var(--raised);
+  color: var(--fg-hi);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 560;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 140ms var(--ease), border-color 140ms var(--ease),
+    filter 140ms var(--ease);
+}
+
+.btn:hover {
+  border-color: var(--fg-muted);
+  color: var(--fg-hi);
+}
+
+.btn--primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+.btn--primary:hover {
+  border-color: transparent;
+  color: var(--accent-fg);
+  filter: brightness(1.1);
+}
+
+.btn--sm {
+  min-height: 30px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.btn--lg {
+  min-height: 48px;
+  padding: 0 22px;
+  font-size: 15.5px;
+}
+
+.ext {
+  opacity: 0.7;
+  font-family: var(--mono);
+  font-size: 0.85em;
+  font-weight: 500;
+}
+
+/* ── top bar: the app's toolbar ──────────────────────────────── */
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  height: var(--bar-h);
+  border-bottom: 1px solid var(--sep);
+  background: color-mix(in srgb, var(--chrome-bar) 88%, transparent);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  backdrop-filter: saturate(1.4) blur(14px);
+}
+
+.bar__in {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 100%;
+  max-width: calc(var(--wrap-wide) + 2 * var(--gutter));
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--fg-hi);
+  text-decoration: none;
+}
+
+.brand:hover {
+  color: var(--fg-hi);
+}
+
+.brand__mark {
+  flex: none;
+}
+
+.brand__name {
+  font-size: 14.5px;
+  font-weight: 640;
+  letter-spacing: -0.01em;
+}
+
+.brand__ver {
+  color: var(--fg-muted);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.seg {
+  display: flex;
+  gap: 2px;
+  margin-inline: auto;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--seg-track);
+}
+
+.seg__btn {
+  padding: 4px 11px;
+  border-radius: var(--r-xs);
+  color: var(--fg-secondary);
+  font-size: 13px;
+  font-weight: 520;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.seg__btn:hover {
+  color: var(--fg-hi);
+}
+
+.seg__btn[aria-current="true"] {
+  background: var(--seg-thumb);
+  color: var(--fg-hi);
+}
+
+.bar__end {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.seg + .bar__end {
+  margin-left: 0;
+}
+
+.iconlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: var(--r);
+  color: var(--fg-secondary);
+  font-size: 13px;
+  font-weight: 520;
+  text-decoration: none;
+}
+
+.iconlink:hover {
+  background: var(--raised);
+  color: var(--fg-hi);
+}
+
+/* ── hero ────────────────────────────────────────────────────── */
+
+.hero {
+  position: relative;
+  padding-top: clamp(64px, 9vw, 120px);
+  padding-bottom: var(--sec-pad);
+  isolation: isolate;
+}
+
+/* One soft pool of the accent behind the title and the window: the
+   only decoration on the page, and it takes the theme's accent.
+   An element rather than a ::before, so assets/motion.js can drift it. */
+.hero__glow {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: -1;
+  height: min(1100px, 120vw);
+  background: radial-gradient(60% 50% at 50% 38%, var(--accent-soft), transparent 70%);
+  pointer-events: none;
+}
+
+.hero__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.release {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 14px 5px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--chrome);
+  color: var(--fg);
+  font-size: 13.5px;
+  font-weight: 520;
+  text-decoration: none;
+}
+
+.release:hover {
+  border-color: var(--accent);
+  color: var(--fg-hi);
+}
+
+.release__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--state-working);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--state-working) 22%, transparent);
+}
+
+.hero__title {
+  max-width: 15ch;
+  margin-top: 28px;
+  font-size: clamp(40px, 6.4vw, 76px);
+  font-weight: 680;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+}
+
+.hero__lede {
+  max-width: 38em;
+  margin-top: 24px;
+  color: var(--fg-secondary);
+  font-size: clamp(17px, 1.6vw, 19px);
+  line-height: 1.55;
+}
+
+.hero__cta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 36px;
+}
+
+.hero__os {
+  display: flex;
+  gap: 6px;
+  margin-top: 16px;
+  font-size: 13.5px;
+}
+
+.hero__os a {
+  padding: 2px 8px;
+  border-radius: var(--r-xs);
+  color: var(--fg-secondary);
+  text-decoration: none;
+}
+
+.hero__os a + a::before {
+  content: "";
+}
+
+.hero__os a:hover {
+  background: var(--raised);
+  color: var(--fg-hi);
+}
+
+.hero__fine {
+  margin-top: 6px;
+  color: var(--fg-muted);
+  font-size: 13.5px;
+}
+
+.hero__fine a {
+  color: inherit;
+}
+
+/* ── screenshots: a window of the app ─────────────────────────── */
+
+.shot {
+  margin-top: clamp(56px, 7vw, 88px);
+}
+
+.window {
+  overflow: hidden;
+  border-radius: var(--r-xl);
+  background: var(--chrome);
+  box-shadow: 0 0 0 1px var(--border-strong), 0 0 0 7px color-mix(in srgb, var(--fg-hi) 4%, transparent),
+    0 40px 100px -40px var(--shadow), 0 18px 40px -24px var(--shadow);
+}
+
+.window picture,
+.window img {
+  width: 100%;
+}
+
+.window--panel {
+  max-width: 340px;
+}
+
+/* The hero has a capture in each scheme; the page shows the one that
+   matches the theme on screen (main.js sets data-scheme). */
+.for-light {
+  display: none;
+}
+
+:root[data-scheme="light"] .for-dark {
+  display: none;
+}
+
+:root[data-scheme="light"] .for-light {
+  display: block;
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme="auto"] .for-dark {
+    display: none;
+  }
+
+  :root[data-theme="auto"] .for-light {
+    display: block;
+  }
+}
+
+.caption {
+  margin-top: 20px;
+  color: var(--fg-muted);
+  font-size: 13.5px;
+  text-align: center;
+}
+
+/* ── sections ────────────────────────────────────────────────── */
+
+.sec {
+  padding-block: var(--sec-pad);
+}
+
+.sec--band {
+  border-block: 1px solid var(--border);
+  background: color-mix(in srgb, var(--chrome) 55%, var(--bg-sunken));
+}
+
+.sec--tight {
+  padding-block: clamp(64px, 8vw, 104px);
+}
+
+.head {
+  max-width: 44em;
+}
+
+.head--center {
+  margin-inline: auto;
+  text-align: center;
+}
+
+.eyebrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  color: var(--accent-hi);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.tag {
+  padding: 1px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--fg-secondary);
+  font-size: 11.5px;
+  font-weight: 560;
+  letter-spacing: 0.02em;
+  vertical-align: 2px;
+}
+
+.sec__title {
+  font-size: clamp(30px, 4.2vw, 48px);
+  font-weight: 660;
+  line-height: 1.08;
+  letter-spacing: -0.028em;
+}
+
+.sec__title--sm {
+  font-size: clamp(26px, 3vw, 34px);
+}
+
+.sec__lede {
+  max-width: 38em;
+  margin-top: 18px;
+  color: var(--fg-secondary);
+  font-size: clamp(16.5px, 1.4vw, 18px);
+  line-height: 1.6;
+}
+
+.head--center .sec__lede {
+  margin-inline: auto;
+}
+
+.fine {
+  margin-top: 20px;
+  color: var(--fg-muted);
+  font-size: 13.5px;
+}
+
+/* chat: copy beside a tall panel --------------------------------- */
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: clamp(40px, 7vw, 112px);
+}
+
+.split__art {
+  justify-self: center;
+}
+
+.points {
+  display: grid;
+  gap: 18px;
+  margin-top: 36px;
+  padding: 0;
+  list-style: none;
+}
+
+.points li {
+  position: relative;
+  padding-left: 26px;
+  color: var(--fg-secondary);
+}
+
+.points li::before {
+  content: "";
+  position: absolute;
+  top: 0.62em;
+  left: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+/* cards ----------------------------------------------------------- */
+
+.duo {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin-top: clamp(56px, 7vw, 88px);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: clamp(22px, 2.6vw, 32px);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--chrome);
+}
+
+.card h3 {
+  font-size: 20px;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+}
+
+.card p {
+  margin-top: 10px;
+  color: var(--fg-secondary);
+  font-size: 15.5px;
+}
+
+.card__art {
+  overflow: hidden;
+  margin-top: 28px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+}
+
+.card .delivery {
+  margin-top: 28px;
+}
+
+/* the delivery: the one moment the page moves by itself -------- */
+
+.delivery {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--bg);
+}
+
+.delivery__head {
+  display: grid;
+  gap: 2px;
+  padding: 14px 18px 13px;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.delivery__title {
+  color: var(--fg-hi);
+  font-size: 14px;
+  font-weight: 620;
+}
+
+.delivery__task {
+  color: var(--fg-secondary);
+  font-size: 13.5px;
+}
+
+.delivery__list {
+  padding: 8px 0;
+  list-style: none;
+}
+
+.dstep {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  column-gap: 14px;
+  padding: 9px 18px;
+}
+
+.dstep::before {
+  content: "";
+  position: absolute;
+  top: 32px;
+  bottom: -10px;
+  left: 28.5px;
+  width: 1px;
+  background: var(--border-strong);
+}
+
+.dstep:last-child::before {
+  display: none;
+}
+
+.dstep__mark {
+  position: relative;
+  grid-row: span 2;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--bg);
+  transition: background-color 200ms var(--ease), border-color 200ms var(--ease);
+}
+
+.dstep__what {
+  color: var(--fg-hi);
+  font-size: 15px;
+  font-weight: 560;
+  line-height: 1.4;
+  transition: color 200ms var(--ease);
+}
+
+.dstep__why {
+  margin-top: 2px;
+  color: var(--fg-muted);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.dstep[data-state="pending"] .dstep__what {
+  color: var(--fg-muted);
+}
+
+.dstep[data-state="running"] .dstep__mark {
+  border-color: var(--state-working);
+  border-top-color: transparent;
+  animation: spin 0.8s linear infinite;
+}
+
+.dstep[data-state="done"] .dstep__mark {
+  border-color: var(--state-working);
+  background: var(--state-working);
+}
+
+.dstep[data-state="done"] .dstep__mark::after {
+  content: "";
+  position: absolute;
+  top: 3.5px;
+  left: 6px;
+  width: 5px;
+  height: 9px;
+  border: solid var(--bg);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.delivery__note {
+  padding: 10px 18px 12px;
+  border-top: 1px solid var(--line);
+  color: var(--fg-muted);
+  font-size: 12.5px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* facts: short points that fold on a phone ------------------------- */
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px clamp(24px, 4vw, 56px);
+  margin-top: clamp(48px, 6vw, 72px);
+}
+
+/* Open in the page itself, so nothing hides without script; main.js
+   folds them to their titles on a phone. */
+.fold summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--fg-hi);
+  font-size: 15.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  list-style: none;
+  cursor: pointer;
+}
+
+.fold summary::-webkit-details-marker {
+  display: none;
+}
+
+.fold summary::after {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-right: 4px;
+  border: solid var(--fg-muted);
+  border-width: 0 1.5px 1.5px 0;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 160ms var(--ease);
+}
+
+.fold[open] summary::after {
+  transform: translateY(2px) rotate(-135deg);
+}
+
+.fold summary:hover {
+  color: var(--accent-hi);
+}
+
+/* Where they all fit, they simply stay open. */
+@media (min-width: 600px) {
+  .fold summary {
+    pointer-events: none;
+  }
+
+  .fold summary::after {
+    display: none;
+  }
+}
+
+.fold p {
+  margin-top: 6px;
+  color: var(--fg-secondary);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+/* themes ------------------------------------------------------------ */
+
+.themes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 20px;
+  margin-top: 40px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+}
+
+.themes__label {
+  color: var(--fg-secondary);
+  font-size: 14px;
+  font-weight: 560;
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sw {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 11px 0 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--chrome);
+  color: var(--fg);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 520;
+  cursor: pointer;
+}
+
+.sw:hover {
+  border-color: var(--border-strong);
+  color: var(--fg-hi);
+}
+
+.sw[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--fg-hi);
+}
+
+.sw__strip {
+  display: flex;
+  overflow: hidden;
+  height: 18px;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px var(--line-strong);
+}
+
+.sw__strip i {
+  width: 6px;
+}
+
+/* experiments --------------------------------------------------- */
+
+.exp {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin-top: clamp(48px, 6vw, 72px);
+}
+
+.card--wide {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr);
+  align-items: center;
+  gap: clamp(28px, 4vw, 56px);
+}
+
+.card--wide .card__art {
+  margin-top: 0;
+}
+
+.card h3 .tag {
+  margin-left: 6px;
+}
+
+/* performance --------------------------------------------------- */
+
+.perf__group {
+  margin-top: clamp(48px, 6vw, 72px);
+  color: var(--fg-secondary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.perf {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--border);
+}
+
+.perf--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.perf__item {
+  padding: 24px 24px 22px;
+  background: var(--chrome);
+}
+
+.perf__now {
+  color: var(--fg-hi);
+  font-size: clamp(34px, 3.8vw, 46px);
+  font-weight: 660;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.perf__now small {
+  margin-left: 4px;
+  color: var(--fg-secondary);
+  font-size: 0.42em;
+  font-weight: 560;
+  letter-spacing: 0;
+}
+
+.perf__what {
+  margin-top: 14px;
+  color: var(--fg);
+  font-size: 14.5px;
+  line-height: 1.45;
+}
+
+.perf__was {
+  margin-top: 6px;
+  color: var(--fg-muted);
+  font-size: 13.5px;
+}
+
+.perf__note {
+  margin-top: 24px;
+}
+
+/* also in the box ------------------------------------------------- */
+
+.specs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 28px clamp(20px, 3vw, 40px);
+  margin-top: 36px;
+}
+
+/* ── download ────────────────────────────────────────────────── */
+
+.download {
+  border-top: 1px solid var(--border);
+}
+
+.plats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: clamp(40px, 5vw, 56px);
+}
+
+.plat {
+  display: flex;
+  flex-direction: column;
+  padding: 26px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--chrome);
+}
+
+.plat.is-you {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 24px 60px -36px var(--accent);
+}
+
+.plat__os {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 20px;
+}
+
+.plat__you {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-hi);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+/* Two lines on every card, so the three buttons line up. */
+.plat__what {
+  min-height: calc(2 * 1.6em);
+  margin-top: 8px;
+  color: var(--fg-secondary);
+  font-size: 14.5px;
+}
+
+.plat__get {
+  margin-top: 22px;
+}
+
+.plat__note {
+  margin-top: 12px;
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+
+.plat__alts a {
+  margin-left: 6px;
+  font-family: var(--mono);
+}
+
+.after {
+  margin-top: 32px;
+  color: var(--fg-secondary);
+  font-size: 14.5px;
+  text-align: center;
+}
+
+/* ── FAQ ─────────────────────────────────────────────────────── */
+
+.faq {
+  border-top: 1px solid var(--border);
+}
+
+.faq__in {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 40px;
+}
+
+.qa details {
+  border-bottom: 1px solid var(--border);
+}
+
+.qa details:first-child {
+  border-top: 1px solid var(--border);
+}
+
+.qa summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 2px;
+  color: var(--fg-hi);
+  font-size: 16.5px;
+  font-weight: 560;
+  list-style: none;
+  cursor: pointer;
+}
+
+.qa summary::-webkit-details-marker {
+  display: none;
+}
+
+.qa summary::after {
+  content: "+";
+  flex: none;
+  color: var(--fg-muted);
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1;
+  transition: transform 160ms var(--ease);
+}
+
+.qa details[open] summary::after {
+  transform: rotate(45deg);
+}
+
+.qa summary:hover {
+  color: var(--accent-hi);
+}
+
+.qa__a {
+  padding: 0 2px 20px;
+  color: var(--fg-secondary);
+  font-size: 15.5px;
+}
+
+.qa__a p + p {
+  margin-top: 10px;
+}
+
+/* ── footer ──────────────────────────────────────────────────── */
+
+.foot {
+  padding-block: 40px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-sunken);
+}
+
+.foot__in {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 28px;
+}
+
+.foot__by {
+  color: var(--fg-muted);
+  font-size: 13.5px;
+}
+
+.foot__by a {
+  color: var(--fg-secondary);
+}
+
+.foot__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin-left: auto;
+  font-size: 13.5px;
+}
+
+.foot__links a {
+  color: var(--fg-secondary);
+  text-decoration: none;
+}
+
+.foot__links a:hover {
+  color: var(--fg-hi);
+}
+
+/* ── narrower screens ────────────────────────────────────────── */
+
+@media (max-width: 1080px) {
+  .seg {
+    display: none;
+  }
+
+  .perf {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .specs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 959px) {
+  .split,
+  .duo,
+  .exp,
+  .card--wide,
+  .faq__in {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .plats,
+  .facts,
+  .perf--three {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .faq__in {
+    gap: 20px;
+  }
+}
+
+@media (max-width: 699px) {
+  .iconlink__text {
+    display: none;
+  }
+}
+
+/* A phone keeps every point and drops detail: .wide-only words go,
+   the facts fold to their titles (main.js), and each picture switches
+   to its -m crop, one panel drawn near the size the app draws it. */
+@media (max-width: 599px) {
+  .wide-only {
+    display: none;
+  }
+
+  .hero {
+    padding-top: 48px;
+  }
+
+  .hero__title {
+    letter-spacing: -0.03em;
+  }
+
+  .hero__cta {
+    flex-direction: column;
+    align-self: stretch;
+  }
+
+  .shot {
+    margin-top: 44px;
+  }
+
+  .window {
+    border-radius: var(--r-lg);
+    box-shadow: 0 0 0 1px var(--border-strong), 0 24px 48px -28px var(--shadow);
+  }
+
+  .card {
+    padding: 20px 16px;
+  }
+
+  .card__art,
+  .card .delivery {
+    margin-top: 20px;
+  }
+
+  .dstep {
+    padding-inline: 14px;
+  }
+
+  .dstep::before {
+    left: 24.5px;
+  }
+
+  .perf,
+  .specs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .perf__item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: baseline;
+    column-gap: 16px;
+    padding: 18px;
+  }
+
+  .perf__now {
+    grid-row: span 2;
+    font-size: 30px;
+  }
+
+  .perf__what {
+    margin-top: 0;
+  }
+
+  .facts,
+  .specs {
+    gap: 0;
+  }
+
+  .facts .fold,
+  .specs .fold {
+    padding-block: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .facts .fold:first-child,
+  .specs .fold:first-child {
+    border-top: 1px solid var(--border);
+  }
+
+  .foot__links {
+    margin-left: 0;
+  }
+}
+
+/* ── motion (assets/motion.js) ───────────────────────────────────
+   index.html sets .motion on <html> before the first paint when the
+   visitor allows motion; motion.js adds .motion-ready when it runs.
+   Between the two, the hero's copy waits hidden and its window leans
+   back exactly as motion.js starts them, so nothing jumps. Without
+   script, or with reduced motion, none of this applies. */
+
+html.motion {
+  scroll-behavior: auto;
+}
+
+html.motion:not(.motion-ready) .hero__copy > * {
+  opacity: 0;
+}
+
+@media (min-width: 960px) {
+  html.motion:not(.motion-ready) .shot--hero .window {
+    transform: perspective(1400px) translate3d(0, 60px, 0) rotateX(18deg) scale(0.88);
+  }
+}
+
+@media (max-width: 959px) {
+  html.motion:not(.motion-ready) .shot--hero .window {
+    transform: translate3d(0, 30px, 0) scale(0.96);
+  }
+}
+
+html.motion .shot--hero .window {
+  will-change: transform;
+}
+
+/* a word of a title, and a line of one in its mask */
+.w {
+  display: inline-block;
+}
+
+.rl {
+  display: block;
+  overflow: hidden;
+  /* room for descenders inside the mask, given back below */
+  padding-bottom: 0.12em;
+  margin-bottom: -0.12em;
+}
+
+.rl > span {
+  display: block;
+}
+
+/* the tasks panel's veils and bars, placed over the capture */
+.window--panel {
+  position: relative;
+}
+
+.tfx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.tfx__veil,
+.tfx__bar {
+  position: absolute;
+}
+
+.tfx__bar {
+  overflow: hidden;
+  border-radius: 999px;
+}
+
+.tfx__fill {
+  position: absolute;
+  inset: 0;
+}
+
+/* the delivery: the stage under way stands out, a passed one links on */
+.dstep {
+  transition: background-color 200ms var(--ease);
+}
+
+.dstep[data-state="running"] {
+  background: color-mix(in srgb, var(--state-working) 7%, transparent);
+}
+
+.dstep::before {
+  transition: background-color 200ms var(--ease);
+}
+
+.dstep[data-state="done"]::before {
+  background: color-mix(in srgb, var(--state-working) 55%, var(--border-strong));
+}
+
+/* performance: before (the whole bar) and after (its share) */
+.perf__item {
+  position: relative;
+}
+
+.perf__num {
+  display: inline-block;
+}
+
+.perf__bar {
+  position: absolute;
+  right: 24px;
+  bottom: 11px;
+  left: 24px;
+  height: 3px;
+}
+
+.perf__bar i {
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  transform-origin: 0 50%;
+}
+
+.perf__bar-was {
+  background: var(--line-strong);
+}
+
+.perf__bar-now {
+  background: var(--fg-secondary);
+}
+
+@media (max-width: 599px) {
+  .perf__bar {
+    right: 18px;
+    bottom: 8px;
+    left: 18px;
+  }
+}
+
+/* a section a link glided to takes the focus, without a ring */
+[tabindex="-1"]:focus:not(:focus-visible) {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Hangar's build machine (Vast.ai): `check` (the CI's Linux rust checks, the workspace check), `up`, `status`, `stop`,
+# `ssh`, `offers`, `reap`, `seed`. Nothing is compiled on this PC. See docs/native/remote-build.md.
+exec python3 -I "$(dirname "$(readlink -f "$0")")/hangar_rbuild.py" "$@"

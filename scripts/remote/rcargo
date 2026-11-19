@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# cargo on Hangar's build machine (Vast.ai), in a copy of the current git worktree: `scripts/remote/rcargo test -p hangar-app`.
+# Nothing is compiled on this PC. Exit code: cargo's, or 75 when no build machine can be had. See docs/native/remote-build.md.
+exec python3 -I "$(dirname "$(readlink -f "$0")")/hangar_rbuild.py" cargo "$@"

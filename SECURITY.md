@@ -1,0 +1,49 @@
+# Security policy
+
+## Supported versions
+
+Only the latest release receives security fixes. The app updates itself, so the fix
+reaches you once you accept the update.
+
+| Version | Supported |
+|---|---|
+| Latest release ([releases/latest](https://github.com/hangar-ai/hangar/releases/latest)) | Yes |
+| Anything older | No: please update first |
+
+## Reporting a vulnerability
+
+**Please do not open a public issue for a security problem.**
+
+Report it privately through GitHub Security Advisories. Open the repository's
+[**Security** tab](https://github.com/hangar-ai/hangar/security), click **Report a
+vulnerability**, and fill in the form. Only the maintainer can see the report. If you cannot use GitHub, write to [contact@hangarai.dev](mailto:contact@hangarai.dev).
+
+Please include:
+
+- the Hangar version and your operating system;
+- what an attacker can do, and what they need first (local access, a malicious repository,
+  a crafted MCP request…);
+- steps to reproduce, or a proof of concept;
+- any fix or mitigation you have in mind.
+
+Hangar is maintained by one person, so please allow some time for an answer. Once the issue
+is confirmed, a fixed release is published, then the advisory is made public with credit
+to you, unless you prefer to stay anonymous.
+
+## Scope
+
+These are in scope:
+
+- the desktop app, including its local HTTP API (`127.0.0.1`, protected by a per-launch
+  token) and the `hangar-ai --mcp` server;
+- the isolation of kits' tabs: HTML pages in the `hangar-webview` helper and native tabs in
+  their WebAssembly sandbox, both held to the permissions the person accepted;
+- the `hangar-bridge` Claude Code mod in `crates/hangar-core/claude-mod/`;
+- the installers, the updater and the release workflow in this repository.
+
+These are out of scope, and should be reported to their own projects:
+
+- Claude Code itself, which Hangar launches;
+- what a kit's own plugin, hooks or MCP servers do once you accepted them;
+- what an agent does with the permissions you gave it. Hangar runs agents with your user
+  account and does not sandbox them.

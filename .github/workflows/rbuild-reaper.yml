@@ -1,0 +1,45 @@
+name: Build machine reaper
+
+# Hangar's remote build machine (scripts/remote/, docs/native/remote-build.md)
+# is a Vast.ai instance that must not outlive its last use by more than an
+# hour. The PC that rented it destroys it on time when it is on; this does it
+# when it is off. Every 15 minutes it destroys the instances labelled
+# "hangar-rbuild <last use> <state>" (or "hangar-rbuild-<trial> …") that have been idle for 70 minutes (ten
+# more than the PC's own reaper, which first copies the machine's dependency
+# cache home), that are marked busy since more than 4 hours (a lost run), whose
+# creation never finished, or that are stopped or broken. It never touches an
+# instance with another label (the aps5 project's "aps5 …" on the same
+# account) or none.
+#
+# VAST_API_KEY is a restricted key (instance read and write only). The CLI
+# reads it from the environment; it is never written out.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rbuild-reaper
+  cancel-in-progress: false
+
+jobs:
+  reap:
+    # A fork has neither the secret nor anything to reap.
+    if: github.repository == 'hangar-ai/hangar'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/remote
+
+      - name: Install the Vast.ai CLI
+        run: pipx install vastai==1.11.0
+
+      - name: Destroy unused build machines
+        env:
+          VAST_API_KEY: ${{ secrets.VAST_API_KEY }}
+        run: python3 -I scripts/remote/hangar_rbuild.py reap --github

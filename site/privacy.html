@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy: HangarAI and the optional Hangar account</title>
+<meta name="description" content="What the optional Hangar account stores (who signed in, the machines linked, usage totals), what it never stores (paths, transcripts, code, prompts), how long it is kept and how to delete it.">
+<link rel="canonical" href="https://hangarai.dev/privacy.html">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#202124" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f0f0f0" media="(prefers-color-scheme: light)">
+
+<link rel="icon" href="favicon.ico" sizes="48x48">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+<link rel="preload" href="fonts/inter-latin-opsz.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="styles.css?v=36067723b1">
+<style>
+/* The page's own: a column of text, on the tokens of styles.css. */
+.legal { max-width: 44em; margin-top: 48px; }
+.legal h2 { margin: 48px 0 12px; font-size: 22px; line-height: 1.25; letter-spacing: -0.015em; }
+.legal h3 { margin: 28px 0 8px; font-size: 16.5px; line-height: 1.35; }
+.legal p, .legal ul { margin: 0 0 14px; color: var(--fg-secondary); }
+.legal ul { padding-left: 1.25em; }
+.legal li { margin-bottom: 6px; }
+.legal li::marker { color: var(--fg-muted); }
+.legal__date { color: var(--fg-muted); font-size: 13.5px; }
+.legal__short { margin: 0 0 14px; padding: 18px 20px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-sunken); }
+.legal__short p:last-child, .legal__short ul:last-child { margin-bottom: 0; }
+.bar__back { margin-left: auto; color: var(--fg-secondary); font-size: 13.5px; text-decoration: none; }
+.bar__back:hover { color: var(--fg-hi); }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the text</a>
+
+<header class="bar">
+  <div class="bar__in">
+    <a class="brand" href="./" aria-label="HangarAI, home">
+      <svg class="brand__mark" width="18" height="18" viewBox="200 200 624 624" aria-hidden="true">
+        <rect x="200" y="200" width="260" height="624" fill="var(--accent)"></rect>
+        <rect x="538" y="200" width="286" height="260" fill="var(--fg-hi)"></rect>
+        <rect x="538" y="538" width="286" height="286" fill="var(--fg-hi)"></rect>
+      </svg>
+      <span class="brand__name">HangarAI</span>
+    </a>
+    <a class="bar__back" href="./">Back to the site</a>
+  </div>
+</header>
+
+<main id="main">
+<section class="sec" aria-labelledby="privacy-title">
+  <div class="wrap">
+    <header class="head">
+      <p class="eyebrow">Privacy</p>
+      <h1 class="sec__title" id="privacy-title">What Hangar knows about you</h1>
+      <p class="sec__lede">
+        HangarAI runs on your computer. The one thing that can leave it for a server of ours is the
+        optional <strong>Hangar account</strong>, and only once you sign in. This page says what that
+        account stores, what it never stores, and how to delete it.
+      </p>
+    </header>
+
+    <div class="legal">
+      <p class="legal__date">Last updated: 19 November 2026.</p>
+
+      <div class="legal__short">
+        <p><strong>In short.</strong></p>
+        <ul>
+          <li>Without an account, HangarAI never contacts the account server. The account is optional and off by default.</li>
+          <li>With one, the server stores who signed in, the machines you linked, and, only if you turn the statistics sync on, usage totals per machine, day, model and project name.</li>
+          <li>It never receives a file path, a transcript, a prompt, an answer or a line of your code.</li>
+          <li><strong>Delete my account</strong>, in Hangar's settings, deletes everything at once.</li>
+        </ul>
+      </div>
+
+      <h2 id="scope">What this page covers</h2>
+      <p>
+        The Hangar account, served at <code>account.hangarai.dev</code>, and this website,
+        <code>hangarai.dev</code>. Both are run by simnJS, the author of HangarAI, who is
+        responsible for the data described here.
+      </p>
+      <p>
+        It does not cover the coding agents HangarAI runs on your computer under your own accounts,
+        Claude Code and Codex: what Claude Code sends to Anthropic, or Codex to OpenAI, is between you
+        and them. Nor does it cover GitHub, which you use to sign in and which has a privacy policy of
+        its own.
+      </p>
+
+      <h2 id="account">The Hangar account</h2>
+      <p>
+        A Hangar account links several of your machines, so that the usage statistics of all of them
+        can be read from any of them. You create it by signing in with GitHub from Hangar's
+        settings. Nothing in the app requires it.
+      </p>
+
+      <h3 id="stores">What the server stores</h3>
+      <ul>
+        <li>
+          <strong>Who signed in.</strong> What GitHub says about you when you sign in: its identifier
+          for you, your display name, your email address when it confirms it is verified, and the
+          address of your avatar. Hangar asks GitHub for <code>read:user user:email</code>: your
+          profile and your email address, nothing else. It cannot read your repositories, your files
+          or your contacts.
+        </li>
+        <li>
+          <strong>Your machines.</strong> For each machine you sign in from: its name, its operating
+          system (<code>windows</code>, <code>macos</code> or <code>linux</code>), an identifier Hangar
+          drew at random for that install, the date it was linked and the date it was last seen.
+        </li>
+        <li>
+          <strong>Usage statistics</strong>, only while the statistics sync is on. It is a setting of
+          its own, and signing in does not turn it on. For each machine, day, model and project name:
+          the number of input, output and cache tokens, what the API would have charged for them, the
+          active time and the number of sessions. The project name is the name of its folder
+          (<code>hangar</code>), never its path.
+        </li>
+        <li>
+          <strong>Sign-ins in progress.</strong> While you are on GitHub's page: the
+          machine's name and what is needed to bring you back to Hangar. Deleted when you come back,
+          and after ten minutes if you do not. The one-time code that ends a sign-in is deleted within
+          five minutes.
+        </li>
+      </ul>
+      <p>
+        The token that keeps a machine signed in is stored on that machine only, in the operating
+        system's keychain. The server keeps a hash of it (SHA-256), from which the token cannot be
+        recovered.
+      </p>
+
+      <h3 id="never">What it never stores</h3>
+      <ul>
+        <li>The paths of your files or folders.</li>
+        <li>Your conversations with your agents: no prompt, no answer, no transcript, no session title.</li>
+        <li>Your code, your files, your diffs, your commits.</li>
+        <li>GitHub's access token. It is used once, to read your profile at sign-in, and is not kept.</li>
+        <li>Your GitHub password, which Hangar never sees.</li>
+        <li>Your IP address. The server keeps no request log. To limit abuse it counts requests per address in memory, for about a minute, and writes none of it down.</li>
+      </ul>
+      <p>
+        The server has no field to receive any of this, and refuses a project name that contains a
+        path separator.
+      </p>
+
+      <h3 id="use">What it is used for</h3>
+      <p>
+        To show you your account, your machines and your statistics in Hangar, on each of your
+        machines. Nothing else: no advertising, no profiling, no analytics, no newsletter. Your data
+        is not sold, rented or shared with anyone, and is not used to train any model.
+      </p>
+      <p>
+        The basis for this processing is your consent: you give it by signing in, and withdraw it by
+        deleting your account.
+      </p>
+
+      <h3 id="where">Where it is</h3>
+      <p>
+        On one server operated by simnJS, in a single database. Requests reach it through Cloudflare,
+        which, like any network intermediary, sees the IP address a request comes from and handles
+        it under <a href="https://www.cloudflare.com/privacypolicy/">its own privacy policy</a>.
+        Everything travels over HTTPS.
+      </p>
+
+      <h2 id="retention">How long it is kept</h2>
+      <ul>
+        <li>Your account, your machines and your statistics are kept until you delete them. Nothing expires on its own.</li>
+        <li>Backups of the database are kept for 14 days at most. What you delete disappears from them as they are replaced.</li>
+      </ul>
+
+      <h2 id="delete">Deleting your data</h2>
+      <p>All of it is done from Hangar, in Settings, under Hangar account:</p>
+      <ul>
+        <li><strong>Sign out</strong> destroys this machine's token. Its statistics stay on your account, so that signing in again finds them.</li>
+        <li><strong>Forget a machine</strong> deletes that machine and every statistic it sent.</li>
+        <li><strong>Delete my account</strong> deletes everything: the account, what GitHub said about you, every machine and its token, every statistic. It happens at once, and nothing is kept aside.</li>
+      </ul>
+      <p>
+        Turning the statistics sync off stops sending new totals; forgetting the machine or deleting
+        the account removes the ones already sent.
+      </p>
+      <p>
+        To also withdraw the access you gave Hangar on GitHub, remove it from
+        <a href="https://github.com/settings/applications">your GitHub applications</a>.
+      </p>
+
+      <h2 id="rights">Your rights</h2>
+      <p>
+        What Hangar shows you under Hangar account is what the server holds about you: your profile,
+        your machines, your statistics. You can correct a machine's name there and delete any of it.
+        If you live in the European Union you also have the right to ask for a copy of your data,
+        to object to its processing, and to complain to your data protection authority. Write to us
+        (below) and we will answer.
+      </p>
+
+      <h2 id="site">This website</h2>
+      <p>
+        This site sets no cookie, runs no analytics and loads nothing from another origin: no
+        tracker, no font or script from a third party. Like the account server, it is served through
+        Cloudflare. The theme you pick on the home page is not remembered.
+      </p>
+
+      <h2 id="changes">Changes</h2>
+      <p>
+        If what the account stores changes, this page changes first, with its date. Its history is
+        public, like the rest of HangarAI:
+        <a href="https://github.com/hangar-ai/hangar/commits/main/site/privacy.html">every version of this page</a>.
+        The code of the account server is public too, in
+        <a href="https://github.com/hangar-ai/hangar/tree/main/crates/hangar-cloud"><code>crates/hangar-cloud</code></a>,
+        and its protocol is described in
+        <a href="https://github.com/hangar-ai/hangar/blob/main/docs/native/cloud.md"><code>docs/native/cloud.md</code></a>.
+      </p>
+
+      <h2 id="contact">Contact</h2>
+      <p>
+        For a question about your data, or a request you cannot make from the app, open an issue at
+        <a href="https://github.com/hangar-ai/hangar/issues">github.com/hangar-ai/hangar</a> (do not
+        put personal data in it: say what you need, and we will reach you privately), or write to
+        <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>. To report a security problem,
+        use the repository's
+        <a href="https://github.com/hangar-ai/hangar/security/advisories/new">private security report</a>.
+      </p>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot__in">
+    <a class="brand brand--foot" href="./" aria-label="HangarAI, home">
+      <svg class="brand__mark" width="16" height="16" viewBox="200 200 624 624" aria-hidden="true">
+        <rect x="200" y="200" width="260" height="624" fill="var(--accent)"></rect>
+        <rect x="538" y="200" width="286" height="260" fill="var(--fg-hi)"></rect>
+        <rect x="538" y="538" width="286" height="286" fill="var(--fg-hi)"></rect>
+      </svg>
+      <span class="brand__name">HangarAI</span>
+    </a>
+    <p class="foot__by">Open source under the MIT license. Made by <a href="https://github.com/simnJS">simnJS</a>.</p>
+    <nav class="foot__links" aria-label="Project">
+      <a href="https://github.com/hangar-ai/hangar">Source</a>
+      <a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/README.md">Guide</a>
+      <a href="https://github.com/hangar-ai/hangar/releases">Releases</a>
+      <a href="https://discord.gg/hangarai">Discord</a>
+      <a href="https://github.com/hangar-ai/hangar/blob/main/LICENSE">License</a>
+      <a href="privacy.html" aria-current="page">Privacy</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>

@@ -1,0 +1,5 @@
+# The image is the site and the server's configuration (Dockerfile): nothing
+# else is sent to the builder.
+*
+!site/
+!sws.toml

@@ -1,0 +1,27 @@
+# static-web-server, in the Dockerfile's image. It types each file by its extension
+# (image/avif, image/webp, font/woff2, image/x-icon…), which nosniff below relies on:
+# a file served under the wrong type is refused rather than guessed.
+[general]
+host = "::"
+port = 80
+root = "/public"
+log-level = "warn"
+cache-control-headers = false
+compression = true
+health = true
+
+[advanced]
+
+[[advanced.headers]]
+source = "**"
+[advanced.headers.headers]
+Cache-Control = "public, max-age=0, must-revalidate"
+X-Content-Type-Options = "nosniff"
+Referrer-Policy = "strict-origin-when-cross-origin"
+X-Frame-Options = "SAMEORIGIN"
+Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+
+[[advanced.headers]]
+source = "/logo.svg"
+[advanced.headers.headers]
+Cache-Control = "public, max-age=604800"

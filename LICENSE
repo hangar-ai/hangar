@@ -1,0 +1,24 @@
+HangarAI
+Copyright (c) 2026 simnJS. All rights reserved.
+
+HangarAI is proprietary software. Its source code is not published, and no right to copy,
+modify, redistribute, sublicense or sell it, in whole or in part, is granted, except as a
+separate written license from the copyright holder says.
+
+The releases in this repository may be downloaded, installed and used under the terms that
+come with them. The files of this repository that are not HangarAI's releases (the website,
+the user guide, the issue templates) may be read and linked to; they are not licensed for
+reuse either, except where a file says otherwise.
+
+Earlier versions
+----------------
+HangarAI (then "Hangar.AI") versions up to and including 2.5.1 were published under the MIT
+license. That license still applies to those versions, as published, and to anyone's copy of
+them; it does not apply to later versions.
+
+Third-party software
+--------------------
+HangarAI includes third-party components under their own licenses (MIT, Apache-2.0, BSD,
+OFL and others); their notices ship with each release. Code contributed to HangarAI under
+the MIT license by its contributors (Kisakay, McSon2, SimonB44470) keeps its copyright
+notices.

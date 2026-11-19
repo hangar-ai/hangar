@@ -1,0 +1,83 @@
+name: Codex bug report (beta)
+description: Something does not work in a Codex pane.
+title: "[Codex] "
+labels: ["codex", "beta"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Codex support is **beta**. Hangar was written against the app-server protocol OpenAI publishes for Codex (its JSON Schema, source and docs), without a recorded Codex session, so what that protocol does not say may be wrong here, and your report is how we find out. Thank you.
+
+        For a problem in a Claude Code or plain shell pane, use the [Bug report](https://github.com/hangar-ai/hangar/issues/new?template=bug_report.yml) form. For a security problem, do not use a public issue: see [SECURITY.md](https://github.com/hangar-ai/hangar/blob/main/SECURITY.md).
+
+  - type: input
+    id: hangar-version
+    attributes:
+      label: Hangar version
+      description: Shown at the top of the navigator, and in Settings.
+      placeholder: "2.4.5"
+    validations:
+      required: true
+
+  - type: input
+    id: codex-version
+    attributes:
+      label: Codex version
+      description: The output of `codex --version`, run in the same shell the pane uses (the WSL one, for a WSL pane).
+      placeholder: "codex-cli 0.170.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Attached or plain TUI
+      description: |
+        Attached: Hangar is a client of Codex's app-server, so it shows the conversation and holds approvals itself. Floor: the pane runs the plain Codex terminal UI, as in any terminal. A pane runs on the floor when "Attach Hangar to Codex" is off in Settings, when Codex is older than the attached mode needs or is a release Hangar lists as broken, or when attaching is not possible on your system.
+      options:
+        - Attached
+        - Floor (the plain Codex TUI)
+        - I do not know
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows (the pane runs natively)
+        - Windows with WSL (the pane runs in WSL)
+        - macOS
+        - Linux
+    validations:
+      required: true
+
+  - type: input
+    id: os-version
+    attributes:
+      label: OS version and shell
+      description: For example "Windows 11 24H2, PowerShell 7.5", "Ubuntu 24.04 in WSL2, bash", "macOS 15.4 on Apple Silicon, zsh".
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what happened instead. Say what the pane was for (an orchestrator, a worker, a plain pane, a delivery review) and include any error message as text.
+      placeholder: |
+        1. Start a Codex pane in a workspace
+        2. …
+        Expected: …
+        Instead: …
+    validations:
+      required: true
+
+  - type: textarea
+    id: hangar-log
+    attributes:
+      label: The pane's Hangar log
+      description: |
+        The lines of `hangar.log` from the time of the problem, which say what Hangar did with that pane. It is in `~/.local/share/com.simnjs.iabench/logs` on Linux, `~/Library/Logs/com.simnjs.iabench` on macOS and `%LOCALAPPDATA%\com.simnjs.iabench\logs` on Windows. Please remove tokens, keys and private paths first.
+      render: text

@@ -1,0 +1,56 @@
+name: Feature request
+description: Suggest a change or a new feature.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the problem first, then the change you would like: what you do today, what gets in the way.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and where does Hangar get in the way today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like
+      description: How it could work, from your side of the screen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do today instead
+      description: Workarounds or other tools you have tried.
+
+  - type: dropdown
+    id: agents
+    attributes:
+      label: What it concerns
+      multiple: true
+      options:
+        - Claude Code panes
+        - Shell panes
+        - Hangar Mobile
+        - Kits
+        - The app itself
+
+  - type: checkboxes
+    id: mcp
+    attributes:
+      label: MCP
+      options:
+        - label: This changes or adds MCP tools that Claude Code sees (board_*, memory_*, pane_*, worker_*, model_*…)
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I would like to work on this myself
