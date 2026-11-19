@@ -1122,12 +1122,6 @@ def main(argv):
         print(__doc__)
         return 0
     cmd, rest = argv[0], argv[1:]
-    if cmd in ("cargo", "check", "up", "ssh", "seed") and os.environ.get("HANGAR_RBUILD_ALLOW") != "1":
-        # Off since 2026-11-19, by the maintainer's decision: builds and checks run on GitHub Actions only.
-        print("rbuild: the Vast build machine is off. Check on GitHub Actions instead: scripts/ci-check "
-              "(it pushes HEAD to a throwaway ci/ branch and runs the CI workflow). Nothing compiles on this PC.",
-              file=sys.stderr)
-        return 75
     try:
         if cmd == "cargo":
             if not rest:
