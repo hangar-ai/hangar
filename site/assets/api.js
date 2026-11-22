@@ -9,10 +9,10 @@
    code `network`. account/mock.js makes an object with the same
    methods for ?mock=1.
 
-   It also keeps the referral code a visitor came with (r/ remembers
-   it for 60 days, the first one winning) and sends it with every
+   It also keeps the referral code a visitor came with, once they said
+   yes on r/ (60 days, the first one winning), and sends it with every
    checkout of the site as `referral_code` (portal.md, "The referral
-   program").
+   program"). Without that yes nothing is kept and nothing is sent.
    ═══════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
@@ -24,9 +24,11 @@
   var PRODUCTS = ['pro_monthly', 'pro_yearly', 'max_monthly', 'max_yearly', 'credits_1000', 'credits_5000'];
 
   /* ── the referral code a visitor came with ─────────────────────
-     In localStorage ({code, at}) for the pages, and in a cookie on
-     hangarai.dev for the account server, which reads it at the
-     checkout when the body has none. 60 days; the first code wins. */
+     In localStorage ({code, at, consent}) for the pages, and in a
+     cookie on hangarai.dev for the account server, which may read it
+     at the checkout when the body has none. Only after the visitor's
+     "Accept" on r/: the CNIL counts a tracker of affiliation among
+     those that need consent. 60 days; the first code wins. */
 
   var REF_KEY = 'hangar.ref';
   var REF_COOKIE = 'hangar_ref';
@@ -52,28 +54,52 @@
     try { document.cookie = parts.join('; '); } catch (e) { /* cookies refused */ }
   }
 
-  // The code remembered now, or null: {code, at, days} with the days left.
+  // The code remembered now, or null: {code, at, consent, days} with the
+  // days left. Only a code kept with the visitor's yes on r/ counts
+  // (`consent`, when it was given): one kept before r/ asked is removed.
   function remembered() {
+    var raw = null;
+    var storage = true;
+    try { raw = localStorage.getItem(REF_KEY); } catch (e) { storage = false; }
     var kept = null;
-    try { kept = JSON.parse(localStorage.getItem(REF_KEY) || 'null'); } catch (e) { kept = null; }
+    try { kept = JSON.parse(raw || 'null'); } catch (e) { kept = null; }
+    if (kept && typeof kept.consent !== 'number') {
+      forget();
+      return null;
+    }
     var now = Date.now();
     if (kept && cleanCode(kept.code) && typeof kept.at === 'number' && now - kept.at < REF_DAYS * 86400000 && kept.at <= now + 60000) {
-      return { code: kept.code, at: kept.at, days: Math.max(1, Math.ceil((kept.at + REF_DAYS * 86400000 - now) / 86400000)) };
+      return { code: kept.code, at: kept.at, consent: kept.consent, days: Math.max(1, Math.ceil((kept.at + REF_DAYS * 86400000 - now) / 86400000)) };
+    }
+    if (kept) {
+      // Past its days (or not a code): it goes.
+      forget();
+      return null;
+    }
+    var cookie = readCookie();
+    if (!cookie) return null;
+    // remember() writes both: a cookie alone, where the storage works, is
+    // one kept before r/ asked (or past its days).
+    if (storage) {
+      writeCookie('', 0);
+      return null;
     }
     // A browser that keeps cookies but not storage still has the cookie.
-    var cookie = readCookie();
-    return cookie ? { code: cookie, at: null, days: null } : null;
+    return { code: cookie, at: null, consent: null, days: null };
   }
 
-  // Keeps `code` unless another one is still remembered (the first one
-  // wins), or always with `replace` (the server said the code changed).
+  // Keeps `code`, once the visitor said yes on r/ (and only then: it is
+  // a tracker of affiliation), unless another one is still remembered
+  // (the first one wins), or always with `replace` (the server said the
+  // code of the one kept changed).
   function remember(raw, replace) {
     var code = cleanCode(raw);
     if (!code) return remembered();
     var kept = remembered();
     if (kept && kept.code !== code && !replace) return kept;
     var at = kept && kept.at && kept.code === code ? kept.at : replace && kept && kept.at ? kept.at : Date.now();
-    try { localStorage.setItem(REF_KEY, JSON.stringify({ code: code, at: at })); } catch (e) { /* the cookie still has it */ }
+    var consent = (kept && kept.consent) || Date.now();
+    try { localStorage.setItem(REF_KEY, JSON.stringify({ code: code, at: at, consent: consent })); } catch (e) { /* the cookie still has it */ }
     writeCookie(code, Math.max(1 / 24, (at + REF_DAYS * 86400000 - Date.now()) / 86400000));
     return remembered();
   }

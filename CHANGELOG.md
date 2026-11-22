@@ -10,6 +10,10 @@ Every release, with its installers, is on the
 
 ## [Unreleased]
 
+### Changed
+
+- **The free license of installs from before 3.0 runs on 3 computers, not 1.** Any computer signed in to the HangarAI account that holds it takes one of its 3 seats while one is free, whether it had 2.x on it or is a new install (which gets a seat of it instead of a trial), managed from **Manage computers** in your account as a paid license's are. With the 3 taken, HangarAI says so (*Your 3 computers are taken*), with *Manage computers* and *Try again*. Free licenses given before have 3 seats now too.
+
 ## [3.0.0] - 2026-11-22
 
 HangarAI 3.0 is a paid app, with hosted features of its own, HangarAI Cloud, and an

@@ -28,7 +28,7 @@
 <link rel="preload" href="/fonts/inter-latin-opsz.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/styles.css?v=925761be91">
 <link rel="stylesheet" href="/assets/pages.css?v=2d3d68d3af">
-<link rel="stylesheet" href="/assets/invite.css?v=3e97b1deb4">
+<link rel="stylesheet" href="/assets/invite.css?v=d5eb45026b">
 <script>
 (function (r) {
   r.classList.add('js');
@@ -186,6 +186,28 @@
         </p>
       </div>
 
+      <!-- The question before anything is kept (the CNIL: a tracker of
+           affiliation needs consent). Shown when the invitation is not held
+           yet; nothing is stored until "Accept". -->
+      <div class="invite__ask" id="invite-ask" role="group" aria-labelledby="invite-ask-title" hidden>
+        <h2 class="invite__ask-title" id="invite-ask-title">
+          <span data-l="en">Keep this invitation?</span>
+          <span data-l="fr">Garder ce parrainage&nbsp;?</span>
+        </h2>
+        <p class="invite__ask-text">
+          <span data-l="en">To thank <span data-slot="name">A friend</span> and get your <span data-slot="credits">1,000</span> credits, this browser keeps the code <code data-slot="code"></code> for 60 days, and nothing else. <a href="/privacy.html#cookies">Cookies</a></span>
+          <span data-l="fr">Pour remercier <span data-slot="name-fr">Un ami</span> et recevoir tes <span data-slot="credits-fr">1&nbsp;000</span> crédits, ce navigateur garde le code <code data-slot="code"></code> pendant 60&nbsp;jours, et rien d’autre. <a href="/privacy.html#cookies">Cookies</a></span>
+        </p>
+        <p class="invite__ask-loss">
+          <span data-l="en">Without it, nothing is kept: no bonus credits at a checkout on this site, and no one is credited. You can still enter the code in the app, on the buy screen.</span>
+          <span data-l="fr">Sans ça, rien n’est gardé&nbsp;: pas de crédits offerts à un paiement sur ce site, et personne n’est crédité. Tu peux toujours saisir le code dans l’app, sur l’écran d’achat.</span>
+        </p>
+        <div class="invite__ask-do">
+          <button type="button" class="btn" id="consent-yes"><span data-l="en">Accept</span><span data-l="fr">Accepter</span></button>
+          <button type="button" class="btn" id="consent-no"><span data-l="en">Refuse</span><span data-l="fr">Refuser</span></button>
+        </div>
+      </div>
+
       <!-- unknown: a code the server doesn't know -->
       <div class="invite__state" data-show="unknown" hidden>
         <h1 class="invite__title" tabindex="-1">
@@ -236,18 +258,25 @@
       </ol>
     </div>
 
-    <p class="invite__fine" data-show="loading invited" id="invite-fine">
-      <span data-l="en">This browser remembers the invitation for <span data-slot="days">60</span> days, so the credits follow you to the checkout. In the app, enter the code <code data-slot="code"></code> on the buy screen.</span>
-      <span data-l="fr">Ce navigateur se souvient de l’invitation pendant <span data-slot="days">60</span>&nbsp;jours, pour que les crédits te suivent jusqu’au paiement. Dans l’app, saisis le code <code data-slot="code"></code> sur l’écran d’achat.</span>
-      <button type="button" class="invite__forget" id="forget"><span data-l="en">Forget it</span><span data-l="fr">L’oublier</span></button>
+    <!-- What this browser holds, once the visitor accepted (or earlier):
+         r.js shows one of these, never before an answer. -->
+    <p class="invite__fine" id="invite-fine" hidden>
+      <span data-l="en">This browser keeps the invitation <code data-slot="held"></code> for <span data-slot="days">60</span> days, so the credits follow you to the checkout. In the app, enter it on the buy screen.</span>
+      <span data-l="fr">Ce navigateur garde le parrainage <code data-slot="held"></code> pendant <span data-slot="days">60</span>&nbsp;jours, pour que les crédits te suivent jusqu’au paiement. Dans l’app, saisis-le sur l’écran d’achat.</span>
+      <button type="button" class="invite__forget" id="forget"><span data-l="en">Remove the invitation</span><span data-l="fr">Retirer le parrainage</span></button>
     </p>
     <p class="invite__fine" id="invite-earlier" hidden>
       <span data-l="en">This browser already holds an earlier invitation, <code data-slot="kept"></code>, and keeps it: the first invitation counts. Your bonus credits are the same.</span>
       <span data-l="fr">Ce navigateur garde déjà une invitation plus ancienne, <code data-slot="kept"></code>, et la conserve&nbsp;: c’est la première invitation qui compte. Tes crédits offerts sont les mêmes.</span>
+      <button type="button" class="invite__forget" id="forget-earlier"><span data-l="en">Remove it</span><span data-l="fr">La retirer</span></button>
+    </p>
+    <p class="invite__fine" id="refused" hidden role="status">
+      <span data-l="en">Nothing kept: this browser holds no invitation. In the app, you can still enter the code <code data-slot="code"></code> on the buy screen.</span>
+      <span data-l="fr">Rien n’est gardé&nbsp;: ce navigateur ne garde aucun parrainage. Dans l’app, tu peux toujours saisir le code <code data-slot="code"></code> sur l’écran d’achat.</span>
     </p>
     <p class="invite__fine" id="forgotten" hidden role="status">
-      <span data-l="en">Forgotten: this browser no longer holds an invitation.</span>
-      <span data-l="fr">Oubliée&nbsp;: ce navigateur ne garde plus d’invitation.</span>
+      <span data-l="en">Removed: this browser no longer holds an invitation.</span>
+      <span data-l="fr">Retiré&nbsp;: ce navigateur ne garde plus de parrainage.</span>
     </p>
 
     <p class="invite__more">
@@ -332,9 +361,9 @@
 <!-- /site footer -->
 
 <script src="/assets/lang.js?v=3f125a4686" defer></script>
-<script src="/assets/api.js?v=f0a126ddde" defer></script>
+<script src="/assets/api.js?v=7d370c32b8" defer></script>
 <script src="/assets/offers.js?v=c4d8b4590a" defer></script>
-<script src="/assets/invite.js?v=b7fdc3dae1" defer></script>
+<script src="/assets/invite.js?v=8ca7177722" defer></script>
 <script src="/assets/nav.js?v=a2538a43ce" defer></script>
 </body>
 </html>

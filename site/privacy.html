@@ -207,8 +207,8 @@
     </header>
 
     <div class="legal">
-      <p data-l="en" class="legal__date">Last updated: 22 November 2026.</p>
-      <p data-l="fr" class="legal__date">Dernière mise à jour&nbsp;: 22 novembre 2026.</p>
+      <p data-l="en" class="legal__date">Last updated: 23 November 2026.</p>
+      <p data-l="fr" class="legal__date">Dernière mise à jour&nbsp;: 23 novembre 2026.</p>
 
       <div data-l="en" class="legal__short">
         <p><strong>In short.</strong></p>
@@ -224,7 +224,7 @@
           <li>Your computers, on by default with a paid license, shows each of your computers to the others through the same relay: it sees each computer's name and system and when it is connected, passes what one computer says to another encrypted end to end, and keeps none of it. You can turn it off on each computer.</li>
           <li>The Hangar account is optional and off by default. With one, the server stores who signed in, the machines you linked, and, only if you turn the statistics sync on, usage totals per machine, day, model and project name.</li>
           <li>Our servers never receive a conversation with your agents, an answer or a line of your code. Only what you ask for leaves your computer: an image's prompt, passed on to fal and not kept; the files of a share link you publish; and, for a Cloud Build or a hosted node you start, your project's files, sent only to the machine rented for it.</li>
-          <li>This website sets two cookies, and only when you use what needs them: the code of a referral link you followed, and the session of your customer account. No analytics, no tracker.</li>
+          <li>This website sets two cookies, and only when you use what needs them: the code of a referral link you followed, only if you say yes when the link asks, and the session of your customer account. No analytics, no tracker.</li>
           <li><strong>Delete my account</strong>, in Hangar's settings, deletes everything at once.</li>
           <li>The controller is Simon Gay EI, in France. You can get a copy of your data, have it corrected or erased, object, and complain to the CNIL: <a href="#rights">Your rights</a>.</li>
         </ul>
@@ -243,7 +243,7 @@
           <li>Tes ordinateurs, activé par défaut avec une licence payante, montre chacun de vos ordinateurs aux autres par le même relais&nbsp;: il voit le nom et le système de chaque ordinateur et quand il est connecté, fait passer ce qu’un ordinateur dit à l’autre chiffré de bout en bout, et n’en garde rien. Vous pouvez le désactiver sur chaque ordinateur.</li>
           <li>Le compte Hangar est facultatif et désactivé par défaut. Avec un compte, le serveur stocke qui s’est connecté, les machines que vous avez liées, et, seulement si vous activez la synchronisation des statistiques, des totaux d’usage par machine, jour, modèle et nom de projet.</li>
           <li>Nos serveurs ne reçoivent jamais une conversation avec vos agents, une réponse ni une ligne de votre code. Seul ce que vous demandez quitte votre ordinateur&nbsp;: le prompt d’une image, transmis à fal et non conservé&nbsp;; les fichiers d’un lien de partage que vous publiez&nbsp;; et, pour un Cloud Build ou un nœud hébergé que vous lancez, les fichiers de votre projet, envoyés uniquement à la machine louée pour cela.</li>
-          <li>Ce site dépose deux cookies, et seulement quand vous utilisez ce qui en a besoin&nbsp;: le code d’un lien de parrainage que vous avez suivi, et la session de votre compte client. Pas d’analytics, pas de traceur.</li>
+          <li>Ce site dépose deux cookies, et seulement quand vous utilisez ce qui en a besoin&nbsp;: le code d’un lien de parrainage que vous avez suivi, seulement si vous dites oui quand le lien vous le demande, et la session de votre compte client. Pas d’analytics, pas de traceur.</li>
           <li><strong>Supprimer mon compte</strong>, dans les réglages de Hangar, supprime tout d’un coup.</li>
           <li>Le responsable des traitements est Simon Gay EI, en France. Vous pouvez obtenir une copie de vos données, les faire rectifier ou effacer, vous opposer, et saisir la CNIL&nbsp;: <a href="#rights">Vos droits</a>.</li>
         </ul>
@@ -487,10 +487,15 @@
       <h2 id="referrals"><span data-l="en">Referrals</span><span data-l="fr">Parrainage</span></h2>
       <ul data-l="en">
         <li>
-          <strong>A referral link</strong> (<code>hangarai.dev/r/&lt;code&gt;</code>) sets a cookie on
-          this site, <code>hangar_ref</code>, that holds the invitation's code and nothing else, for 60
-          days, so that a purchase you make in that time counts for whoever invited you. A code typed in
-          the app is sent with the checkout, and to the account server for your license.
+          <strong>A referral link</strong> (<code>hangarai.dev/r/&lt;code&gt;</code>) first asks
+          you «&nbsp;Keep this invitation?&nbsp;». Only if you accept does it set a cookie on this site,
+          <code>hangar_ref</code>, that holds the invitation's code and nothing else, for 60 days, so that
+          a purchase you make in that time counts for whoever invited you and brings you your bonus
+          credits. If you refuse, nothing is kept and no one is credited. You can withdraw your yes at any
+          time on <a href="/r/"><code>hangarai.dev/r/</code></a> («&nbsp;Remove the invitation&nbsp;»), or by
+          clearing this site's data. Opening the link counts one visit for its owner, on the account
+          server: your address is not stored, only a hash of it with the day, gone when the day is over.
+          A code typed in the app is sent with the checkout, and to the account server for your license.
         </li>
         <li>
           <strong>If you refer others</strong> and want to be paid, the payout details you give (your
@@ -502,9 +507,15 @@
       </ul>
       <ul data-l="fr">
         <li>
-          <strong>Un lien de parrainage</strong> (<code>hangarai.dev/r/&lt;code&gt;</code>) dépose sur ce
-          site un cookie, <code>hangar_ref</code>, qui contient le code de l’invitation et rien d’autre,
-          pendant 60 jours, pour qu’un achat fait dans ce délai compte pour la personne qui vous a invité.
+          <strong>Un lien de parrainage</strong> (<code>hangarai.dev/r/&lt;code&gt;</code>) vous demande
+          d’abord «&nbsp;Garder ce parrainage&nbsp;?&nbsp;». Seulement si vous acceptez, il dépose sur ce site
+          un cookie, <code>hangar_ref</code>, qui contient le code de l’invitation et rien d’autre, pendant
+          60 jours, pour qu’un achat fait dans ce délai compte pour la personne qui vous a invité et vous
+          apporte vos crédits offerts. Si vous refusez, rien n’est gardé et personne n’est crédité. Vous
+          pouvez retirer votre accord à tout moment sur <a href="/r/"><code>hangarai.dev/r/</code></a>
+          («&nbsp;Retirer le parrainage&nbsp;»), ou en effaçant les données de ce site. Ouvrir le lien compte
+          une visite pour son propriétaire, sur le serveur de comptes&nbsp;: votre adresse n’est pas stockée,
+          seulement un hash de celle-ci avec le jour, effacé une fois le jour passé.
           Un code saisi dans l’app est envoyé avec le paiement, et au serveur de comptes pour votre licence.
         </li>
         <li>
@@ -1562,6 +1573,11 @@
             <td><span class="subp__k">How long</span>As each service’s section above says.</td>
           </tr>
           <tr>
+            <th scope="row"><span class="subp__name">A referral link's code</span><span class="subp__for">Kept in this browser, the <code>hangar_ref</code> cookie</span></th>
+            <td><span class="subp__k">Legal basis</span>Your consent: «&nbsp;Accept&nbsp;» on the link's page, withdrawn on <a href="/r/"><code>hangarai.dev/r/</code></a> or by clearing the site's data.</td>
+            <td><span class="subp__k">How long</span>60 days, or until you withdraw it.</td>
+          </tr>
+          <tr>
             <th scope="row"><span class="subp__name">Referrals</span><span class="subp__for">Attributions, commissions, payout details</span></th>
             <td><span class="subp__k">Legal basis</span>The contract: the <a href="legal/affiliate-terms.html">affiliate terms</a>.</td>
             <td><span class="subp__k">How long</span>Until you delete your account; payouts made are kept as accounting records.</td>
@@ -1627,6 +1643,11 @@
             <th scope="row"><span class="subp__name">Services hébergés</span><span class="subp__for">Dictée, images, liens de partage, Cloud Builds, nœuds hébergés, le relais, Tes ordinateurs</span></th>
             <td><span class="subp__k">Base légale</span>Le contrat&nbsp;: le service que vous lancez, selon les <a href="terms/">conditions de HangarAI Cloud</a>.</td>
             <td><span class="subp__k">Combien de temps</span>Comme le dit la section de chaque service ci-dessus.</td>
+          </tr>
+          <tr>
+            <th scope="row"><span class="subp__name">Le code d’un lien de parrainage</span><span class="subp__for">Gardé dans ce navigateur, le cookie <code>hangar_ref</code></span></th>
+            <td><span class="subp__k">Base légale</span>Votre consentement&nbsp;: «&nbsp;Accepter&nbsp;» sur la page du lien, retiré sur <a href="/r/"><code>hangarai.dev/r/</code></a> ou en effaçant les données du site.</td>
+            <td><span class="subp__k">Combien de temps</span>60 jours, ou jusqu’à ce que vous le retiriez.</td>
           </tr>
           <tr>
             <th scope="row"><span class="subp__name">Parrainage</span><span class="subp__for">Attributions, commissions, informations de versement</span></th>
@@ -1841,7 +1862,7 @@
         <li>have its use <strong>restricted</strong> while a question about it is settled;</li>
         <li><strong>take it with you</strong> (portability), in a format a machine can read, for what you gave us under a contract or your consent;</li>
         <li><strong>object</strong> to a use based on our legitimate interest;</li>
-        <li><strong>withdraw your consent</strong> at any time, for what rests on it (the Hangar account, the statistics sync), without affecting what was done before;</li>
+        <li><strong>withdraw your consent</strong> at any time, for what rests on it (the Hangar account, the statistics sync, a referral link's code), without affecting what was done before;</li>
         <li>give <strong>directions about what happens to your data after your death</strong>.</li>
       </ul>
       <ul data-l="fr">
@@ -1851,7 +1872,7 @@
         <li>d’en faire <strong>limiter</strong> l’usage le temps qu’une question à leur sujet soit réglée&nbsp;;</li>
         <li>de les <strong>emporter</strong> (portabilité), dans un format lisible par une machine, pour ce que vous nous avez donné au titre d’un contrat ou de votre consentement&nbsp;;</li>
         <li>de vous <strong>opposer</strong> à un usage fondé sur notre intérêt légitime&nbsp;;</li>
-        <li>de <strong>retirer votre consentement</strong> à tout moment, pour ce qui repose sur lui (le compte Hangar, la synchronisation des statistiques), sans effet sur ce qui a été fait avant&nbsp;;</li>
+        <li>de <strong>retirer votre consentement</strong> à tout moment, pour ce qui repose sur lui (le compte Hangar, la synchronisation des statistiques, le code d’un lien de parrainage), sans effet sur ce qui a été fait avant&nbsp;;</li>
         <li>de donner des <strong>directives sur le sort de vos données après votre décès</strong>.</li>
       </ul>
       <p data-l="en">
@@ -1921,7 +1942,7 @@
       <p data-l="en">
         This site runs no analytics and loads nothing from another origin: no tracker, no font or
         script from a third party. Its only cookies are the two above: the referral code, set only when
-        you follow a referral link, and the customer account's session, set only when you sign in
+        you accept it on a referral link's page, and the customer account's session, set only when you sign in
         there. Its pricing pages ask the account server what is on sale (<code>/v1/offers</code>),
         without sending anything about you. Like the account server, it is served through Cloudflare.
         The theme you pick on the home page is not remembered.
@@ -1929,7 +1950,7 @@
       <p data-l="fr">
         Ce site n’exécute aucun analytics et ne charge rien depuis une autre origine&nbsp;: ni traceur, ni police
         ou script tiers. Ses seuls cookies sont les deux ci-dessus&nbsp;: le code de parrainage, déposé seulement
-        quand vous suivez un lien de parrainage, et la session du compte client, déposée seulement quand vous
+        quand vous l’acceptez sur la page d’un lien de parrainage, et la session du compte client, déposée seulement quand vous
         vous y connectez. Ses pages de tarifs demandent au serveur de comptes ce qui est en vente
         (<code>/v1/offers</code>), sans rien envoyer sur vous. Comme le serveur de comptes, il est servi via
         Cloudflare. Le thème que vous choisissez sur la page d’accueil n’est pas retenu.
@@ -1963,13 +1984,13 @@
           </tr>
           <tr>
             <th scope="row"><span class="subp__name"><code>hangar_ref</code></span><span class="subp__for">Cookie of <code>hangarai.dev</code></span></th>
-            <td><span class="subp__k">What for</span>The code of a referral link you followed, and nothing else, so that a purchase counts for whoever invited you. Set only when you open such a link.</td>
-            <td><span class="subp__k">How long</span>60 days.</td>
+            <td><span class="subp__k">What for</span>The code of a referral link you followed, and nothing else, so that a purchase counts for whoever invited you. Set only when you accept it on the link's page: it needs your consent.</td>
+            <td><span class="subp__k">How long</span>60 days, or until you remove it on <a href="/r/"><code>hangarai.dev/r/</code></a>.</td>
           </tr>
           <tr>
             <th scope="row"><span class="subp__name"><code>hangar.ref</code></span><span class="subp__for">Browser storage</span></th>
-            <td><span class="subp__k">What for</span>The same referral code, and the day you came, for the site’s pages.</td>
-            <td><span class="subp__k">How long</span>Read for 60 days, then ignored, until you clear it.</td>
+            <td><span class="subp__k">What for</span>The same referral code, the day you came and the moment you accepted it, for the site’s pages. Set with the cookie, only when you accept.</td>
+            <td><span class="subp__k">How long</span>60 days, then removed by the next page that reads it, or until you remove it on <a href="/r/"><code>hangarai.dev/r/</code></a>.</td>
           </tr>
           <tr>
             <th scope="row"><span class="subp__name"><code>hangar.lang</code></span><span class="subp__for">Browser storage</span></th>
@@ -2010,13 +2031,13 @@
           </tr>
           <tr>
             <th scope="row"><span class="subp__name"><code>hangar_ref</code></span><span class="subp__for">Cookie de <code>hangarai.dev</code></span></th>
-            <td><span class="subp__k">Pour quoi</span>Le code d’un lien de parrainage que vous avez suivi, et rien d’autre, pour qu’un achat compte pour la personne qui vous a invité. Déposé seulement quand vous ouvrez un tel lien.</td>
-            <td><span class="subp__k">Combien de temps</span>60 jours.</td>
+            <td><span class="subp__k">Pour quoi</span>Le code d’un lien de parrainage que vous avez suivi, et rien d’autre, pour qu’un achat compte pour la personne qui vous a invité. Déposé seulement quand vous l’acceptez sur la page du lien&nbsp;: il demande votre consentement.</td>
+            <td><span class="subp__k">Combien de temps</span>60 jours, ou jusqu’à ce que vous le retiriez sur <a href="/r/"><code>hangarai.dev/r/</code></a>.</td>
           </tr>
           <tr>
             <th scope="row"><span class="subp__name"><code>hangar.ref</code></span><span class="subp__for">Stockage du navigateur</span></th>
-            <td><span class="subp__k">Pour quoi</span>Le même code de parrainage, et le jour de votre venue, pour les pages du site.</td>
-            <td><span class="subp__k">Combien de temps</span>Lu pendant 60 jours, puis ignoré, jusqu’à ce que vous l’effaciez.</td>
+            <td><span class="subp__k">Pour quoi</span>Le même code de parrainage, le jour de votre venue et le moment où vous l’avez accepté, pour les pages du site. Déposé avec le cookie, seulement quand vous acceptez.</td>
+            <td><span class="subp__k">Combien de temps</span>60 jours, puis effacé par la page suivante qui le lit, ou jusqu’à ce que vous le retiriez sur <a href="/r/"><code>hangarai.dev/r/</code></a>.</td>
           </tr>
           <tr>
             <th scope="row"><span class="subp__name"><code>hangar.lang</code></span><span class="subp__for">Stockage du navigateur</span></th>
@@ -2046,11 +2067,28 @@
         set a security cookie of its own (<code>cf_clearance</code>) if it has to check that a visit is not
         a robot. Share links (<code>share.hangarai.dev</code>) set nothing.
       </p>
+      <p data-l="en">
+        The referral code (<code>hangar_ref</code> and <code>hangar.ref</code>) is not strictly
+        necessary: it is a tracker of affiliation, which needs your consent. A referral link's page asks
+        «&nbsp;Keep this invitation?&nbsp;» with two answers of the same weight, and stores nothing before
+        you accept; refusing keeps nothing, and the site works the same. To withdraw, open
+        <a href="/r/"><code>hangarai.dev/r/</code></a> and choose «&nbsp;Remove the invitation&nbsp;». No
+        other page asks, and no banner: nothing else here needs consent.
+      </p>
       <p data-l="fr">
         La session, la connexion, la langue, l’annonce fermée et ce qu’affiche l’en-tête sont strictement nécessaires
         à ce que vous demandez au site, et ne demandent donc pas de consentement. Cloudflare, qui transporte le site, peut aussi déposer
         son propre cookie de sécurité (<code>cf_clearance</code>) s’il doit vérifier qu’une visite n’est pas un
         robot. Les liens de partage (<code>share.hangarai.dev</code>) ne déposent rien.
+      </p>
+      <p data-l="fr">
+        Le code de parrainage (<code>hangar_ref</code> et <code>hangar.ref</code>) n’est pas strictement
+        nécessaire&nbsp;: c’est un traceur d’affiliation, qui demande votre consentement. La page d’un lien
+        de parrainage demande «&nbsp;Garder ce parrainage&nbsp;?&nbsp;» avec deux réponses de même poids, et
+        ne stocke rien avant que vous acceptiez&nbsp;; refuser ne garde rien, et le site fonctionne de la même
+        façon. Pour retirer votre accord, ouvrez <a href="/r/"><code>hangarai.dev/r/</code></a> et choisissez
+        «&nbsp;Retirer le parrainage&nbsp;». Aucune autre page ne pose la question, et pas de bandeau&nbsp;:
+        rien d’autre ici ne demande de consentement.
       </p>
       <p data-l="en">
         To remove any of these, clear this site’s data in your browser; signing out removes the session.

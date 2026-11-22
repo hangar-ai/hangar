@@ -413,17 +413,32 @@ and, if it hosts the site, in the legal notice.
 
 **Cookies.** `#cookies` lists everything the site keeps in the browser: the
 `__Host-hangar_session` cookie (`account.hangarai.dev`, 30 days), the
-`hangar_ref` cookie and `hangar.ref` (a referral link's code, 60 days,
-`assets/api.js`), and `hangar.lang`, `hangar.announce`,
+`hangar_ref` cookie and `hangar.ref` (a referral link's code, 60 days, only
+after the visitor's yes on `/r/`, `assets/api.js`), and `hangar.lang`, `hangar.announce`,
 `hangar.account.seen`, `hangar.signin` (`assets/lang.js`, `assets/nav.js`,
 `account/account.js`). The live site sets no other cookie (checked with its
 responses on 2026-11-22; Cloudflare could add `cf_clearance` on a challenge).
 A script that stores something new in the browser needs its line there
 before it ships. There is no consent banner. The referral cookie and `hangar.ref` are
-the ones the CNIL would not count as strictly necessary (its cookie FAQ: the
-trackers of affiliation are not exempt from consent); asking for consent on
-`/r/` before keeping the code is the person's decision, not made yet. Nothing
-else that is not strictly necessary may be added without consent.
+the ones the CNIL does not count as strictly necessary (its cookie FAQ: the
+trackers of affiliation are not exempt from consent), so `/r/<code>` asks
+first, and only there (the person's choice, 2026-11-23): « Keep this
+invitation? », Accept and Refuse as two plain `.btn` of the same size, a link
+to `privacy.html#cookies`, and one line on what refusing costs (no bonus
+credits at a checkout of the site, no one credited; the code can still be typed
+in the app). Nothing is stored before Accept (`assets/invite.js` calls
+`referral.remember` only then); Refuse stores nothing, the refusal included, so
+the next link asks again. `assets/api.js` keeps `{code, at, consent}` and
+removes on sight a `hangar.ref` without `consent` or past its 60 days, and a
+`hangar_ref` cookie alone where the storage works: both are what the site
+kept before it asked. The consent is withdrawn on `/r/` without a code, which
+shows the invitation held with « Remove the invitation » (the link
+`privacy.html` gives), or by clearing the site's data. Without a code kept, a
+checkout of the site carries none and works the same. The visit a link counts
+on the account server (`POST /v1/referral/visits`) is made before the answer:
+it stores nothing in the browser, and the server keeps only the day's hash of
+the address (`crates/hangar-cloud/src/referral/landing.rs`). Nothing else
+that is not strictly necessary may be added without consent.
 
 **Not checked by a lawyer.** `legal/terms-app.html`, `terms/` and
 `legal/affiliate-terms.html` say so at their top (`.legal__draft`); remove the
