@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-fr="Conditions de l’app : HangarAI">App terms: HangarAI</title>
+<meta name="description" content="The terms of the HangarAI app: its license and seats, the trial and the free license, the Pro and Max subscriptions, the right of withdrawal, acceptable use, liability and disputes." data-fr="Les conditions de l’app HangarAI : sa licence et ses places, l’essai et la licence gratuite, les abonnements Pro et Max, le droit de rétractation, l’usage acceptable, la responsabilité et les litiges.">
+<link rel="canonical" href="https://hangarai.dev/legal/terms-app.html">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#202124" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f0f0f0" media="(prefers-color-scheme: light)">
+
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<link rel="icon" href="../logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+
+<link rel="preload" href="../fonts/inter-latin-opsz.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css?v=289c274b2b">
+<link rel="stylesheet" href="../assets/pages.css?v=2d3d68d3af">
+<link rel="stylesheet" href="legal.css?v=5552e90f29">
+<script>
+(function (r) {
+  r.classList.add('js');
+  // The header before the first paint: the announcement already dismissed, and
+  // "Account" rather than "Sign in" where the account was opened before.
+  try {
+    r.setAttribute('data-announce-seen', localStorage.getItem('hangar.announce') || '');
+    if (localStorage.getItem('hangar.account.seen') === '1') r.classList.add('signed');
+  } catch (e) {}
+  // The language before the first paint (assets/lang.js wires the switch).
+  var l = null;
+  try { l = new URLSearchParams(location.search).get('lang'); } catch (e) {}
+  if (l !== 'en' && l !== 'fr') { try { l = localStorage.getItem('hangar.lang'); } catch (e) {} }
+  if (l !== 'en' && l !== 'fr') l = /^fr\b/i.test((navigator.languages && navigator.languages[0]) || navigator.language || '') ? 'fr' : 'en';
+  r.lang = l;
+  r.dataset.lang = l;
+})(document.documentElement);
+</script>
+</head>
+<body>
+
+<a class="skip" href="#main"><span data-l="en">Skip to content</span><span data-l="fr">Aller au contenu</span></a>
+
+<!-- site header: the same on every page (assets/nav.js wires it) -->
+<header class="bar" id="bar">
+  <div class="bar__in">
+    <a class="brand" href="../" aria-label="HangarAI, home" data-fr="HangarAI, accueil">
+      <svg class="brand__mark" width="20" height="20" viewBox="200 200 624 624" aria-hidden="true">
+        <rect x="200" y="200" width="260" height="624" fill="var(--accent)"></rect>
+        <rect x="538" y="200" width="286" height="260" fill="var(--fg-hi)"></rect>
+        <rect x="538" y="538" width="286" height="286" fill="var(--fg-hi)"></rect>
+      </svg>
+      <span class="brand__name">HangarAI</span>
+    </a>
+
+    <nav class="nav" aria-label="Main" data-fr="Principal">
+      <ul class="nav__list">
+        <li class="nav__item nav__item--menu">
+          <a class="nav__link nav__trigger" href="../#how" aria-expanded="false" aria-controls="menu-product"><span data-l="en">Product</span><span data-l="fr">Produit</span><svg class="nav__chev" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 4.5 3 3 3-3"></path></svg></a>
+          <div class="menu" id="menu-product">
+            <ul class="menu__grid">
+              <li><a class="menu__item" href="../#how" data-spy="how">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="5" r="2.5"></circle><circle cx="18.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="19" r="2.5"></circle><path d="M8 12h8M7.6 10.7l8.8-4.4M7.6 13.3l8.8 4.4"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">How it works</span><span data-l="fr">Comment ça marche</span></span><span class="menu__desc"><span data-l="en">Say the objective. The team does the rest.</span><span data-l="fr">Donne l’objectif. L’équipe fait le reste.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="../#team" data-spy="team">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.2 19.5a5.8 5.8 0 0 1 11.6 0"></path><circle cx="17.2" cy="9" r="2.4"></circle><path d="M16.2 14.1a4.6 4.6 0 0 1 5 4.6"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">A team, not a chatbot</span><span data-l="fr">Une équipe, pas un chatbot</span></span><span class="menu__desc"><span data-l="en">Claude Code and Codex, up to 40 at once.</span><span data-l="fr">Claude Code et Codex, jusqu’à 40 à la fois.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="../#land" data-spy="land">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5.5" r="2.2"></circle><circle cx="6" cy="18.5" r="2.2"></circle><circle cx="18" cy="12" r="2.2"></circle><path d="M6 7.7v8.6M7.6 7.1c1.5 3 4.3 4.7 8.2 4.9"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">Lands fast, and safe</span><span data-l="fr">Fusionné vite, sans casse</span></span><span class="menu__desc"><span data-l="en">Ten deliveries landed in 65&nbsp;s.</span><span data-l="fr">Dix livraisons fusionnées en 65&nbsp;s.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="../#night" data-spy="night">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 14.6A7.8 7.8 0 0 1 9.4 4.5a7.8 7.8 0 1 0 10.1 10.1Z"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">Works while you sleep</span><span data-l="fr">Avance pendant que tu dors</span></span><span class="menu__desc"><span data-l="en">A report in the morning, computer on or off.</span><span data-l="fr">Un rapport au réveil, ordinateur allumé ou éteint.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="../#cloud" data-spy="cloud">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.2 18.5h10.3a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.6 9.3a4.6 4.6 0 0 0 .6 9.2Z"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">Cloud power</span><span data-l="fr">La puissance du cloud</span></span><span class="menu__desc"><span data-l="en">CPU or GPU machines, by the second.</span><span data-l="fr">Des machines CPU ou GPU, à la seconde.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="../#control" data-spy="control">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 21V4.5"></path><path d="M5.5 4.5h11.8l-2.3 4 2.3 4H5.5"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">You stay in control</span><span data-l="fr">Tu gardes la main</span></span><span class="menu__desc"><span data-l="en">Needs you, budgets, Hangar Mobile.</span><span data-l="fr">Besoin de toi, budgets, Hangar Mobile.</span></span></span>
+              </a></li>
+            </ul>
+            <p class="menu__foot">
+              <a href="../#features"><span data-l="en">Also in the box</span><span data-l="fr">Et aussi</span></a>
+              <a href="../#faq">Questions</a>
+              <a class="menu__get" href="../#download"><span data-l="en">Download</span><span data-l="fr">Télécharger</span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"></path></svg></a>
+            </p>
+          </div>
+        </li>
+        <li><a class="nav__link" href="../pricing/"><span data-l="en">Pricing</span><span data-l="fr">Tarifs</span></a></li>
+        <li><a class="nav__link" href="../affiliates/"><span data-l="en">Affiliates</span><span data-l="fr">Affiliation</span></a></li>
+        <li><a class="nav__link" href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/README.md">Guide<svg class="nav__ext" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 7.5 7.5 2.5M3.5 2.5h4v4"></path></svg></a></li>
+        <li><a class="nav__link" href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md"><span data-l="en">Changelog</span><span data-l="fr">Nouveautés</span><svg class="nav__ext" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 7.5 7.5 2.5M3.5 2.5h4v4"></path></svg></a></li>
+      </ul>
+    </nav>
+
+    <div class="bar__end">
+      <div class="lang">
+        <button type="button" class="nav__link lang__btn" aria-expanded="false" aria-controls="lang-menu" aria-label="Language" data-fr="Langue"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><circle cx="8" cy="8" r="6.25"></circle><path d="M1.75 8h12.5M8 1.75c1.7 1.8 2.5 3.9 2.5 6.25S9.7 12.45 8 14.25C6.3 12.45 5.5 10.35 5.5 8S6.3 3.55 8 1.75Z"></path></svg><span data-l="en">EN</span><span data-l="fr">FR</span></button>
+        <div class="lang__menu" id="lang-menu" role="group" aria-label="Language" data-fr="Langue">
+          <button type="button" class="lang__opt" data-set-lang="en" lang="en" aria-pressed="true">English<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"></path></svg></button>
+          <button type="button" class="lang__opt" data-set-lang="fr" lang="fr" aria-pressed="false">Français<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"></path></svg></button>
+        </div>
+      </div>
+      <a class="nav__link bar__signin" href="../account/"><span class="if-out"><span data-l="en">Sign in</span><span data-l="fr">Se connecter</span></span><span class="if-in"><span data-l="en">Account</span><span data-l="fr">Compte</span></span></a>
+      <a class="btn btn--primary btn--sm bar__cta" href="../#download"><span data-l="en">Start free trial</span><span data-l="fr">Essai gratuit</span></a>
+      <a class="bar__menu" href="#site-map" role="button" aria-controls="sheet" aria-expanded="false" aria-label="Menu"><i></i><i></i></a>
+    </div>
+  </div>
+</header>
+
+<div class="sheet" id="sheet" hidden>
+  <nav class="sheet__nav" aria-label="Main" data-fr="Principal">
+    <p class="sheet__h"><span data-l="en">Product</span><span data-l="fr">Produit</span></p>
+    <ul class="sheet__grid">
+        <li><a href="../#how" data-spy="how"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="5" r="2.5"></circle><circle cx="18.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="19" r="2.5"></circle><path d="M8 12h8M7.6 10.7l8.8-4.4M7.6 13.3l8.8 4.4"></path></svg></span><span data-l="en">How it works</span><span data-l="fr">Comment ça marche</span></a></li>
+        <li><a href="../#team" data-spy="team"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.2 19.5a5.8 5.8 0 0 1 11.6 0"></path><circle cx="17.2" cy="9" r="2.4"></circle><path d="M16.2 14.1a4.6 4.6 0 0 1 5 4.6"></path></svg></span><span data-l="en">The team</span><span data-l="fr">L’équipe</span></a></li>
+        <li><a href="../#land" data-spy="land"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5.5" r="2.2"></circle><circle cx="6" cy="18.5" r="2.2"></circle><circle cx="18" cy="12" r="2.2"></circle><path d="M6 7.7v8.6M7.6 7.1c1.5 3 4.3 4.7 8.2 4.9"></path></svg></span><span data-l="en">Landing</span><span data-l="fr">La fusion</span></a></li>
+        <li><a href="../#night" data-spy="night"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 14.6A7.8 7.8 0 0 1 9.4 4.5a7.8 7.8 0 1 0 10.1 10.1Z"></path></svg></span><span data-l="en">Night shift</span><span data-l="fr">Mode nuit</span></a></li>
+        <li><a href="../#cloud" data-spy="cloud"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.2 18.5h10.3a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.6 9.3a4.6 4.6 0 0 0 .6 9.2Z"></path></svg></span>Cloud Builds</a></li>
+        <li><a href="../#control" data-spy="control"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 21V4.5"></path><path d="M5.5 4.5h11.8l-2.3 4 2.3 4H5.5"></path></svg></span><span data-l="en">In control</span><span data-l="fr">Tu gardes la main</span></a></li>
+    </ul>
+  </nav>
+  <ul class="sheet__list">
+    <li><a href="../pricing/"><span data-l="en">Pricing</span><span data-l="fr">Tarifs</span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+    <li><a href="../affiliates/"><span data-l="en">Affiliates</span><span data-l="fr">Affiliation</span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+    <li><a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/README.md">Guide<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+    <li><a href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md"><span data-l="en">Changelog</span><span data-l="fr">Nouveautés</span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+  </ul>
+  <div class="sheet__end">
+    <div class="sheet__lang"><span data-l="en">Language</span><span data-l="fr">Langue</span><div class="lang-seg" role="group" aria-label="Language" data-fr="Langue">
+        <button type="button" class="lang-seg__btn" data-set-lang="en" lang="en" aria-label="English" aria-pressed="true">EN</button>
+        <button type="button" class="lang-seg__btn" data-set-lang="fr" lang="fr" aria-label="Français" aria-pressed="false">FR</button>
+      </div></div>
+    <a class="btn" href="../account/"><span class="if-out"><span data-l="en">Sign in</span><span data-l="fr">Se connecter</span></span><span class="if-in"><span data-l="en">Account</span><span data-l="fr">Compte</span></span></a>
+    <a class="btn btn--primary" href="../#download"><span data-l="en">Start free trial</span><span data-l="fr">Essai gratuit</span></a>
+  </div>
+</div>
+<!-- /site header -->
+
+<main id="main" class="page" tabindex="-1">
+  <article class="wrap legal" aria-labelledby="app-terms-title">
+    <p class="eyebrow"><span data-l="en">Legal</span><span data-l="fr">Juridique</span></p>
+    <h1 class="legal__title" id="app-terms-title">
+      <span data-l="en">App terms</span>
+      <span data-l="fr">Conditions de l’app</span>
+    </h1>
+    <p class="legal__meta">
+      <span data-l="en">Version of <time datetime="2026-11-22">22 November 2026</time> · The license, Pro and Max subscriptions, your rights</span>
+      <span data-l="fr">Version du <time datetime="2026-11-22">22 novembre 2026</time> · La licence, les abonnements Pro et Max, vos droits</span>
+    </p>
+
+    <div class="legal__draft" role="note">
+      <p data-l="en"><b>To be reviewed.</b> This text has not been checked by a lawyer yet. It says plainly what you get with HangarAI and what you may do with it; a reviewed version will replace it, with its own date.</p>
+      <p data-l="fr"><b>À relire.</b> Ce texte n’a pas encore été vérifié par un juriste. Il dit simplement ce que vous obtenez avec HangarAI et ce que vous pouvez en faire&nbsp;; une version relue le remplacera, avec sa propre date.</p>
+    </div>
+
+    <nav class="legal__toc" aria-label="Contents" data-fr="Sommaire">
+      <ol>
+        <li><a href="#scope"><span data-l="en">Who, and what</span><span data-l="fr">Qui, et quoi</span></a></li>
+        <li><a href="#age"><span data-l="en">Age and account</span><span data-l="fr">Âge et compte</span></a></li>
+        <li><a href="#license"><span data-l="en">The license</span><span data-l="fr">La licence</span></a></li>
+        <li><a href="#licenses"><span data-l="en">Trial, free and paid licenses</span><span data-l="fr">Essai, licence gratuite, licences payantes</span></a></li>
+        <li><a href="#subscriptions"><span data-l="en">Pro and Max subscriptions</span><span data-l="fr">Les abonnements Pro et Max</span></a></li>
+        <li><a href="#withdrawal"><span data-l="en">Right of withdrawal</span><span data-l="fr">Droit de rétractation</span></a></li>
+        <li><a href="#use"><span data-l="en">Acceptable use</span><span data-l="fr">Usage acceptable</span></a></li>
+        <li><a href="#termination"><span data-l="en">Ending, suspension</span><span data-l="fr">Fin, suspension</span></a></li>
+        <li><a href="#liability"><span data-l="en">Guarantees and liability</span><span data-l="fr">Garanties et responsabilité</span></a></li>
+        <li><a href="#changes"><span data-l="en">Changes</span><span data-l="fr">Changements</span></a></li>
+        <li><a href="#disputes"><span data-l="en">Law and disputes</span><span data-l="fr">Droit et litiges</span></a></li>
+        <li><a href="#contact"><span data-l="en">Contact</span><span data-l="fr">Contact</span></a></li>
+      </ol>
+    </nav>
+
+    <section id="scope" aria-labelledby="h-scope">
+      <h2 id="h-scope"><span data-l="en">1. Who, and what</span><span data-l="fr">1. Qui, et quoi</span></h2>
+      <p data-l="en">These terms are between you and <b>Simon Gay EI</b> (entrepreneur individuel), the publisher of HangarAI (“we”), whose details are in the <a href="notice.html">legal notice</a>. They cover the HangarAI app: what its license lets you do, the trial, the free license, and the HangarAI Pro and HangarAI Max subscriptions. Installing or using HangarAI, or buying a license, means you accept them.</p>
+      <p data-l="fr">Ces conditions vous lient à <b>Simon Gay EI</b> (entrepreneur individuel), l’éditeur de HangarAI («&nbsp;nous&nbsp;»), dont les coordonnées sont dans les <a href="notice.html">mentions légales</a>. Elles couvrent l’application HangarAI&nbsp;: ce que sa licence vous permet, l’essai, la licence gratuite, et les abonnements HangarAI Pro et HangarAI Max. Installer ou utiliser HangarAI, ou acheter une licence, vaut acceptation.</p>
+      <p data-l="en">Other texts go with them:</p>
+      <p data-l="fr">D’autres textes les accompagnent&nbsp;:</p>
+      <ul data-l="en">
+        <li>the <a href="../terms/">HangarAI Cloud terms</a>, for the services that run on our servers or on machines rented for you (dictation, image generation, share links, Cloud Builds, hosted nodes, the relay), and for credits and their refunds;</li>
+        <li>the <a href="affiliate-terms.html">affiliate terms</a>, if you refer others;</li>
+        <li>the <a href="../privacy.html">privacy page</a>, for your data;</li>
+        <li>the buyer terms of <a href="https://polar.sh/legal/checkout-buyer-terms">Polar</a>, our reseller (merchant of record), which sells to you, takes the payment and invoices you.</li>
+      </ul>
+      <ul data-l="fr">
+        <li>les <a href="../terms/">conditions de HangarAI Cloud</a>, pour les services qui tournent sur nos serveurs ou sur des machines louées pour vous (dictée, génération d’images, liens de partage, Cloud Builds, nœuds hébergés, le relais), et pour les crédits et leurs remboursements&nbsp;;</li>
+        <li>les <a href="affiliate-terms.html">conditions d’affiliation</a>, si vous parrainez d’autres personnes&nbsp;;</li>
+        <li>la <a href="../privacy.html">page de confidentialité</a>, pour vos données&nbsp;;</li>
+        <li>les conditions d’achat de <a href="https://polar.sh/legal/checkout-buyer-terms">Polar</a>, notre revendeur officiel («&nbsp;merchant of record&nbsp;»), qui vous vend, encaisse le paiement et vous facture.</li>
+      </ul>
+      <p data-l="en">Where these terms and Polar’s differ on what you get from HangarAI, these terms apply; nothing in either takes away the rights the law gives you as a consumer.</p>
+      <p data-l="fr">Là où ces conditions et celles de Polar diffèrent sur ce que vous obtenez de HangarAI, ces conditions s’appliquent&nbsp;; rien dans les unes ni les autres ne vous retire les droits que la loi vous donne en tant que consommateur.</p>
+    </section>
+
+    <section id="age" aria-labelledby="h-age">
+      <h2 id="h-age"><span data-l="en">2. Age and account</span><span data-l="fr">2. Âge et compte</span></h2>
+      <ul data-l="en">
+        <li>You must be <b>16 or older</b> to have a HangarAI account.</li>
+        <li>To buy, you must be <b>18 or older</b>, or have the permission of a parent or legal guardian.</li>
+        <li>The HangarAI account is opened by signing in with GitHub. It holds the trial and the free license; a license you buy needs none. Keep your GitHub account safe: whoever signs in with it reaches your HangarAI account.</li>
+        <li>If you buy for a company, you confirm you may commit it, and the company is “you” in these terms.</li>
+      </ul>
+      <ul data-l="fr">
+        <li>Il faut avoir <b>16 ans ou plus</b> pour avoir un compte HangarAI.</li>
+        <li>Pour acheter, il faut avoir <b>18 ans ou plus</b>, ou l’autorisation d’un parent ou du représentant légal.</li>
+        <li>Le compte HangarAI s’ouvre en se connectant avec GitHub. Il porte l’essai et la licence gratuite&nbsp;; une licence achetée n’en a pas besoin. Protégez votre compte GitHub&nbsp;: qui s’y connecte atteint votre compte HangarAI.</li>
+        <li>Si vous achetez pour une entreprise, vous confirmez pouvoir l’engager, et c’est elle qui est «&nbsp;vous&nbsp;» dans ces conditions.</li>
+      </ul>
+    </section>
+
+    <section id="license" aria-labelledby="h-license">
+      <h2 id="h-license"><span data-l="en">3. The license</span><span data-l="fr">3. La licence</span></h2>
+      <p data-l="en">HangarAI is <b>proprietary software</b>. It is not sold to you: you get a license to use it. For as long as your license is valid, you may install HangarAI and use it for your own projects, personal or professional, on as many computers as your license has seats.</p>
+      <p data-l="fr">HangarAI est un <b>logiciel propriétaire</b>. Il ne vous est pas vendu&nbsp;: vous recevez une licence pour l’utiliser. Tant que votre licence est valide, vous pouvez installer HangarAI et l’utiliser pour vos propres projets, personnels ou professionnels, sur autant d’ordinateurs que votre licence a de places.</p>
+      <ul data-l="en">
+        <li><b>Seats.</b> Each computer a license is activated on takes one of its seats; HangarAI Pro, HangarAI Max and the free license have <b>3</b>. <i>Deactivate this computer</i>, in Settings › License, or <i>Manage computers</i>, in your account, frees one. A license copied to more computers than it has seats is seen at its daily check, and the extra copies say so and wait until a seat is freed.</li>
+        <li><b>The license check.</b> HangarAI checks its license on your computer and with our server about once a day; offline, it keeps working for two weeks after it last reached the server. The <a href="../privacy.html#license">privacy page</a> says exactly what this sends.</li>
+        <li><b>Updates.</b> A valid paid license gets every update while it lasts. We may change, add or remove features in an update; the <a href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md">changelog</a> says what each one changes.</li>
+        <li><b>What the license does not allow</b>: copying HangarAI other than to install it, selling, renting, lending, sharing or sublicensing it or a license key, getting around the license check or the seats, and decompiling or altering it, except where the law allows it anyway (for interoperability, for example).</li>
+      </ul>
+      <ul data-l="fr">
+        <li><b>Les places.</b> Chaque ordinateur sur lequel une licence est activée prend une de ses places&nbsp;; HangarAI Pro, HangarAI Max et la licence gratuite en ont <b>3</b>. <i>Désactiver cet ordinateur</i>, dans Réglages › Licence, ou <i>Gérer les ordinateurs</i>, dans votre compte, en libère une. Une licence copiée sur plus d’ordinateurs qu’elle n’a de places est repérée à sa vérification quotidienne, et les copies en trop le disent et attendent qu’une place se libère.</li>
+        <li><b>La vérification de la licence.</b> HangarAI vérifie sa licence sur votre ordinateur et auprès de notre serveur environ une fois par jour&nbsp;; hors ligne, il continue de fonctionner deux semaines après sa dernière connexion au serveur. La <a href="../privacy.html#license">page de confidentialité</a> dit exactement ce que cela envoie.</li>
+        <li><b>Les mises à jour.</b> Une licence payante valide reçoit chaque mise à jour tant qu’elle dure. Une mise à jour peut changer, ajouter ou retirer des fonctions&nbsp;; le <a href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md">journal des versions</a> dit ce que chacune change.</li>
+        <li><b>Ce que la licence ne permet pas</b>&nbsp;: copier HangarAI autrement que pour l’installer, le vendre, le louer, le prêter, le partager ou le sous-licencier, lui ou une clé de licence, contourner la vérification de la licence ou les places, et le décompiler ou le modifier, sauf là où la loi le permet de toute façon (pour l’interopérabilité, par exemple).</li>
+      </ul>
+      <p data-l="en">Your projects, your code and what your agents write stay yours: we claim no right over them, and they stay on your computer.</p>
+      <p data-l="fr">Vos projets, votre code et ce qu’écrivent vos agents restent à vous&nbsp;: nous ne revendiquons aucun droit dessus, et ils restent sur votre ordinateur.</p>
+    </section>
+
+    <section id="licenses" aria-labelledby="h-licenses">
+      <h2 id="h-licenses"><span data-l="en">4. Trial, free and paid licenses</span><span data-l="fr">4. Essai, licence gratuite, licences payantes</span></h2>
+      <ul data-l="en">
+        <li><b>The trial</b>: all of HangarAI on your computer for <b>14 days</b>, with 150 credits, without a card. It is given to a HangarAI account, one per account. Nothing renews or is charged at its end: HangarAI asks you to choose a plan to go on.</li>
+        <li><b>The free license</b>, for installs of HangarAI 2.5.1 and earlier: given to a HangarAI account, one per account, at the first launch of 3.0, and held by it, on <b>up to 3 computers</b>. Everything those installs had keeps working, with 30 credits a month for dictation and none of the other HangarAI Cloud services.</li>
+        <li><b>HangarAI Pro and HangarAI Max</b>: subscriptions, below.</li>
+        <li><b>Lifetime</b> licenses bought before 3.0 are no longer sold. Nothing changes for them: they keep the app, its updates and the credits on them.</li>
+      </ul>
+      <ul data-l="fr">
+        <li><b>L’essai</b>&nbsp;: tout HangarAI sur votre ordinateur pendant <b>14 jours</b>, avec 150 crédits, sans carte. Il est donné à un compte HangarAI, un par compte. Rien ne se renouvelle ni n’est facturé à sa fin&nbsp;: HangarAI vous demande de choisir une offre pour continuer.</li>
+        <li><b>La licence gratuite</b>, pour les installations de HangarAI 2.5.1 et antérieures&nbsp;: donnée à un compte HangarAI, une par compte, au premier lancement de la 3.0, et portée par lui, sur <b>jusqu’à 3 ordinateurs</b>. Tout ce qu’avaient ces installations continue de fonctionner, avec 30 crédits par mois pour la dictée et aucun des autres services de HangarAI Cloud.</li>
+        <li><b>HangarAI Pro et HangarAI Max</b>&nbsp;: des abonnements, ci-dessous.</li>
+        <li><b>Les licences Lifetime</b> achetées avant la 3.0 ne sont plus vendues. Rien ne change pour elles&nbsp;: elles gardent l’app, ses mises à jour et les crédits qu’elles portent.</li>
+      </ul>
+    </section>
+
+    <section id="subscriptions" aria-labelledby="h-subscriptions">
+      <h2 id="h-subscriptions"><span data-l="en">5. Pro and Max subscriptions</span><span data-l="fr">5. Les abonnements Pro et Max</span></h2>
+      <p data-l="en">What each plan includes is on the <a href="../pricing/">pricing page</a>. Their prices, VAT included, as paid in France:</p>
+      <p data-l="fr">Ce que comprend chaque offre est sur la <a href="../pricing/">page des tarifs</a>. Leurs prix, TVA comprise, tels qu’ils se paient en France&nbsp;:</p>
+      <table class="legal__table" data-l="en">
+        <thead><tr><th scope="col">Plan</th><th scope="col">Monthly</th><th scope="col">Yearly</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">HangarAI Pro</th><td>€20 a month</td><td>€192 a year</td></tr>
+          <tr><th scope="row">HangarAI Max</th><td>€39 a month</td><td>€374 a year</td></tr>
+        </tbody>
+      </table>
+      <table class="legal__table" data-l="fr">
+        <thead><tr><th scope="col">Offre</th><th scope="col">Au mois</th><th scope="col">À l’année</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">HangarAI Pro</th><td>20&nbsp;€ par mois</td><td>192&nbsp;€ par an</td></tr>
+          <tr><th scope="row">HangarAI Max</th><td>39&nbsp;€ par mois</td><td>374&nbsp;€ par an</td></tr>
+        </tbody>
+      </table>
+      <ul data-l="en">
+        <li><b>VAT.</b> Polar applies the VAT of your country, so elsewhere the total can differ by a few cents; the checkout shows it before you pay.</li>
+        <li><b>Renewal.</b> A subscription renews by itself at the end of each period, a month or a year, and Polar charges the payment method you gave, until you cancel.</li>
+        <li><b>Cancelling.</b> At any time, in your <a href="../account/">account</a>: <i>Manage subscription</i> opens Polar’s customer portal, where you cancel in a few clicks. The subscription then runs to the end of the period already paid, and does not renew.</li>
+        <li><b>Changing plan.</b> Between Pro and Max, monthly or yearly, at any time, from the same portal. Polar prorates the price over what is left of the period; Cloud Builds follow the new plan at once, and the monthly credits change from the next period.</li>
+        <li><b>When it ends.</b> HangarAI opens on its license screen, where you can subscribe again. Nothing is deleted: your projects, boards, memory and settings stay on your computer as they are, and credits you bought stay on your license.</li>
+        <li><b>Prices.</b> If a subscription’s price goes up, Polar tells you before it applies, as its buyer terms say, and you can cancel before the renewal.</li>
+        <li><b>Refunds</b> follow the <a href="../terms/#credits">HangarAI Cloud terms</a>: ask at <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>, from the address you paid with; refunds go through Polar, back to the way you paid.</li>
+      </ul>
+      <ul data-l="fr">
+        <li><b>TVA.</b> Polar applique la TVA de votre pays, si bien qu’ailleurs le total peut différer de quelques centimes&nbsp;; le paiement l’affiche avant que vous payiez.</li>
+        <li><b>Renouvellement.</b> Un abonnement se renouvelle de lui-même à la fin de chaque période, un mois ou un an, et Polar débite le moyen de paiement que vous avez donné, jusqu’à ce que vous résiliiez.</li>
+        <li><b>Résiliation.</b> À tout moment, dans votre <a href="../account/">compte</a>&nbsp;: <i>Gérer l’abonnement</i> ouvre le portail client de Polar, où vous résiliez en quelques clics. L’abonnement court alors jusqu’à la fin de la période déjà payée, et ne se renouvelle pas.</li>
+        <li><b>Changement d’offre.</b> Entre Pro et Max, au mois ou à l’année, à tout moment, depuis le même portail. Polar calcule le prix au prorata de ce qui reste de la période&nbsp;; Cloud Builds suit la nouvelle offre aussitôt, et les crédits du mois changent à partir de la période suivante.</li>
+        <li><b>À la fin.</b> HangarAI s’ouvre sur son écran de licence, où vous pouvez vous réabonner. Rien n’est effacé&nbsp;: vos projets, tableaux, mémoire et réglages restent sur votre ordinateur tels quels, et les crédits achetés restent sur votre licence.</li>
+        <li><b>Prix.</b> Si le prix d’un abonnement augmente, Polar vous prévient avant qu’il s’applique, comme le disent ses conditions d’achat, et vous pouvez résilier avant le renouvellement.</li>
+        <li><b>Remboursements</b>&nbsp;: selon les <a href="../terms/#credits">conditions de HangarAI Cloud</a>. Demandez-le à <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>, depuis l’adresse avec laquelle vous avez payé&nbsp;; le remboursement passe par Polar, sur le moyen de paiement utilisé.</li>
+      </ul>
+      <p data-l="en">Credit packs and pay as you go, and what credits pay for, are in the <a href="../terms/#credits">HangarAI Cloud terms</a>.</p>
+      <p data-l="fr">Les recharges de crédits et le paiement à l’usage, et ce que paient les crédits, sont dans les <a href="../terms/#credits">conditions de HangarAI Cloud</a>.</p>
+    </section>
+
+    <section id="withdrawal" aria-labelledby="h-withdrawal">
+      <h2 id="h-withdrawal"><span data-l="en">6. Right of withdrawal</span><span data-l="fr">6. Droit de rétractation</span></h2>
+      <p data-l="en"><b>The sale is Polar’s.</b> HangarAI Pro, HangarAI Max and credit packs are sold by Polar, the merchant of record: the contract of sale is made with Polar, at its checkout, under its <a href="https://polar.sh/legal/checkout-buyer-terms">buyer terms</a>; HangarAI provides the software, its license and the service. These terms are the “Supplier Agreement” Polar’s buyer terms refer to: you agree to them when you buy.</p>
+      <p data-l="fr"><b>La vente est celle de Polar.</b> HangarAI Pro, HangarAI Max et les recharges de crédits sont vendus par Polar, le revendeur officiel («&nbsp;merchant of record&nbsp;»)&nbsp;: le contrat de vente est conclu avec Polar, sur sa page de paiement, selon ses <a href="https://polar.sh/legal/checkout-buyer-terms">conditions d’achat</a>&nbsp;; HangarAI fournit le logiciel, sa licence et le service. Ces conditions sont le «&nbsp;Supplier Agreement&nbsp;» auquel renvoient les conditions d’achat de Polar&nbsp;: vous les acceptez en achetant.</p>
+      <p data-l="en">As a consumer in the European Union, you normally have <b>14 days</b> to withdraw from a purchase made at a distance, without giving a reason. For digital content supplied without a physical medium, that right ends once the supply has begun, if you expressly asked for it to begin before the 14 days were over and acknowledged that you thereby lose the right (French Consumer Code, article L221-28, 13°).</p>
+      <p data-l="fr">En tant que consommateur dans l’Union européenne, vous disposez en principe de <b>14 jours</b> pour vous rétracter d’un achat à distance, sans avoir à vous justifier. Pour un contenu numérique fourni sans support matériel, ce droit ne peut plus être exercé une fois la fourniture commencée, si vous avez expressément demandé qu’elle commence avant la fin des 14 jours et reconnu perdre ainsi ce droit (Code de la consommation, article L221-28, 13°).</p>
+      <p data-l="en">HangarAI Pro and HangarAI Max start <b>as soon as you have paid</b>: your license works at once, and credit packs are on your license as soon as they are paid. That request for immediate supply, and the acknowledgment that you lose the right of withdrawal, are collected by Polar at payment, on its checkout.</p>
+      <p data-l="fr">HangarAI Pro et HangarAI Max commencent <b>dès le paiement</b>&nbsp;: votre licence fonctionne aussitôt, et les recharges de crédits sont portées sur votre licence dès leur paiement. Cette demande de fourniture immédiate, et la reconnaissance de la perte du droit de rétractation, sont recueillies par Polar au paiement, sur sa page de paiement.</p>
+      <p data-l="en">Polar’s buyer terms (version of 25 March 2026) also say that, before a subscription is bought, Polar shows its price, how often it renews, how to cancel and that charges recur until you cancel; that refunds “are evaluated consistent with applicable law, the applicable refund policy and the card network rules”; and that they do “not limit any non-waivable consumer rights or remedies”.</p>
+      <p data-l="fr">Les conditions d’achat de Polar (version du 25 mars 2026) disent aussi qu’avant l’achat d’un abonnement, Polar en affiche le prix, la fréquence de renouvellement, la façon de résilier, et que les prélèvements se répètent jusqu’à la résiliation&nbsp;; que les remboursements sont examinés «&nbsp;consistent with applicable law, the applicable refund policy and the card network rules&nbsp;» (selon la loi applicable, la politique de remboursement applicable et les règles des réseaux de cartes)&nbsp;; et qu’elles ne limitent «&nbsp;any non-waivable consumer rights or remedies&nbsp;» (aucun des droits ou recours auxquels un consommateur ne peut renoncer).</p>
+      <p data-l="en">None of this changes the refunds the <a href="../terms/#credits">HangarAI Cloud terms</a> offer, nor the legal guarantees below. The free trial is there to try HangarAI before you pay.</p>
+      <p data-l="fr">Rien de tout cela ne change les remboursements que prévoient les <a href="../terms/#credits">conditions de HangarAI Cloud</a>, ni les garanties légales ci-dessous. L’essai gratuit est là pour essayer HangarAI avant de payer.</p>
+    </section>
+
+    <section id="use" aria-labelledby="h-use">
+      <h2 id="h-use"><span data-l="en">7. Acceptable use</span><span data-l="fr">7. Usage acceptable</span></h2>
+      <ul data-l="en">
+        <li>Use HangarAI lawfully, and only on code, files and systems you are allowed to work on.</li>
+        <li><b>Your agents act for you.</b> HangarAI runs Claude Code and Codex on your computer, under your own accounts with Anthropic and OpenAI and under their terms, which you accept and pay for with them. What an agent does through HangarAI (a file changed, a command run, a commit landed) counts as done by you: review what matters, and keep copies and version control of your work.</li>
+        <li>Do not attack, overload or probe our servers, and do not use HangarAI to harm anyone else’s.</li>
+        <li>The hosted services have rules of their own: <a href="../terms/#not-allowed">what is not allowed on HangarAI Cloud</a>.</li>
+      </ul>
+      <ul data-l="fr">
+        <li>Utilisez HangarAI légalement, et seulement sur du code, des fichiers et des systèmes sur lesquels vous avez le droit de travailler.</li>
+        <li><b>Vos agents agissent pour vous.</b> HangarAI fait tourner Claude Code et Codex sur votre ordinateur, avec vos propres comptes chez Anthropic et OpenAI et selon leurs conditions, que vous acceptez et payez chez eux. Ce qu’un agent fait par HangarAI (un fichier modifié, une commande lancée, un commit fusionné) compte comme fait par vous&nbsp;: relisez ce qui compte, et gardez des copies et un suivi de version de votre travail.</li>
+        <li>N’attaquez pas, ne surchargez pas et ne sondez pas nos serveurs, et n’utilisez pas HangarAI pour nuire à ceux de quelqu’un d’autre.</li>
+        <li>Les services hébergés ont leurs propres règles&nbsp;: <a href="../terms/#not-allowed">ce qui n’est pas permis sur HangarAI Cloud</a>.</li>
+      </ul>
+    </section>
+
+    <section id="termination" aria-labelledby="h-termination">
+      <h2 id="h-termination"><span data-l="en">8. Ending, suspension</span><span data-l="fr">8. Fin, suspension</span></h2>
+      <ul data-l="en">
+        <li><b>You</b> can stop at any time: cancel your subscription (above), uninstall HangarAI, and delete your HangarAI account in Settings › Hangar account › <i>Delete my account</i>.</li>
+        <li><b>We</b> may suspend or end a license for a serious breach of these terms: getting around the license check or the seats, reselling or sharing license keys, fraud, or attacks on our servers. Unless the law forbids it, we tell you why first, and you can answer at <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>.</li>
+        <li>The hosted services can be limited, paused or suspended as the <a href="../terms/#suspension">HangarAI Cloud terms</a> say.</li>
+      </ul>
+      <ul data-l="fr">
+        <li><b>Vous</b> pouvez arrêter à tout moment&nbsp;: résilier votre abonnement (ci-dessus), désinstaller HangarAI, et supprimer votre compte HangarAI dans Réglages › Compte Hangar › <i>Supprimer mon compte</i>.</li>
+        <li><b>Nous</b> pouvons suspendre ou mettre fin à une licence en cas de manquement grave à ces conditions&nbsp;: contourner la vérification de la licence ou les places, revendre ou partager des clés de licence, la fraude, ou des attaques contre nos serveurs. Sauf si la loi l’interdit, nous vous disons d’abord pourquoi, et vous pouvez répondre à <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>.</li>
+        <li>Les services hébergés peuvent être limités, mis en pause ou suspendus comme le disent les <a href="../terms/#suspension">conditions de HangarAI Cloud</a>.</li>
+      </ul>
+    </section>
+
+    <section id="liability" aria-labelledby="h-liability">
+      <h2 id="h-liability"><span data-l="en">9. Guarantees and liability</span><span data-l="fr">9. Garanties et responsabilité</span></h2>
+      <p data-l="en"><b>If you are a consumer</b>, you have the legal guarantee of conformity for digital content and services (French Consumer Code, articles L224-25-1 and following): HangarAI must match what it was presented as, and work as it should, for as long as your license runs. If it does not, write to <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>: we bring it into conformity, or, failing that, you may have the price reduced or the contract ended, as the law provides. Nothing in these terms limits these rights.</p>
+      <p data-l="fr"><b>Si vous êtes un consommateur</b>, vous bénéficiez de la garantie légale de conformité des contenus et services numériques (Code de la consommation, articles L224-25-1 et suivants)&nbsp;: HangarAI doit correspondre à ce qui a été présenté, et fonctionner comme il le doit, pendant toute la durée de votre licence. Sinon, écrivez à <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>&nbsp;: nous le mettons en conformité, ou, à défaut, vous pouvez obtenir une réduction du prix ou la résolution du contrat, comme le prévoit la loi. Rien dans ces conditions ne limite ces droits.</p>
+      <p data-l="en"><b>What we cannot promise.</b> HangarAI drives AI agents, and AI models make mistakes: what an agent writes or does can be wrong, and it is yours to check before you rely on it. HangarAI relies on tools and services we do not run (Claude Code, Codex, GitHub, your network), which can change or fail.</p>
+      <p data-l="fr"><b>Ce que nous ne pouvons pas promettre.</b> HangarAI pilote des agents d’IA, et les modèles d’IA se trompent&nbsp;: ce qu’un agent écrit ou fait peut être faux, et c’est à vous de le vérifier avant de vous y fier. HangarAI dépend d’outils et de services que nous n’exploitons pas (Claude Code, Codex, GitHub, votre réseau), qui peuvent changer ou tomber en panne.</p>
+      <p data-l="en"><b>If you are a professional</b>, and as far as the law allows: we are liable only for direct damage we cause, up to the amount you paid us in the 12 months before it, and not for indirect damage such as lost profits, lost data or lost business. These limits never apply to damage caused intentionally or by gross negligence, to bodily injury, or where the law does not allow them.</p>
+      <p data-l="fr"><b>Si vous êtes un professionnel</b>, et dans la mesure permise par la loi&nbsp;: notre responsabilité ne couvre que les dommages directs que nous causons, dans la limite de ce que vous nous avez payé dans les 12 mois qui les précèdent, et pas les dommages indirects comme un manque à gagner, une perte de données ou une perte d’activité. Ces limites ne s’appliquent jamais aux dommages causés intentionnellement ou par une faute lourde, aux dommages corporels, ni là où la loi les interdit.</p>
+    </section>
+
+    <section id="changes" aria-labelledby="h-changes">
+      <h2 id="h-changes"><span data-l="en">10. Changes</span><span data-l="fr">10. Changements</span></h2>
+      <p data-l="en">We may change these terms; the date at the top says which version you are reading, and earlier versions stay in the public repository’s history. A change applies from its date, never to what you already did. If a change is to your disadvantage while you have a subscription, it applies to it only from its next renewal, and you can cancel before.</p>
+      <p data-l="fr">Nous pouvons modifier ces conditions&nbsp;; la date en haut indique la version que vous lisez, et les versions précédentes restent dans l’historique du dépôt public. Un changement s’applique à partir de sa date, jamais à ce que vous avez déjà fait. S’il vous est défavorable alors que vous avez un abonnement, il ne s’applique à celui-ci qu’à son prochain renouvellement, et vous pouvez résilier avant.</p>
+    </section>
+
+    <section id="disputes" aria-labelledby="h-disputes">
+      <h2 id="h-disputes"><span data-l="en">11. Law and disputes</span><span data-l="fr">11. Droit et litiges</span></h2>
+      <ul data-l="en">
+        <li><b>Law.</b> These terms (the license, the app and its service) are governed by French law. If you are a consumer living in another country, you keep the protection of the mandatory rules of the country you live in.</li>
+        <li><b>A payment, an invoice, a refund.</b> The sale is made with Polar, the merchant of record: its <a href="https://polar.sh/legal/checkout-buyer-terms">buyer terms</a> and its handling of disputes apply to it. Write to Polar at <a href="mailto:support@polar.sh">support@polar.sh</a>, or to us, and we will take it up with Polar for you.</li>
+        <li><b>The app, your license, the service.</b> Write to us at <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>: most problems are solved that way.</li>
+        <li><b>Help as a consumer.</b> For a dispute with a seller in another EU country, the <a href="https://www.europe-consommateurs.eu/">European Consumer Centre France</a> can advise you, free of charge.</li>
+        <li><b>Courts.</b> If you are a consumer, you may go to the court of the place where you live, or any court the law gives you. If you are a professional, the courts of Saint-Étienne (France) alone are competent for a dispute with us.</li>
+      </ul>
+      <ul data-l="fr">
+        <li><b>Droit applicable.</b> Ces conditions (la licence, l’app et son service) sont régies par le droit français. Si vous êtes un consommateur qui vit dans un autre pays, vous gardez la protection des règles impératives du pays où vous vivez.</li>
+        <li><b>Un paiement, une facture, un remboursement.</b> La vente est conclue avec Polar, le revendeur officiel&nbsp;: ses <a href="https://polar.sh/legal/checkout-buyer-terms">conditions d’achat</a> et son traitement des litiges s’y appliquent. Écrivez à Polar à <a href="mailto:support@polar.sh">support@polar.sh</a>, ou à nous, et nous voyons la question avec Polar pour vous.</li>
+        <li><b>L’app, votre licence, le service.</b> Écrivez-nous à <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>&nbsp;: la plupart des problèmes se règlent ainsi.</li>
+        <li><b>De l’aide en tant que consommateur.</b> Pour un litige avec un vendeur d’un autre pays de l’UE, le <a href="https://www.europe-consommateurs.eu/">Centre Européen des Consommateurs France</a> peut vous conseiller gratuitement.</li>
+        <li><b>Tribunaux.</b> Si vous êtes un consommateur, vous pouvez saisir le tribunal du lieu où vous vivez, ou tout tribunal que la loi vous ouvre. Si vous êtes un professionnel, les tribunaux de Saint-Étienne (France) sont seuls compétents pour un litige avec nous.</li>
+      </ul>
+    </section>
+
+    <section id="contact" aria-labelledby="h-contact">
+      <h2 id="h-contact"><span data-l="en">12. Contact</span><span data-l="fr">12. Contact</span></h2>
+      <p data-l="en">Simon Gay EI, 11 rue de Douaumont, 42400 Saint-Chamond, France · <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>. Everything else about the publisher: the <a href="notice.html">legal notice</a>.</p>
+      <p data-l="fr">Simon Gay EI, 11 rue de Douaumont, 42400 Saint-Chamond, France · <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>. Tout le reste sur l’éditeur&nbsp;: les <a href="notice.html">mentions légales</a>.</p>
+    </section>
+  </article>
+</main>
+
+<!-- site footer: the same on every page -->
+<footer class="foot" id="site-map">
+  <div class="wrap foot__in">
+    <div class="foot__top">
+      <div class="foot__brand">
+        <a class="brand" href="../" aria-label="HangarAI, home" data-fr="HangarAI, accueil">
+          <svg class="brand__mark" width="20" height="20" viewBox="200 200 624 624" aria-hidden="true">
+        <rect x="200" y="200" width="260" height="624" fill="var(--accent)"></rect>
+        <rect x="538" y="200" width="286" height="260" fill="var(--fg-hi)"></rect>
+        <rect x="538" y="538" width="286" height="286" fill="var(--fg-hi)"></rect>
+      </svg>
+          <span class="brand__name">HangarAI</span>
+        </a>
+        <p class="foot__tag"><span data-l="en">A team of coding agents, in one native window. Local, with no usage telemetry.</span><span data-l="fr">Une équipe d’agents de code, dans une seule fenêtre native. En local, sans télémétrie d’usage.</span></p>
+        <div class="foot__social">
+          <a href="https://github.com/hangar-ai/hangar" aria-label="HangarAI on GitHub" data-fr="HangarAI sur GitHub"><svg width="17" height="17" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"></path></svg></a>
+          <a href="https://discord.gg/hangarai" aria-label="HangarAI on Discord" data-fr="HangarAI sur Discord"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.32 4.37a19.8 19.8 0 0 0-4.89-1.52.07.07 0 0 0-.08.04c-.21.37-.44.86-.61 1.25a18.27 18.27 0 0 0-5.49 0 12.6 12.6 0 0 0-.62-1.25.08.08 0 0 0-.08-.04 19.74 19.74 0 0 0-4.88 1.52.07.07 0 0 0-.03.03C.53 9.05-.32 13.58.1 18.06a.08.08 0 0 0 .03.06 19.9 19.9 0 0 0 5.99 3.03.08.08 0 0 0 .08-.03c.46-.63.87-1.3 1.23-1.99a.08.08 0 0 0-.04-.11 13.1 13.1 0 0 1-1.87-.89.08.08 0 0 1-.01-.13l.37-.29a.07.07 0 0 1 .08-.01c3.93 1.79 8.18 1.79 12.06 0a.07.07 0 0 1 .08.01l.37.29a.08.08 0 0 1-.01.13c-.6.35-1.22.64-1.87.89a.08.08 0 0 0-.04.11c.36.7.77 1.36 1.22 1.99a.08.08 0 0 0 .08.03 19.84 19.84 0 0 0 6-3.03.08.08 0 0 0 .04-.06c.5-5.18-.84-9.67-3.55-13.66a.06.06 0 0 0-.03-.03ZM8.02 15.33c-1.18 0-2.16-1.09-2.16-2.42s.96-2.42 2.16-2.42c1.21 0 2.18 1.1 2.16 2.42 0 1.33-.96 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.15-1.09-2.15-2.42s.95-2.42 2.15-2.42c1.21 0 2.18 1.1 2.16 2.42 0 1.33-.95 2.42-2.16 2.42Z"></path></svg></a>
+        </div>
+      </div>
+      <nav class="foot__cols" aria-label="Site map" data-fr="Plan du site">
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Product</span><span data-l="fr">Produit</span></h2>
+        <ul>
+          <li><a href="../#how"><span data-l="en">Features</span><span data-l="fr">Fonctionnalités</span></a></li>
+          <li><a href="../pricing/"><span data-l="en">Pricing</span><span data-l="fr">Tarifs</span></a></li>
+          <li><a href="../#download"><span data-l="en">Download</span><span data-l="fr">Télécharger</span></a></li>
+          <li><a href="../#control">Hangar Mobile</a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md"><span data-l="en">Changelog</span><span data-l="fr">Nouveautés</span></a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Resources</span><span data-l="fr">Ressources</span></h2>
+        <ul>
+          <li><a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/README.md">Guide</a></li>
+          <li><a href="../#faq">Questions</a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/releases"><span data-l="en">Releases</span><span data-l="fr">Versions</span></a></li>
+          <li><a href="https://discord.gg/hangarai"><span data-l="en">Discord community</span><span data-l="fr">Communauté Discord</span></a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/issues"><span data-l="en">Report a bug</span><span data-l="fr">Signaler un bug</span></a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Company</span><span data-l="fr">Société</span></h2>
+        <ul>
+          <li><a href="../account/"><span data-l="en">Account</span><span data-l="fr">Compte</span></a></li>
+          <li><a href="../affiliates/"><span data-l="en">Affiliates</span><span data-l="fr">Affiliation</span></a></li>
+          <li><a href="mailto:contact@hangarai.dev">Contact</a></li>
+          <li><a href="https://github.com/simnJS"><span data-l="en">Made by simnJS</span><span data-l="fr">Fait par simnJS</span></a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Legal</span><span data-l="fr">Légal</span></h2>
+        <ul>
+          <li><a href="../legal/notice.html"><span data-l="en">Legal notice</span><span data-l="fr">Mentions légales</span></a></li>
+          <li><a href="../legal/terms-app.html" aria-current="page"><span data-l="en">App terms</span><span data-l="fr">Conditions de l’app</span></a></li>
+          <li><a href="../terms/"><span data-l="en">Cloud terms</span><span data-l="fr">Conditions du Cloud</span></a></li>
+          <li><a href="../legal/affiliate-terms.html"><span data-l="en">Affiliate terms</span><span data-l="fr">Conditions d’affiliation</span></a></li>
+          <li><a href="../privacy.html"><span data-l="en">Privacy and cookies</span><span data-l="fr">Confidentialité et cookies</span></a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/blob/main/LICENSE"><span data-l="en">License</span><span data-l="fr">Licence</span></a></li>
+        </ul>
+      </div>
+      </nav>
+    </div>
+    <div class="foot__base">
+      <p><span>© 2026 HangarAI</span><span><span data-l="en">Payments by</span><span data-l="fr">Paiements par</span> <a href="https://polar.sh">Polar</a></span></p>
+      <div class="foot__end"><div class="lang-seg" role="group" aria-label="Language" data-fr="Langue">
+        <button type="button" class="lang-seg__btn" data-set-lang="en" lang="en" aria-label="English" aria-pressed="true">EN</button>
+        <button type="button" class="lang-seg__btn" data-set-lang="fr" lang="fr" aria-label="Français" aria-pressed="false">FR</button>
+      </div></div>
+    </div>
+  </div>
+</footer>
+<!-- /site footer -->
+
+<script src="../assets/lang.js?v=a961f665bf" defer></script>
+<script src="../assets/nav.js?v=a2538a43ce" defer></script>
+</body>
+</html>

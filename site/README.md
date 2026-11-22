@@ -6,7 +6,10 @@ loaded from another origin.
 
 ```
 index.html            the page
-privacy.html          what the optional Hangar account stores, and how to delete it (linked from the footer)
+privacy.html          privacy and cookies: what each part stores, the GDPR's controller, legal bases,
+                      recipients and transfers, rights, and every cookie (see The legal pages)
+legal/                the legal notice, the app terms, the affiliate terms and their legal.css
+terms/                HangarAI Cloud's terms
 styles.css            every colour is a token; Graphite unless main.js swaps them
 main.js               themes, section bar, download per OS, the film, folds
 assets/motion.js      the scroll-driven motion (see Motion below)
@@ -355,6 +358,85 @@ reads on a phone: the narrow « Chat + team », one pane (Eva's permission). Eve
 below the hero is `loading="lazy"`. Some crops (`tasks`, `board`, `model`,
 `nodes`, `cloud`, two of the phones) are on no page since 3.0's home; the
 crop script says so, and they stay cut for a page that wants them.
+
+## The legal pages
+
+Every page's footer has a *Legal* column with the same links, in this order:
+*Legal notice* (`legal/notice.html`), *App terms* (`legal/terms-app.html`),
+*Cloud terms* (`terms/`), *Affiliate terms* (`legal/affiliate-terms.html`),
+*Privacy and cookies* (`privacy.html`), and the repository's *License*. The
+share viewer (`s/`) has no footer of the site's: its own carries *Legal
+notice* beside *Made with HangarAI*. The app links the first four from
+Settings › About › Legal (`crates/hangar-app/src/settings/schema.rs`, the
+`*_URL` constants): a page that moves must keep its address, or change there
+too.
+
+| Page | What it is | Its facts come from |
+|---|---|---|
+| `legal/notice.html` | The *mentions légales* the LCEN requires: publisher, director of publication, contact, hosts, the seller, intellectual property, credits | The publisher's own details (below), each host's and Polar's own legal pages |
+| `legal/terms-app.html` | The app's terms: the license and its seats, the trial, the free license of 2.x installs, Pro and Max (prices, renewal, cancelling, plan changes), the right of withdrawal, acceptable use, ending, guarantees and liability, law and disputes. Polar's buyer terms call it the "Supplier Agreement" | `pricing/` and `CHANGELOG.md` for what the plans include; Polar's buyer terms for the sale |
+| `terms/` | HangarAI Cloud: credits, refunds, each service's rules, takedowns | `crates/hangar-app/src/cloud/service.rs`, the server |
+| `legal/affiliate-terms.html` | The referral program | `docs/native/referral.md` |
+| `privacy.html` | What leaves the computer and what is kept, then the GDPR's parts: *Who is responsible* (`#controller`), *Why, and on what legal basis* (`#bases`), *Who receives it, and transfers outside the EU* (`#recipients`), *Your rights*, *Automated decisions*, *Security*, *Cookies and browser storage* (`#cookies`) | The server's code and `docs/native/*.md`; each provider's own privacy policy for its country and transfer mechanism |
+
+All of them are in English and French in one file (`data-l`), as the rest of
+the site. `legal/notice.html` and `legal/terms-app.html` were made from
+`legal/affiliate-terms.html`: the same head, header and footer, another
+`<main>`. A new legal page starts the same way, and gets a line in every
+footer's *Legal* column.
+
+**The publisher**, as the person gave it on 2026-11-22, published as is:
+Simon Gay EI (*entrepreneur individuel*: the name always carries « EI », loi du
+14 février 2022), trading as HangarAI, 11 rue de Douaumont, 42400
+Saint-Chamond; SIREN 990 423 162, SIRET 990 423 162 00017, RCS Saint-Étienne,
+NAF/APE 6201Z, created 20 August 2025, VAT FR30990423162; director of
+publication Simon Gay; contact@hangarai.dev for everything (no phone
+published). **If any of it changes** (an address, a company in place of the
+EI, a phone number), change it in `legal/notice.html` (section 1, and the
+address in section 12 of `legal/terms-app.html`) and in `privacy.html`
+(`#controller` and the postal address under *Your rights*), and the date at
+the top of each page.
+
+**The hosts and providers**, checked on 2026-11-22 from their own pages: Vyme
+SASU (MercuryCloud), 200 rue de la Croix Nivert, 75015 Paris, RCS Paris 989
+030 978, +33 9 72 15 33 66 (mercurycloud.fr/legal/mentions-legales; the VPS's
+address is in Vyme's AS199297); Cloudflare, Inc., 101 Townsend St, San
+Francisco, CA 94107, +1 650 319 8930, certified to the EU-U.S. Data Privacy
+Framework (its privacy policy); GitHub, Inc., 88 Colin P. Kelly Jr. Street,
+San Francisco, CA 94107, certified to the DPF; Polar Software, Inc., 3500
+South DuPont Highway, Dover, DE 19901, standard contractual clauses (its
+privacy policy), buyer terms of 25 March 2026, quoted in the app terms'
+section 6; Groq, fal, Vast.ai: contractual clauses, as their policies say;
+Hetzner Online GmbH, in the EU. A new provider goes in `privacy.html`'s
+providers table, in `#recipients` with its country and transfer mechanism,
+and, if it hosts the site, in the legal notice.
+
+**Cookies.** `#cookies` lists everything the site keeps in the browser: the
+`__Host-hangar_session` cookie (`account.hangarai.dev`, 30 days), the
+`hangar_ref` cookie and `hangar.ref` (a referral link's code, 60 days,
+`assets/api.js`), and `hangar.lang`, `hangar.announce`,
+`hangar.account.seen`, `hangar.signin` (`assets/lang.js`, `assets/nav.js`,
+`account/account.js`). The live site sets no other cookie (checked with its
+responses on 2026-11-22; Cloudflare could add `cf_clearance` on a challenge).
+A script that stores something new in the browser needs its line there
+before it ships. There is no consent banner. The referral cookie and `hangar.ref` are
+the ones the CNIL would not count as strictly necessary (its cookie FAQ: the
+trackers of affiliation are not exempt from consent); asking for consent on
+`/r/` before keeping the code is the person's decision, not made yet. Nothing
+else that is not strictly necessary may be added without consent.
+
+**Not checked by a lawyer.** `legal/terms-app.html`, `terms/` and
+`legal/affiliate-terms.html` say so at their top (`.legal__draft`); remove the
+note once a reviewed version replaces the text. Choices that are the
+person's, written so that they are easy to change: French law; for
+professionals the courts of Saint-Étienne, consumers keeping their own
+(`legal/terms-app.html#disputes`); the sale is Polar's as merchant of record,
+which collects the request for immediate supply and the acknowledgment of
+losing the right of withdrawal (`#withdrawal`); refunds as `terms/#credits`
+says; the free license of 2.x installs, held by the HangarAI account, on up
+to 3 computers like Pro and Max (`#license`, `#licenses`, `pricing/`'s
+questions, `privacy.html#license`); an account from 16, buying from 18 or with a parent's permission
+(`#age`, and `privacy.html#rights`).
 
 ## Releasing a new version
 

@@ -99,9 +99,140 @@
   color: var(--fg-muted);
 }
 
+.legal h3 {
+  margin-top: 28px;
+  color: var(--fg-hi);
+  font-size: 16.5px;
+  line-height: 1.35;
+}
+
+/* An identity: a label and its value, one row each (the publisher, the
+   director). Below 600 px the label goes above its value. */
+.legal__facts {
+  display: grid;
+  grid-template-columns: minmax(160px, 32%) 1fr;
+  margin: 16px 0 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.legal__facts dt,
+.legal__facts dd {
+  margin: 0;
+  padding: 11px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.legal__facts dt {
+  background: var(--chrome);
+  color: var(--fg-muted);
+  font-weight: 500;
+}
+
+.legal__facts dd {
+  color: var(--fg);
+  overflow-wrap: anywhere;
+}
+
+.legal__facts dt:first-of-type,
+.legal__facts dt:first-of-type + dd {
+  border-top: 0;
+}
+
+/* The companies a page names (hosts, the seller): a card each. */
+.legal .legal__orgs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.legal .legal__orgs > li {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bg-sunken);
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+
+.legal__org-role {
+  display: block;
+  color: var(--fg-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.legal__org-name {
+  display: block;
+  margin-top: 4px;
+  color: var(--fg-hi);
+  font-size: 15.5px;
+  font-weight: 600;
+}
+
+.legal__org-addr {
+  display: block;
+  margin-top: 4px;
+  color: var(--fg-secondary);
+  font-style: normal;
+}
+
+/* A plain table: the plans' prices. */
+.legal__table {
+  width: 100%;
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.legal__table th,
+.legal__table td {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  text-align: left;
+}
+
+.legal__table thead th {
+  border-top: 0;
+  background: var(--chrome);
+  color: var(--fg-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.legal__table td {
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+
 @media (max-width: 599px) {
   .legal__toc ol {
     columns: 1;
+  }
+
+  .legal__facts {
+    grid-template-columns: 1fr;
+  }
+
+  .legal__facts dt {
+    padding-block: 8px;
+    font-size: 13px;
+  }
+
+  .legal__facts dd {
+    border-top: 0;
   }
 }
 

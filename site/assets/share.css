@@ -373,6 +373,26 @@
   font-size: 13px;
 }
 
+/* "Legal notice" and "Made with HangarAI", together at the end. */
+.share-foot__end {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 20px;
+  margin-left: auto;
+}
+
+.share-foot__legal {
+  color: var(--fg-muted);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.share-foot__legal:hover {
+  color: var(--fg-hi);
+  text-decoration: underline;
+}
+
 .share-foot__report,
 .share-foot__made {
   display: inline-flex;
