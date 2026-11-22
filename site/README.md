@@ -8,11 +8,12 @@ loaded from another origin.
 index.html            the page
 privacy.html          what the optional Hangar account stores, and how to delete it (linked from the footer)
 styles.css            every colour is a token; Graphite unless main.js swaps them
-main.js               themes, section bar, download per OS, the delivery, folds
+main.js               themes, section bar, download per OS, the film, folds
 assets/motion.js      the scroll-driven motion (see Motion below)
 assets/mobile.css     the Hangar Mobile section: the phones drawn around their screens
 vendor/               GSAP 3.15.0 and its ScrollTrigger, unchanged, and their licence
 img/                  crops of captures of the app, AVIF + WebP, cut as img/crops.json says
+video/                the 3.0 film (EN, FR; 1080p and 720p), its covers and the night shift's still
 fonts/                Inter (latin, variable, with optical sizes) and its OFL licence
 og.png                the 1200×630 share image for X, Open Graph and the rest
 favicon.ico           16/32/48 px, for whatever still asks for /favicon.ico
@@ -32,42 +33,100 @@ the demo went with the React sources (it is at tag `v1.12.1`, under `demo/`).
 
 ## The page
 
-One story, short, in order: what HangarAI is (hero: one line, a download for
-the visitor's system and one link per OS, the chat view), the chat view, the
-orchestrator with its workers and deliveries (checked in batches, their stage
-on the worker's pane, the orchestrator woken for what matters), Hangar Mobile,
-kits and previews, the experiments (nodes, pane scopes), performance, "Also in
-the box" (Claude Code and Codex, delegate and images, the agents set up for
-you, the viewers, Discord, the optional account), downloads (macOS on 2.2.0),
-questions (the account, the Mac and Codex's beta among them). Hangar runs
-Claude Code and Codex: the page names both, Codex always marked beta, and no
-other agent.
+It sells what you get, then shows how, in this order:
 
-Every claim on it comes from the code, `CHANGELOG.md` or the English strings.
-When a feature changes, check the copy against `crates/hangar-i18n/dict/en.json`
-(the English strings say what the app does in plain words) and against the
-file the claim names: `crates/hangar-app/src/state/types.rs` for the defaults
-(Opus plans, Sonnet works and reviews; idle workspaces sleep after 10 minutes),
-`crates/hangar-core/src/delivery.rs` for the delivery stages,
-`crates/hangar-app/src/settings/experiments.rs` for the experiments.
+1. **Hero**: the outcome, in three headlines that take turns, each with its
+   sentence (a week of work in a day; your AI dev team, you call the shots;
+   it keeps shipping while you sleep), *Start the 14-day trial* (the
+   installer for the visitor's system, marked in the row of systems under
+   it) and *Watch the 40 s film*; three figures, each true and sourced (40
+   panes per workspace, ten deliveries landed in 65 s, overnight); the
+   workspace in its « Chat + team » tiles. The first headline is the page's `<h1>`, and the one a visitor
+   without script or with reduced motion sees; the other two are drawn over
+   it in the same grid cell and are `aria-hidden` (no live region: nothing
+   is read again and again). The cell is as tall as the tallest headline in
+   the language on screen, at every width, so a change moves nothing.
+2. **The problem**: five pains of running agents by hand, one line each.
+3. **How it works**: three steps (the objective, the orchestrator hands out the
+   work, finished work lands together).
+4. **The film** (below).
+5. **The 3.0 pillars**, one block each, a sentence of outcome and two to four
+   facts beside a real picture: a team, not a chatbot (the panes); lands fast
+   and safe (the landing measured, in HTML); works while you sleep (the night
+   shift's sheet, a still of the film); cloud power (Cloud Builds' price
+   sheet); you stay in control (two Hangar Mobile screens).
+6. **Also in the box**, the theme swatches, and *Native, in Rust* as one
+   measured line; pricing (the numbers of `pricing/`); downloads; questions.
 
-The performance figures are measures only: the 2.2 row is the changelog's
-(`[Unreleased]` until 2.2.0 is cut: CPU with eight agents printing, the wave
-of resumed sessions, the chat view's start, the executable's size), the 2.0
-row is `docs/native/BENCHMARK.md`'s, 1.12.1 against 2.0. Add a figure only
+The sections before 3.0's (`#chat`, `#orchestrator`, `#mobile`, `#kits`,
+`#experiments`, `#performance`) are anchors on the sections that took their
+place (`.alias`), since the other pages' menus still name them.
+
+Hangar runs Claude Code and Codex: the page names both, Codex always marked
+beta, and no other agent.
+
+Every claim on it comes from the code, `CHANGELOG.md` or the English strings,
+true on main the day it is written: what 3.0 does not ship is not on it (hosted
+nodes and the GPU machines of Cloud Builds are on it, since main has both).
+When a feature changes, check the copy against
+`crates/hangar-i18n/dict/en.json` (the English strings say what the app does in
+plain words; the French ones give the app's own French words: *fusionner*,
+*Besoin de toi*, *Mode nuit*, *lancement*) and against the file the claim
+names: `crates/hangar-app/src/state/types.rs` for the defaults,
+`crates/hangar-core/src/delivery.rs` for the delivery and its speed modes,
+`crates/hangar-app/src/settings/experiments.rs` for the experiments,
+`crates/hangar-app/src/cloud/service.rs` for what HangarAI Cloud offers.
+
+The figures are measures only. The 65 s is
+`delivery::tests::together::measure_ten_ready_deliveries_one_at_a_time_and_together`
+(`docs/native/DELIVERIES.md`, "Ten ready at once": 64.5 s, rounded as the
+changelog does; the page cites the changelog, which is public); the memory
+line is `docs/native/BENCHMARK.md`'s, 1.12.1 against 2.0. Add a figure only
 with the measure it comes from.
 
 On a phone (below 600 px) the page keeps every point and drops detail: the
 words wrapped in `.wide-only` are left out there, so read them with the rest
-when the copy changes. The short facts (under the orchestrator and the kits,
-and "Also in the box") are `<details class="fold">`, written open; `main.js`
-folds them to their titles on a phone, and above 600 px they simply stay open.
+when the copy changes. The short facts (under the first pillar and "Also in
+the box") are `<details class="fold">`, written open; `main.js` folds them to
+their titles on a phone, and above 600 px they simply stay open.
 
-The delivery card is HTML, not a capture. It is written in its final state,
-and says it is an illustration. `assets/motion.js` walks it through its four
-stages as it scrolls up the screen; if that script did not run, `main.js` plays
-them once on a timer when the card comes into view, and with reduced motion it
-stays as written.
+The landing card (`#race`) is HTML, not a capture: the measure's two times and
+their bars, written at their end.
+
+### The film
+
+`video/` holds the 40 s film of `marketing/trailer`, served from the site. Its
+cover is the film's first title in the page's language (a still, AVIF and
+WebP); nothing of the film loads before a click (`preload="none"`), which plays
+the one in the page's language, with its sound, and gives the player's own
+controls. The hero's *Watch the 40 s film* brings it to the middle of the
+screen and starts it in the same click (so the browser lets the sound play).
+A `media` source picks 1080p from 800 px up, 720p below. Without script, the
+players show with their controls.
+
+Made from the trailer's renders (`~/dev/hangar-trailer/final`, see
+`marketing/trailer/README.md`):
+
+```bash
+T=~/dev/hangar-trailer/final
+# 1080p: the renders themselves (H.264 at CRF 14, about 2.9 Mb/s: the film is
+# flat colour and text), the index moved to the front for streaming
+ffmpeg -i $T/hangarai-3.0-trailer-en.mp4 -map 0:v:0 -map 0:a:0 -c copy -map_metadata -1 \
+  -movflags +faststart video/hangarai-3.0-en-1080p.mp4          # and -fr
+# 720p, about 1.1 Mb/s (English from the ProRes master)
+ffmpeg -i $T/hangarai-3.0-trailer-en-master.mov -map 0:v:0 -map 0:a:0 \
+  -vf "scale=1280:720:flags=lanczos,format=yuv420p" -c:v libx264 -preset slower -crf 20 \
+  -maxrate 3500k -bufsize 7000k -profile:v high -level 4.1 -g 120 \
+  -c:a aac -b:a 160k -ac 2 -ar 48000 -map_metadata -1 -movflags +faststart \
+  video/hangarai-3.0-en-720p.mp4                                 # and -fr, from its .mp4
+# covers: the first title (1.6 s), 960 and 1920 wide; the night shift's sheet
+# (21.6 s, cropped 1320 × 728 at 300, 290), 660 and 1320 wide; each as WebP
+# (-c:v libwebp -quality 82) and AVIF (-c:v libaom-av1 -still-picture 1 -crf 30)
+```
+
+Their `?v=` stamps are the first ten hex digits of each file's SHA-1, as the
+crop script writes them, but by hand: `scripts/site-crops.mjs` does not know
+`video/`. Stamp them again when a file changes.
 
 ## Motion
 
@@ -81,35 +140,33 @@ licence file (the crop script stamps `assets/motion.js`, not `vendor/`).
 What moves, top to bottom:
 
 - **Hero.** At load, the headline rises word by word and the rest of the copy
-  after it (timed, once). As you scroll, the window leans back in perspective
+  after it (timed, once). Then the three headlines take turns, 4.5 s each
+  (`TUNE.headlineFor`): the one on screen and its sentence fade out, a little
+  blurred and a few pixels up, as the next come in the same way, word by
+  word; the pill under them fills meanwhile, and a click on a pill goes to its
+  headline. They wait under the pointer, while a pill has the keyboard's
+  focus, while the tab is hidden and while the hero is off screen; a change
+  of language keeps the headline on screen. As you scroll, the window leans back in perspective
   and lies flat by the time its top nears the bar, the copy fades back, and the
   accent glow drifts down, slower than the page.
-- **Chat view.** The tasks panel comes in part by part (veils of the capture's
-  own background lift, top to bottom). On a wide, tall enough screen the
-  section then pins: point by point, the part of the panel it is about stays lit
-  and the rest dims, and the five progress bars fill, redrawn over the capture
-  in its own colours where it has them (`PARTS` and `BARS` in pixels of the
-  580 × 1400 crop: move them if `tasks` is cut again).
-- **Orchestrator.** The panes window leans back and lies flat as it comes in;
-  the delivery's stages run with the scroll, forth and back.
-- **Hangar Mobile.** The four phones come in one after the other, from depth,
-  fanned out.
-- **Kits.** The 3D preview's window comes in turned and leaning, and straightens.
-- **Performance.** Each figure counts up as it enters, and a bar under it goes
-  from before (the whole bar) to after (its share of it). A figure whose
-  "before" is no number gets no bar; the bars are drawn by the script, so a page
-  without it has none.
-- **Everywhere.** Section titles rise line by line out of a mask; cards, facts
-  and short texts fade up as they enter; links within the page glide to their
-  section (any wheel, touch or key stops the glide).
+- **A team, not a chatbot.** The panes window leans back and lies flat as it
+  comes in.
+- **Lands fast, and safe.** As the card comes in, 65 counts up and the two bars
+  grow from nothing: together quickly, one after the other slowly.
+- **You stay in control.** The two phones come in one after the other, from
+  depth, fanned out.
+- **Everywhere.** Section titles rise line by line out of a mask; cards, steps,
+  facts and short texts fade up as they enter; links within the page glide to
+  their section (any wheel, touch or key stops the glide).
 
 How: `gsap.matchMedia()` with three sets. `full` (960 px and wider) does all of
-the above; `light` (narrower) drops the pin, the tilts and the phones' depth for
-plain rises and fades; `reduce` is next.
+the above; `light` (narrower) drops the tilts and the phones' depth for plain
+rises and fades; `reduce` is next.
 
 **Reduced motion** (`prefers-reduced-motion: reduce`): nothing travels, scales
-or counts. Titles, cards and texts only fade in, and every figure, bar and the
-delivery show their final state. The inline script in `<head>` does not even set
+or counts. Titles, cards and texts only fade in, and the landing card shows
+its final state. The headlines do not turn by themselves: the first stays,
+and a pill changes it with a slow fade. The inline script in `<head>` does not even set
 `motion` then.
 
 Without script everything is visible as written: the only CSS that hides
@@ -118,13 +175,11 @@ which the inline script sets before the first paint and takes back after 3 s if
 `motion.js` never set `motion-ready`.
 
 Tuning: the numbers live in `TUNE` at the top of `motion.js` (scrub lag, the
-hero's tilt, scale, lift and where it lies flat, the glow's drift, how long the
-chat stays pinned, the windows' tilt, the reveals' rise, the line stagger, the
-counting time); the delivery's stages are `STAGES`, stretches of the card's way
-up the screen. Rules to keep: move `transform` and `opacity` only (the
-exception is the figures' text while they count, held at its final width so
-nothing shifts); give back the final state on the way out of a set (each
-returns its cleanups); create the pin before what comes after it. Check with
+hero's tilt, scale, lift and where it lies flat, the glow's drift, the
+windows' tilt, the reveals' rise, the line stagger, the counting time). Rules
+to keep: move `transform` and `opacity` only (the exception is the landing's
+figure while it counts, held at its final width so nothing shifts); give back
+the final state on the way out of a set (each returns its cleanups). Check with
 the page served locally and headless Chrome at 1440 and 390 px, with and
 without reduced motion, and a layout-shift observer while scrolling: it should
 read 0.
@@ -135,7 +190,7 @@ The page wears the app's own chrome tokens. `styles.css` holds Graphite, the
 default theme, exactly as `crates/hangar-theme` has it, and GitHub Light for
 a visitor whose system is light (`data-theme="auto"` on `<html>`, a
 `prefers-color-scheme` block). `main.js` holds the same tokens for eight
-themes, two of them light, and the swatches under "Kits & previews" repaint
+themes, two of them light, and the swatches under "Also in the box" repaint
 the page; picking one sets `data-theme` to its id and `data-scheme` to light
 or dark.
 
@@ -164,36 +219,88 @@ then map the `--*` names to the keys `TOKENS` lists in `main.js`.
 
 ## Captures
 
-Everything in `img/` but the phone screens is the real app: a debug build of
-HangarAI 2.2 on Linux, on demo states written for the site, with no path,
-account or project of the person taking them. The scripts live outside the
-repository, in `~/dev/bench/site-shots/`:
+Every picture in `img/` is the real app, HangarAI 3.0 in its tiles, on a demo
+written for the site: made-up names and work, and no path, account or project of the
+person taking them. One command makes them all again:
 
-- `demo.py` writes a root that a bwrap sandbox mounts at `/home/dev` (HOME,
-  projects, data folder, endpoint file): a **Recipes** repository with
-  worktrees for its workers, a board with tasks at every stage (progress
-  reported, one blocked on a question for you, one ready to land), Iris's
-  conversation as a Claude Code transcript, a **landing-pad** repository with
-  a GLB model, and one data folder per state;
-- `fake_claude.py` stands in for Claude Code in every pane: it prints a
-  handcrafted screen (`screens/<pane>.ans`) and tells Hangar through the
-  bridge what a real session would (hello, context use, a turn under way, a
-  permission waiting, a `model_show` call), so states, the navigator and the
-  inspector read as with real agents;
-- `shoot.py` starts the debug build per state inside the sandbox
-  (`HANGAR_DEV_CAPTURE_DIR`, `kill -USR1` for each capture, `dev_command` to
-  switch to the board; `HANGAR_DEV_SETTINGS=nodes` for the nodes page, against
-  an sshd container of its own on a port of the worker's range: the app
-  connects its nodes as it starts).
+```bash
+PYTHON=<a Python whose Pillow writes AVIF> scripts/site-shots/shoot [captures folder]
+```
 
-The captures are lossless PNGs of the window's client area, Graphite unless
-named, English, permissions in Auto mode:
+It needs the repository's packages (`pnpm install`), `google-chrome` (or
+`$CHROME`) and the build machine of `scripts/remote` (nothing is compiled on
+the PC). In order:
 
-- `chat`, `light` (GitHub Light), `panes`, `board`, `model`, `nodes`: a window
-  1440 × 900 at scale 2, so 2880 × 1800 px;
-- `chatm`, `chatml`: the chat alone (navigator and inspector closed) in a
-  window 760 × 900, for the phone's hero, where the wide one would be too small
-  to read.
+1. **The windows.** hangar-app's ignored test `marketing::pictures`
+   (`crates/hangar-app/src/marketing.rs`) draws the main window headless on the
+   build machine, the way the app draws it: Hangar's own title bar, the themes,
+   Inter, and JetBrains Mono for the terminals (embedded in the test, so the
+   machine's fonts make no difference), at scale 2, on the software renderer.
+   Its PNGs are fetched back (`rbuild ssh`). Each window is drawn twice: once
+   for the grid and the terminals to measure themselves, then with each
+   terminal at that size and filled.
+2. **Hangar Mobile.** `scripts/site-shots/mobile.mjs` serves `mobile/` in its
+   mock mode with Vite (on `HANGAR_PORT_BASE`) and has a headless Chrome draw
+   four screens at 390 × 844 and scale 2, with an iPhone's safe areas. The
+   mock's PC and one of its workspaces bear the names of the person who wrote
+   it: they are renamed as the files are served (`STUDIO-PC`, `hangar-ai`),
+   never in `mobile/`.
+3. **`img/`**, cut by `scripts/site-crops.mjs` as `img/crops.json` says
+   (below), which also stamps the page.
+4. **`og.png`**: `scripts/site-shots/og.html` (the brand, the headline, one
+   line on the orchestrator, the hero bleeding off the bottom) rendered at
+   1200 × 630; and the README's `docs/images/chat-view.png`, the hero
+   (« Chat + team ») at 1440 × 900.
+
+The demo (`crates/hangar-app/src/marketing/recipes.rs`) is a **Recipes**
+workspace. Iris, the orchestrator (Claude Code, Opus), planned the app as
+tasks on the board and started workers; Ada's data model landed and her
+sample recipes passed their check and review, waiting to be merged; Cleo
+(Codex) delivered the recipe page, which Hangar is checking on a Cloud Builds
+machine; Ben (Claude Code) sorts the list, Dan (Codex) writes the search, Eva
+(Claude Code) waits for a permission to add a dependency; sharing a recipe by
+link waits on a question only the person can answer. The app's own packages
+hold all of it as they would: the board in its cache, the panes as the
+bridge reports them, Iris's conversation as the desk reads it, the deliveries'
+stages, Needs you, the license and the Cloud space. What the agents printed
+is `marketing/screens.rs`, written for the size each terminal measures. No
+process, file or network is involved.
+
+The pictures show what 3.0 ships, and nothing it does not: every service
+`cloud::service` offers (`shipped`, hosted nodes included) is shown live, and
+one it does not offer, if there were one, would never be shown, not even as to
+come.
+So Cleo's delivery is checked on a Cloud Builds machine ("Checking in the
+cloud"), the status bar carries the cloud chip, and the Cloud space holds
+that machine, the production build setting up, a hosted node keeping Garden
+planner going with the computer off (the plan's third machine, so that the
+job behind it, another workspace's, waits in the queue), the recipe page
+shared by link, and a history of the images Cleo had drawn and of dictation
+(`cloud::demo`). A trial rents no machine, so the
+pictures on a trial (`trial`, `upgrade`, `plans`) check the delivery on the
+computer and run nothing in the cloud. No page may tag a feature "Later" or
+"Coming": what is not built is left out.
+
+The captures, all of the main window:
+
+| Capture | What | Pixels |
+|---|---|---|
+| `chat`, `light` | the hero: Recipes in « Chat + team », the conversation with Iris pinned on the left, and the tiles that arrived by themselves on the right: Needs you, Agents, Cloud (its runs and what they cost), Machines; Graphite and GitHub Light | 2880 × 1800 |
+| `chatm`, `chatml` | the same alone in a 760 × 900 window, its tiles stacked, for the phone's hero | 1520 × 1800 |
+| `panes` | « Terminals »: Iris, Ben, Dan and Eva at work, Eva's permission in amber; the navigator closed and the window 1520 wide, for the headers' room | 3040 × 1800 |
+| `board` | the board, every stage, zoomed over « Chat + team » from the bar | 2880 × 1800 |
+| `cloud`, `cloud-light` | the Cloud space at work: the delivery's check on a Cloud Builds machine, a build setting up, a hosted node, a job queued behind them, a share link, the history of images and dictation (no page shows it now) | 2880 × 1800 |
+| `cloud-builds`, `cloud-builds-light` | Cloud Builds' price sheet over « Chat + team »: the machine picker (the catalog's cards, an RTX 4090 picked for Recipes' photo tagger), the rate on the best machine free now, the files that go and the estimate (the pricing page's Pro or Max, the home's cloud pillar) | 2880 × 1800 |
+| `license`, `license-light` | Settings › License: HangarAI Pro, Upgrade to Max, this computer, the credits (the pricing page's credits) | 2880 × 1800 |
+| `upgrade`, `upgrade-light` | the plans sheet a trial's badge opens: Pro and Max as the server sells them (the pricing page's offers, cut as `plans`) | 2880 × 1800 |
+| `plans`, `plans-light` | the screen after a trial: the plans, the key field | 2880 × 1800 |
+| `trial` | the hero on a trial: its badge in the title bar | 2880 × 1800 |
+| `nodes` | Settings › Nodes, a node connected with Claude Code and Codex | 2880 × 1800 |
+
+The 3D preview (`model`, `model-m`) is not among them: its viewport is drawn
+by the GPU, which the test's software renderer has not, so those two are still
+the 2.2 capture of a debug build (`HANGAR_DEV_CAPTURE_DIR`, `kill -USR1`).
+`shoot` cuts only the images whose capture it has.
 
 Before a capture goes public, check it frame by frame: no `/home/<you>` or
 `C:\Users\…` path, no e-mail address, no other project, and no "bypass
@@ -217,10 +324,16 @@ optionally a fade over an edge the crop cuts through. The first width sets the
 `width` and `height` the page reserves, and an image is never drawn wider than
 that, so it must be at least the width the layout gives the image. Every width
 becomes `img/<name>-<width>.avif` (quality 62) and `.webp` (quality 82), and
-widths an image no longer has are deleted. The script then writes into
-`index.html` the `srcset`, `src`, `width` and `height` of each `<source>` and
-`<img>` marked `data-crop="<name>"`. It can also place numbered outlines over
-an image (`marks`, `<span class="mark" data-of="…">`); the page uses none now.
+widths an image no longer has are deleted. The script then writes into each
+page `crops.json` lists under `pages` (`index.html`, `pricing/index.html`,
+each with its way to `img/`) the `srcset`, `src`, `width` and `height` of
+each `<source>` and `<img>` marked `data-crop="<name>"`, and the stamps of
+what the page loads. It can also place numbered outlines over an image
+(`marks`, `<span class="mark" data-of="…">`); the pages use none now.
+
+The pricing page is in English and French: an image there carries its French
+in `data-fr` beside an `aria-label` that `assets/lang.js` swaps, and its
+caption in the page's `data-l` spans.
 It warns when a width asks for more pixels than the capture has there, or a
 rectangle runs off it.
 
@@ -238,42 +351,42 @@ hand.
 
 Below 600 px each `<picture>` switches, through a `media` source, to the `-m`
 crop of the same image, drawn close to the size the app draws it so its text
-reads on a phone: the narrow chat, one pane (Eva's permission), two board
-columns, the 3D preview, the node's card. Everything below the hero is
-`loading="lazy"`.
-
-The phone screens (`mobile-*`) are Hangar Mobile in its mock mode, unchanged
-since 2.0; `crops.json` keeps their entries, so cut them with `--only` naming
-the others when their sources are not at hand.
-
-`og.png` is an HTML page rendered at 1200 × 630 with a headless Chrome: the
-brand, the headline, one line on the orchestrator, and the hero capture
-bleeding off the bottom (`~/dev/bench/site-shots/og/og.html`).
+reads on a phone: the narrow « Chat + team », one pane (Eva's permission). Everything
+below the hero is `loading="lazy"`. Some crops (`tasks`, `board`, `model`,
+`nodes`, `cloud`, two of the phones) are on no page since 3.0's home; the
+crop script says so, and they stay cut for a page that wants them.
 
 ## Releasing a new version
 
-The version is written into `index.html` by hand, so the download buttons point
-straight at the files. Replace the version (`2.5.1` now) everywhere in the page
-(the brand, the download heading, the hero's Windows and Linux links, the four
-asset links of the Windows and Linux cards and the JSON-LD; the share titles
-name the minor version). The asset names are the ones the release workflow
-uploads, kept from the Tauri builds (`docs/native/PACKAGING.md`):
+The download links name no version. Each one goes to
+`https://github.com/hangar-ai/hangar/releases/latest/download/<name>`, a file
+`scripts/release/publish` puts on every release a second time under a name
+without the version (`scripts/release/hangar_release.py downloads` lists them),
+so it is always the latest release's:
 
 ```
-Hangar.AI_<v>_x64-setup.exe
-Hangar.AI_<v>_amd64.AppImage
-Hangar.AI_<v>_amd64.deb
-Hangar.AI-<v>-1.x86_64.rpm
+Hangar.AI_x64-setup.exe
+Hangar.AI_universal.dmg
+Hangar.AI_amd64.AppImage
+Hangar.AI_amd64.deb
+Hangar.AI_x86_64.rpm
 ```
 
-Releases after 2.2.0 are not built for the Mac, so the macOS card and the
-hero's macOS link stay on `Hangar.AI_2.2.0_universal.dmg`, the last one, and
-send later versions to the README's "Build on macOS"; on a Mac, `main.js` says
-the same under the hero's button. Leave them out of the bump.
+Never link a version's own file (`/releases/download/v<v>/…`): a major release
+deletes every earlier release, with its files and its tag
+(`docs/native/PACKAGING.md`, "Retiring the earlier releases"), and the link
+would lead nowhere. `node scripts/site-shots/links.mjs` refuses one, and any
+other link to the releases than their page, `/releases/latest` or one of these
+files. Those files exist from the first release `publish` makes with them
+(3.0.0) on, which is one more reason the site goes out after the release. A
+release published with `--skip-macos` has no `.dmg`: the macOS link has nothing
+to give until the next one that has it.
 
-`gh release view v<v> --json assets` lists them once the release is out.
-Forgetting to bump is not fatal: the app offers each new version once installed,
-and "Every file of the latest release" always points at `/releases/latest`.
+The version is still written in the page as text: replace it in the download
+heading (`3.0` now), the JSON-LD's `softwareVersion` (`3.0.0`) and the share
+titles, which name the minor version. Forgetting is not fatal: the app offers each
+new version once installed, and "Every file of the latest release" always
+points at `/releases/latest`.
 
 ## Deploy
 
@@ -294,3 +407,10 @@ curl -sI https://hangarai.dev/img/hero-1280.avif | grep -i content-type
 
 The canonical address is https://hangarai.dev, which the canonical link and
 the Open Graph tags name.
+
+The film is `video/mp4`, served in ranges (static-web-server answers
+`Range`), so a browser can start it before it has it all:
+
+```bash
+curl -sI https://hangarai.dev/video/hangarai-3.0-en-720p.mp4 | grep -i -E 'content-type|accept-ranges'
+```

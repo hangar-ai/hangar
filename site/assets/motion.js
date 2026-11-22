@@ -36,41 +36,214 @@
     heroLift: 60,          // px it rises by
     heroFlatAt: 'top 14%', // where its top is once it lies flat
     glowDrift: 28,         // % of its height the glow drifts down across the hero
-    chatPin: 1.4,          // viewport heights the chat section stays pinned
     tilt: 10,              // deg the other windows lean back as they come in
     reveal: 36,            // px a card rises as it fades in (half on a phone)
     lineStagger: 0.09,     // s between two lines of a heading
-    countFor: 1.1          // s a figure takes to count up
+    countFor: 1.1,         // s a figure takes to count up
+    headlineFor: 4.5,      // s each of the hero's headlines stays
+    headlineBlur: 8,       // px of blur a headline's words come in from and go out to
+    headlineRise: 10       // px they come up by (and go up by on the way out)
   };
 
   var Q = function (sel, ctx) {
     return Array.prototype.slice.call((ctx || document).querySelectorAll(sel));
   };
   var allowed = window.matchMedia('(prefers-reduced-motion: no-preference)').matches;
+  // The site's bar, which sticks at the top: what pins stands under it.
+  var barHeight = function () {
+    var bar = document.getElementById('bar');
+    return bar ? bar.offsetHeight : 0;
+  };
 
   /* ── the hero's entrance ───────────────────────────────────────
      Once, at load, timed rather than scrolled: the headline's words
      rise in turn, the rest follows. styles.css held the copy hidden
-     until now, so nothing shows before it moves. */
+     until now, so nothing shows before it moves. Then the headlines
+     start taking turns (done). */
 
-  function heroIntro() {
+  function heroIntro(done) {
     var copy = document.querySelector('.hero__copy');
-    var title = copy && copy.querySelector('.hero__title');
-    if (!copy || !title) return;
-    var html = title.innerHTML;
-    var words = splitWords(title);
-    var rest = Q('.hero__copy > *').filter(function (el) { return el !== title; });
+    var heads = copy && copy.querySelector('.hero__heads');
+    var title = heads ? heads.querySelector('.rot__item.is-on') : copy && copy.querySelector('.hero__title');
+    if (!copy || !title) return done();
+    var line = lineOf(title);
+    var html = line.innerHTML;
+    if (line !== title) title.setAttribute('aria-label', line.textContent);
+    var words = splitWords(line);
+    var rest = Q('.hero__copy > *').filter(function (el) { return el !== title && !el.contains(title); });
     gsap.timeline({
       defaults: { ease: 'power3.out' },
       onComplete: function () {
-        title.innerHTML = html;
+        line.innerHTML = html;
+        line.removeAttribute('aria-label');
         title.removeAttribute('aria-label');
         gsap.set(rest, { clearProps: 'transform,opacity' });
+        done();
       }
     })
       .from(rest[0], { y: 10, opacity: 0, duration: 0.6 }, 0)
       .from(words, { yPercent: 55, opacity: 0, duration: 0.9, stagger: 0.055 }, 0.08)
       .from(rest.slice(1), { y: 16, opacity: 0, duration: 0.7, stagger: 0.07 }, 0.4);
+  }
+
+  // The text of an element in the language on screen.
+  function lineOf(el) {
+    return el.querySelector('[data-l="' + (root.dataset.lang === 'fr' ? 'fr' : 'en') + '"]') || el;
+  }
+
+  /* ── the hero's three headlines take turns ──────────────────────
+     Each stays TUNE.headlineFor, its pill under the sentence filling
+     meanwhile; then the headline and its sentence leave (fading, a
+     little blurred, a few pixels up) as the next ones come in the
+     same way, word by word. A pill goes to its headline. They wait
+     while the pointer is over them, while a pill has the keyboard's
+     focus, while the tab is hidden and while the hero is off screen.
+     With reduced motion they do not turn by themselves: a pill
+     changes the headline with a slow fade. The cells are as tall as
+     their tallest headline (styles.css, .rot), so nothing moves. A
+     change of language keeps the headline on screen. */
+
+  function heroTurns() {
+    var heads = document.querySelector('.hero__heads');
+    var ledes = document.querySelector('.hero__ledes');
+    var dots = document.querySelector('.rot-dots');
+    if (!heads || !ledes || !dots) return function () {};
+    var sets = [Q('.rot__item', heads), Q('.rot__item', ledes)];
+    var pills = Q('.rot-dot', dots);
+    var n = pills.length;
+    if (n < 2 || sets[0].length !== n || sets[1].length !== n) return function () {};
+
+    var calm = !allowed;
+    var at = 0;
+    var fill = null;    // the pill filling: when it is full, the next headline
+    var swap = null;    // the change under way
+    var split = [];     // what a change cut into words, to give back
+    var holds = {};     // why the headlines wait
+
+    root.classList.add('rot-on');
+
+    function mark() {
+      pills.forEach(function (pill, i) {
+        pill.setAttribute('aria-current', String(i === at));
+        gsap.set(pill.querySelector('b'), { scaleX: calm && i === at ? 1 : 0 });
+      });
+    }
+
+    function held() {
+      return Object.keys(holds).some(function (k) { return holds[k]; });
+    }
+
+    function hold(why, on) {
+      holds[why] = on;
+      if (!fill) return;
+      if (held()) fill.pause();
+      else fill.resume();
+    }
+
+    function wait() {
+      if (fill) fill.kill();
+      fill = null;
+      mark();
+      if (calm) return;
+      fill = gsap.to(pills[at].querySelector('b'), {
+        scaleX: 1,
+        duration: TUNE.headlineFor,
+        ease: 'none',
+        onComplete: function () { go((at + 1) % n); }
+      });
+      if (held()) fill.pause();
+    }
+
+    // Whatever a change left half done, finished: the headline `at` on
+    // screen, the others away, every text whole again.
+    function settle() {
+      if (swap) swap.kill();
+      swap = null;
+      split.forEach(function (s) {
+        s.line.innerHTML = s.html;
+        s.line.removeAttribute('aria-label');
+        if (s.label) s.item.removeAttribute('aria-label');
+      });
+      split = [];
+      sets.forEach(function (items) {
+        items.forEach(function (item, i) { item.classList.toggle('is-on', i === at); });
+        gsap.set(items, { clearProps: 'opacity,filter,transform' });
+      });
+    }
+
+    function go(to) {
+      if (to === at) return;
+      settle();
+      var from = at;
+      at = to;
+      swap = gsap.timeline({ onComplete: settle });
+      sets.forEach(function (items, k) {
+        var out = items[from];
+        var inn = items[to];
+        var delay = k * 0.08;
+        if (calm) {
+          swap.to(out, { opacity: 0, duration: 0.6, ease: 'none' }, delay);
+          swap.fromTo(inn, { opacity: 0 }, { opacity: 1, duration: 0.9, ease: 'none', immediateRender: true }, delay + 0.3);
+          inn.classList.add('is-on');
+          return;
+        }
+        var line = lineOf(inn);
+        var label = !inn.hasAttribute('aria-hidden');
+        split.push({ item: inn, line: line, html: line.innerHTML, label: label });
+        if (label) inn.setAttribute('aria-label', line.textContent);
+        var words = splitWords(line);
+        swap.to(out, {
+          opacity: 0,
+          filter: 'blur(' + TUNE.headlineBlur * 0.75 + 'px)',
+          y: -TUNE.headlineRise * 0.8,
+          duration: 0.45,
+          ease: 'power2.in'
+        }, delay);
+        swap.fromTo(words, {
+          opacity: 0,
+          filter: 'blur(' + TUNE.headlineBlur + 'px)',
+          y: TUNE.headlineRise
+        }, {
+          opacity: 1,
+          filter: 'blur(0px)',
+          y: 0,
+          duration: 0.7,
+          ease: 'power3.out',
+          stagger: k ? 0.012 : 0.05,
+          immediateRender: true
+        }, delay + 0.28);
+        inn.classList.add('is-on');
+      });
+      wait();
+    }
+
+    pills.forEach(function (pill, i) {
+      pill.addEventListener('click', function () {
+        if (i === at) return;
+        go(i);
+      });
+    });
+    [heads, ledes, dots].forEach(function (el, i) {
+      el.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') hold('over' + i, true); });
+      el.addEventListener('pointerleave', function () { hold('over' + i, false); });
+    });
+    dots.addEventListener('focusin', function (e) {
+      hold('focus', !!(e.target.matches && e.target.matches(':focus-visible')));
+    });
+    dots.addEventListener('focusout', function (e) {
+      if (!dots.contains(e.relatedTarget)) hold('focus', false);
+    });
+    document.addEventListener('visibilitychange', function () { hold('tab', document.hidden); });
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(function (entries) {
+        hold('away', !entries[entries.length - 1].isIntersecting);
+      }).observe(heads);
+    }
+    // Another language: the same headline, whole, in it.
+    if (window.HangarLang) window.HangarLang.on(settle);
+
+    mark();
+    return wait;
   }
 
   // Each word in a span of its own; the &nbsp; pairs stay together.
@@ -95,8 +268,12 @@
      rises out of its own mask, and the title gets its text back. */
 
   function headings(conditions, cleanups) {
-    Q('.sec__title').forEach(function (el) {
-      if (ScrollTrigger.isInViewport(el, 0.1) || el.children.length) return;
+    Q('.sec__title').forEach(function (title) {
+      // A title in two languages (pricing/): the one on screen rises.
+      var el = title.querySelector('[data-l]')
+        ? title.querySelector('[data-l="' + (root.dataset.lang === 'fr' ? 'fr' : 'en') + '"]')
+        : title;
+      if (!el || ScrollTrigger.isInViewport(el, 0.1) || el.children.length) return;
       var html = el.innerHTML;
       gsap.set(el, { opacity: 0 });
       ScrollTrigger.create({
@@ -154,10 +331,12 @@
   /* ── reveals: cards and short texts fade up as they come in ──── */
 
   var REVEAL = [
-    '.head .sec__lede', '.head .eyebrow', '.split__copy .eyebrow', '.split__copy .sec__lede',
-    '.split__copy .fine', '.duo > .card', '.facts .fold', '.phones__note', '.reach__card',
-    '.themes', '.exp > .card', '.perf__group', '.perf__item', '.perf__note', '.specs .fold',
-    '.plat', '.after', '.qa details'
+    '.head .sec__lede', '.head .eyebrow', '.pains > .pain', '.steps > .step', '.film',
+    '.pillar__copy > .eyebrow', '.pillar__copy > .sec__lede', '.pillar__copy .points li',
+    '.pillar__copy > .fine', '.pillar__art:not(.pillar__art--phones)', '.facts .fold',
+    '.phones__note', '.reach__card', '.themes', '.native', '.specs .fold',
+    '.period', '.plans > .plan', '.credits-line', '.cred__card', '.plat', '.after', '.qa details',
+    '.aff-reveal', '.aff-fact'
   ];
 
   function reveals(conditions, extra) {
@@ -213,150 +392,10 @@
     }
   }
 
-  /* ── the chat view: its tasks panel, part by part ──────────────
-     The panel is one capture (img/tasks, 580 × 1400 at its widest).
-     Over it go veils of the capture's own background, one per part,
-     and the five progress bars, redrawn in the capture's colours
-     exactly where it has them, so they can fill. The panel comes in
-     part by part; then, pinned on a wide screen, each point of the
-     copy lights the part of the panel it is about. */
-
-  var PANEL = { w: 580, h: 1400, bg: '#1a1c1e', track: '#2c2e2f', fill: '#3e8bff' };
-  var PARTS = [[0, 172], [172, 505], [505, 1148], [1148, 1400]]; // Tasks, Needs you, In progress, Review
-  var BARS = [[26, 88, 234], [42, 655, 256], [42, 859, 170], [42, 1063, 64], [42, 1289, 406]]; // x, y, width; 12 high
-
-  function chat(conditions, cleanups) {
-    var section = document.getElementById('chat');
-    var panel = section && section.querySelector('.window--panel');
-    if (!panel) return [];
-    var split = section.querySelector('.split');
-    var points = Q('.points li', section);
-
-    var fx = document.createElement('div');
-    fx.className = 'tfx';
-    fx.setAttribute('aria-hidden', 'true');
-    var fills = BARS.map(function (b) {
-      var bar = document.createElement('i');
-      bar.className = 'tfx__bar';
-      place(bar, b[0] - 0.5, b[1] - 0.5, b[2] + 1, 13);
-      bar.style.background = PANEL.track;
-      var fill = document.createElement('i');
-      fill.className = 'tfx__fill';
-      fill.style.background = PANEL.fill;
-      bar.appendChild(fill);
-      fx.appendChild(bar);
-      return fill;
-    });
-    var veils = PARTS.map(function (p) {
-      var veil = document.createElement('i');
-      veil.className = 'tfx__veil';
-      place(veil, 0, p[0], PANEL.w, p[1] - p[0]);
-      veil.style.background = PANEL.bg;
-      fx.appendChild(veil);
-      return veil;
-    });
-    panel.appendChild(fx);
-    cleanups.push(function () { fx.remove(); });
-
-    // Coming in: the frame rises, its parts appear top to bottom.
-    var come = gsap.timeline({
-      scrollTrigger: { trigger: panel, start: 'top 92%', end: 'top 30%', scrub: TUNE.scrub }
-    });
-    come
-      .fromTo(panel, { y: conditions.full ? 70 : 30 }, { y: 0, ease: 'none', duration: 1 }, 0)
-      .fromTo(veils, { opacity: 1 }, { opacity: 0, ease: 'none', duration: 0.3, stagger: 0.18 }, 0.1);
-
-    var fillFrom = { scaleX: 0, transformOrigin: '0 50%' };
-    var roomy = split && conditions.full &&
-      window.innerHeight - 52 > split.offsetHeight + 24;
-    if (!roomy) {
-      come.fromTo(fills, fillFrom, { scaleX: 1, ease: 'power1.out', duration: 0.4, stagger: 0.06 }, 0.55);
-      return points; // revealed with the rest
-    }
-
-    // Pinned: one point at a time, and the part of the panel it is about.
-    var dim = 0.62;
-    var lit = gsap.timeline({
-      defaults: { ease: 'power1.inOut', duration: 1 },
-      scrollTrigger: {
-        trigger: split,
-        start: function () { return 'center ' + (52 + (window.innerHeight - 52) / 2) + 'px'; },
-        end: '+=' + Math.round(TUNE.chatPin * 100) + '%',
-        pin: true,
-        scrub: TUNE.scrub,
-        invalidateOnRefresh: true
-      }
-    });
-    lit
-      // 1. tasks with their progress: In progress and Review lit, the bars fill
-      .fromTo([points[1], points[2]], { opacity: 1 }, { opacity: 0.3, immediateRender: false }, 0)
-      .fromTo([veils[0], veils[1]], { opacity: 0 }, { opacity: dim, immediateRender: false }, 0)
-      .fromTo(fills, fillFrom, { scaleX: 1, ease: 'power2.out', duration: 1.2, stagger: 0.12 }, 0.3)
-      // 2. what waits for you: Needs you lit
-      .to(points[0], { opacity: 0.3 }, 2.2)
-      .to(points[1], { opacity: 1 }, 2.2)
-      .to(veils[1], { opacity: 0 }, 2.2)
-      .to([veils[2], veils[3]], { opacity: dim }, 2.2)
-      // 3. previews and kits: the whole panel again
-      .to(points[1], { opacity: 0.3 }, 3.6)
-      .to(points[2], { opacity: 1 }, 3.6)
-      .to(veils, { opacity: 0 }, 3.6)
-      .to([points[0], points[1]], { opacity: 1 }, 4.8)
-      .to({}, { duration: 0.4 });
-    return [];
-  }
-
-  function place(el, x, y, w, h) {
-    el.style.left = (x / PANEL.w) * 100 + '%';
-    el.style.top = (y / PANEL.h) * 100 + '%';
-    el.style.width = (w / PANEL.w) * 100 + '%';
-    el.style.height = (h / PANEL.h) * 100 + '%';
-  }
-
-  /* ── the delivery: its four stages, driven by the scroll ───────
-     Written done; the scroll walks it from pending to landed and
-     back. A stage runs over its stretch of the card's way up the
-     screen, and the check and the review take the longest. */
-
-  var STAGES = [[0.04, 0.18], [0.22, 0.46], [0.5, 0.74], [0.78, 0.9]];
-
-  function delivery(conditions, cleanups) {
-    var box = document.getElementById('delivery');
-    if (!box) return;
-    var steps = Q('.dstep', box);
-    var states = steps.map(function () { return ''; });
-    function render(p) {
-      steps.forEach(function (step, i) {
-        var s = p < STAGES[i][0] ? 'pending' : p < STAGES[i][1] ? 'running' : 'done';
-        if (s === states[i]) return;
-        if (s === 'done' && states[i] === 'running') {
-          gsap.fromTo(step.querySelector('.dstep__mark'), { scale: 0.6 }, { scale: 1, duration: 0.35, ease: 'back.out(3)' });
-        }
-        states[i] = s;
-        step.dataset.state = s;
-      });
-    }
-    var st = ScrollTrigger.create({
-      trigger: box,
-      start: conditions.full ? 'top 82%' : 'top 88%',
-      end: conditions.full ? 'bottom 38%' : 'bottom 45%',
-      onUpdate: function (self) { render(self.progress); }
-    });
-    // Once every trigger has measured again (a resize, a font), the
-    // card shows the stage its place on the screen says.
-    function settle() { render(st.progress); }
-    settle();
-    ScrollTrigger.addEventListener('refresh', settle);
-    cleanups.push(function () {
-      ScrollTrigger.removeEventListener('refresh', settle);
-      steps.forEach(function (step) { step.dataset.state = 'done'; });
-    });
-  }
-
   /* ── the other windows lean back as they come in ─────────────── */
 
   function windows(conditions) {
-    [['#orchestrator .shot .window', 0], ['#kits .shot .window', -6]].forEach(function (w) {
+    [['#team .shot .window', 0]].forEach(function (w) {
       var el = document.querySelector(w[0]);
       if (!el) return;
       var from = conditions.full
@@ -379,7 +418,7 @@
       transformPerspective: 1200,
       y: 120,
       z: -220,
-      rotateY: function (i) { return (1.5 - i) * 9; },
+      rotateY: function (i) { return ((items.length - 1) / 2 - i) * 9; },
       opacity: 0
     }, {
       y: 0, z: 0, rotateY: 0, opacity: 1, ease: 'none', stagger: 0.14,
@@ -388,76 +427,76 @@
     return [];
   }
 
-  /* ── performance: figures count up, bars go from before to after ─
-     Each figure gets a bar under it, drawn here: the release before
-     is the whole bar, this one the part it is of it. A figure whose
-     "before" is no number (no echo within a minute) gets none. */
+  /* ── the landing, measured: 65 s counts up, the bars grow ───────
+     Written at its end (65 s, each bar at its share of 500 s); as the
+     card comes in, the bars grow from nothing and the figure counts up
+     with the one of 3.0. */
 
-  var UNITS = { '%': 1, s: 1, ms: 0.001, MB: 1, MiB: 1, GiB: 1024 };
-
-  var figures = Q('.perf__item').map(function (item) {
-    var now = item.querySelector('.perf__now');
-    var unit = now && now.querySelector('small');
+  function race(conditions, cleanups) {
+    var card = document.getElementById('race');
+    if (!card || conditions.reduce || ScrollTrigger.isInViewport(card, 0.2)) return;
+    var bars = Q('.race__bar i', card);
+    var now = card.querySelector('.race__now');
     var text = now && now.firstChild;
-    if (!text || text.nodeType !== 3 || !unit) return null;
+    var counts = text && text.nodeType === 3;
+    var final = counts ? text.nodeValue : '';
+    var show = { v: 0 };
     // The number in a box of its own, held at its final width while it
     // counts, so the unit after it never moves.
-    var num = document.createElement('span');
-    num.className = 'perf__num';
-    now.insertBefore(num, text);
-    num.appendChild(text);
-    var value = parseFloat(text.nodeValue);
-    var was = (item.querySelector('.perf__was') || {}).textContent || '';
-    var m = was.match(/([\d.]+)\s*(%|ms|s|MB|MiB|GiB)\s*$/);
-    var ratio = m && UNITS[unit.textContent] && UNITS[m[2]]
-      ? (value * UNITS[unit.textContent]) / (parseFloat(m[1]) * UNITS[m[2]])
-      : null;
-    var bar = null;
-    if (ratio !== null) {
-      bar = document.createElement('span');
-      bar.className = 'perf__bar';
-      bar.setAttribute('aria-hidden', 'true');
-      bar.innerHTML = '<i class="perf__bar-was"></i><i class="perf__bar-now"></i>';
-      bar.lastChild.style.transform = 'scaleX(' + Math.max(ratio, 0.012).toFixed(4) + ')';
-      item.appendChild(bar);
+    var num = null;
+    if (counts) {
+      num = document.createElement('span');
+      num.className = 'race__num';
+      now.insertBefore(num, text);
+      num.appendChild(text);
+      num.style.minWidth = num.getBoundingClientRect().width + 'px';
+      text.nodeValue = '0';
     }
-    return {
-      item: item, num: num, text: text, value: value, final: text.nodeValue,
-      decimals: (text.nodeValue.split('.')[1] || '').length, bar: bar,
-      ratio: ratio === null ? 0 : Math.max(ratio, 0.012)
-    };
-  }).filter(Boolean);
-
-  function performance(conditions, cleanups) {
-    if (conditions.reduce) return;
-    var widths = figures.map(function (f) { return f.num.getBoundingClientRect().width; });
-    figures.forEach(function (f, i) {
-      var show = { v: 0 };
-      f.num.style.minWidth = widths[i] + 'px';
-      if (f.bar) gsap.set([f.bar.firstChild, f.bar.lastChild], { scaleX: 0 });
-      f.text.nodeValue = (0).toFixed(f.decimals);
-      ScrollTrigger.create({
-        trigger: f.item,
-        start: 'top 96%',
-        once: true,
-        onEnter: function () {
-          var tl = gsap.timeline({ delay: (i % 4) * 0.08 });
-          if (f.bar) tl.to(f.bar.firstChild, { scaleX: 1, duration: 0.5, ease: 'power2.out' }, 0);
+    gsap.set(bars, { scaleX: 0 });
+    ScrollTrigger.create({
+      trigger: card,
+      start: 'top 78%',
+      once: true,
+      onEnter: function () {
+        var tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+        // One after the other is long; together is over quickly.
+        tl.to(bars[1], { scaleX: 1, duration: 1.6, ease: 'power1.inOut' }, 0.1);
+        tl.to(bars[0], { scaleX: 0.129, duration: 0.6 }, 0.1);
+        if (counts) {
           tl.to(show, {
-            v: f.value, duration: TUNE.countFor, ease: 'power3.out',
-            onUpdate: function () { f.text.nodeValue = show.v.toFixed(f.decimals); },
-            onComplete: function () { f.text.nodeValue = f.final; }
-          }, f.bar ? 0.35 : 0);
-          if (f.bar) tl.to(f.bar.lastChild, { scaleX: f.ratio, duration: TUNE.countFor, ease: 'power3.out' }, 0.35);
+            v: parseFloat(final), duration: 0.9,
+            onUpdate: function () { text.nodeValue = String(Math.round(show.v)); },
+            onComplete: function () { text.nodeValue = final; }
+          }, 0.1);
         }
-      });
+      }
     });
     cleanups.push(function () {
-      figures.forEach(function (f) {
-        f.text.nodeValue = f.final;
-        f.num.style.minWidth = '';
-        if (f.bar) gsap.set(f.bar.lastChild, { scaleX: f.ratio });
+      if (counts) {
+        text.nodeValue = final;
+        now.insertBefore(text, num);
+        num.remove();
+      }
+      gsap.set(bars, { clearProps: 'transform' });
+    });
+  }
+
+  /* ── affiliates/: the example's bars grow as it comes in ──────── */
+
+  function affiliateBars(cleanups) {
+    Q('.aff-chart').forEach(function (chart) {
+      var bars = Q('.aff-bar__track i', chart);
+      if (!bars.length || ScrollTrigger.isInViewport(chart, 0.2)) return;
+      gsap.set(bars, { scaleX: 0 });
+      ScrollTrigger.create({
+        trigger: chart,
+        start: 'top 80%',
+        once: true,
+        onEnter: function () {
+          gsap.to(bars, { scaleX: 1, duration: 1.1, ease: 'power3.out', stagger: 0.09, delay: 0.15 });
+        }
       });
+      cleanups.push(function () { gsap.set(bars, { clearProps: 'transform' }); });
     });
   }
 
@@ -505,7 +544,9 @@
 
   /* ── one set per kind of screen ─────────────────────────────── */
 
-  if (allowed) heroIntro();
+  var turn = heroTurns();
+  if (allowed) heroIntro(turn);
+  else turn();
   root.classList.add('motion-ready');
 
   var mm = gsap.matchMedia();
@@ -518,17 +559,14 @@
     var cleanups = [];
     var extra = [];
     if (!c.reduce) {
-      // In the page's order, the pin first of all: what comes after it
-      // is measured with the room it takes.
       heroScroll(c);
-      extra = extra.concat(chat(c, cleanups));
       windows(c);
-      delivery(c, cleanups);
+      race(c, cleanups);
       extra = extra.concat(phones(c));
     }
     headings(c, cleanups);
     reveals(c, extra);
-    performance(c, cleanups);
+    if (!c.reduce) affiliateBars(cleanups);
     return function () {
       cleanups.forEach(function (fn) { fn(); });
     };

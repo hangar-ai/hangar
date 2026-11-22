@@ -22,7 +22,9 @@ options as large buttons, and a **Terminal** button still shows any pane's raw s
 keep the terminal view.
 
 It is a web app that Hangar itself serves, and that you add to the phone's Home Screen.
-There is no app store, no account and no server of ours in between.
+There is no app store and no account. Your phone reaches your PC through your own
+Tailscale network, or, with a paid license, from anywhere through HangarAI's relay,
+encrypted end to end (see [From anywhere, without Tailscale](#from-anywhere-without-tailscale)).
 
 **Set it up** (once, about a minute):
 
@@ -49,14 +51,52 @@ There is no app store, no account and no server of ours in between.
 
 - Hangar Mobile listens on `127.0.0.1` only, on a port of its own, apart from the agents'
   API: nothing is opened on your local network or on the Internet.
-- Tailscale Serve is the only way in, over HTTPS, and only from devices on your own
-  Tailscale network.
-- Each phone pairs with a one-time code. **Settings → Mobile** lists the paired phones, and
-  revoking one cuts it off and stops its notifications.
+- Tailscale Serve is a way in, over HTTPS, and only from devices on your own Tailscale
+  network. The relay, when you turn it on, is the other: your PC connects out to it, and
+  only your paired phones, with their keys, get through.
+- Each phone pairs with a one-time code. **Settings → Mobile** lists the paired phones
+  (*through the relay* beside those that use it), and revoking one cuts it off, through
+  Tailscale and the relay alike, and stops its notifications.
 
 Your PC has to stay on, with Hangar open, for the phone to reach it. For a few days away,
 **Settings → Mobile** has two options: keep the PC from going to sleep while Hangar Mobile
 is on, and start Hangar when you log in, with your workspaces and Hangar Mobile.
+
+## From anywhere, without Tailscale
+
+With a subscription or during the trial, your phone can reach your PC
+wherever it is without Tailscale, through HangarAI's relay. Your phone and your PC encrypt
+everything between them: the relay passes it on without being able to read it.
+
+1. **Turn Hangar Mobile on** in **Settings → Mobile**.
+2. **Turn on "Use Hangar Mobile from anywhere"** in the **From anywhere** section. Its
+   state shows right below: *Connected to the relay* in green, *Connecting to the relay…*,
+   or the relay out of reach and when Hangar tries again.
+3. **Click "Show the code" and scan the QR code** with the phone's camera. The page says
+   *Waiting for the phone…*, then *Connected* with the phone's name. The code works once
+   and for five minutes.
+4. **Add it to the Home Screen**, as above.
+
+If Tailscale is set up too, the code you are shown is the relay's, which works anywhere;
+**Pair over Tailscale instead** shows the tailnet's one.
+
+A phone already paired over Tailscale needs nothing more: once the relay is on, it gets
+its key by itself, still uses Tailscale whenever it can, and goes through the relay when
+your tailnet is out of reach, then back to Tailscale as soon as it answers. A small globe
+beside the PC's name says when it goes through the relay.
+
+With a free license the section shows *Included with a paid license · Support HangarAI*,
+and Hangar Mobile works through Tailscale as before.
+
+> [!NOTE]
+> Pairing through the relay needs a recent browser: **iOS 17 or later** on an iPhone.
+> The agents' apps (their dev servers) still open through Tailscale only.
+
+**What the relay sees:** when your devices connect, and the size and timing of what they
+exchange; never what it is (your projects, your messages, your files). It stores nothing.
+A phone paired by the relay's QR code runs the copy of the app the HangarAI server
+serves: if you need the encryption to hold even against that server, pair over Tailscale.
+The design is in [the relay's document](../native/relay.md).
 
 ## What it does
 

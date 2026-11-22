@@ -1,0 +1,87 @@
+<!doctype html>
+<!--
+  A HangarAI replay: a workspace's orchestration over a period, played back.
+
+  This file is the template (crates/hangar-core/src/replay/page.rs): the app
+  replaces the three lines that end with a marker comment by the style, the
+  replay's data and the script, and shares one self-contained replay.html,
+  which the share viewer (hangarai.dev/s/<id>) frames under a sandbox. Opened
+  as it is, over http, it plays sample.json beside it.
+  Nothing here is fetched from anywhere once it is made: no font, no image,
+  no script of another origin, no measure of the visitor.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark">
+<title>Replay · HangarAI</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='200 200 624 624'%3E%3Crect x='200' y='200' width='260' height='624' fill='%233e8bff'/%3E%3Crect x='538' y='200' width='286' height='260' fill='%23888'/%3E%3Crect x='538' y='538' width='286' height='286' fill='%23888'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="replay.css"><!-- @inline -->
+</head>
+<body>
+<div class="rp" id="replay" data-state="loading" aria-busy="true">
+
+  <header class="rp-head">
+    <p class="rp-eyebrow">
+      <svg class="rp-mark" width="13" height="13" viewBox="200 200 624 624" aria-hidden="true"><rect x="200" y="200" width="260" height="624" fill="var(--accent)"/><rect x="538" y="200" width="286" height="260" fill="currentColor"/><rect x="538" y="538" width="286" height="286" fill="currentColor"/></svg>
+      <span data-w="eyebrow">HangarAI replay</span>
+    </p>
+    <h1 class="rp-title" id="rp-title"></h1>
+    <p class="rp-headline" id="rp-headline"></p>
+    <p class="rp-when" id="rp-when"></p>
+  </header>
+
+  <section class="rp-stats" id="rp-stats" aria-label="Figures"></section>
+
+  <section class="rp-stage" id="rp-stage" aria-labelledby="rp-board-label">
+    <h2 class="sr-only" id="rp-board-label" data-w="board">The board</h2>
+    <div class="rp-board" id="rp-board"></div>
+
+    <div class="rp-player" id="rp-player">
+      <button type="button" class="rp-play" id="rp-play" aria-label="Play">
+        <svg class="rp-play__go" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 2.9v10.2c0 .5.55.8.97.53l7.9-5.1a.63.63 0 0 0 0-1.06L5.47 2.37a.63.63 0 0 0-.97.53Z" fill="currentColor"/></svg>
+        <svg class="rp-play__pause" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="2.75" width="3" height="10.5" rx="1" fill="currentColor"/><rect x="9.5" y="2.75" width="3" height="10.5" rx="1" fill="currentColor"/></svg>
+        <svg class="rp-play__again" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.1 8a4.9 4.9 0 1 0 1.45-3.48M3 2.5v2.75h2.75" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="rp-track">
+        <div class="rp-ticks" id="rp-ticks" aria-hidden="true"></div>
+        <div class="rp-fill" id="rp-fill" aria-hidden="true"></div>
+        <input class="rp-scrub" id="rp-scrub" type="range" min="0" max="1000" step="1" value="0" aria-label="Time">
+      </div>
+      <p class="rp-clock" id="rp-clock" aria-live="off"></p>
+      <div class="rp-speed" role="group" aria-label="Speed" id="rp-speed">
+        <button type="button" data-speed="1" aria-pressed="true">1×</button>
+        <button type="button" data-speed="2" aria-pressed="false">2×</button>
+        <button type="button" data-speed="4" aria-pressed="false">4×</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="rp-below">
+    <div class="rp-feed-wrap">
+      <h2 class="rp-h2" data-w="happened">What happened</h2>
+      <ol class="rp-feed" id="rp-feed"></ol>
+    </div>
+    <aside class="rp-agents-wrap">
+      <h2 class="rp-h2" data-w="agents">The agents</h2>
+      <ul class="rp-agents" id="rp-agents"></ul>
+    </aside>
+  </section>
+
+  <footer class="rp-foot" id="rp-foot">
+    <a class="rp-made" id="rp-made" href="https://hangarai.dev/" target="_blank" rel="noopener">
+      <svg width="12" height="12" viewBox="200 200 624 624" aria-hidden="true"><rect x="200" y="200" width="260" height="624" fill="var(--accent)"/><rect x="538" y="200" width="286" height="260" fill="currentColor"/><rect x="538" y="538" width="286" height="286" fill="currentColor"/></svg>
+      <span data-w="made">Made with HangarAI</span><span class="rp-made__dot" aria-hidden="true">·</span><span class="rp-made__try" data-w="try">Try it</span>
+    </a>
+  </footer>
+
+  <p class="rp-trouble" id="rp-trouble" hidden></p>
+  <p class="sr-only" id="rp-live" aria-live="polite"></p>
+</div>
+<script id="replay-data" type="application/json">null</script><!-- @data -->
+<script src="replay.js"></script><!-- @inline -->
+</body>
+</html>

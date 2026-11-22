@@ -1,0 +1,742 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-fr="Tarifs&nbsp;: HangarAI">Pricing: HangarAI</title>
+<meta name="description" content="HangarAI's pricing: a 14-day free trial with no card, HangarAI Pro at €20 a month or €192 a year, HangarAI Max at €39 a month or €374 a year, and credits for what runs on our servers." data-fr="Les tarifs de HangarAI&nbsp;: 14 jours d’essai gratuit sans carte, HangarAI Pro à 20&nbsp;€ par mois ou 192&nbsp;€ par an, HangarAI Max à 39&nbsp;€ par mois ou 374&nbsp;€ par an, et des crédits pour ce qui tourne sur nos serveurs.">
+<link rel="canonical" href="https://hangarai.dev/pricing/">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#202124" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f0f0f0" media="(prefers-color-scheme: light)">
+
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<link rel="icon" href="../logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="HangarAI">
+<meta property="og:url" content="https://hangarai.dev/pricing/">
+<meta property="og:title" content="HangarAI pricing: 14 days free, then Pro or Max">
+<meta property="og:description" content="A 14-day free trial with no card. HangarAI Pro at €20 a month or €192 a year, HangarAI Max at €39 a month or €374 a year.">
+<meta property="og:image" content="https://hangarai.dev/og.png?v=0e19edd1ad">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preload" href="../fonts/inter-latin-opsz.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css?v=289c274b2b">
+<link rel="stylesheet" href="../assets/pages.css?v=2d3d68d3af">
+<link rel="stylesheet" href="pricing.css?v=58ddd52edf">
+<script>
+(function (r) {
+  r.classList.add('js');
+  // The header before the first paint: the announcement already dismissed, and
+  // "Account" rather than "Sign in" where the account was opened before.
+  try {
+    r.setAttribute('data-announce-seen', localStorage.getItem('hangar.announce') || '');
+    if (localStorage.getItem('hangar.account.seen') === '1') r.classList.add('signed');
+  } catch (e) {}
+  // The language before the first paint (assets/lang.js wires the switch).
+  var l = null;
+  try { l = new URLSearchParams(location.search).get('lang'); } catch (e) {}
+  if (l !== 'en' && l !== 'fr') { try { l = localStorage.getItem('hangar.lang'); } catch (e) {} }
+  if (l !== 'en' && l !== 'fr') l = /^fr\b/i.test((navigator.languages && navigator.languages[0]) || navigator.language || '') ? 'fr' : 'en';
+  r.lang = l;
+  r.dataset.lang = l;
+  // assets/motion.js takes it from here; without it, after 3 s, the page shows as written.
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: no-preference)').matches) {
+    r.classList.add('motion');
+    setTimeout(function () { if (!r.classList.contains('motion-ready')) r.classList.remove('motion'); }, 3000);
+  }
+})(document.documentElement);
+</script>
+</head>
+<body>
+
+<a class="skip" href="#main"><span data-l="en">Skip to content</span><span data-l="fr">Aller au contenu</span></a>
+
+<!-- site header: the same on every page (assets/nav.js wires it) -->
+<div class="announce" id="announce" data-id="3.0.0">
+  <div class="announce__in">
+    <a class="announce__link" href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md#300">
+      <span class="announce__tag"><span data-l="en">New</span><span data-l="fr">Nouveau</span></span>
+      <span class="announce__text"><b>HangarAI 3.0</b><span class="announce__rest"> — <span data-l="en">Cloud Builds, Pro and Max, and Hangar Mobile from anywhere</span><span data-l="fr">Cloud Builds, Pro et Max, et Hangar Mobile de partout</span></span></span>
+      <span class="announce__more"><span data-l="en">What’s new</span><span data-l="fr">Nouveautés</span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"></path></svg></span>
+    </a>
+    <button type="button" class="announce__x" aria-label="Dismiss" data-fr="Masquer"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"></path></svg></button>
+  </div>
+</div>
+<header class="bar" id="bar">
+  <div class="bar__in">
+    <a class="brand" href="../" aria-label="HangarAI, home" data-fr="HangarAI, accueil">
+      <svg class="brand__mark" width="20" height="20" viewBox="200 200 624 624" aria-hidden="true">
+        <rect x="200" y="200" width="260" height="624" fill="var(--accent)"></rect>
+        <rect x="538" y="200" width="286" height="260" fill="var(--fg-hi)"></rect>
+        <rect x="538" y="538" width="286" height="286" fill="var(--fg-hi)"></rect>
+      </svg>
+      <span class="brand__name">HangarAI</span>
+    </a>
+
+    <nav class="nav" aria-label="Main" data-fr="Principal">
+      <ul class="nav__list">
+        <li class="nav__item nav__item--menu">
+          <a class="nav__link nav__trigger" href="../#how" aria-expanded="false" aria-controls="menu-product"><span data-l="en">Product</span><span data-l="fr">Produit</span><svg class="nav__chev" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 4.5 3 3 3-3"></path></svg></a>
+          <div class="menu" id="menu-product">
+            <ul class="menu__grid">
+              <li><a class="menu__item" href="../#how" data-spy="how">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="5" r="2.5"></circle><circle cx="18.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="19" r="2.5"></circle><path d="M8 12h8M7.6 10.7l8.8-4.4M7.6 13.3l8.8 4.4"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">How it works</span><span data-l="fr">Comment ça marche</span></span><span class="menu__desc"><span data-l="en">Say the objective. The team does the rest.</span><span data-l="fr">Donne l’objectif. L’équipe fait le reste.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="../#team" data-spy="team">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.2 19.5a5.8 5.8 0 0 1 11.6 0"></path><circle cx="17.2" cy="9" r="2.4"></circle><path d="M16.2 14.1a4.6 4.6 0 0 1 5 4.6"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">A team, not a chatbot</span><span data-l="fr">Une équipe, pas un chatbot</span></span><span class="menu__desc"><span data-l="en">Claude Code and Codex, up to 40 at once.</span><span data-l="fr">Claude Code et Codex, jusqu’à 40 à la fois.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="../#land" data-spy="land">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5.5" r="2.2"></circle><circle cx="6" cy="18.5" r="2.2"></circle><circle cx="18" cy="12" r="2.2"></circle><path d="M6 7.7v8.6M7.6 7.1c1.5 3 4.3 4.7 8.2 4.9"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">Lands fast, and safe</span><span data-l="fr">Fusionné vite, sans casse</span></span><span class="menu__desc"><span data-l="en">Ten deliveries landed in 65&nbsp;s.</span><span data-l="fr">Dix livraisons fusionnées en 65&nbsp;s.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="../#night" data-spy="night">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 14.6A7.8 7.8 0 0 1 9.4 4.5a7.8 7.8 0 1 0 10.1 10.1Z"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">Works while you sleep</span><span data-l="fr">Avance pendant que tu dors</span></span><span class="menu__desc"><span data-l="en">A report in the morning, computer on or off.</span><span data-l="fr">Un rapport au réveil, ordinateur allumé ou éteint.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="../#cloud" data-spy="cloud">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.2 18.5h10.3a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.6 9.3a4.6 4.6 0 0 0 .6 9.2Z"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">Cloud power</span><span data-l="fr">La puissance du cloud</span></span><span class="menu__desc"><span data-l="en">CPU or GPU machines, by the second.</span><span data-l="fr">Des machines CPU ou GPU, à la seconde.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="../#control" data-spy="control">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 21V4.5"></path><path d="M5.5 4.5h11.8l-2.3 4 2.3 4H5.5"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">You stay in control</span><span data-l="fr">Tu gardes la main</span></span><span class="menu__desc"><span data-l="en">Needs you, budgets, Hangar Mobile.</span><span data-l="fr">Besoin de toi, budgets, Hangar Mobile.</span></span></span>
+              </a></li>
+            </ul>
+            <p class="menu__foot">
+              <a href="../#features"><span data-l="en">Also in the box</span><span data-l="fr">Et aussi</span></a>
+              <a href="../#faq">Questions</a>
+              <a class="menu__get" href="../#download"><span data-l="en">Download</span><span data-l="fr">Télécharger</span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"></path></svg></a>
+            </p>
+          </div>
+        </li>
+        <li><a class="nav__link" href="../pricing/" aria-current="page"><span data-l="en">Pricing</span><span data-l="fr">Tarifs</span></a></li>
+        <li><a class="nav__link" href="../affiliates/"><span data-l="en">Affiliates</span><span data-l="fr">Affiliation</span></a></li>
+        <li><a class="nav__link" href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/README.md">Guide<svg class="nav__ext" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 7.5 7.5 2.5M3.5 2.5h4v4"></path></svg></a></li>
+        <li><a class="nav__link" href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md"><span data-l="en">Changelog</span><span data-l="fr">Nouveautés</span><svg class="nav__ext" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 7.5 7.5 2.5M3.5 2.5h4v4"></path></svg></a></li>
+      </ul>
+    </nav>
+
+    <div class="bar__end">
+      <div class="lang">
+        <button type="button" class="nav__link lang__btn" aria-expanded="false" aria-controls="lang-menu" aria-label="Language" data-fr="Langue"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><circle cx="8" cy="8" r="6.25"></circle><path d="M1.75 8h12.5M8 1.75c1.7 1.8 2.5 3.9 2.5 6.25S9.7 12.45 8 14.25C6.3 12.45 5.5 10.35 5.5 8S6.3 3.55 8 1.75Z"></path></svg><span data-l="en">EN</span><span data-l="fr">FR</span></button>
+        <div class="lang__menu" id="lang-menu" role="group" aria-label="Language" data-fr="Langue">
+          <button type="button" class="lang__opt" data-set-lang="en" lang="en" aria-pressed="true">English<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"></path></svg></button>
+          <button type="button" class="lang__opt" data-set-lang="fr" lang="fr" aria-pressed="false">Français<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"></path></svg></button>
+        </div>
+      </div>
+      <a class="nav__link bar__signin" href="../account/"><span class="if-out"><span data-l="en">Sign in</span><span data-l="fr">Se connecter</span></span><span class="if-in"><span data-l="en">Account</span><span data-l="fr">Compte</span></span></a>
+      <a class="btn btn--primary btn--sm bar__cta" href="../#download"><span data-l="en">Start free trial</span><span data-l="fr">Essai gratuit</span></a>
+      <a class="bar__menu" href="#site-map" role="button" aria-controls="sheet" aria-expanded="false" aria-label="Menu"><i></i><i></i></a>
+    </div>
+  </div>
+</header>
+
+<div class="sheet" id="sheet" hidden>
+  <nav class="sheet__nav" aria-label="Main" data-fr="Principal">
+    <p class="sheet__h"><span data-l="en">Product</span><span data-l="fr">Produit</span></p>
+    <ul class="sheet__grid">
+        <li><a href="../#how" data-spy="how"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="5" r="2.5"></circle><circle cx="18.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="19" r="2.5"></circle><path d="M8 12h8M7.6 10.7l8.8-4.4M7.6 13.3l8.8 4.4"></path></svg></span><span data-l="en">How it works</span><span data-l="fr">Comment ça marche</span></a></li>
+        <li><a href="../#team" data-spy="team"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.2 19.5a5.8 5.8 0 0 1 11.6 0"></path><circle cx="17.2" cy="9" r="2.4"></circle><path d="M16.2 14.1a4.6 4.6 0 0 1 5 4.6"></path></svg></span><span data-l="en">The team</span><span data-l="fr">L’équipe</span></a></li>
+        <li><a href="../#land" data-spy="land"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5.5" r="2.2"></circle><circle cx="6" cy="18.5" r="2.2"></circle><circle cx="18" cy="12" r="2.2"></circle><path d="M6 7.7v8.6M7.6 7.1c1.5 3 4.3 4.7 8.2 4.9"></path></svg></span><span data-l="en">Landing</span><span data-l="fr">La fusion</span></a></li>
+        <li><a href="../#night" data-spy="night"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 14.6A7.8 7.8 0 0 1 9.4 4.5a7.8 7.8 0 1 0 10.1 10.1Z"></path></svg></span><span data-l="en">Night shift</span><span data-l="fr">Mode nuit</span></a></li>
+        <li><a href="../#cloud" data-spy="cloud"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.2 18.5h10.3a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.6 9.3a4.6 4.6 0 0 0 .6 9.2Z"></path></svg></span>Cloud Builds</a></li>
+        <li><a href="../#control" data-spy="control"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 21V4.5"></path><path d="M5.5 4.5h11.8l-2.3 4 2.3 4H5.5"></path></svg></span><span data-l="en">In control</span><span data-l="fr">Tu gardes la main</span></a></li>
+    </ul>
+  </nav>
+  <ul class="sheet__list">
+    <li><a href="../pricing/" aria-current="page"><span data-l="en">Pricing</span><span data-l="fr">Tarifs</span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+    <li><a href="../affiliates/"><span data-l="en">Affiliates</span><span data-l="fr">Affiliation</span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+    <li><a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/README.md">Guide<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+    <li><a href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md"><span data-l="en">Changelog</span><span data-l="fr">Nouveautés</span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+  </ul>
+  <div class="sheet__end">
+    <div class="sheet__lang"><span data-l="en">Language</span><span data-l="fr">Langue</span><div class="lang-seg" role="group" aria-label="Language" data-fr="Langue">
+        <button type="button" class="lang-seg__btn" data-set-lang="en" lang="en" aria-label="English" aria-pressed="true">EN</button>
+        <button type="button" class="lang-seg__btn" data-set-lang="fr" lang="fr" aria-label="Français" aria-pressed="false">FR</button>
+      </div></div>
+    <a class="btn" href="../account/"><span class="if-out"><span data-l="en">Sign in</span><span data-l="fr">Se connecter</span></span><span class="if-in"><span data-l="en">Account</span><span data-l="fr">Compte</span></span></a>
+    <a class="btn btn--primary" href="../#download"><span data-l="en">Start free trial</span><span data-l="fr">Essai gratuit</span></a>
+  </div>
+</div>
+<!-- /site header -->
+
+<main id="main" class="page" tabindex="-1">
+  <div class="page__glow page__glow--grid" aria-hidden="true"></div>
+
+  <!-- The offers ─────────────────────────────────────────────────── -->
+  <section class="wrap page-head" aria-labelledby="pricing-title">
+    <p class="eyebrow"><span data-l="en">Pricing</span><span data-l="fr">Tarifs</span></p>
+    <h1 class="sec__title" id="pricing-title">
+      <span data-l="en">Try all of it for 14&nbsp;days. Then pick your&nbsp;plan.</span>
+      <span data-l="fr">Essaie tout pendant 14&nbsp;jours. Puis choisis ton&nbsp;offre.</span>
+    </h1>
+    <p class="sec__lede">
+      <span data-l="en">The trial is the whole app on your computer, with no card: you sign in with GitHub to start it. After it, Pro has all of HangarAI, and Max adds more than three times the credits.</span>
+      <span data-l="fr">L’essai, c’est toute l’app sur ton ordinateur, sans carte&nbsp;: tu te connectes avec GitHub pour le démarrer. Ensuite, Pro a tout HangarAI, et Max y ajoute plus de trois fois plus de crédits.</span>
+    </p>
+  </section>
+
+  <section class="wrap offers-sec" aria-label="Offers" data-fr="Offres">
+    <div class="pricing" data-period="year">
+      <div class="period js-only" role="group" aria-label="Billing period" data-fr="Période de facturation">
+        <button type="button" class="period__btn" data-set-period="month" aria-pressed="false"><span data-l="en">Monthly</span><span data-l="fr">Mensuel</span></button>
+        <button type="button" class="period__btn" data-set-period="year" aria-pressed="true"><span data-l="en">Yearly</span><span data-l="fr">Annuel</span> <span class="period__save"><span data-l="en">Save 20%</span><span data-l="fr">−20&nbsp;%</span></span></button>
+      </div>
+
+      <div class="plans">
+        <article class="plan" aria-labelledby="plan-trial">
+          <h2 class="plan__name" id="plan-trial"><span data-l="en">Free trial</span><span data-l="fr">Essai gratuit</span></h2>
+          <p class="plan__price"><span class="plan__amount"><span data-l="en">€0</span><span data-l="fr">0&nbsp;€</span></span><span class="plan__per"><span data-l="en">for 14 days</span><span data-l="fr">pendant 14 jours</span></span></p>
+          <p class="plan__note"><span data-l="en">No card. You sign in with GitHub when you first open the app.</span><span data-l="fr">Sans carte. Tu te connectes avec GitHub à la première ouverture de l’app.</span></p>
+          <a class="btn plan__cta" href="../#download"><span data-l="en">Download</span><span data-l="fr">Télécharger</span></a>
+          <ul class="plan__list">
+            <li><span data-l="en">All of HangarAI on your computer</span><span data-l="fr">Tout HangarAI sur ton ordinateur</span></li>
+            <li><span data-l="en">150 credits to try dictation, images and share links</span><span data-l="fr">150 crédits pour essayer la dictée, les images et les liens de partage</span></li>
+            <li><span data-l="en">After 14 days, pick a plan to keep going</span><span data-l="fr">Après 14 jours, choisis une offre pour continuer</span></li>
+          </ul>
+        </article>
+
+        <article class="plan plan--pro" aria-labelledby="plan-pro">
+          <h2 class="plan__name" id="plan-pro">HangarAI Pro</h2>
+          <p class="plan__price" data-when="month"><span class="plan__amount"><span data-l="en">€20</span><span data-l="fr">20&nbsp;€</span></span><span class="plan__per"><span data-l="en">a month</span><span data-l="fr">par mois</span></span></p>
+          <p class="plan__price" data-when="year"><span class="plan__amount"><span data-l="en">€192</span><span data-l="fr">192&nbsp;€</span></span><span class="plan__per"><span data-l="en">a year</span><span data-l="fr">par an</span></span></p>
+          <p class="plan__note" data-when="month"><span data-l="en">Or €192 a year, and save €48.</span><span data-l="fr">Ou 192&nbsp;€ par an, soit 48&nbsp;€ d’économie.</span></p>
+          <p class="plan__note" data-when="year"><span data-l="en">That is €16 a month, €48 less than paying monthly.</span><span data-l="fr">Soit 16&nbsp;€ par mois, 48&nbsp;€ de moins qu’en payant au mois.</span></p>
+          <a class="btn btn--primary plan__cta" data-when="month" href="../buy/?product=pro_monthly"><span data-l="en">Subscribe monthly</span><span data-l="fr">S’abonner au mois</span></a>
+          <a class="btn btn--primary plan__cta" data-when="year" href="../buy/?product=pro_yearly"><span data-l="en">Subscribe yearly</span><span data-l="fr">S’abonner à l’année</span></a>
+          <ul class="plan__list">
+            <li><span data-l="en">The whole app, and every update</span><span data-l="fr">Toute l’app, et chaque mise à jour</span></li>
+            <li><span data-l="en">3,000 credits every month, about <span data-hours="dictation:3000">75</span> hours of hosted dictation</span><span data-l="fr">3&nbsp;000 crédits chaque mois, environ <span data-hours="dictation:3000">75</span>&nbsp;heures de dictée hébergée</span></li>
+            <li><span data-l="en">3 cloud machines at once: Cloud Builds, CPU or GPU, and hosted nodes</span><span data-l="fr">3 machines cloud à la fois&nbsp;: Cloud Builds, CPU ou GPU, et nœuds hébergés</span></li>
+            <li><span data-l="en">On up to 3 computers</span><span data-l="fr">Sur 3 ordinateurs au plus</span></li>
+            <li><span data-l="en">Statistics synced across your machines</span><span data-l="fr">Statistiques synchronisées entre tes machines</span></li>
+            <li><span data-l="en">Cancel from your account at any time</span><span data-l="fr">Résiliable à tout moment depuis ton compte</span></li>
+          </ul>
+        </article>
+
+        <article class="plan plan--max" aria-labelledby="plan-max">
+          <h2 class="plan__name" id="plan-max">HangarAI Max</h2>
+          <p class="plan__price" data-when="month"><span class="plan__amount"><span data-l="en">€39</span><span data-l="fr">39&nbsp;€</span></span><span class="plan__per"><span data-l="en">a month</span><span data-l="fr">par mois</span></span></p>
+          <p class="plan__price" data-when="year"><span class="plan__amount"><span data-l="en">€374</span><span data-l="fr">374&nbsp;€</span></span><span class="plan__per"><span data-l="en">a year</span><span data-l="fr">par an</span></span></p>
+          <p class="plan__note" data-when="month"><span data-l="en">Or €374 a year, and save €94.</span><span data-l="fr">Ou 374&nbsp;€ par an, soit 94&nbsp;€ d’économie.</span></p>
+          <p class="plan__note" data-when="year"><span data-l="en">That is €31.17 a month, €94 less than paying monthly.</span><span data-l="fr">Soit 31,17&nbsp;€ par mois, 94&nbsp;€ de moins qu’en payant au mois.</span></p>
+          <a class="btn plan__cta" data-when="month" href="../buy/?product=max_monthly"><span data-l="en">Subscribe monthly</span><span data-l="fr">S’abonner au mois</span></a>
+          <a class="btn plan__cta" data-when="year" href="../buy/?product=max_yearly"><span data-l="en">Subscribe yearly</span><span data-l="fr">S’abonner à l’année</span></a>
+          <ul class="plan__list">
+            <li><span data-l="en">Everything in Pro</span><span data-l="fr">Tout ce qu’a Pro</span></li>
+            <li><span data-l="en">10,000 credits every month, about <span data-hours="dictation:10000">250</span> hours of hosted dictation</span><span data-l="fr">10&nbsp;000 crédits chaque mois, environ <span data-hours="dictation:10000">250</span>&nbsp;heures de dictée hébergée</span></li>
+            <li><span data-l="en">5 cloud machines at once, Cloud Builds first in the queue</span><span data-l="fr">5 machines cloud à la fois, Cloud Builds en tête de file</span></li>
+            <li><span data-l="en">Switch back to Pro, or cancel, at any time</span><span data-l="fr">Retour à Pro, ou résiliation, à tout moment</span></li>
+          </ul>
+        </article>
+      </div>
+
+      <p class="credits-line">
+        <span data-l="en">Prices include VAT. Payment and invoices by Polar, our merchant of record. Claude Code and Codex stay on your own plan.</span>
+        <span data-l="fr">Prix TTC. Paiement et factures par Polar, notre revendeur officiel. Claude Code et Codex restent sur ton propre abonnement.</span>
+      </p>
+    </div>
+
+    <figure class="shot">
+      <div class="window">
+        <picture class="for-dark">
+          <source type="image/avif" data-crop="plans" sizes="(min-width: 1328px) 1280px, calc(100vw - 48px)" srcset="../img/plans-1280.avif?v=b7278786d0 1280w, ../img/plans-2560.avif?v=e9d7bc064b 2560w" width="1280" height="800">
+          <source type="image/webp" data-crop="plans" sizes="(min-width: 1328px) 1280px, calc(100vw - 48px)" srcset="../img/plans-1280.webp?v=c404c6cb2d 1280w, ../img/plans-2560.webp?v=0ebec14cb3 2560w" width="1280" height="800">
+          <img data-crop="plans" loading="lazy" decoding="async"
+            alt="HangarAI's plans in the app, opened from a trial's badge, 12 days left: HangarAI Pro at €20 a month, with 3,000 credits every month, and HangarAI Max at €39 a month, with 10,000 credits every month and Cloud Builds first; Monthly or Yearly, Choose Pro or Choose Max, and a code if you have one." aria-label="HangarAI's plans in the app, opened from a trial's badge, 12 days left: HangarAI Pro at €20 a month, with 3,000 credits every month, and HangarAI Max at €39 a month, with 10,000 credits every month and Cloud Builds first; Monthly or Yearly, Choose Pro or Choose Max, and a code if you have one." data-fr="Les offres de HangarAI dans l’app, ouvertes depuis le badge d’un essai à 12 jours de la fin&nbsp;: HangarAI Pro à 20&nbsp;€ par mois, avec 3&nbsp;000 crédits chaque mois, et HangarAI Max à 39&nbsp;€ par mois, avec 10&nbsp;000 crédits chaque mois et Cloud Builds en priorité&nbsp;; au mois ou à l’année, Choisir Pro ou Choisir Max, et un code si tu en as un." src="../img/plans-1280.webp?v=c404c6cb2d" width="1280" height="800">
+        </picture>
+        <picture class="for-light">
+          <source type="image/avif" data-crop="plans-light" sizes="(min-width: 1328px) 1280px, calc(100vw - 48px)" srcset="../img/plans-light-1280.avif?v=b4dd824781 1280w, ../img/plans-light-2560.avif?v=af08b98162 2560w" width="1280" height="800">
+          <source type="image/webp" data-crop="plans-light" sizes="(min-width: 1328px) 1280px, calc(100vw - 48px)" srcset="../img/plans-light-1280.webp?v=00e5c9106e 1280w, ../img/plans-light-2560.webp?v=7f667e62dd 2560w" width="1280" height="800">
+          <img data-crop="plans-light" loading="lazy" decoding="async"
+            alt="The same plans in the GitHub Light theme." aria-label="The same plans in the GitHub Light theme." data-fr="Les mêmes offres, dans le thème GitHub Light." src="../img/plans-light-1280.webp?v=00e5c9106e" width="1280" height="800">
+        </picture>
+      </div>
+      <figcaption class="caption">
+        <span data-l="en">The same plans in the app, a click from the trial’s badge. Cloud Builds run your checks and builds on a machine rented for you alone; Max puts them first in the queue.</span>
+        <span data-l="fr">Les mêmes offres dans l’app, à un clic du badge de l’essai. Cloud Builds lance tes vérifications et tes builds sur une machine louée pour toi seul&nbsp;; Max les fait passer en tête de file.</span>
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- Pro or Max ─────────────────────────────────────────────────── -->
+  <section class="sec" id="compare" aria-labelledby="compare-title">
+    <div class="wrap">
+      <header class="head head--center">
+        <p class="eyebrow"><span data-l="en">Pro or Max</span><span data-l="fr">Pro ou Max</span></p>
+        <h2 class="sec__title" id="compare-title">
+          <span data-l="en">The same app. Max is for heavy&nbsp;use.</span>
+          <span data-l="fr">La même app. Max, c’est pour un usage&nbsp;intensif.</span>
+        </h2>
+        <p class="sec__lede">
+          <span data-l="en">Both have all of HangarAI. Max gives more credits for what runs on our servers, two more cloud machines at once, and puts your Cloud Builds first. Move from one to the other at any time.</span>
+          <span data-l="fr">Les deux ont tout HangarAI. Max donne plus de crédits pour ce qui tourne sur nos serveurs, deux machines cloud de plus à la fois, et fait passer tes Cloud Builds en premier. Passe de l’un à l’autre à tout moment.</span>
+        </p>
+      </header>
+
+      <div class="compare">
+        <table class="compare__table">
+          <caption class="sr-only"><span data-l="en">HangarAI Pro and HangarAI Max, side by side</span><span data-l="fr">HangarAI Pro et HangarAI Max, côte à côte</span></caption>
+          <thead>
+            <tr>
+              <td></td>
+              <th scope="col" class="compare__plan">Pro</th>
+              <th scope="col" class="compare__plan compare__plan--max">Max</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row"><span data-l="en">By the month</span><span data-l="fr">Au mois</span></th>
+              <td><b><span data-l="en">€20</span><span data-l="fr">20&nbsp;€</span></b> <span class="compare__fine"><span data-l="en">a month</span><span data-l="fr">par mois</span></span></td>
+              <td><b><span data-l="en">€39</span><span data-l="fr">39&nbsp;€</span></b> <span class="compare__fine"><span data-l="en">a month</span><span data-l="fr">par mois</span></span></td>
+            </tr>
+            <tr>
+              <th scope="row"><span data-l="en">By the year</span><span data-l="fr">À l’année</span></th>
+              <td><b><span data-l="en">€192</span><span data-l="fr">192&nbsp;€</span></b> <span class="compare__fine"><span data-l="en">a year</span><span data-l="fr">par an</span></span><span class="compare__sub"><span data-l="en">€16 a month</span><span data-l="fr">16&nbsp;€ par mois</span></span></td>
+              <td><b><span data-l="en">€374</span><span data-l="fr">374&nbsp;€</span></b> <span class="compare__fine"><span data-l="en">a year</span><span data-l="fr">par an</span></span><span class="compare__sub"><span data-l="en">€31.17 a month</span><span data-l="fr">31,17&nbsp;€ par mois</span></span></td>
+            </tr>
+            <tr>
+              <th scope="row"><span data-l="en">Credits every month</span><span data-l="fr">Crédits chaque mois</span></th>
+              <td><b><span data-l="en">3,000</span><span data-l="fr">3&nbsp;000</span></b></td>
+              <td><b><span data-l="en">10,000</span><span data-l="fr">10&nbsp;000</span></b></td>
+            </tr>
+            <tr>
+              <th scope="row"><span data-l="en">In hours of hosted dictation</span><span data-l="fr">En heures de dictée hébergée</span></th>
+              <td>≈ <span data-hours="dictation:3000">75</span>&nbsp;h</td>
+              <td>≈ <span data-hours="dictation:10000">250</span>&nbsp;h</td>
+            </tr>
+            <tr>
+              <th scope="row"><span data-l="en">The whole app, and every update</span><span data-l="fr">Toute l’app, et chaque mise à jour</span></th>
+              <td><span class="compare__yes" role="img" aria-label="Included" data-fr="Inclus"></span></td>
+              <td><span class="compare__yes" role="img" aria-label="Included" data-fr="Inclus"></span></td>
+            </tr>
+            <tr>
+              <th scope="row"><span data-l="en">Computers</span><span data-l="fr">Ordinateurs</span></th>
+              <td><span data-l="en">Up to 3</span><span data-l="fr">Jusqu’à 3</span></td>
+              <td><span data-l="en">Up to 3</span><span data-l="fr">Jusqu’à 3</span></td>
+            </tr>
+            <tr>
+              <th scope="row"><span data-l="en">Statistics synced across your machines</span><span data-l="fr">Statistiques synchronisées entre tes machines</span></th>
+              <td><span class="compare__yes" role="img" aria-label="Included" data-fr="Inclus"></span></td>
+              <td><span class="compare__yes" role="img" aria-label="Included" data-fr="Inclus"></span></td>
+            </tr>
+            <tr>
+              <th scope="row"><span data-l="en">Credit packs and pay as you go</span><span data-l="fr">Recharges et paiement à l’usage</span></th>
+              <td><span class="compare__yes" role="img" aria-label="Included" data-fr="Inclus"></span></td>
+              <td><span class="compare__yes" role="img" aria-label="Included" data-fr="Inclus"></span></td>
+            </tr>
+            <tr>
+              <th scope="row"><span data-l="en">Cloud machines at once</span><span data-l="fr">Machines cloud à la fois</span><span class="compare__sub"><span data-l="en">Cloud Builds and hosted nodes together</span><span data-l="fr">Cloud Builds et nœuds hébergés ensemble</span></span></th>
+              <td>3</td>
+              <td><b>5</b></td>
+            </tr>
+            <tr>
+              <th scope="row"><span data-l="en">Cloud Builds on CPU or GPU</span><span data-l="fr">Cloud Builds sur CPU ou GPU</span></th>
+              <td><span class="compare__yes" role="img" aria-label="Included" data-fr="Inclus"></span></td>
+              <td><span class="compare__yes" role="img" aria-label="Included" data-fr="Inclus"></span></td>
+            </tr>
+            <tr>
+              <th scope="row"><span data-l="en">Hosted nodes, your computer off</span><span data-l="fr">Nœuds hébergés, ordinateur éteint</span></th>
+              <td><span class="compare__yes" role="img" aria-label="Included" data-fr="Inclus"></span></td>
+              <td><span class="compare__yes" role="img" aria-label="Included" data-fr="Inclus"></span></td>
+            </tr>
+            <tr>
+              <th scope="row"><span data-l="en">Cloud Builds queue</span><span data-l="fr">File des Cloud Builds</span></th>
+              <td><span data-l="en">After Max</span><span data-l="fr">Après Max</span></td>
+              <td><b><span data-l="en">First</span><span data-l="fr">En premier</span></b></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="compare__note">
+        <span data-l="en">Cloud Builds run your builds, tests, training runs and renders on a machine rented for you alone, CPU or GPU; a hosted node keeps a workspace going while your computer is off. Both are paid with credits at a rate shown before you start, with no limit of hours: your credits are the limit. A queued Pro build moves up after 10 minutes, so it never waits long behind Max ones. <a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/cloud.md">How it works</a></span>
+        <span data-l="fr">Cloud Builds lance tes builds, tes tests, tes entraînements et tes rendus sur une machine louée pour toi seul, CPU ou GPU&nbsp;; un nœud hébergé fait avancer un workspace pendant que ton ordinateur est éteint. Les deux se paient en crédits, à un tarif affiché avant de démarrer, sans limite d’heures&nbsp;: tes crédits sont la seule limite. Un build Pro en attente remonte au bout de 10 minutes, il n’attend donc jamais longtemps derrière ceux de Max. <a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/cloud.md">Comment ça marche</a></span>
+      </p>
+
+      <figure class="shot shot--run">
+        <div class="window">
+          <picture class="for-dark">
+            <source type="image/avif" data-crop="cloud-builds" sizes="(min-width: 648px) 600px, calc(100vw - 48px)" srcset="../img/cloud-builds-600.avif?v=35f156c4e8 600w, ../img/cloud-builds-1200.avif?v=bce7b5c679 1200w" width="600" height="768">
+            <source type="image/webp" data-crop="cloud-builds" sizes="(min-width: 648px) 600px, calc(100vw - 48px)" srcset="../img/cloud-builds-600.webp?v=b05b60d59e 600w, ../img/cloud-builds-1200.webp?v=59f5e7b455 1200w" width="600" height="768">
+            <img data-crop="cloud-builds" loading="lazy" decoding="async"
+              alt="Cloud Builds’ price sheet in HangarAI, over the Recipes workspace: Run in the cloud, the command python tools/train_tagger.py, and the machine to pick among cards with their rate and how many are free: CPU, 32 threads, 7.1 credits a minute, 14 free; CPU, 64 threads; GPU, RTX 4090, 11.8 credits a minute, 5 free, picked; GPU, A100 or H100; Multi-GPU, 2 to 8 GPUs; and Advanced, to say the machine part by part. Europe, Secure Cloud, destroyed once you are done; 11.8 credits a minute on the best machine free now, under a limit of 15; a time limit, 2 hours picked; the machine kept 2 minutes afterwards; 214 files, 3 MB, .env left on the computer; Run, or Run on this computer." aria-label="Cloud Builds’ price sheet in HangarAI, over the Recipes workspace: Run in the cloud, the command python tools/train_tagger.py, and the machine to pick among cards with their rate and how many are free: CPU, 32 threads, 7.1 credits a minute, 14 free; CPU, 64 threads; GPU, RTX 4090, 11.8 credits a minute, 5 free, picked; GPU, A100 or H100; Multi-GPU, 2 to 8 GPUs; and Advanced, to say the machine part by part. Europe, Secure Cloud, destroyed once you are done; 11.8 credits a minute on the best machine free now, under a limit of 15; a time limit, 2 hours picked; the machine kept 2 minutes afterwards; 214 files, 3 MB, .env left on the computer; Run, or Run on this computer." data-fr="La fiche de prix de Cloud Builds dans HangarAI, au-dessus du workspace Recipes&nbsp;: Lancer dans le cloud, la commande python tools/train_tagger.py, et la machine à choisir parmi des cartes avec leur tarif et le nombre de machines libres&nbsp;: CPU, 32 threads, 7,1 crédits la minute, 14 libres&nbsp;; CPU, 64 threads&nbsp;; GPU, RTX 4090, 11,8 crédits la minute, 5 libres, choisie&nbsp;; GPU, A100 ou H100&nbsp;; Multi-GPU, 2 à 8 GPU&nbsp;; et Avancé, pour décrire la machine pièce par pièce. Europe, Secure Cloud, détruite une fois terminé&nbsp;; 11,8 crédits la minute sur la meilleure machine libre, sous une limite de 15&nbsp;; une limite de temps, 2 heures choisies&nbsp;; la machine gardée 2 minutes ensuite&nbsp;; 214 fichiers, 3 Mo, .env laissé sur l’ordinateur&nbsp;; Lancer, ou Lancer sur cet ordinateur." src="../img/cloud-builds-600.webp?v=b05b60d59e" width="600" height="768">
+          </picture>
+          <picture class="for-light">
+            <source type="image/avif" data-crop="cloud-builds-light" sizes="(min-width: 648px) 600px, calc(100vw - 48px)" srcset="../img/cloud-builds-light-600.avif?v=182d5a6e15 600w, ../img/cloud-builds-light-1200.avif?v=c8f2c9f3cc 1200w" width="600" height="768">
+            <source type="image/webp" data-crop="cloud-builds-light" sizes="(min-width: 648px) 600px, calc(100vw - 48px)" srcset="../img/cloud-builds-light-600.webp?v=6dc6a5ac1a 600w, ../img/cloud-builds-light-1200.webp?v=676b2248d7 1200w" width="600" height="768">
+            <img data-crop="cloud-builds-light" loading="lazy" decoding="async"
+              alt="The same sheet in the GitHub Light theme." aria-label="The same sheet in the GitHub Light theme." data-fr="La même fiche, dans le thème GitHub Light." src="../img/cloud-builds-light-600.webp?v=6dc6a5ac1a" width="600" height="768">
+          </picture>
+        </div>
+        <figcaption class="caption">
+          <span data-l="en">Cloud Builds, in the app: the machine, CPU or GPU, and its rate, before anything starts.</span>
+          <span data-l="fr">Cloud Builds, dans l’app&nbsp;: la machine, CPU ou GPU, et son tarif, avant que rien ne démarre.</span>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- Credits ────────────────────────────────────────────────────── -->
+  <section class="sec" id="credits" aria-labelledby="credits-title">
+    <div class="wrap">
+      <header class="head head--center">
+        <p class="eyebrow"><span data-l="en">Credits</span><span data-l="fr">Crédits</span></p>
+        <h2 class="sec__title" id="credits-title">
+          <span data-l="en">One balance for what runs on our&nbsp;servers.</span>
+          <span data-l="fr">Un seul solde pour ce qui tourne sur nos&nbsp;serveurs.</span>
+        </h2>
+        <p class="sec__lede">
+          <span data-l="en">HangarAI runs on your computer. The few features that run on HangarAI’s servers instead are paid with credits, and nothing else is.</span>
+          <span data-l="fr">HangarAI tourne sur ton ordinateur. Les quelques fonctions qui tournent plutôt sur les serveurs de HangarAI se paient en crédits, et rien d’autre.</span>
+        </p>
+      </header>
+
+      <div class="cred">
+        <article class="cred__card" aria-labelledby="cred-buys">
+          <h3 id="cred-buys"><span data-l="en">What a credit buys</span><span data-l="fr">Ce que paie un crédit</span></h3>
+          <dl class="cred__rates">
+            <div>
+              <dt><span data-l="en">Hosted dictation</span><span data-l="fr">Dictée hébergée</span></dt>
+              <dd><span data-l="en">1 credit ≈ <span data-per-credit="dictation">1.5</span> min</span><span data-l="fr">1 crédit ≈ <span data-per-credit="dictation">1,5</span>&nbsp;min</span></dd>
+            </div>
+            <div>
+              <dt><span data-l="en">Image generation</span><span data-l="fr">Génération d’images</span></dt>
+              <dd><span data-l="en"><span data-rate="image_draft">3</span> to <span data-rate="image_best">39.4</span> an image</span><span data-l="fr"><span data-rate="image_draft">3</span> à <span data-rate="image_best">39,4</span> l’image</span></dd>
+            </div>
+            <div>
+              <dt><span data-l="en">Share link, 30 days</span><span data-l="fr">Lien de partage, 30 jours</span></dt>
+              <dd><span data-l="en"><span data-rate="share_month">0.8</span> per 50 MB</span><span data-l="fr"><span data-rate="share_month">0,8</span> les 50&nbsp;Mo</span></dd>
+            </div>
+            <div>
+              <dt><span data-l="en">Cloud Builds, 32 threads</span><span data-l="fr">Cloud Builds, 32 threads</span></dt>
+              <dd><span data-l="en">≈ 7 a minute</span><span data-l="fr">≈ 7 la minute</span></dd>
+            </div>
+            <div>
+              <dt><span data-l="en">Cloud Builds, RTX 4090</span><span data-l="fr">Cloud Builds, RTX 4090</span></dt>
+              <dd><span data-l="en">up to 15 a minute</span><span data-l="fr">jusqu’à 15 la minute</span></dd>
+            </div>
+            <div>
+              <dt><span data-l="en">Hosted node, Standard</span><span data-l="fr">Nœud hébergé, Standard</span></dt>
+              <dd><span data-l="en">61.4 an hour</span><span data-l="fr">61,4 l’heure</span></dd>
+            </div>
+          </dl>
+          <p class="cred__fine">
+            <span data-l="en">A credit is worth the same whatever it pays for, and each service shows its rate before you use it. A Cloud Build is billed by the second at its machine’s own rate, under a limit you can raise (60 a minute for an A100 or H100); a hosted node by the started hour, 34 for a Small, 119.4 for a Large. Hangar Mobile’s relay comes with your plan and costs no credits.</span>
+            <span data-l="fr">Un crédit vaut la même chose quoi qu’il paie, et chaque service affiche son tarif avant usage. Un Cloud Build est facturé à la seconde, au tarif de sa machine, sous une limite que tu peux relever (60 la minute pour une A100 ou une H100)&nbsp;; un nœud hébergé à l’heure entamée, 34 pour un Petit, 119,4 pour un Grand. Le relais de Hangar Mobile est compris dans ton offre et ne coûte aucun crédit.</span>
+          </p>
+        </article>
+
+        <article class="cred__card" aria-labelledby="cred-from">
+          <h3 id="cred-from"><span data-l="en">Where they come from</span><span data-l="fr">D’où ils viennent</span></h3>
+          <dl class="cred__rates">
+            <div>
+              <dt>HangarAI Pro</dt>
+              <dd><span data-l="en">3,000 every month</span><span data-l="fr">3&nbsp;000 chaque mois</span></dd>
+            </div>
+            <div>
+              <dt>HangarAI Max</dt>
+              <dd><span data-l="en">10,000 every month</span><span data-l="fr">10&nbsp;000 chaque mois</span></dd>
+            </div>
+            <div>
+              <dt><span data-l="en">Free trial</span><span data-l="fr">Essai gratuit</span></dt>
+              <dd><span data-l="en">150 in all</span><span data-l="fr">150 en tout</span></dd>
+            </div>
+            <div>
+              <dt><span data-l="en">Free license</span><span data-l="fr">Licence offerte</span></dt>
+              <dd><span data-l="en">30 every month</span><span data-l="fr">30 chaque mois</span></dd>
+            </div>
+          </dl>
+          <p class="cred__fine">
+            <span data-l="en">The monthly allowance resets each period and doesn’t carry over. It is spent first, then the credits you bought, then pay as you go if you turned it on.</span>
+            <span data-l="fr">L’allocation du mois repart à zéro à chaque période et n’est pas reportée. Elle est dépensée en premier, puis les crédits achetés, puis le paiement à l’usage si tu l’as activé.</span>
+          </p>
+        </article>
+
+        <article class="cred__card" aria-labelledby="cred-more">
+          <h3 id="cred-more"><span data-l="en">Need more?</span><span data-l="fr">Besoin de plus&nbsp;?</span></h3>
+          <ul class="packs-list">
+            <li>
+              <span class="packs-list__n"><b><span data-l="en">1,000</span><span data-l="fr">1&nbsp;000</span></b> <span data-l="en">credits</span><span data-l="fr">crédits</span></span>
+              <a class="btn btn--sm" href="../buy/?product=credits_1000" aria-label="Buy 1,000 credits for €3" data-fr="Acheter 1&nbsp;000 crédits pour 3&nbsp;€"><span data-l="en">€3</span><span data-l="fr">3&nbsp;€</span></a>
+            </li>
+            <li>
+              <span class="packs-list__n"><b><span data-l="en">5,000</span><span data-l="fr">5&nbsp;000</span></b> <span data-l="en">credits</span><span data-l="fr">crédits</span></span>
+              <a class="btn btn--sm" href="../buy/?product=credits_5000" aria-label="Buy 5,000 credits for €10" data-fr="Acheter 5&nbsp;000 crédits pour 10&nbsp;€"><span data-l="en">€10</span><span data-l="fr">10&nbsp;€</span></a>
+            </li>
+          </ul>
+          <p class="cred__fine">
+            <span data-l="en">Packs never expire, on any license, the free one included. They stay on your license if a subscription ends.</span>
+            <span data-l="fr">Les recharges n’expirent jamais, sur toutes les licences, l’offerte comprise. Elles restent sur ta licence si un abonnement s’arrête.</span>
+          </p>
+        </article>
+
+        <article class="cred__card cred__card--wide" aria-labelledby="cred-payg">
+          <div class="cred__copy">
+            <h3 id="cred-payg"><span data-l="en">Pay as you go</span><span data-l="fr">Paiement à l’usage</span> <span class="tag"><span data-l="en">Off by default</span><span data-l="fr">Désactivé par défaut</span></span></h3>
+            <p>
+              <span data-l="en">When your allowance and your credits run out, hosted features keep working at <b>€3 per 1,000 credits</b>, up to a monthly limit you choose: €5, €10, €25, €50 or your own amount. Nothing is spent past it.</span>
+              <span data-l="fr">Quand ton allocation et tes crédits sont épuisés, les fonctions hébergées continuent à <b>3&nbsp;€ les 1&nbsp;000 crédits</b>, jusqu’à une limite mensuelle que tu choisis&nbsp;: 5, 10, 25, 50&nbsp;€ ou le montant de ton choix. Rien n’est dépensé au-delà.</span>
+            </p>
+            <p class="cred__fine">
+              <span data-l="en">Turn it on in HangarAI’s Settings › License or in your account, after your first purchase. It is billed with your plan, a few euros at a time.</span>
+              <span data-l="fr">Active-le dans Réglages › Licence de HangarAI ou dans ton compte, après ton premier achat. Il est facturé avec ton offre, quelques euros à la fois.</span>
+            </p>
+          </div>
+          <div class="payg-demo" aria-hidden="true">
+            <div class="payg-demo__row">
+              <span class="payg-demo__label"><span data-l="en">Pay as you go</span><span data-l="fr">Paiement à l’usage</span></span>
+              <span class="payg-demo__switch"><i></i></span>
+            </div>
+            <div class="payg-demo__row">
+              <span class="payg-demo__label"><span data-l="en">Monthly limit</span><span data-l="fr">Limite mensuelle</span></span>
+              <span class="payg-demo__chips"><i>5&nbsp;€</i><i class="on">10&nbsp;€</i><i>25&nbsp;€</i><i>50&nbsp;€</i></span>
+            </div>
+            <div class="payg-demo__meter"><i style="width: 42%"></i></div>
+            <p class="payg-demo__fine"><span data-l="en">€4.20 of €10 used this month</span><span data-l="fr">4,20&nbsp;€ sur 10&nbsp;€ utilisés ce mois-ci</span></p>
+          </div>
+        </article>
+      </div>
+
+      <figure class="shot shot--sheet">
+        <div class="window">
+          <picture class="for-dark">
+            <source type="image/avif" data-crop="license" sizes="(min-width: 1028px) 980px, calc(100vw - 48px)" srcset="../img/license-980.avif?v=789e8e5891 980w, ../img/license-1956.avif?v=5031167288 1956w" width="980" height="698">
+            <source type="image/webp" data-crop="license" sizes="(min-width: 1028px) 980px, calc(100vw - 48px)" srcset="../img/license-980.webp?v=8d4aa76333 980w, ../img/license-1956.webp?v=51989a1893 1956w" width="980" height="698">
+            <img data-crop="license" loading="lazy" decoding="async"
+              alt="Settings › License in HangarAI: HangarAI Pro, active and paid until December; Manage subscription at Polar; Upgrade to Max; this computer uses one of the license’s 3 seats. Below, Credits: 2,486.4 available, 2,322.4 of the period’s 3,000 left and 164 bought, then what each feature costs, from dictation at 0.66 credits a minute, about €0.079 an hour." aria-label="Settings › License in HangarAI: HangarAI Pro, active and paid until December; Manage subscription at Polar; Upgrade to Max; this computer uses one of the license’s 3 seats. Below, Credits: 2,486.4 available, 2,322.4 of the period’s 3,000 left and 164 bought, then what each feature costs, from dictation at 0.66 credits a minute, about €0.079 an hour." data-fr="Réglages › Licence dans HangarAI&nbsp;: HangarAI Pro, active et payée jusqu’en décembre&nbsp;; gérer l’abonnement chez Polar&nbsp;; passer à Max&nbsp;; cet ordinateur occupe un des 3 sièges de la licence. Dessous, les crédits&nbsp;: 2&nbsp;486,4 disponibles, 2&nbsp;322,4 sur les 3&nbsp;000 de la période et 164 achetés, puis ce que coûte chaque fonction, à commencer par la dictée à 0,66 crédit la minute, environ 0,079&nbsp;€ l’heure." src="../img/license-980.webp?v=8d4aa76333" width="980" height="698">
+          </picture>
+          <picture class="for-light">
+            <source type="image/avif" data-crop="license-light" sizes="(min-width: 1028px) 980px, calc(100vw - 48px)" srcset="../img/license-light-980.avif?v=c686bd9556 980w, ../img/license-light-1956.avif?v=27ed2167e8 1956w" width="980" height="698">
+            <source type="image/webp" data-crop="license-light" sizes="(min-width: 1028px) 980px, calc(100vw - 48px)" srcset="../img/license-light-980.webp?v=9e7fac1bf4 980w, ../img/license-light-1956.webp?v=2cc64cd005 1956w" width="980" height="698">
+            <img data-crop="license-light" loading="lazy" decoding="async"
+              alt="The same page in the GitHub Light theme." aria-label="The same page in the GitHub Light theme." data-fr="La même page, dans le thème GitHub Light." src="../img/license-light-980.webp?v=9e7fac1bf4" width="980" height="698">
+          </picture>
+        </div>
+        <figcaption class="caption">
+          <span data-l="en">Settings › License, in the app: your plan, this computer’s seat, your credits and what each feature costs.</span>
+          <span data-l="fr">Réglages › Licence, dans l’app&nbsp;: ton offre, le siège de cet ordinateur, tes crédits et ce que coûte chaque fonction.</span>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- Questions ──────────────────────────────────────────────────── -->
+  <section class="sec faq" id="faq" aria-labelledby="faq-title">
+    <div class="wrap faq__in">
+      <h2 class="sec__title sec__title--sm" id="faq-title"><span data-l="en">Questions</span><span data-l="fr">Questions</span></h2>
+
+      <div class="qa">
+        <details id="faq-credit">
+          <summary><span data-l="en">What is a credit?</span><span data-l="fr">Qu’est-ce qu’un crédit&nbsp;?</span></summary>
+          <div class="qa__a">
+            <p data-l="en">The unit of what runs on HangarAI’s servers rather than on your computer: hosted dictation, image generation, share links, Cloud Builds and hosted nodes. 1 credit is about <span data-per-credit="dictation">1.5</span> minutes of dictation, and is worth the same whatever it pays for; each service shows its rate in credits before you use it. Your monthly allowance is spent first, then the credits you bought, then pay as you go if you turned it on.</p>
+            <p data-l="fr">L’unité de ce qui tourne sur les serveurs de HangarAI plutôt que sur ton ordinateur&nbsp;: la dictée hébergée, la génération d’images, les liens de partage, Cloud Builds et les nœuds hébergés. 1 crédit, c’est environ <span data-per-credit="dictation">1,5</span>&nbsp;minute de dictée, et il vaut la même chose quoi qu’il paie&nbsp;; chaque service affiche son tarif en crédits avant usage. L’allocation du mois est dépensée en premier, puis les crédits achetés, puis le paiement à l’usage si tu l’as activé.</p>
+          </div>
+        </details>
+
+        <details id="faq-out">
+          <summary><span data-l="en">What if I run out of credits?</span><span data-l="fr">Et si je n’ai plus de crédits&nbsp;?</span></summary>
+          <div class="qa__a">
+            <p data-l="en">Hosted features stop until your allowance resets, unless you buy a pack (1,000 for €3, 5,000 for €10) or turned pay as you go on. Everything that runs on your computer keeps working: credits only pay for what runs on our servers.</p>
+            <p data-l="fr">Les fonctions hébergées s’arrêtent jusqu’à la remise à zéro de ton allocation, sauf si tu achètes une recharge (1&nbsp;000 pour 3&nbsp;€, 5&nbsp;000 pour 10&nbsp;€) ou as activé le paiement à l’usage. Tout ce qui tourne sur ton ordinateur continue de fonctionner&nbsp;: les crédits ne paient que ce qui tourne sur nos serveurs.</p>
+          </div>
+        </details>
+
+        <details id="faq-cloud">
+          <summary><span data-l="en">What do cloud machines cost?</span><span data-l="fr">Combien coûtent les machines cloud&nbsp;?</span></summary>
+          <div class="qa__a">
+            <p data-l="en">A Cloud Build pays its machine’s own rate, in credits a minute, fixed when the machine is rented and shown before the run, billed by the second: about 7 a minute for 32 threads. Each class has a limit you can raise for a run, and no dearer machine is rented: 12.5 a minute for 32 threads, 25 for 64, 15 for an RTX 4090, 60 for an A100 or H100, 200 for 2 to 8 GPUs.</p>
+            <p data-l="fr">Un Cloud Build paie le tarif de sa machine, en crédits la minute, fixé quand la machine est louée et affiché avant le lancement, facturé à la seconde&nbsp;: environ 7 la minute pour 32 threads. Chaque classe a une limite, que tu peux relever pour un lancement, et aucune machine plus chère n’est louée&nbsp;: 12,5 la minute pour 32 threads, 25 pour 64, 15 pour une RTX 4090, 60 pour une A100 ou une H100, 200 pour 2 à 8 GPU.</p>
+            <p data-l="en">A hosted node costs 34, 61.4 or 119.4 credits a started hour, Small, Standard or Large, reserved at the start; what you do not use comes back. An 11-hour night on a Standard is 675.4 credits, about €1.35, and Pro’s 3,000 credits a month are about 49 hours of it.</p>
+            <p data-l="fr">Un nœud hébergé coûte 34, 61,4 ou 119,4 crédits l’heure entamée, Petit, Standard ou Grand, réservés au départ&nbsp;; ce que tu n’utilises pas te revient. Une nuit de 11 heures sur un Standard, c’est 675,4 crédits, environ 1,35&nbsp;€, et les 3&nbsp;000 crédits par mois de Pro en font environ 49 heures.</p>
+            <p data-l="en">Neither has a limit of hours: your credits are the limit. Pro runs 3 machines at once and Max 5, both kinds counted together. The details: <a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/cloud.md#prices">Cloud Builds</a>, <a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/hosted-nodes.md#what-it-costs">hosted nodes</a>.</p>
+            <p data-l="fr">Ni l’un ni l’autre n’a de limite d’heures&nbsp;: tes crédits sont la seule limite. Pro fait tourner 3 machines à la fois et Max 5, les deux comptées ensemble. Le détail&nbsp;: <a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/cloud.md#prices">Cloud Builds</a>, <a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/hosted-nodes.md#what-it-costs">nœuds hébergés</a>.</p>
+          </div>
+        </details>
+
+        <details id="faq-trial">
+          <summary><span data-l="en">What does the trial include?</span><span data-l="fr">Que comprend l’essai&nbsp;?</span></summary>
+          <div class="qa__a">
+            <p data-l="en">All of HangarAI on your computer, for 14 days, with 150 credits to try dictation, image generation and share links. No card: you sign in with GitHub the first time you open the app, and there is nothing to cancel. At the end, choose Pro or Max to keep going; Cloud Builds and hosted nodes come with them. One trial per account.</p>
+            <p data-l="fr">Tout HangarAI sur ton ordinateur, pendant 14 jours, avec 150 crédits pour essayer la dictée, la génération d’images et les liens de partage. Sans carte&nbsp;: tu te connectes avec GitHub à la première ouverture de l’app, et il n’y a rien à résilier. À la fin, choisis Pro ou Max pour continuer&nbsp;; Cloud Builds et les nœuds hébergés viennent avec eux. Un essai par compte.</p>
+          </div>
+        </details>
+
+        <details id="faq-ends">
+          <summary><span data-l="en">What happens when my subscription ends?</span><span data-l="fr">Que se passe-t-il quand mon abonnement s’arrête&nbsp;?</span></summary>
+          <div class="qa__a">
+            <p data-l="en">HangarAI locks, as it does after the trial: it opens on its license screen, where you can subscribe again. Nothing is deleted: your projects, boards, memory and settings stay on your computer as they were.</p>
+            <p data-l="fr">HangarAI se verrouille, comme après l’essai&nbsp;: il s’ouvre sur son écran de licence, où tu peux te réabonner. Rien n’est effacé&nbsp;: tes projets, tableaux, mémoire et réglages restent sur ton ordinateur, tels quels.</p>
+            <p data-l="en">The credits you bought stay on your license for when you come back; the monthly allowance stops with the subscription. A cancelled subscription runs to the end of the period you paid for.</p>
+            <p data-l="fr">Les crédits achetés restent sur ta licence pour ton retour&nbsp;; l’allocation du mois s’arrête avec l’abonnement. Un abonnement résilié court jusqu’à la fin de la période payée.</p>
+          </div>
+        </details>
+
+        <details id="faq-switch">
+          <summary><span data-l="en">Can I move between Pro and Max?</span><span data-l="fr">Puis-je passer de Pro à Max, et inversement&nbsp;?</span></summary>
+          <div class="qa__a">
+            <p data-l="en">Yes, at any time. In <a href="../account/">your account</a>, Upgrade to Max (or Manage subscription) opens Polar’s customer portal, where you change plan; Polar prorates the price for what is left of the period. Cloud Builds follow at once; the monthly credits change from your next period.</p>
+            <p data-l="fr">Oui, à tout moment. Dans <a href="../account/">ton compte</a>, Passer à Max (ou Gérer l’abonnement) ouvre le portail client de Polar, où tu changes d’offre&nbsp;; Polar calcule le prix au prorata de ce qui reste de la période. Cloud Builds suit aussitôt&nbsp;; les crédits du mois changent à partir de la période suivante.</p>
+          </div>
+        </details>
+
+        <details id="faq-cancel">
+          <summary><span data-l="en">How do I cancel, or change my card?</span><span data-l="fr">Comment résilier, ou changer de carte&nbsp;?</span></summary>
+          <div class="qa__a">
+            <p data-l="en">In <a href="../account/">your account</a>, Manage subscription opens Polar’s customer portal: cancel there, change plan or card, or download your invoices.</p>
+            <p data-l="fr">Dans <a href="../account/">ton compte</a>, Gérer l’abonnement ouvre le portail client de Polar&nbsp;: tu peux y résilier, changer d’offre ou de carte, et télécharger tes factures.</p>
+          </div>
+        </details>
+
+        <details id="faq-refund">
+          <summary><span data-l="en">Can I get a refund?</span><span data-l="fr">Puis-je être remboursé&nbsp;?</span></summary>
+          <div class="qa__a">
+            <p data-l="en">Ask at <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>, from the address you paid with. Refunds go through Polar, back to the way you paid. A refunded credit pack takes back the credits not spent yet.</p>
+            <p data-l="fr">Demande-le à <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>, depuis l’adresse avec laquelle tu as payé. Le remboursement passe par Polar, sur le moyen de paiement utilisé. Une recharge remboursée reprend les crédits pas encore dépensés.</p>
+          </div>
+        </details>
+
+        <details id="faq-vat">
+          <summary><span data-l="en">What about VAT?</span><span data-l="fr">Et la TVA&nbsp;?</span></summary>
+          <div class="qa__a">
+            <p data-l="en">It is included: the prices on this page are what you pay in France. Polar, our merchant of record, sells HangarAI for us and applies the VAT of your country, so elsewhere the total can differ by a few cents; checkout shows it before you pay. Polar sends the receipts, and your invoices are in <a href="../account/">your account</a>, under Invoices.</p>
+            <p data-l="fr">Elle est comprise&nbsp;: les prix de cette page sont ceux que tu paies en France. Polar, notre revendeur officiel (merchant of record), vend HangarAI pour nous et applique la TVA de ton pays, si bien qu’ailleurs le total peut varier de quelques centimes&nbsp;; le paiement l’affiche avant que tu paies. Polar envoie les reçus, et tes factures sont dans <a href="../account/">ton compte</a>, sous Factures.</p>
+          </div>
+        </details>
+
+        <details id="faq-lifetime">
+          <summary><span data-l="en">Is there a Lifetime license?</span><span data-l="fr">Y a-t-il une licence Lifetime&nbsp;?</span></summary>
+          <div class="qa__a">
+            <p data-l="en">Not any more: HangarAI is Pro or Max, by the month or by the year. If you bought a Lifetime license before, nothing changes for you: it keeps the app, its updates and the credits on it.</p>
+            <p data-l="fr">Plus maintenant&nbsp;: HangarAI, c’est Pro ou Max, au mois ou à l’année. Si tu as acheté une licence Lifetime avant, rien ne change pour toi&nbsp;: elle garde l’app, ses mises à jour et les crédits qu’elle porte.</p>
+            <p data-l="en">Free licenses don’t change either: an install of 2.5.1 or earlier keeps HangarAI for free, as below.</p>
+            <p data-l="fr">Les licences offertes ne changent pas non plus&nbsp;: une installation de la 2.5.1 ou antérieure garde HangarAI gratuitement, comme ci-dessous.</p>
+          </div>
+        </details>
+
+        <details id="faq-free">
+          <summary><span data-l="en">I used HangarAI before it was paid.</span><span data-l="fr">J’utilisais HangarAI avant qu’il soit payant.</span></summary>
+          <div class="qa__a">
+            <p data-l="en">You keep it for free. Every installation of HangarAI 2.5.1 or earlier gets a free license the first time it opens a paid version, if that is by 31 January 2027: the app, and 30 credits a month.</p>
+            <p data-l="fr">Tu le gardes gratuitement. Chaque installation de HangarAI 2.5.1 ou antérieure reçoit une licence offerte la première fois qu’elle ouvre une version payante, si c’est au plus tard le 31 janvier 2027&nbsp;: l’app, et 30 crédits par mois.</p>
+            <p data-l="en">It doesn’t include what costs us money to run for you, such as Cloud Builds, hosted nodes, image generation, share links, Hangar Mobile’s relay or the statistics synced across your machines: those come with Pro and Max. If HangarAI helps you, support it with either, and your free license becomes that one.</p>
+            <p data-l="fr">Elle ne comprend pas ce qui nous coûte de l’argent à faire tourner pour toi, comme Cloud Builds, les nœuds hébergés, la génération d’images, les liens de partage, le relais de Hangar Mobile ou les statistiques synchronisées entre tes machines&nbsp;: ils viennent avec Pro et Max. Si HangarAI t’aide, soutiens-le avec l’une ou l’autre, et ta licence offerte devient celle-là.</p>
+          </div>
+        </details>
+
+        <details id="faq-machines">
+          <summary><span data-l="en">On how many computers?</span><span data-l="fr">Sur combien d’ordinateurs&nbsp;?</span></summary>
+          <div class="qa__a">
+            <p data-l="en">Up to 3 at once, with Pro or Max. To move to a new one, deactivate an old one in <a href="../account/">your account</a>: its place is free at once. (The 3 or 5 cloud machines of Pro and Max, Cloud Builds and hosted nodes, are ours: they don’t count.)</p>
+            <p data-l="fr">Jusqu’à 3 à la fois, avec Pro ou Max. Pour passer à un nouveau, désactive un ancien dans <a href="../account/">ton compte</a>&nbsp;: sa place se libère aussitôt. (Les 3 ou 5 machines cloud de Pro et Max, Cloud Builds et nœuds hébergés, sont chez nous&nbsp;: elles ne comptent pas.)</p>
+          </div>
+        </details>
+
+        <details id="faq-agents">
+          <summary><span data-l="en">Are Claude Code and Codex included?</span><span data-l="fr">Claude Code et Codex sont-ils inclus&nbsp;?</span></summary>
+          <div class="qa__a">
+            <p data-l="en">No. HangarAI runs the Claude Code and Codex already on your computer, on your own plan or API key, and Anthropic or OpenAI bill you for them as they do today. HangarAI’s price is for HangarAI.</p>
+            <p data-l="fr">Non. HangarAI fait tourner le Claude Code et le Codex déjà installés sur ton ordinateur, avec ton propre abonnement ou ta clé d’API, et Anthropic ou OpenAI te les facturent comme aujourd’hui. Le prix de HangarAI ne couvre que HangarAI.</p>
+          </div>
+        </details>
+
+        <details id="faq-account">
+          <summary><span data-l="en">Do I need an account to buy?</span><span data-l="fr">Faut-il un compte pour acheter&nbsp;?</span></summary>
+          <div class="qa__a">
+            <p data-l="en">No. After a purchase you get your receipt and your license key by email: enter the key in HangarAI, under Settings › License. A HangarAI account (you sign in with GitHub) shows your license, machines, credits and invoices in <a href="../account/">one place</a>, and takes a key you bought without it.</p>
+            <p data-l="fr">Non. Après un achat, tu reçois ton reçu et ta clé de licence par e-mail&nbsp;: saisis la clé dans HangarAI, sous Réglages › Licence. Un compte HangarAI (connexion avec GitHub) réunit ta licence, tes machines, tes crédits et tes factures <a href="../account/">au même endroit</a>, et accepte une clé achetée sans compte.</p>
+          </div>
+        </details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- site footer: the same on every page -->
+<footer class="foot" id="site-map">
+  <div class="wrap foot__in">
+    <div class="foot__top">
+      <div class="foot__brand">
+        <a class="brand" href="../" aria-label="HangarAI, home" data-fr="HangarAI, accueil">
+          <svg class="brand__mark" width="20" height="20" viewBox="200 200 624 624" aria-hidden="true">
+        <rect x="200" y="200" width="260" height="624" fill="var(--accent)"></rect>
+        <rect x="538" y="200" width="286" height="260" fill="var(--fg-hi)"></rect>
+        <rect x="538" y="538" width="286" height="286" fill="var(--fg-hi)"></rect>
+      </svg>
+          <span class="brand__name">HangarAI</span>
+        </a>
+        <p class="foot__tag"><span data-l="en">A team of coding agents, in one native window. Local, with no usage telemetry.</span><span data-l="fr">Une équipe d’agents de code, dans une seule fenêtre native. En local, sans télémétrie d’usage.</span></p>
+        <div class="foot__social">
+          <a href="https://github.com/hangar-ai/hangar" aria-label="HangarAI on GitHub" data-fr="HangarAI sur GitHub"><svg width="17" height="17" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"></path></svg></a>
+          <a href="https://discord.gg/hangarai" aria-label="HangarAI on Discord" data-fr="HangarAI sur Discord"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.32 4.37a19.8 19.8 0 0 0-4.89-1.52.07.07 0 0 0-.08.04c-.21.37-.44.86-.61 1.25a18.27 18.27 0 0 0-5.49 0 12.6 12.6 0 0 0-.62-1.25.08.08 0 0 0-.08-.04 19.74 19.74 0 0 0-4.88 1.52.07.07 0 0 0-.03.03C.53 9.05-.32 13.58.1 18.06a.08.08 0 0 0 .03.06 19.9 19.9 0 0 0 5.99 3.03.08.08 0 0 0 .08-.03c.46-.63.87-1.3 1.23-1.99a.08.08 0 0 0-.04-.11 13.1 13.1 0 0 1-1.87-.89.08.08 0 0 1-.01-.13l.37-.29a.07.07 0 0 1 .08-.01c3.93 1.79 8.18 1.79 12.06 0a.07.07 0 0 1 .08.01l.37.29a.08.08 0 0 1-.01.13c-.6.35-1.22.64-1.87.89a.08.08 0 0 0-.04.11c.36.7.77 1.36 1.22 1.99a.08.08 0 0 0 .08.03 19.84 19.84 0 0 0 6-3.03.08.08 0 0 0 .04-.06c.5-5.18-.84-9.67-3.55-13.66a.06.06 0 0 0-.03-.03ZM8.02 15.33c-1.18 0-2.16-1.09-2.16-2.42s.96-2.42 2.16-2.42c1.21 0 2.18 1.1 2.16 2.42 0 1.33-.96 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.15-1.09-2.15-2.42s.95-2.42 2.15-2.42c1.21 0 2.18 1.1 2.16 2.42 0 1.33-.95 2.42-2.16 2.42Z"></path></svg></a>
+        </div>
+      </div>
+      <nav class="foot__cols" aria-label="Site map" data-fr="Plan du site">
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Product</span><span data-l="fr">Produit</span></h2>
+        <ul>
+          <li><a href="../#how"><span data-l="en">Features</span><span data-l="fr">Fonctionnalités</span></a></li>
+          <li><a href="../pricing/" aria-current="page"><span data-l="en">Pricing</span><span data-l="fr">Tarifs</span></a></li>
+          <li><a href="../#download"><span data-l="en">Download</span><span data-l="fr">Télécharger</span></a></li>
+          <li><a href="../#control">Hangar Mobile</a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md"><span data-l="en">Changelog</span><span data-l="fr">Nouveautés</span></a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Resources</span><span data-l="fr">Ressources</span></h2>
+        <ul>
+          <li><a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/README.md">Guide</a></li>
+          <li><a href="../#faq">Questions</a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/releases"><span data-l="en">Releases</span><span data-l="fr">Versions</span></a></li>
+          <li><a href="https://discord.gg/hangarai"><span data-l="en">Discord community</span><span data-l="fr">Communauté Discord</span></a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/issues"><span data-l="en">Report a bug</span><span data-l="fr">Signaler un bug</span></a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Company</span><span data-l="fr">Société</span></h2>
+        <ul>
+          <li><a href="../account/"><span data-l="en">Account</span><span data-l="fr">Compte</span></a></li>
+          <li><a href="../affiliates/"><span data-l="en">Affiliates</span><span data-l="fr">Affiliation</span></a></li>
+          <li><a href="mailto:contact@hangarai.dev">Contact</a></li>
+          <li><a href="https://github.com/simnJS"><span data-l="en">Made by simnJS</span><span data-l="fr">Fait par simnJS</span></a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Legal</span><span data-l="fr">Légal</span></h2>
+        <ul>
+          <li><a href="../privacy.html"><span data-l="en">Privacy</span><span data-l="fr">Confidentialité</span></a></li>
+          <li><a href="../terms/"><span data-l="en">Cloud terms</span><span data-l="fr">Conditions du Cloud</span></a></li>
+          <li><a href="../legal/affiliate-terms.html"><span data-l="en">Affiliate terms</span><span data-l="fr">Conditions d’affiliation</span></a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/blob/main/LICENSE"><span data-l="en">License</span><span data-l="fr">Licence</span></a></li>
+        </ul>
+      </div>
+      </nav>
+    </div>
+    <div class="foot__base">
+      <p><span>© 2026 HangarAI</span><span><span data-l="en">Payments by</span><span data-l="fr">Paiements par</span> <a href="https://polar.sh">Polar</a></span></p>
+      <div class="foot__end"><div class="lang-seg" role="group" aria-label="Language" data-fr="Langue">
+        <button type="button" class="lang-seg__btn" data-set-lang="en" lang="en" aria-label="English" aria-pressed="true">EN</button>
+        <button type="button" class="lang-seg__btn" data-set-lang="fr" lang="fr" aria-label="Français" aria-pressed="false">FR</button>
+      </div></div>
+    </div>
+  </div>
+</footer>
+<!-- /site footer -->
+
+<script src="../main.js?v=a849d1e48d" defer></script>
+<script src="../assets/lang.js?v=a961f665bf" defer></script>
+<script src="../assets/api.js?v=f0a126ddde" defer></script>
+<script src="../assets/offers.js?v=c4d8b4590a" defer></script>
+<script src="../vendor/gsap.min.js?v=3.15.0" defer></script>
+<script src="../vendor/ScrollTrigger.min.js?v=3.15.0" defer></script>
+<script src="../assets/motion.js?v=df5717ed2c" defer></script>
+<script src="../assets/nav.js?v=a2538a43ce" defer></script>
+</body>
+</html>

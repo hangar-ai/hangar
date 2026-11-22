@@ -37,7 +37,7 @@ FULL_DIRS = {".cargo": "cargo configuration", "scripts/remote": "remote build sc
 # What no check of the Rust workspace reads (a crate that does is found by the scan, which comes first): the docs, the
 # site, the phone app's sources (the CI builds the app with an empty dist-mobile/), the CI's workflows, the other
 # scripts, the packaging files, and a root file that is not Rust.
-IGNORED_DIRS = {"docs", "site", "mobile", ".github", ".vscode", "nix", "scripts"}
+IGNORED_DIRS = {"docs", "site", "mobile", ".github", ".vscode", "nix", "scripts", "marketing", "audit"}
 IGNORED_ROOT_FILES = {"LICENSE", ".gitignore", ".dockerignore", "Dockerfile", "flake.nix", "flake.lock", "package.json",
                       "pnpm-lock.yaml", "pnpm-workspace.yaml", "sws.toml"}
 SKIP_DIRS = {"target", ".git", "node_modules", "dist-mobile"}

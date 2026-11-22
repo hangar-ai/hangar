@@ -41,7 +41,7 @@ types `codex --remote` into the pane: you get Codex's own terminal, unchanged, a
 second client of the same session. That is **attached**, and it is what the hangar-bridge mod
 does for Claude Code: exact pane states, Hangar's messages delivered without typing (into an
 idle session, or steering a running turn), approvals and questions held until you answer from
-the chat view, your phone or Discord (the first answer wins, the terminal's included), live
+the conversation, your phone or Discord (the first answer wins, the terminal's included), live
 context use and exact plan limits with their reset times, generated images, and the session's
 id without searching for it.
 
@@ -53,7 +53,7 @@ and the files Codex writes. The pane's status says why. On the plain terminal:
 - Hangar's messages are typed into Codex when it is idle; a running turn is not reached, so
   they wait for its end;
 - approvals and questions are answered by typing keys into Codex's dialog, checked on screen
-  first, from the chat view, Mobile or Discord as before;
+  first, from the conversation, Mobile or Discord as before;
 - the role still rides on Codex's command line, and the workspace's state comes with the
   first message;
 - context use and plan limits are read from Codex's session files, not live;
@@ -102,9 +102,8 @@ on a ChatGPT plan.
 ## Images
 
 Codex makes images (OpenAI's image generation is on by default in Codex). Hangar picks up
-each image a Codex session saves and shows it in the chat view's message, in the pane's
-inspector, on Hangar Mobile and on the turn's card in Discord; click it to open it in a
-preview pane. The file stays where Codex saved it, under `$CODEX_HOME/generated_images/`.
+each image a Codex session saves and shows it in the conversation's message, on Hangar
+Mobile and on the turn's card in Discord; click it to open it in a preview tile. The file stays where Codex saved it, under `$CODEX_HOME/generated_images/`.
 
 A Claude Code orchestrator can ask Codex for images through `delegate` (below) and move the
 files it gets back into the project.
@@ -120,7 +119,7 @@ images, its branch) comes back to the caller as a message when it ends, and
 `delegation_status`, `delegation_cancel` and `delegation_list` follow it.
 
 A child runs under the workspace's permission mode, on the workspace's account. What it asks
-you, a permission or a question, waits in **Needs you**, the chat view, Mobile and Discord:
+you, a permission or a question, waits in **Needs you**, the conversation, Mobile and Discord:
 only you answer it. A Codex child makes images only when the caller asks for them, so a
 review cannot spend image quota.
 
@@ -161,7 +160,7 @@ changes with them.
   Hangar started; that `codex --remote … resume <id>` resumes a session; that when two
   clients can answer one approval, the first answer wins and the other's dialog closes; and
   how a generated image is written in the newer format of Codex's session files.
-- **Windows.** Hangar does not attach to Codex on Windows yet, in a native pane or a WSL one:
+- **Windows.** Hangar does not attach to Codex on Windows, in a native pane or a WSL one:
   Codex panes there run on the plain terminal.
 - **Kits.** Codex cannot load a kit's skills and hooks for one session, so **Add to Codex**
   installs them for every Codex session on the machine, until you remove them; Codex runs a

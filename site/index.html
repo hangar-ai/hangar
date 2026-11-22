@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>HangarAI: a team of coding agents in one native window</title>
-<meta name="description" content="HangarAI runs your coding agents, Claude Code and Codex (beta), side by side in one native window, with a shared board, a shared memory and an orchestrator that hands work to workers in git worktrees. Talk to it in a chat, steer it from your phone. Local, with no usage telemetry.">
+<title data-fr="HangarAI&nbsp;: ton équipe de dev IA, Claude Code et Codex en parallèle">HangarAI: your AI dev team, Claude Code and Codex in parallel</title>
+<meta name="description" content="HangarAI turns Claude Code and Codex (beta) into a dev team: an orchestrator plans, workers code in parallel on branches of their own, and finished work lands together, checked. It works through the night, even with your computer off, runs builds and GPU work in the cloud and asks you what matters, on your phone too. A native app for Windows, macOS and Linux, free for 14 days." data-fr="HangarAI fait de Claude Code et Codex (bêta) une équipe de dev&nbsp;: un orchestrateur planifie, des workers codent en parallèle sur leurs propres branches, et le travail fini fusionne d’un coup, vérifié. Il travaille la nuit, même ordinateur éteint, lance les builds et le travail GPU dans le cloud et te demande ce qui compte, même sur ton téléphone. Une app native pour Windows, macOS et Linux, gratuite pendant 14&nbsp;jours.">
 <link rel="canonical" href="https://hangarai.dev/">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#202124" media="(prefers-color-scheme: dark)">
@@ -17,26 +17,49 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="HangarAI">
 <meta property="og:url" content="https://hangarai.dev/">
-<meta property="og:title" content="HangarAI 2.5: a team of coding agents, in one native window">
-<meta property="og:description" content="Run Claude Code and Codex (beta) side by side in a native app written in Rust. An orchestrator plans on a shared board and hands tasks to workers in their own git worktrees; Hangar checks, reviews and lands what they deliver. Talk to it in a chat, steer it from your phone. Local, with no usage telemetry.">
-<meta property="og:image" content="https://hangarai.dev/og.png?v=0cc46fece2">
+<meta property="og:title" content="HangarAI 3.0: your AI dev team, in one native window" data-fr="HangarAI 3.0&nbsp;: ton équipe de dev IA, dans une seule fenêtre native">
+<meta property="og:description" content="Claude Code and Codex (beta) agents work in parallel, each on a branch of its own; HangarAI lands their finished work together, checked: ten deliveries in 65 seconds. It works through the night, even with your computer off, runs builds and GPU work in the cloud and asks you what matters, on your phone too." data-fr="Des agents Claude Code et Codex (bêta) travaillent en parallèle, chacun sur sa propre branche&nbsp;; HangarAI fusionne leur travail fini d’un coup, vérifié&nbsp;: dix livraisons en 65&nbsp;secondes. Il travaille la nuit, même ordinateur éteint, lance les builds et le travail GPU dans le cloud et te demande ce qui compte, même sur ton téléphone.">
+<meta property="og:image" content="https://hangarai.dev/og.png?v=0e19edd1ad">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="HangarAI's chat view: Iris, the orchestrator, sums up a recipe app's progress beside the board's tasks, under the title: a team of coding agents, in one native window.">
+<meta property="og:image:alt" content="HangarAI in its tiles: Iris, the orchestrator, sums up a recipe app's progress, beside what needs you, the agents at work and the cloud runs, under the headline: ship a week of work in a day.">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="HangarAI 2.5: a team of coding agents, in one native window">
-<meta name="twitter:description" content="Claude Code and Codex (beta), side by side in one native window, a shared board and an orchestrator that delegates to workers in git worktrees. Talk to it in a chat, steer it from your phone. Local, with no usage telemetry.">
-<meta name="twitter:image" content="https://hangarai.dev/og.png?v=0cc46fece2">
-<meta name="twitter:image:alt" content="HangarAI's chat view: Iris, the orchestrator, sums up a recipe app's progress beside the board's tasks.">
+<meta name="twitter:title" content="HangarAI 3.0: your AI dev team, in one native window" data-fr="HangarAI 3.0&nbsp;: ton équipe de dev IA, dans une seule fenêtre native">
+<meta name="twitter:description" content="Claude Code and Codex (beta) agents work in parallel; HangarAI lands their finished work together, checked: ten deliveries in 65 seconds. It works through the night, even with your computer off, and asks you what matters, on your phone too." data-fr="Des agents Claude Code et Codex (bêta) travaillent en parallèle&nbsp;; HangarAI fusionne leur travail fini d’un coup, vérifié&nbsp;: dix livraisons en 65&nbsp;secondes. Il travaille la nuit, même ordinateur éteint, et te demande ce qui compte, même sur ton téléphone.">
+<meta name="twitter:image" content="https://hangarai.dev/og.png?v=0e19edd1ad">
+<meta name="twitter:image:alt" content="HangarAI in its tiles: Iris, the orchestrator, sums up a recipe app's progress, beside what needs you, the agents at work and the cloud runs.">
 
 <link rel="preload" href="fonts/inter-latin-opsz.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="styles.css?v=99cda38cb4">
+<link rel="stylesheet" href="styles.css?v=289c274b2b">
 <link rel="stylesheet" href="assets/mobile.css?v=f8c856a9c0">
+<style>
+/* Two languages in one page, as in assets/pages.css: the script below
+   sets data-lang on <html> before the first paint, and only that
+   language shows. Without script the page is English. */
+:root:not([data-lang="fr"]) [data-l="fr"],
+:root[data-lang="fr"] [data-l="en"] {
+  display: none !important;
+}
+</style>
 <script>
 (function (r) {
   r.classList.add('js');
+  // The header before the first paint: the announcement already dismissed, and
+  // "Account" rather than "Sign in" where the account was opened before.
+  try {
+    r.setAttribute('data-announce-seen', localStorage.getItem('hangar.announce') || '');
+    if (localStorage.getItem('hangar.account.seen') === '1') r.classList.add('signed');
+  } catch (e) {}
+  var q = null;
+  try { q = new URLSearchParams(location.search); } catch (e) {}
+  // The language before the first paint (assets/lang.js wires the switch).
+  var l = q && q.get('lang');
+  if (l !== 'en' && l !== 'fr') { try { l = localStorage.getItem('hangar.lang'); } catch (e) {} }
+  if (l !== 'en' && l !== 'fr') l = /^fr\b/i.test((navigator.languages && navigator.languages[0]) || navigator.language || '') ? 'fr' : 'en';
+  r.lang = l;
+  r.dataset.lang = l;
   // assets/motion.js takes it from here; without it, after 3 s, the page shows as written.
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: no-preference)').matches) {
     r.classList.add('motion');
@@ -50,55 +73,136 @@
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   "name": "HangarAI",
-  "softwareVersion": "2.5.1",
+  "softwareVersion": "3.0.0",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Windows, macOS, Linux",
   "url": "https://hangarai.dev/",
   "downloadUrl": "https://github.com/hangar-ai/hangar/releases/latest",
-  "image": "https://hangarai.dev/og.png?v=0cc46fece2",
+  "image": "https://hangarai.dev/og.png?v=0e19edd1ad",
   "author": { "@type": "Person", "name": "simnJS", "url": "https://github.com/simnJS" },
-  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  "offers": [
+    { "@type": "Offer", "name": "HangarAI Pro, monthly", "price": "20", "priceCurrency": "EUR", "url": "https://hangarai.dev/pricing/" },
+    { "@type": "Offer", "name": "HangarAI Pro, yearly", "price": "192", "priceCurrency": "EUR", "url": "https://hangarai.dev/pricing/" },
+    { "@type": "Offer", "name": "HangarAI Max, monthly", "price": "39", "priceCurrency": "EUR", "url": "https://hangarai.dev/pricing/" },
+    { "@type": "Offer", "name": "HangarAI Max, yearly", "price": "374", "priceCurrency": "EUR", "url": "https://hangarai.dev/pricing/" }
+  ]
 }
 </script>
 </head>
 <body>
 
-<a class="skip" href="#main">Skip to content</a>
+<a class="skip" href="#main"><span data-l="en">Skip to content</span><span data-l="fr">Aller au contenu</span></a>
 
+<!-- site header: the same on every page (assets/nav.js wires it) -->
+<div class="announce" id="announce" data-id="3.0.0">
+  <div class="announce__in">
+    <a class="announce__link" href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md#300">
+      <span class="announce__tag"><span data-l="en">New</span><span data-l="fr">Nouveau</span></span>
+      <span class="announce__text"><b>HangarAI 3.0</b><span class="announce__rest"> — <span data-l="en">Cloud Builds, Pro and Max, and Hangar Mobile from anywhere</span><span data-l="fr">Cloud Builds, Pro et Max, et Hangar Mobile de partout</span></span></span>
+      <span class="announce__more"><span data-l="en">What’s new</span><span data-l="fr">Nouveautés</span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"></path></svg></span>
+    </a>
+    <button type="button" class="announce__x" aria-label="Dismiss" data-fr="Masquer"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"></path></svg></button>
+  </div>
+</div>
 <header class="bar" id="bar">
   <div class="bar__in">
-    <a class="brand" href="#top" aria-label="HangarAI 2.5.1, back to top">
-      <svg class="brand__mark" width="18" height="18" viewBox="200 200 624 624" aria-hidden="true">
+    <a class="brand" href="#top" aria-label="HangarAI, back to top" data-fr="HangarAI, retour en haut">
+      <svg class="brand__mark" width="20" height="20" viewBox="200 200 624 624" aria-hidden="true">
         <rect x="200" y="200" width="260" height="624" fill="var(--accent)"></rect>
         <rect x="538" y="200" width="286" height="260" fill="var(--fg-hi)"></rect>
         <rect x="538" y="538" width="286" height="286" fill="var(--fg-hi)"></rect>
       </svg>
       <span class="brand__name">HangarAI</span>
-      <span class="brand__ver">2.5.1</span>
     </a>
 
-    <nav class="seg" id="nav" aria-label="Sections">
-      <a class="seg__btn" href="#chat">Chat</a>
-      <a class="seg__btn" href="#orchestrator">Orchestrator</a>
-      <a class="seg__btn" href="#mobile">Mobile</a>
-      <a class="seg__btn" href="#experiments">Experiments</a>
-      <a class="seg__btn" href="#performance">Performance</a>
-      <a class="seg__btn" href="#faq">FAQ</a>
+    <nav class="nav" aria-label="Main" data-fr="Principal">
+      <ul class="nav__list">
+        <li class="nav__item nav__item--menu">
+          <a class="nav__link nav__trigger" href="#how" aria-expanded="false" aria-controls="menu-product"><span data-l="en">Product</span><span data-l="fr">Produit</span><svg class="nav__chev" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 4.5 3 3 3-3"></path></svg></a>
+          <div class="menu" id="menu-product">
+            <ul class="menu__grid">
+              <li><a class="menu__item" href="#how" data-spy="how">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="5" r="2.5"></circle><circle cx="18.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="19" r="2.5"></circle><path d="M8 12h8M7.6 10.7l8.8-4.4M7.6 13.3l8.8 4.4"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">How it works</span><span data-l="fr">Comment ça marche</span></span><span class="menu__desc"><span data-l="en">Say the objective. The team does the rest.</span><span data-l="fr">Donne l’objectif. L’équipe fait le reste.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="#team" data-spy="team">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.2 19.5a5.8 5.8 0 0 1 11.6 0"></path><circle cx="17.2" cy="9" r="2.4"></circle><path d="M16.2 14.1a4.6 4.6 0 0 1 5 4.6"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">A team, not a chatbot</span><span data-l="fr">Une équipe, pas un chatbot</span></span><span class="menu__desc"><span data-l="en">Claude Code and Codex, up to 40 at once.</span><span data-l="fr">Claude Code et Codex, jusqu’à 40 à la fois.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="#land" data-spy="land">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5.5" r="2.2"></circle><circle cx="6" cy="18.5" r="2.2"></circle><circle cx="18" cy="12" r="2.2"></circle><path d="M6 7.7v8.6M7.6 7.1c1.5 3 4.3 4.7 8.2 4.9"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">Lands fast, and safe</span><span data-l="fr">Fusionné vite, sans casse</span></span><span class="menu__desc"><span data-l="en">Ten deliveries landed in 65&nbsp;s.</span><span data-l="fr">Dix livraisons fusionnées en 65&nbsp;s.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="#night" data-spy="night">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 14.6A7.8 7.8 0 0 1 9.4 4.5a7.8 7.8 0 1 0 10.1 10.1Z"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">Works while you sleep</span><span data-l="fr">Avance pendant que tu dors</span></span><span class="menu__desc"><span data-l="en">A report in the morning, computer on or off.</span><span data-l="fr">Un rapport au réveil, ordinateur allumé ou éteint.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="#cloud" data-spy="cloud">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.2 18.5h10.3a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.6 9.3a4.6 4.6 0 0 0 .6 9.2Z"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">Cloud power</span><span data-l="fr">La puissance du cloud</span></span><span class="menu__desc"><span data-l="en">CPU or GPU machines, by the second.</span><span data-l="fr">Des machines CPU ou GPU, à la seconde.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="#control" data-spy="control">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 21V4.5"></path><path d="M5.5 4.5h11.8l-2.3 4 2.3 4H5.5"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">You stay in control</span><span data-l="fr">Tu gardes la main</span></span><span class="menu__desc"><span data-l="en">Needs you, budgets, Hangar Mobile.</span><span data-l="fr">Besoin de toi, budgets, Hangar Mobile.</span></span></span>
+              </a></li>
+            </ul>
+            <p class="menu__foot">
+              <a href="#features"><span data-l="en">Also in the box</span><span data-l="fr">Et aussi</span></a>
+              <a href="#faq">Questions</a>
+              <a class="menu__get" href="#download"><span data-l="en">Download</span><span data-l="fr">Télécharger</span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"></path></svg></a>
+            </p>
+          </div>
+        </li>
+        <li><a class="nav__link" href="pricing/"><span data-l="en">Pricing</span><span data-l="fr">Tarifs</span></a></li>
+        <li><a class="nav__link" href="affiliates/"><span data-l="en">Affiliates</span><span data-l="fr">Affiliation</span></a></li>
+        <li><a class="nav__link" href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/README.md">Guide<svg class="nav__ext" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 7.5 7.5 2.5M3.5 2.5h4v4"></path></svg></a></li>
+        <li><a class="nav__link" href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md"><span data-l="en">Changelog</span><span data-l="fr">Nouveautés</span><svg class="nav__ext" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 7.5 7.5 2.5M3.5 2.5h4v4"></path></svg></a></li>
+      </ul>
     </nav>
 
     <div class="bar__end">
-      <a class="iconlink" href="https://github.com/hangar-ai/hangar/releases" aria-label="Releases on GitHub">
-        <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"></path></svg>
-        <span class="iconlink__text">GitHub</span>
-      </a>
-      <a class="iconlink" href="https://discord.gg/hangarai" aria-label="HangarAI on Discord">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.32 4.37a19.8 19.8 0 0 0-4.89-1.52.07.07 0 0 0-.08.04c-.21.37-.44.86-.61 1.25a18.27 18.27 0 0 0-5.49 0 12.6 12.6 0 0 0-.62-1.25.08.08 0 0 0-.08-.04 19.74 19.74 0 0 0-4.88 1.52.07.07 0 0 0-.03.03C.53 9.05-.32 13.58.1 18.06a.08.08 0 0 0 .03.06 19.9 19.9 0 0 0 5.99 3.03.08.08 0 0 0 .08-.03c.46-.63.87-1.3 1.23-1.99a.08.08 0 0 0-.04-.11 13.1 13.1 0 0 1-1.87-.89.08.08 0 0 1-.01-.13l.37-.29a.07.07 0 0 1 .08-.01c3.93 1.79 8.18 1.79 12.06 0a.07.07 0 0 1 .08.01l.37.29a.08.08 0 0 1-.01.13c-.6.35-1.22.64-1.87.89a.08.08 0 0 0-.04.11c.36.7.77 1.36 1.22 1.99a.08.08 0 0 0 .08.03 19.84 19.84 0 0 0 6-3.03.08.08 0 0 0 .04-.06c.5-5.18-.84-9.67-3.55-13.66a.06.06 0 0 0-.03-.03ZM8.02 15.33c-1.18 0-2.16-1.09-2.16-2.42s.96-2.42 2.16-2.42c1.21 0 2.18 1.1 2.16 2.42 0 1.33-.96 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.15-1.09-2.15-2.42s.95-2.42 2.15-2.42c1.21 0 2.18 1.1 2.16 2.42 0 1.33-.95 2.42-2.16 2.42Z"></path></svg>
-        <span class="iconlink__text">Discord</span>
-      </a>
-      <a class="btn btn--primary btn--sm" href="#download">Download</a>
+      <div class="lang">
+        <button type="button" class="nav__link lang__btn" aria-expanded="false" aria-controls="lang-menu" aria-label="Language" data-fr="Langue"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><circle cx="8" cy="8" r="6.25"></circle><path d="M1.75 8h12.5M8 1.75c1.7 1.8 2.5 3.9 2.5 6.25S9.7 12.45 8 14.25C6.3 12.45 5.5 10.35 5.5 8S6.3 3.55 8 1.75Z"></path></svg><span data-l="en">EN</span><span data-l="fr">FR</span></button>
+        <div class="lang__menu" id="lang-menu" role="group" aria-label="Language" data-fr="Langue">
+          <button type="button" class="lang__opt" data-set-lang="en" lang="en" aria-pressed="true">English<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"></path></svg></button>
+          <button type="button" class="lang__opt" data-set-lang="fr" lang="fr" aria-pressed="false">Français<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"></path></svg></button>
+        </div>
+      </div>
+      <a class="nav__link bar__signin" href="account/"><span class="if-out"><span data-l="en">Sign in</span><span data-l="fr">Se connecter</span></span><span class="if-in"><span data-l="en">Account</span><span data-l="fr">Compte</span></span></a>
+      <a class="btn btn--primary btn--sm bar__cta" href="#download"><span data-l="en">Start free trial</span><span data-l="fr">Essai gratuit</span></a>
+      <a class="bar__menu" href="#site-map" role="button" aria-controls="sheet" aria-expanded="false" aria-label="Menu"><i></i><i></i></a>
     </div>
   </div>
 </header>
+
+<div class="sheet" id="sheet" hidden>
+  <nav class="sheet__nav" aria-label="Main" data-fr="Principal">
+    <p class="sheet__h"><span data-l="en">Product</span><span data-l="fr">Produit</span></p>
+    <ul class="sheet__grid">
+        <li><a href="#how" data-spy="how"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="5" r="2.5"></circle><circle cx="18.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="19" r="2.5"></circle><path d="M8 12h8M7.6 10.7l8.8-4.4M7.6 13.3l8.8 4.4"></path></svg></span><span data-l="en">How it works</span><span data-l="fr">Comment ça marche</span></a></li>
+        <li><a href="#team" data-spy="team"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.2 19.5a5.8 5.8 0 0 1 11.6 0"></path><circle cx="17.2" cy="9" r="2.4"></circle><path d="M16.2 14.1a4.6 4.6 0 0 1 5 4.6"></path></svg></span><span data-l="en">The team</span><span data-l="fr">L’équipe</span></a></li>
+        <li><a href="#land" data-spy="land"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5.5" r="2.2"></circle><circle cx="6" cy="18.5" r="2.2"></circle><circle cx="18" cy="12" r="2.2"></circle><path d="M6 7.7v8.6M7.6 7.1c1.5 3 4.3 4.7 8.2 4.9"></path></svg></span><span data-l="en">Landing</span><span data-l="fr">La fusion</span></a></li>
+        <li><a href="#night" data-spy="night"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 14.6A7.8 7.8 0 0 1 9.4 4.5a7.8 7.8 0 1 0 10.1 10.1Z"></path></svg></span><span data-l="en">Night shift</span><span data-l="fr">Mode nuit</span></a></li>
+        <li><a href="#cloud" data-spy="cloud"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.2 18.5h10.3a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.6 9.3a4.6 4.6 0 0 0 .6 9.2Z"></path></svg></span>Cloud Builds</a></li>
+        <li><a href="#control" data-spy="control"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 21V4.5"></path><path d="M5.5 4.5h11.8l-2.3 4 2.3 4H5.5"></path></svg></span><span data-l="en">In control</span><span data-l="fr">Tu gardes la main</span></a></li>
+    </ul>
+  </nav>
+  <ul class="sheet__list">
+    <li><a href="pricing/"><span data-l="en">Pricing</span><span data-l="fr">Tarifs</span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+    <li><a href="affiliates/"><span data-l="en">Affiliates</span><span data-l="fr">Affiliation</span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+    <li><a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/README.md">Guide<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+    <li><a href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md"><span data-l="en">Changelog</span><span data-l="fr">Nouveautés</span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+  </ul>
+  <div class="sheet__end">
+    <div class="sheet__lang"><span data-l="en">Language</span><span data-l="fr">Langue</span><div class="lang-seg" role="group" aria-label="Language" data-fr="Langue">
+        <button type="button" class="lang-seg__btn" data-set-lang="en" lang="en" aria-label="English" aria-pressed="true">EN</button>
+        <button type="button" class="lang-seg__btn" data-set-lang="fr" lang="fr" aria-label="Français" aria-pressed="false">FR</button>
+      </div></div>
+    <a class="btn" href="account/"><span class="if-out"><span data-l="en">Sign in</span><span data-l="fr">Se connecter</span></span><span class="if-in"><span data-l="en">Account</span><span data-l="fr">Compte</span></span></a>
+    <a class="btn btn--primary" href="#download"><span data-l="en">Start free trial</span><span data-l="fr">Essai gratuit</span></a>
+  </div>
+</div>
+<!-- /site header -->
 
 <main id="main">
 
@@ -106,503 +210,513 @@
 <section class="hero" id="top" aria-labelledby="hero-title">
   <div class="hero__glow" aria-hidden="true"></div>
   <div class="wrap hero__copy">
-    <a class="release" href="#features">
+    <a class="release" href="#night">
       <span class="release__dot" aria-hidden="true"></span>
-      New in 2.4: statistics across your machines
+      <span data-l="en">New in 3.0: the night shift</span><span data-l="fr">Nouveau en 3.0&nbsp;: le mode nuit</span>
     </a>
 
-    <h1 class="hero__title" id="hero-title">A team of coding agents, in&nbsp;one native&nbsp;window.</h1>
+    <!-- Three headlines take turns, each with its sentence (assets/motion.js):
+         the first is the page's <h1>; the other two are drawn over it, in the
+         same cell, and kept from assistive technology. The cell is as tall as
+         the tallest of the three in the language on screen, so nothing moves.
+         Without script, or with reduced motion, the first stays. -->
+    <div class="hero__heads rot">
+      <h1 class="hero__title rot__item is-on" id="hero-title"><span data-l="en">Ship a week of work in&nbsp;a&nbsp;day.</span><span data-l="fr">Livre en un jour le travail d’une&nbsp;semaine.</span></h1>
+      <p class="hero__title rot__item" aria-hidden="true"><span data-l="en">Your AI dev team. You call the&nbsp;shots.</span><span data-l="fr">Ton équipe de dev&nbsp;IA. C’est toi qui&nbsp;décides.</span></p>
+      <p class="hero__title rot__item" aria-hidden="true"><span data-l="en">It keeps shipping while you&nbsp;sleep.</span><span data-l="fr">Ton projet avance pendant que tu&nbsp;dors.</span></p>
+    </div>
 
-    <p class="hero__lede">
-      Hangar runs the Claude Code and Codex (beta) already on your machine,
-      side by side, as many sessions as you need, with a shared board, a shared memory and an
-      orchestrator that hands out the work. Either one is enough.<span class="wide-only">
-      Talk to it in a chat, or watch every terminal at once.</span>
-    </p>
+    <div class="hero__ledes rot">
+      <p class="hero__lede rot__item is-on"><span data-l="en">Give one objective. A team of Claude Code and Codex agents builds it in parallel, and HangarAI lands what passes the checks.</span><span data-l="fr">Donne un objectif. Une équipe d’agents Claude Code et Codex le construit en parallèle, et HangarAI fusionne ce qui passe les vérifications.</span></p>
+      <p class="hero__lede rot__item" aria-hidden="true"><span data-l="en">It plans, codes, checks and lands, with Claude Code and Codex side by side. You answer what matters, from your phone too.</span><span data-l="fr">Elle planifie, code, vérifie et fusionne, avec Claude Code et Codex côte à côte. Tu réponds à ce qui compte, même depuis ton téléphone.</span></p>
+      <p class="hero__lede rot__item" aria-hidden="true"><span data-l="en">Leave a few objectives and a budget for the night. In the morning, a report: what landed, what waits for you, what it spent.</span><span data-l="fr">Laisse quelques objectifs et un budget pour la nuit. Au réveil, un rapport&nbsp;: ce qui a fusionné, ce qui t’attend, ce que la nuit a coûté.</span></p>
+    </div>
+    <div class="rot-dots js-only" role="group" aria-label="Headlines" data-fr="Accroches">
+      <button type="button" class="rot-dot" aria-label="Headline 1" data-fr="Accroche 1" aria-current="true"><i><b></b></i></button>
+      <button type="button" class="rot-dot" aria-label="Headline 2" data-fr="Accroche 2" aria-current="false"><i><b></b></i></button>
+      <button type="button" class="rot-dot" aria-label="Headline 3" data-fr="Accroche 3" aria-current="false"><i><b></b></i></button>
+    </div>
 
     <div class="hero__cta">
-      <a class="btn btn--primary btn--lg" id="get" href="#download">Download</a>
-      <a class="btn btn--lg" href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/README.md">Read the guide</a>
+      <a class="btn btn--primary btn--lg" id="get" href="#download"><span data-l="en">Start the 14-day trial</span><span data-l="fr">Démarrer l’essai de 14&nbsp;jours</span></a>
+      <a class="btn btn--lg" href="#film" data-play-film><svg class="btn__play" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 2.6v10.8a.6.6 0 0 0 .9.5l8.6-5.4a.6.6 0 0 0 0-1L5.4 2.1a.6.6 0 0 0-.9.5Z" fill="currentColor"></path></svg><span data-l="en">Watch the 40&nbsp;s film</span><span data-l="fr">Voir le film de 40&nbsp;s</span></a>
     </div>
-    <p class="hero__os" aria-label="Direct downloads">
-      <a href="https://github.com/hangar-ai/hangar/releases/download/v2.5.1/Hangar.AI_2.5.1_x64-setup.exe">Windows</a>
-      <a href="https://github.com/hangar-ai/hangar/releases/download/v2.2.0/Hangar.AI_2.2.0_universal.dmg">macOS 2.2.0</a>
-      <a href="https://github.com/hangar-ai/hangar/releases/download/v2.5.1/Hangar.AI_2.5.1_amd64.AppImage">Linux</a>
+    <p class="hero__os" aria-label="Direct downloads" data-fr="Téléchargements directs">
+      <a href="https://github.com/hangar-ai/hangar/releases/latest/download/Hangar.AI_x64-setup.exe" data-os="windows">Windows</a>
+      <a href="https://github.com/hangar-ai/hangar/releases/latest/download/Hangar.AI_universal.dmg" data-os="macos">macOS</a>
+      <a href="https://github.com/hangar-ai/hangar/releases/latest/download/Hangar.AI_amd64.AppImage" data-os="linux">Linux</a>
     </p>
-    <p class="hero__fine" id="getnote">Runs locally. No account needed, no telemetry.</p>
+    <p class="hero__fine" id="getnote"><span data-l="en">14 days free, no card. You sign in with GitHub in the app.</span><span data-l="fr">14&nbsp;jours gratuits, sans carte. Tu te connectes avec GitHub dans l’app.</span></p>
+
+    <ul class="proof" aria-label="HangarAI 3.0 in figures" data-fr="HangarAI 3.0 en chiffres">
+      <li class="proof__item">
+        <p class="proof__fig">40</p>
+        <p class="proof__what"><span data-l="en">panes per workspace: Claude Code and Codex agents at work in parallel</span><span data-l="fr">panneaux par workspace&nbsp;: des agents Claude Code et Codex qui travaillent en parallèle</span></p>
+      </li>
+      <li class="proof__item">
+        <p class="proof__fig">65<small>&nbsp;s</small></p>
+        <p class="proof__what"><span data-l="en">for ten finished deliveries to land together, checked and reviewed. One after the other: 500&nbsp;s.</span><span data-l="fr">pour que dix livraisons finies fusionnent d’un coup, vérifiées et relues. L’une après l’autre&nbsp;: 500&nbsp;s.</span></p>
+      </li>
+      <li class="proof__item">
+        <p class="proof__fig"><span data-l="en">Overnight</span><span data-l="fr">Toute la nuit</span></p>
+        <p class="proof__what"><span data-l="en">objectives and a budget in the evening, a report of what landed in the morning; with your computer off, a hosted node carries on</span><span data-l="fr">des objectifs et un budget le soir, au réveil le rapport de ce qui a fusionné&nbsp;; ordinateur éteint, un nœud hébergé prend le relais</span></p>
+      </li>
+    </ul>
+    <p class="proof__src"><span data-l="en">From <a href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md#300">the 3.0 changelog</a>. The 65&nbsp;s were measured on main: ten deliveries ready at once, a 30&nbsp;s check, 20&nbsp;s reviews.</span><span data-l="fr">D’après <a href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md#300">les nouveautés de la 3.0</a>. Les 65&nbsp;s ont été mesurées sur main&nbsp;: dix livraisons prêtes en même temps, une vérification de 30&nbsp;s, des relectures de 20&nbsp;s.</span></p>
   </div>
 
   <figure class="shot shot--hero wrap-wide">
     <div class="window">
       <picture class="for-dark">
-        <source media="(max-width: 599px)" type="image/avif" data-crop="hero-m" sizes="calc(100vw - 32px)" srcset="img/hero-m-400.avif?v=8ee8234b14 400w, img/hero-m-800.avif?v=9249878cc2 800w" width="400" height="545">
-        <source media="(max-width: 599px)" type="image/webp" data-crop="hero-m" sizes="calc(100vw - 32px)" srcset="img/hero-m-400.webp?v=aba1fc3e69 400w, img/hero-m-800.webp?v=a8b19bd9d0 800w" width="400" height="545">
-        <source type="image/avif" data-crop="hero" sizes="(min-width: 1328px) 1280px, calc(100vw - 48px)" srcset="img/hero-1280.avif?v=17939bc94a 1280w, img/hero-1920.avif?v=a9593abfa4 1920w, img/hero-2560.avif?v=6809260202 2560w" width="1280" height="800">
-        <source type="image/webp" data-crop="hero" sizes="(min-width: 1328px) 1280px, calc(100vw - 48px)" srcset="img/hero-1280.webp?v=960b9d5bdc 1280w, img/hero-1920.webp?v=775c7dbc70 1920w, img/hero-2560.webp?v=b023dd875b 2560w" width="1280" height="800">
+        <source media="(max-width: 599px)" type="image/avif" data-crop="hero-m" sizes="calc(100vw - 32px)" srcset="img/hero-m-400.avif?v=17c9e6639a 400w, img/hero-m-800.avif?v=75f5496975 800w" width="400" height="544">
+        <source media="(max-width: 599px)" type="image/webp" data-crop="hero-m" sizes="calc(100vw - 32px)" srcset="img/hero-m-400.webp?v=7870250281 400w, img/hero-m-800.webp?v=1999d6b863 800w" width="400" height="544">
+        <source type="image/avif" data-crop="hero" sizes="(min-width: 1328px) 1280px, calc(100vw - 48px)" srcset="img/hero-1280.avif?v=5e07ba9f55 1280w, img/hero-1920.avif?v=6f97e03070 1920w, img/hero-2560.avif?v=1bb4fbc66a 2560w" width="1280" height="800">
+        <source type="image/webp" data-crop="hero" sizes="(min-width: 1328px) 1280px, calc(100vw - 48px)" srcset="img/hero-1280.webp?v=6b6197713a 1280w, img/hero-1920.webp?v=b9bd9ba09c 1920w, img/hero-2560.webp?v=df1322c45c 2560w" width="1280" height="800">
         <img data-crop="hero" fetchpriority="high" decoding="async"
-          alt="HangarAI in its chat view, on a Recipes workspace. You asked Iris, the orchestrator, for a small recipe app; she split it into tasks, started workers, and reports that the data model has landed, that Ben, Dan and Eva are at work, and that Cleo's recipe page passed its check and review. Asked about sharing a recipe by link, she put the question of the domain in Needs you. Beside the chat, the board's tasks with the progress each agent reported, and three things that wait for you; on the right, the inspector shows Iris's session, 15% of her context used and her cost." src="img/hero-1280.webp?v=960b9d5bdc" width="1280" height="800">
+          alt="HangarAI on a Recipes workspace, in its « Chat + team » layout. On the left, the conversation with Iris, the orchestrator: you asked her for a small recipe app; she put it on the board as eight tasks and started workers on Claude Code and Codex. Hangar tells her that Ada's data model landed and her sample recipes are ready to merge; Iris reports that Ben, Dan and Eva are at work and that Hangar is checking Cleo's recipe page. Asked about sharing a recipe by link, she put the question of the domain in Needs you. On the right, in one column, the tiles that came in by themselves, each as tall as what it holds: Needs you, with Eva's question, the domain to answer and Ada's delivery to merge; Agents, each with what it is doing and how far along; Cloud, the runs on rented machines and what they cost in credits; Machines, this computer and three over SSH, one offline." aria-label="HangarAI on a Recipes workspace, in its « Chat + team » layout. On the left, the conversation with Iris, the orchestrator: you asked her for a small recipe app; she put it on the board as eight tasks and started workers on Claude Code and Codex. Hangar tells her that Ada's data model landed and her sample recipes are ready to merge; Iris reports that Ben, Dan and Eva are at work and that Hangar is checking Cleo's recipe page. Asked about sharing a recipe by link, she put the question of the domain in Needs you. On the right, in one column, the tiles that came in by themselves, each as tall as what it holds: Needs you, with Eva's question, the domain to answer and Ada's delivery to merge; Agents, each with what it is doing and how far along; Cloud, the runs on rented machines and what they cost in credits; Machines, this computer and three over SSH, one offline." data-fr="HangarAI sur un workspace Recipes, dans sa disposition « Chat + équipe ». À gauche, la conversation avec Iris, l’orchestrateur&nbsp;: tu lui as demandé une petite app de recettes&nbsp;; elle l’a mise au tableau en huit tâches et a lancé des workers sur Claude Code et Codex. Hangar lui annonce que le modèle de données d’Ada a été intégré et que ses recettes d’exemple sont prêtes à fusionner&nbsp;; Iris indique que Ben, Dan et Eva sont au travail et que Hangar vérifie la page de recette de Cleo. Interrogée sur le partage d’une recette par lien, elle a mis la question du domaine dans Besoin de toi. À droite, en une seule colonne, les tuiles arrivées d’elles-mêmes, chacune à la hauteur de ce qu’elle contient&nbsp;: Besoin de toi, avec la question d’Eva, le domaine à trancher et la livraison d’Ada à fusionner&nbsp;; Agents, chacun avec ce qu’il fait et où il en est&nbsp;; Cloud, les exécutions sur des machines louées et ce qu’elles coûtent en crédits&nbsp;; Machines, cet ordinateur et trois en SSH, dont une hors ligne." src="img/hero-1280.webp?v=6b6197713a" width="1280" height="800">
       </picture>
       <picture class="for-light">
-        <source media="(max-width: 599px)" type="image/avif" data-crop="hero-light-m" sizes="calc(100vw - 32px)" srcset="img/hero-light-m-400.avif?v=a51e32487d 400w, img/hero-light-m-800.avif?v=ea0e269907 800w" width="400" height="545">
-        <source media="(max-width: 599px)" type="image/webp" data-crop="hero-light-m" sizes="calc(100vw - 32px)" srcset="img/hero-light-m-400.webp?v=61b56b61d0 400w, img/hero-light-m-800.webp?v=475df742a2 800w" width="400" height="545">
-        <source type="image/avif" data-crop="hero-light" sizes="(min-width: 1328px) 1280px, calc(100vw - 48px)" srcset="img/hero-light-1280.avif?v=534cb0a11a 1280w, img/hero-light-1920.avif?v=88ee7a71bf 1920w, img/hero-light-2560.avif?v=50e7d85cf3 2560w" width="1280" height="800">
-        <source type="image/webp" data-crop="hero-light" sizes="(min-width: 1328px) 1280px, calc(100vw - 48px)" srcset="img/hero-light-1280.webp?v=5a3dfae284 1280w, img/hero-light-1920.webp?v=7003d396ae 1920w, img/hero-light-2560.webp?v=380f241937 2560w" width="1280" height="800">
+        <source media="(max-width: 599px)" type="image/avif" data-crop="hero-light-m" sizes="calc(100vw - 32px)" srcset="img/hero-light-m-400.avif?v=1569d44c6b 400w, img/hero-light-m-800.avif?v=203985c27d 800w" width="400" height="544">
+        <source media="(max-width: 599px)" type="image/webp" data-crop="hero-light-m" sizes="calc(100vw - 32px)" srcset="img/hero-light-m-400.webp?v=3fa931a6b9 400w, img/hero-light-m-800.webp?v=92d84f5377 800w" width="400" height="544">
+        <source type="image/avif" data-crop="hero-light" sizes="(min-width: 1328px) 1280px, calc(100vw - 48px)" srcset="img/hero-light-1280.avif?v=3402e4b95d 1280w, img/hero-light-1920.avif?v=d2a25accfc 1920w, img/hero-light-2560.avif?v=e90829c955 2560w" width="1280" height="800">
+        <source type="image/webp" data-crop="hero-light" sizes="(min-width: 1328px) 1280px, calc(100vw - 48px)" srcset="img/hero-light-1280.webp?v=c49e889cf1 1280w, img/hero-light-1920.webp?v=06b84bf4c2 1920w, img/hero-light-2560.webp?v=922bef3ab6 2560w" width="1280" height="800">
         <img data-crop="hero-light" loading="lazy" decoding="async"
-          alt="The same chat view in the GitHub Light theme." src="img/hero-light-1280.webp?v=5a3dfae284" width="1280" height="800">
+          alt="The same « Chat + team » layout in the GitHub Light theme." aria-label="The same « Chat + team » layout in the GitHub Light theme." data-fr="La même disposition « Chat + équipe », dans le thème GitHub Light." src="img/hero-light-1280.webp?v=c49e889cf1" width="1280" height="800">
       </picture>
     </div>
-    <figcaption class="caption">The chat view, on a demo workspace. Every picture on this page is the real app.</figcaption>
+    <figcaption class="caption"><span data-l="en">« Chat + team », on a demo workspace. Every picture on this page is the real app.</span><span data-l="fr">«&nbsp;Chat + équipe&nbsp;», sur un workspace de démo. Chaque image de cette page montre la vraie app.</span></figcaption>
   </figure>
 </section>
 
-<!-- Chat ─────────────────────────────────────────────────────────── -->
-<section class="sec" id="chat" aria-labelledby="chat-title">
-  <div class="wrap split">
-    <div class="split__copy">
-      <p class="eyebrow">Chat view <span class="tag">Experimental</span></p>
-      <h2 class="sec__title" id="chat-title">Talk to the orchestrator. Not to sixteen terminals.</h2>
-      <p class="sec__lede">
-        Switch a workspace to a chat with its orchestrator, Claude Code or Codex. The agent keeps
-        running in the panes behind it, and the panes come back as they were.
-      </p>
-      <ul class="points">
-        <li><b>Tasks beside the chat.</b> Each with the progress its agent reports: a percentage and a short note.</li>
-        <li><b>What waits for you, on top.</b> A question, a decision the orchestrator handed back, a delivery to merge.</li>
-        <li><b>Previews and kits too.</b> They open beside the chat as they do beside the panes.</li>
-      </ul>
-      <p class="fine">Turn it on in Settings › Experiments.</p>
+<!-- The problem ───────────────────────────────────────────────────── -->
+<section class="sec problem" id="problem" aria-labelledby="problem-title">
+  <div class="wrap">
+    <header class="head head--center">
+      <p class="eyebrow"><span data-l="en">The problem</span><span data-l="fr">Le problème</span></p>
+      <h2 class="sec__title" id="problem-title"><span data-l="en">One agent helps. Ten agents are a second job.</span><span data-l="fr">Un agent, ça aide. Dix, c’est un deuxième boulot.</span></h2>
+      <p class="sec__lede"><span data-l="en">Coding agents in parallel are fast, until you are the one holding it all together.</span><span data-l="fr">Des agents de code en parallèle, ça va vite… tant que ce n’est pas toi qui dois tout tenir.</span></p>
+    </header>
+    <ul class="pains">
+      <li class="pain">
+        <svg class="pain__icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"></rect><path d="m7 9.5 2.5 2.5L7 14.5M12 14.5h4.5"></path></svg>
+        <h3 class="pain__title"><span data-l="en">Ten terminals to juggle</span><span data-l="fr">Dix terminaux en vrac</span></h3>
+        <p><span data-l="en">Tabs everywhere, and only you know who is doing what.</span><span data-l="fr">Des onglets partout, et toi seul sais qui fait quoi.</span></p>
+      </li>
+      <li class="pain">
+        <svg class="pain__icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12.5" r="8.5"></circle><path d="M12 8v4.5l3 2"></path></svg>
+        <h3 class="pain__title"><span data-l="en">Agents to babysit</span><span data-l="fr">Des agents à surveiller</span></h3>
+        <p><span data-l="en">One waits for a permission, another for an answer, until you look.</span><span data-l="fr">L’un attend une permission, l’autre une réponse, jusqu’à ce que tu repasses.</span></p>
+      </li>
+      <li class="pain">
+        <svg class="pain__icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3h7l4 4v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"></path><path d="m10 11 4 4M14 11l-4 4"></path></svg>
+        <h3 class="pain__title"><span data-l="en">Conflicts</span><span data-l="fr">Des conflits</span></h3>
+        <p><span data-l="en">Two agents edit the same file, and one of them loses its work.</span><span data-l="fr">Deux agents touchent au même fichier, et l’un des deux perd son travail.</span></p>
+      </li>
+      <li class="pain">
+        <svg class="pain__icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6.5 1.5 1.5L8.5 5"></path><path d="M11.5 6.5h8.5M11.5 12h8.5M11.5 17.5h8.5"></path><circle cx="6" cy="12" r="1.6"></circle><circle cx="6" cy="17.5" r="1.6"></circle></svg>
+        <h3 class="pain__title"><span data-l="en">Checks one at a time</span><span data-l="fr">Des vérifications une à une</span></h3>
+        <p><span data-l="en">Each branch waits for its tests, then its review, before the next one goes.</span><span data-l="fr">Chaque branche attend ses tests, puis sa relecture, avant que la suivante passe.</span></p>
+      </li>
+      <li class="pain">
+        <svg class="pain__icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="11" rx="1.5"></rect><path d="M2 19.5h20"></path><path d="M9 13a3 3 0 0 1 6 0M12 13l1.6-2.2"></path></svg>
+        <h3 class="pain__title"><span data-l="en">Your laptop as the bottleneck</span><span data-l="fr">Ton ordi, le goulot</span></h3>
+        <p><span data-l="en">Builds and test suites fight your agents for the same processor.</span><span data-l="fr">Les builds et les tests se disputent le processeur avec tes agents.</span></p>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<!-- How it works ──────────────────────────────────────────────────── -->
+<section class="sec sec--band" id="how" aria-labelledby="how-title">
+  <!-- The sections of the page before 3.0's: the other pages' menus still link to them. -->
+  <span class="alias" id="orchestrator"></span><span class="alias" id="chat"></span>
+  <div class="wrap">
+    <header class="head head--center">
+      <p class="eyebrow"><span data-l="en">How it works</span><span data-l="fr">Comment ça marche</span></p>
+      <h2 class="sec__title" id="how-title"><span data-l="en">You say what you want. HangarAI runs the team.</span><span data-l="fr">Tu dis ce que tu veux. HangarAI fait tourner l’équipe.</span></h2>
+    </header>
+    <ol class="steps">
+      <li class="step">
+        <span class="step__n" aria-hidden="true">1</span>
+        <h3 class="step__title"><span data-l="en">Say the objective</span><span data-l="fr">Donne l’objectif</span></h3>
+        <p><span data-l="en">In a chat with the orchestrator, or as tasks on the board. A few lines are enough.</span><span data-l="fr">Dans un chat avec l’orchestrateur, ou en tâches sur le tableau. Quelques lignes suffisent.</span></p>
+      </li>
+      <li class="step">
+        <span class="step__n" aria-hidden="true">2</span>
+        <h3 class="step__title"><span data-l="en">The orchestrator hands out the work</span><span data-l="fr">L’orchestrateur répartit le travail</span></h3>
+        <p><span data-l="en">It splits the objective into tasks on a shared board and starts a Claude Code or Codex worker on each, on a branch of its own, in its own git worktree.</span><span data-l="fr">Il découpe l’objectif en tâches sur un tableau partagé et lance un worker Claude Code ou Codex sur chacune, sur sa propre branche, dans son propre worktree git.</span></p>
+      </li>
+      <li class="step">
+        <span class="step__n" aria-hidden="true">3</span>
+        <h3 class="step__title"><span data-l="en">Finished work lands together</span><span data-l="fr">Le travail fini fusionne d’un coup</span></h3>
+        <p><span data-l="en">Merged, checked in one run, risky changes reviewed; a red check sends the work back to its worker. What needs you waits in Needs you, and reaches your phone.</span><span data-l="fr">Fusionné, vérifié en une seule passe, les changements à risque relus&nbsp;; une vérification rouge renvoie le travail à son worker. Ce qui demande ton avis attend dans Besoin de toi, et arrive sur ton téléphone.</span></p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- The film ──────────────────────────────────────────────────────── -->
+<section class="sec film-sec" id="film" aria-labelledby="film-title">
+  <div class="wrap">
+    <header class="head head--center">
+      <p class="eyebrow"><span data-l="en">The film</span><span data-l="fr">Le film</span></p>
+      <h2 class="sec__title" id="film-title"><span data-l="en">HangarAI 3.0, in 40 seconds.</span><span data-l="fr">HangarAI 3.0, en 40&nbsp;secondes.</span></h2>
+    </header>
+    <!-- Nothing loads until it plays (preload="none"); the cover is the film's
+         first title, in the page's language. Without script, the players'
+         own controls. -->
+    <div class="film" id="film-player">
+      <div class="film__frame">
+        <video class="film__video" data-l="en" lang="en" controls preload="none" playsinline aria-label="The HangarAI 3.0 film, 40 seconds, with music">
+          <source src="video/hangarai-3.0-en-1080p.mp4?v=27212ed565" type="video/mp4" media="(min-width: 800px)">
+          <source src="video/hangarai-3.0-en-720p.mp4?v=c43b4b50d7" type="video/mp4">
+        </video>
+        <video class="film__video" data-l="fr" lang="fr" controls preload="none" playsinline aria-label="Le film de HangarAI 3.0, 40 secondes, en musique">
+          <source src="video/hangarai-3.0-fr-1080p.mp4?v=fc4c1c3607" type="video/mp4" media="(min-width: 800px)">
+          <source src="video/hangarai-3.0-fr-720p.mp4?v=a0a2fe7d94" type="video/mp4">
+        </video>
+        <button type="button" class="film__cover js-only" aria-label="Play the film, 40 seconds, with sound" data-fr="Lancer le film, 40 secondes, avec le son">
+          <picture data-l="en">
+            <source type="image/avif" sizes="(min-width: 1168px) 1080px, calc(100vw - 48px)" srcset="video/poster-en-960.avif?v=8ef69d9861 960w, video/poster-en-1920.avif?v=ca8a5cbe27 1920w">
+            <source type="image/webp" sizes="(min-width: 1168px) 1080px, calc(100vw - 48px)" srcset="video/poster-en-960.webp?v=a9876e1cda 960w, video/poster-en-1920.webp?v=76bb7e6aed 1920w">
+            <img src="video/poster-en-960.webp?v=a9876e1cda" width="960" height="540" loading="lazy" decoding="async" alt="">
+          </picture>
+          <picture data-l="fr">
+            <source type="image/avif" sizes="(min-width: 1168px) 1080px, calc(100vw - 48px)" srcset="video/poster-fr-960.avif?v=eee3473f51 960w, video/poster-fr-1920.avif?v=46710df758 1920w">
+            <source type="image/webp" sizes="(min-width: 1168px) 1080px, calc(100vw - 48px)" srcset="video/poster-fr-960.webp?v=fef4efdc44 960w, video/poster-fr-1920.webp?v=3dfa2c536e 1920w">
+            <img src="video/poster-fr-960.webp?v=fef4efdc44" width="960" height="540" loading="lazy" decoding="async" alt="">
+          </picture>
+          <span class="film__play" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 16 16"><path d="M4.5 2.6v10.8a.6.6 0 0 0 .9.5l8.6-5.4a.6.6 0 0 0 0-1L5.4 2.1a.6.6 0 0 0-.9.5Z" fill="currentColor"></path></svg></span>
+          <span class="film__label" aria-hidden="true"><span data-l="en">Play the film</span><span data-l="fr">Lancer le film</span><span class="film__time">0:40</span></span>
+        </button>
+      </div>
     </div>
-    <figure class="split__art">
-      <div class="window window--panel">
-        <picture>
-          <source type="image/avif" data-crop="tasks" sizes="(min-width: 960px) 340px, min(340px, calc(100vw - 32px))" srcset="img/tasks-340.avif?v=7d49fc6bc6 340w, img/tasks-580.avif?v=083af48605 580w" width="340" height="821">
-          <source type="image/webp" data-crop="tasks" sizes="(min-width: 960px) 340px, min(340px, calc(100vw - 32px))" srcset="img/tasks-340.webp?v=21f1cdfe75 340w, img/tasks-580.webp?v=6c1abdb60a 580w" width="340" height="821">
-          <img data-crop="tasks" loading="lazy" decoding="async"
-            alt="The chat view's side panel: Tasks, 51% overall, 2 of 8 done. Needs you holds three items: Eva waits for your answer, the task Share a recipe by link with an Answer button, and Cleo's Recipe page with a Merge button. In progress: Ben's recipe list at 60%, Dan's search by ingredient at 40%, Eva's shopping list at 15%, each with its note. In review: Cleo's recipe page at 95%, check and review passed, ready to land." src="img/tasks-340.webp?v=21f1cdfe75" width="340" height="821">
-        </picture>
+    <p class="caption"><span data-l="en">With sound. Every scene is the real app.</span><span data-l="fr">Avec le son. Chaque scène montre la vraie app.</span></p>
+  </div>
+</section>
+
+<!-- 1. A team, not a chatbot ──────────────────────────────────────── -->
+<section class="sec sec--band pillar pillar--wide" id="team" aria-labelledby="team-title">
+  <div class="wrap">
+    <header class="head head--split">
+      <p class="eyebrow"><span data-l="en">The team</span><span data-l="fr">L’équipe</span></p>
+      <h2 class="sec__title" id="team-title"><span data-l="en">A team, not a chatbot.</span><span data-l="fr">Une équipe, pas un chatbot.</span></h2>
+      <p class="sec__lede"><span data-l="en">Up to 40 agents on one project, each on a task of its own, sharing one board and one memory.</span><span data-l="fr">Jusqu’à 40 agents sur un même projet, chacun sur sa tâche, avec un seul tableau et une seule mémoire.</span></p>
+    </header>
+  </div>
+
+  <figure class="shot wrap-wide">
+    <div class="window">
+      <picture>
+        <source media="(max-width: 599px)" type="image/avif" data-crop="panes-m" sizes="calc(100vw - 32px)" srcset="img/panes-m-400.avif?v=bc369b0b7c 400w, img/panes-m-800.avif?v=16b823a559 800w" width="400" height="214">
+        <source media="(max-width: 599px)" type="image/webp" data-crop="panes-m" sizes="calc(100vw - 32px)" srcset="img/panes-m-400.webp?v=796971272c 400w, img/panes-m-800.webp?v=4d57c7aacb 800w" width="400" height="214">
+        <source type="image/avif" data-crop="panes" sizes="(min-width: 1328px) 1186px, calc(100vw - 48px)" srcset="img/panes-1186.avif?v=71609833c4 1186w, img/panes-2372.avif?v=73cc1ac43f 2372w" width="1186" height="702">
+        <source type="image/webp" data-crop="panes" sizes="(min-width: 1328px) 1186px, calc(100vw - 48px)" srcset="img/panes-1186.webp?v=459714efcb 1186w, img/panes-2372.webp?v=f833c1881e 2372w" width="1186" height="702">
+        <img data-crop="panes" loading="lazy" decoding="async"
+          alt="The same workspace in the panes view: Iris, the orchestrator, follows Cleo's delivery, merged in a scratch worktree with its tests running. Ben, a Claude Code worker on the recipe list, sorts it by name and reports 60%. Dan, on Codex, wrote an accent-blind normalize function and runs six passing tests. Eva, on the shopping list, waits for your permission to run pnpm add fraction.js; her pane is marked in amber." aria-label="The same workspace in the panes view: Iris, the orchestrator, follows Cleo's delivery, merged in a scratch worktree with its tests running. Ben, a Claude Code worker on the recipe list, sorts it by name and reports 60%. Dan, on Codex, wrote an accent-blind normalize function and runs six passing tests. Eva, on the shopping list, waits for your permission to run pnpm add fraction.js; her pane is marked in amber." data-fr="Le même workspace en vue panneaux&nbsp;: Iris, l’orchestrateur, suit la livraison de Cleo, fusionnée dans un worktree temporaire, ses tests en cours. Ben, un worker Claude Code sur la liste de recettes, la trie par nom et indique 60&nbsp;%. Dan, sur Codex, a écrit une fonction normalize insensible aux accents et lance six tests qui passent. Eva, sur la liste de courses, attend ta permission pour lancer pnpm add fraction.js&nbsp;; son panneau est marqué en ambre." src="img/panes-1186.webp?v=459714efcb" width="1186" height="702">
+      </picture>
+    </div>
+    <figcaption class="caption"><span data-l="en">One workspace, four agents: Iris plans, Ben and Eva on Claude Code, Dan on Codex. Green is an agent at work, amber one waiting for you.</span><span data-l="fr">Un workspace, quatre agents&nbsp;: Iris planifie, Ben et Eva sur Claude Code, Dan sur Codex. En vert, un agent au travail&nbsp;; en ambre, un agent qui t’attend.</span></figcaption>
+  </figure>
+
+  <div class="wrap">
+    <div class="facts">
+      <details class="fold" open>
+        <summary><span><span data-l="en">Claude Code and Codex</span><span data-l="fr">Claude Code et Codex</span> <span class="tag"><span data-l="en">Codex beta</span><span data-l="fr">Codex en bêta</span></span></span></summary>
+        <p><span data-l="en">Either one is enough. An orchestrator of either hands tasks to workers of either, and each workspace keeps an account per agent.</span><span data-l="fr">L’un ou l’autre suffit. Un orchestrateur, quel que soit son agent, confie des tâches à des workers de l’un comme de l’autre, et chaque workspace garde un compte par agent.</span></p>
+      </details>
+      <details class="fold" open>
+        <summary><span data-l="en">A board they share</span><span data-l="fr">Un tableau qu’ils partagent</span></summary>
+        <p><span data-l="en">Each task owns its files: two tasks whose files overlap never run at once. A task starts as soon as what it waits for is delivered.</span><span data-l="fr">Chaque tâche a ses fichiers&nbsp;: deux tâches dont les fichiers se chevauchent ne tournent jamais en même temps. Une tâche démarre dès que ce qu’elle attend est livré.</span></p>
+      </details>
+      <details class="fold" open>
+        <summary><span data-l="en">A memory they share</span><span data-l="fr">Une mémoire qu’ils partagent</span></summary>
+        <p><span data-l="en">Conventions, decisions and traps every agent can search and write, from one workspace to the next.</span><span data-l="fr">Des conventions, des décisions et des pièges que chaque agent peut chercher et écrire, d’un workspace à l’autre.</span></p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- 2. Lands fast, and safe ───────────────────────────────────────── -->
+<section class="sec pillar" id="land" aria-labelledby="land-title">
+  <div class="wrap pillar__in">
+    <div class="pillar__copy">
+      <p class="eyebrow"><span data-l="en">Landing</span><span data-l="fr">La fusion</span> <span class="tag"><span data-l="en">New in 3.0</span><span data-l="fr">Nouveau en 3.0</span></span></p>
+      <h2 class="sec__title" id="land-title"><span data-l="en">Lands fast, and safe.</span><span data-l="fr">Fusionné vite, et sans casse.</span></h2>
+      <p class="sec__lede"><span data-l="en">Ten finished deliveries land in 65 seconds, where one after the other took 500.</span><span data-l="fr">Dix livraisons finies fusionnent en 65&nbsp;secondes, là où l’une après l’autre en prenait 500.</span></p>
+      <ul class="points">
+        <li><span data-l="en"><b>Three speeds.</b> Balanced, the default, lands work as soon as it merges and checks it after: a red check reverts it with a new commit and sends it back. Risky changes are reviewed first. Safe checks and reviews everything first; Fast lands the moment work is handed in.</span><span data-l="fr"><b>Trois vitesses.</b> Équilibré, le mode par défaut, fusionne le travail dès qu’il est prêt et le vérifie ensuite&nbsp;: une vérification rouge l’annule par un nouveau commit et le renvoie à son worker. Les changements à risque sont relus avant. Sûr vérifie et relit tout avant&nbsp;; Rapide fusionne dès que le travail est rendu.</span></li>
+        <li><span data-l="en"><b>A merge train.</b> Deliveries that touch the same files land in the order they came; two that only add lines at the same place are both kept.</span><span data-l="fr"><b>Un train de fusion.</b> Les livraisons qui touchent les mêmes fichiers fusionnent dans leur ordre d’arrivée&nbsp;; deux qui ajoutent seulement des lignes au même endroit sont gardées toutes les deux.</span></li>
+        <li><span data-l="en"><b>Nothing pushed.</b> Merges stay on your computer. Pushing, pull requests and releases are your call.</span><span data-l="fr"><b>Rien n’est poussé.</b> Les fusions restent sur ton ordinateur. Pousser, ouvrir une pull request, publier&nbsp;: c’est toi qui décides.</span></li>
+      </ul>
+    </div>
+    <figure class="pillar__art">
+      <div class="race" id="race">
+        <p class="race__head"><span data-l="en">Ten deliveries, ready at once</span><span data-l="fr">Dix livraisons, prêtes en même temps</span></p>
+        <p class="race__fig"><span class="race__now">65<small>&nbsp;s</small></span> <s class="race__was">500&nbsp;s</s></p>
+        <div class="race__rows">
+          <div class="race__row race__row--now">
+            <span class="race__label"><span data-l="en">Together, in 3.0</span><span data-l="fr">Ensemble, en 3.0</span></span>
+            <span class="race__bar" aria-hidden="true"><i style="--share: 0.129"></i></span>
+            <span class="race__time">65&nbsp;s</span>
+          </div>
+          <div class="race__row">
+            <span class="race__label"><span data-l="en">One after the other, before</span><span data-l="fr">L’une après l’autre, avant</span></span>
+            <span class="race__bar" aria-hidden="true"><i style="--share: 1"></i></span>
+            <span class="race__time">500&nbsp;s</span>
+          </div>
+        </div>
+        <ul class="race__facts">
+          <li><b>1</b> <span data-l="en">check for the ten, not ten</span><span data-l="fr">vérification pour les dix, pas dix</span></li>
+          <li><b>10</b> <span data-l="en">reviews side by side</span><span data-l="fr">relectures en parallèle</span></li>
+        </ul>
+        <p class="race__note"><span data-l="en">Measured on main: a 30&nbsp;s check, 20&nbsp;s reviews.</span><span data-l="fr">Mesuré sur main&nbsp;: une vérification de 30&nbsp;s, des relectures de 20&nbsp;s.</span></p>
       </div>
     </figure>
   </div>
 </section>
 
-<!-- Orchestrator ─────────────────────────────────────────────────── -->
-<section class="sec sec--band" id="orchestrator" aria-labelledby="orch-title">
-  <div class="wrap">
-    <header class="head">
-      <p class="eyebrow">Orchestrator, workers, deliveries</p>
-      <h2 class="sec__title" id="orch-title">One plans. The others build. Hangar checks.</h2>
-      <p class="sec__lede">
-        Pin a Claude Code or Codex pane as orchestrator: it splits the work into board tasks and starts
-        a worker for each, of either agent, on a branch of its own in its own git worktree.<span class="wide-only">
-        With Claude Code, by default Opus plans, Sonnet works and Sonnet reviews.</span>
-      </p>
-    </header>
-  </div>
-
-  <figure class="shot wrap-wide">
-    <div class="window">
-      <picture>
-        <source media="(max-width: 599px)" type="image/avif" data-crop="panes-m" sizes="calc(100vw - 32px)" srcset="img/panes-m-400.avif?v=7b498eeba8 400w, img/panes-m-800.avif?v=6e959d1f9a 800w" width="400" height="274">
-        <source media="(max-width: 599px)" type="image/webp" data-crop="panes-m" sizes="calc(100vw - 32px)" srcset="img/panes-m-400.webp?v=733a53a61b 400w, img/panes-m-800.webp?v=4f4574b16a 800w" width="400" height="274">
-        <source type="image/avif" data-crop="panes" sizes="(min-width: 1328px) 1186px, calc(100vw - 48px)" srcset="img/panes-1186.avif?v=ddbc323651 1186w, img/panes-2372.avif?v=607de43914 2372w" width="1186" height="815">
-        <source type="image/webp" data-crop="panes" sizes="(min-width: 1328px) 1186px, calc(100vw - 48px)" srcset="img/panes-1186.webp?v=f70252763d 1186w, img/panes-2372.webp?v=fb718a6d3a 2372w" width="1186" height="815">
-        <img data-crop="panes" loading="lazy" decoding="async"
-          alt="The same workspace in the panes view: four Claude Code panes. Iris, the orchestrator, checks Cleo's delivery: merged in a scratch worktree, pnpm test passed, review approved. Ben, a worker on the recipe list, sorts it by name and reports 60%. Dan, on search, wrote an accent-blind normalize function and runs six passing tests. Eva, on the shopping list, waits for your permission to run pnpm add fraction.js; her pane is marked in amber." src="img/panes-1186.webp?v=f70252763d" width="1186" height="815">
-      </picture>
+<!-- 3. Works while you sleep ──────────────────────────────────────── -->
+<section class="sec sec--band pillar pillar--flip" id="night" aria-labelledby="night-title">
+  <div class="wrap pillar__in">
+    <div class="pillar__copy">
+      <p class="eyebrow"><span data-l="en">Night shift</span><span data-l="fr">Mode nuit</span> <span class="tag"><span data-l="en">New in 3.0</span><span data-l="fr">Nouveau en 3.0</span></span></p>
+      <h2 class="sec__title" id="night-title"><span data-l="en">Works while you sleep.</span><span data-l="fr">Le travail continue pendant que tu dors.</span></h2>
+      <p class="sec__lede"><span data-l="en">Leave objectives and a budget in the evening. Read what landed in the morning.</span><span data-l="fr">Laisse des objectifs et un budget le soir. Au réveil, lis ce qui a fusionné.</span></p>
+      <ul class="points">
+        <li><span data-l="en"><b>A budget you set.</b> A stop time, points of your plan’s week, credits: the first limit reached ends the night.</span><span data-l="fr"><b>Un budget que tu fixes.</b> Une heure d’arrêt, des points de la semaine de ton forfait, des crédits&nbsp;: la première limite atteinte termine la nuit.</span></li>
+        <li><span data-l="en"><b>Nothing leaves at night.</b> No push, release or deploy. Questions are parked for the morning; the rest carries on.</span><span data-l="fr"><b>Rien ne part la nuit.</b> Ni push, ni version, ni déploiement. Les questions attendent le matin&nbsp;; le reste continue.</span></li>
+        <li><span data-l="en"><b>A morning report.</b> In the window and on your phone: what landed, the pictures it made, what waits for you, what did not make it and why, what the night spent.</span><span data-l="fr"><b>Un rapport du matin.</b> Dans la fenêtre et sur ton téléphone&nbsp;: ce qui a fusionné, les images produites, ce qui t’attend, ce qui n’a pas abouti et pourquoi, ce que la nuit a coûté.</span></li>
+        <li><span data-l="en"><b>Even with your computer off.</b> <i>Keep running in the cloud…</i> moves a workspace to a server rented for you alone at Hetzner, in Germany or Finland, where its workers keep coding and delivering. At the end, its work is parked, sealed so that only your computer can open it, and comes back when you turn it on.</span><span data-l="fr"><b>Même ordinateur éteint.</b> <i>Continuer dans le cloud…</i> déplace un workspace sur un serveur loué pour toi seul chez Hetzner, en Allemagne ou en Finlande, où ses workers continuent de coder et de livrer. À la fin, son travail est mis de côté, scellé pour que seul ton ordinateur puisse l’ouvrir, et revient quand tu le rallumes.</span></li>
+      </ul>
+      <p class="fine"><span data-l="en">Computer on, window closed: HangarAI keeps working in the background. Computer off: a hosted node, 61.4 credits a started hour for a Standard, about €1.35 for an 11-hour night, with Pro or Max. <a href="#faq-off">How it works</a></span><span data-l="fr">Ordinateur allumé, fenêtre fermée&nbsp;: HangarAI continue en arrière-plan. Ordinateur éteint&nbsp;: un nœud hébergé, 61,4&nbsp;crédits l’heure entamée pour un Standard, environ 1,35&nbsp;€ pour une nuit de 11&nbsp;heures, avec Pro ou Max. <a href="#faq-off">Comment ça marche</a></span></p>
     </div>
-    <figcaption class="caption">Green is an agent at work, amber one waiting for you.</figcaption>
-  </figure>
+    <figure class="pillar__art">
+      <div class="window">
+        <picture>
+          <source type="image/avif" sizes="(min-width: 1200px) 600px, (min-width: 960px) 46vw, calc(100vw - 32px)" srcset="video/night-660.avif?v=b8a7f06a85 660w, video/night-1320.avif?v=9943bc2438 1320w">
+          <source type="image/webp" sizes="(min-width: 1200px) 600px, (min-width: 960px) 46vw, calc(100vw - 32px)" srcset="video/night-660.webp?v=38c8d006ea 660w, video/night-1320.webp?v=7eac7a6050 1320w">
+          <img loading="lazy" decoding="async" width="660" height="364" src="video/night-660.webp?v=38c8d006ea"
+            alt="The night shift's sheet in HangarAI: the workspace goes back to Safe in the morning. Budget, the first limit reached ends the night and every worker stops then: stop at 07:00, tomorrow, in 17 h 44 min; plan usage, 15 points of the week, the weekly window at 34% now; credits, 0, none at all, 2,940 available. While you sleep: never pushes, releases or deploys, everything stays on this computer; questions are parked for the morning, the rest carries on." aria-label="The night shift's sheet in HangarAI: the workspace goes back to Safe in the morning. Budget, the first limit reached ends the night and every worker stops then: stop at 07:00, tomorrow, in 17 h 44 min; plan usage, 15 points of the week, the weekly window at 34% now; credits, 0, none at all, 2,940 available. While you sleep: never pushes, releases or deploys, everything stays on this computer; questions are parked for the morning, the rest carries on." data-fr="La fiche du mode nuit dans HangarAI&nbsp;: le workspace revient en mode Sûr le matin. Budget, la première limite atteinte termine la nuit et chaque worker s’arrête alors&nbsp;: arrêt à 07:00, demain, dans 17&nbsp;h&nbsp;44&nbsp;min&nbsp;; usage du forfait, 15&nbsp;points de la semaine, la fenêtre hebdomadaire à 34&nbsp;% en ce moment&nbsp;; crédits, 0, aucun, 2&nbsp;940 disponibles. Pendant que tu dors&nbsp;: rien n’est poussé, publié ni déployé, tout reste sur cet ordinateur&nbsp;; les questions attendent le matin, le reste continue.">
+        </picture>
+      </div>
+      <figcaption class="caption"><span data-l="en">The night shift’s sheet, from the film.</span><span data-l="fr">La fiche du mode nuit, tirée du film.</span></figcaption>
+    </figure>
+  </div>
+</section>
 
-  <div class="wrap">
-    <div class="duo">
-      <article class="card">
-        <h3>A board the agents share</h3>
-        <p>
-          Tasks with the files they own and what they depend on, claimed atomically over MCP. Hangar
-          never runs two tasks at once whose files overlap.
-        </p>
-        <div class="card__art">
-          <picture>
-            <source media="(max-width: 599px)" type="image/avif" data-crop="board-m" sizes="calc(100vw - 66px)" srcset="img/board-m-400.avif?v=145b8fd69f 400w, img/board-m-800.avif?v=8b0d682ac1 800w" width="400" height="224">
-            <source media="(max-width: 599px)" type="image/webp" data-crop="board-m" sizes="calc(100vw - 66px)" srcset="img/board-m-400.webp?v=71e2073e94 400w, img/board-m-800.webp?v=d564cba354 800w" width="400" height="224">
-            <source type="image/avif" data-crop="board" sizes="(min-width: 960px) 560px, calc(100vw - 66px)" srcset="img/board-560.avif?v=411f49c5a4 560w, img/board-1120.avif?v=439e17ca29 1120w" width="560" height="314">
-            <source type="image/webp" data-crop="board" sizes="(min-width: 960px) 560px, calc(100vw - 66px)" srcset="img/board-560.webp?v=dad40f00b2 560w, img/board-1120.webp?v=383fb06e40 1120w" width="560" height="314">
-            <img data-crop="board" loading="lazy" decoding="async"
-              alt="Two columns of the Recipes board. To do: a print-friendly recipe page, blocked by #t3, the recipe page; Share a recipe by link, labelled needs-you and blocked on a question, which domain the links should use. In progress: the recipe list by Ben, search by ingredient by Dan, and the shopping list by Eva, who waits for you." src="img/board-560.webp?v=dad40f00b2" width="560" height="314">
-          </picture>
-        </div>
-      </article>
+<!-- 4. Cloud power, on demand ─────────────────────────────────────── -->
+<section class="sec pillar" id="cloud" aria-labelledby="cloud-title">
+  <div class="wrap pillar__in">
+    <div class="pillar__copy">
+      <p class="eyebrow">Cloud Builds <span class="tag"><span data-l="en">Pro and Max</span><span data-l="fr">Pro et Max</span></span></p>
+      <h2 class="sec__title" id="cloud-title"><span data-l="en">Cloud power, on demand.</span><span data-l="fr">La puissance du cloud, à la demande.</span></h2>
+      <p class="sec__lede"><span data-l="en">Builds, test suites, training runs and renders go to a machine rented for you alone, CPU or GPU, not to your laptop.</span><span data-l="fr">Les builds, les suites de tests, les entraînements et les rendus partent sur une machine louée rien que pour toi, CPU ou GPU, pas sur ton portable.</span></p>
+      <ul class="points">
+        <li><span data-l="en"><b>CPU or GPU, by the second.</b> 32 or 64 threads for builds and tests; an RTX 4090, an A100 or H100, or 2 to 8 GPUs for machine learning and rendering<span class="wide-only">; or, under Advanced, exactly the parts you need</span>. In a certified datacenter in Europe, destroyed afterwards.</span><span data-l="fr"><b>CPU ou GPU, à la seconde.</b> 32 ou 64&nbsp;threads pour les builds et les tests&nbsp;; une RTX&nbsp;4090, une A100 ou une H100, ou 2 à 8&nbsp;GPU pour le machine learning et le rendu<span class="wide-only">&nbsp;; ou, dans Avancé, exactement les pièces qu’il te faut</span>. Dans un datacenter certifié en Europe, détruite ensuite.</span></li>
+        <li><span data-l="en"><b>Agents pick the machine, you say OK.</b> Claude Code and Codex propose the smallest machine that fits the work, with its rate and the most it can cost. Within the workspace’s daily budget it starts; past it, Needs you asks you first.</span><span data-l="fr"><b>Les agents choisissent la machine, tu valides.</b> Claude Code et Codex proposent la plus petite machine qui convient au travail, avec son tarif et son coût maximal. Dans le budget du jour du workspace, elle démarre&nbsp;; au-delà, Besoin de toi te demande d’abord.</span></li>
+        <li><span data-l="en"><b>Delivery checks in the cloud.</b> Deliveries checked together share one run, on a machine kept 5 minutes for the next one.</span><span data-l="fr"><b>Les vérifications dans le cloud.</b> Les livraisons vérifiées ensemble partagent un seul lancement, sur une machine gardée 5&nbsp;minutes pour la suivante.</span></li>
+        <li><span data-l="en"><b>No limit of hours.</b> A machine runs as long as your credits pay for it, from the app or any terminal: <code>hangar-ai cloud run -- pnpm test</code>. Pro runs 3 machines at once, Max 5 and first in the queue, hosted nodes among them. <a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/cloud.md#choose-a-machine">The machines</a></span><span data-l="fr"><b>Aucune limite d’heures.</b> Une machine tourne tant que tes crédits la paient, depuis l’app ou n’importe quel terminal&nbsp;: <code>hangar-ai cloud run -- pnpm test</code>. Pro fait tourner 3&nbsp;machines à la fois, Max 5 et en tête de file, nœuds hébergés compris. <a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/cloud.md#choose-a-machine">Les machines</a></span></li>
+      </ul>
+    </div>
+    <figure class="pillar__art pillar__art--sheet">
+      <div class="window">
+        <picture class="for-dark">
+          <source type="image/avif" data-crop="cloud-builds" sizes="(min-width: 1200px) 600px, (min-width: 960px) 46vw, calc(100vw - 32px)" srcset="img/cloud-builds-600.avif?v=35f156c4e8 600w, img/cloud-builds-1200.avif?v=bce7b5c679 1200w" width="600" height="768">
+          <source type="image/webp" data-crop="cloud-builds" sizes="(min-width: 1200px) 600px, (min-width: 960px) 46vw, calc(100vw - 32px)" srcset="img/cloud-builds-600.webp?v=b05b60d59e 600w, img/cloud-builds-1200.webp?v=59f5e7b455 1200w" width="600" height="768">
+          <img data-crop="cloud-builds" loading="lazy" decoding="async"
+            alt="Cloud Builds’ price sheet in HangarAI, over the Recipes workspace: Run in the cloud, the command python tools/train_tagger.py, and the machine to pick among cards with their rate and how many are free: CPU, 32 threads, 7.1 credits a minute, 14 free; CPU, 64 threads; GPU, RTX 4090, 11.8 credits a minute, 5 free, picked; GPU, A100 or H100; Multi-GPU, 2 to 8 GPUs; and Advanced, to say the machine part by part. Europe, Secure Cloud, destroyed once you are done; 11.8 credits a minute on the best machine free now, under a limit of 15; a time limit, 2 hours picked; the machine kept 2 minutes afterwards; 214 files, 3 MB, .env left on the computer; Run, or Run on this computer." aria-label="Cloud Builds’ price sheet in HangarAI, over the Recipes workspace: Run in the cloud, the command python tools/train_tagger.py, and the machine to pick among cards with their rate and how many are free: CPU, 32 threads, 7.1 credits a minute, 14 free; CPU, 64 threads; GPU, RTX 4090, 11.8 credits a minute, 5 free, picked; GPU, A100 or H100; Multi-GPU, 2 to 8 GPUs; and Advanced, to say the machine part by part. Europe, Secure Cloud, destroyed once you are done; 11.8 credits a minute on the best machine free now, under a limit of 15; a time limit, 2 hours picked; the machine kept 2 minutes afterwards; 214 files, 3 MB, .env left on the computer; Run, or Run on this computer." data-fr="La fiche de prix de Cloud Builds dans HangarAI, au-dessus du workspace Recipes&nbsp;: Lancer dans le cloud, la commande python tools/train_tagger.py, et la machine à choisir parmi des cartes avec leur tarif et le nombre de machines libres&nbsp;: CPU, 32 threads, 7,1 crédits la minute, 14 libres&nbsp;; CPU, 64 threads&nbsp;; GPU, RTX 4090, 11,8 crédits la minute, 5 libres, choisie&nbsp;; GPU, A100 ou H100&nbsp;; Multi-GPU, 2 à 8 GPU&nbsp;; et Avancé, pour décrire la machine pièce par pièce. Europe, Secure Cloud, détruite une fois terminé&nbsp;; 11,8 crédits la minute sur la meilleure machine libre, sous une limite de 15&nbsp;; une limite de temps, 2 heures choisies&nbsp;; la machine gardée 2 minutes ensuite&nbsp;; 214 fichiers, 3 Mo, .env laissé sur l’ordinateur&nbsp;; Lancer, ou Lancer sur cet ordinateur." src="img/cloud-builds-600.webp?v=b05b60d59e" width="600" height="768">
+        </picture>
+        <picture class="for-light">
+          <source type="image/avif" data-crop="cloud-builds-light" sizes="(min-width: 1200px) 600px, (min-width: 960px) 46vw, calc(100vw - 32px)" srcset="img/cloud-builds-light-600.avif?v=182d5a6e15 600w, img/cloud-builds-light-1200.avif?v=c8f2c9f3cc 1200w" width="600" height="768">
+          <source type="image/webp" data-crop="cloud-builds-light" sizes="(min-width: 1200px) 600px, (min-width: 960px) 46vw, calc(100vw - 32px)" srcset="img/cloud-builds-light-600.webp?v=6dc6a5ac1a 600w, img/cloud-builds-light-1200.webp?v=676b2248d7 1200w" width="600" height="768">
+          <img data-crop="cloud-builds-light" loading="lazy" decoding="async"
+            alt="The same sheet in the GitHub Light theme." aria-label="The same sheet in the GitHub Light theme." data-fr="La même fiche, dans le thème GitHub Light." src="img/cloud-builds-light-600.webp?v=6dc6a5ac1a" width="600" height="768">
+        </picture>
+      </div>
+      <figcaption class="caption"><span data-l="en">The price sheet: the machine, CPU or GPU, and its rate, before anything starts.</span><span data-l="fr">La fiche de prix&nbsp;: la machine, CPU ou GPU, et son tarif, avant que rien ne démarre.</span></figcaption>
+    </figure>
+  </div>
+</section>
 
-      <article class="card">
-        <h3>Every delivery is checked before it lands</h3>
-        <p>
-          A finished worker hands in its branch. Hangar merges it in a scratch worktree, runs your check
-          command and has a reviewer agent read the diff. A step that fails goes back to the worker.
-        </p>
-        <div class="delivery" id="delivery" role="group" aria-label="The four stages of a delivery">
-          <div class="delivery__head">
-            <span class="delivery__title">Delivery of #t3</span>
-            <span class="delivery__task">Recipe page</span>
+<!-- 5. You stay in control ────────────────────────────────────────── -->
+<section class="sec sec--band pillar pillar--flip" id="control" aria-labelledby="control-title">
+  <span class="alias" id="mobile"></span>
+  <div class="wrap pillar__in">
+    <div class="pillar__copy">
+      <p class="eyebrow"><span data-l="en">Needs you, budgets, Hangar Mobile</span><span data-l="fr">Besoin de toi, budgets, Hangar Mobile</span></p>
+      <h2 class="sec__title" id="control-title"><span data-l="en">You stay in control.</span><span data-l="fr">Tu gardes la main.</span></h2>
+      <p class="sec__lede"><span data-l="en">Agents ask, you decide, at your desk or from your phone.</span><span data-l="fr">Les agents demandent, tu décides, à ton bureau ou depuis ton téléphone.</span></p>
+      <ul class="points">
+        <li><span data-l="en"><b>Needs you.</b> Questions, permissions and deliveries waiting for your go, at the top of the window.</span><span data-l="fr"><b>Besoin de toi.</b> Les questions, les permissions et les livraisons qui attendent ton feu vert, en haut de la fenêtre.</span></li>
+        <li><span data-l="en"><b>Budgets.</b> What agents may spend on hosted features each day, per workspace: 100 credits by default. Past it, they ask you first.</span><span data-l="fr"><b>Des budgets.</b> Ce que les agents peuvent dépenser chaque jour en services hébergés, par workspace&nbsp;: 100&nbsp;crédits par défaut. Au-delà, ils te demandent d’abord.</span></li>
+        <li><span data-l="en"><b>Hangar Mobile.</b> Answer, allow or deny from your phone, wherever you are: through an end-to-end encrypted relay, or your own Tailscale.</span><span data-l="fr"><b>Hangar Mobile.</b> Réponds, autorise ou refuse depuis ton téléphone, où que tu sois&nbsp;: via un relais chiffré de bout en bout, ou ton propre Tailscale.</span></li>
+        <li><span data-l="en"><b>Replays.</b> Turn a session of the board into a page that shows your work. Secrets, e-mail addresses and paths outside the repository are taken out before it leaves.</span><span data-l="fr"><b>Des replays.</b> Fais d’une session du tableau une page qui montre ton travail. Les secrets, les adresses e-mail et les chemins hors du dépôt sont retirés avant qu’elle parte.</span></li>
+      </ul>
+    </div>
+    <div class="pillar__art pillar__art--phones">
+      <div class="phones phones--pair">
+        <figure class="phones__item">
+          <div class="phone">
+            <picture class="phone__screen">
+              <source type="image/avif" data-crop="mobile-for-you" sizes="(min-width: 600px) 246px, 170px" srcset="img/mobile-for-you-300.avif?v=661fea2ab4 300w, img/mobile-for-you-600.avif?v=3b487af3bc 600w" width="300" height="649">
+              <source type="image/webp" data-crop="mobile-for-you" sizes="(min-width: 600px) 246px, 170px" srcset="img/mobile-for-you-300.webp?v=d8fe43d98f 300w, img/mobile-for-you-600.webp?v=221393c8f6 600w" width="300" height="649">
+              <img data-crop="mobile-for-you" loading="lazy" decoding="async"
+                alt="Hangar Mobile's For you screen: four things wait. Waiting for your answer, Ben and Cora in hangar-ai, for 4 and 2 minutes, each with an Answer button. Questions for you: should Tailscale Funnel stay out of scope, or be offered as an option? Below, the tab bar: For you, Projects, Shared, Manager and Stats." aria-label="Hangar Mobile's For you screen: four things wait. Waiting for your answer, Ben and Cora in hangar-ai, for 4 and 2 minutes, each with an Answer button. Questions for you: should Tailscale Funnel stay out of scope, or be offered as an option? Below, the tab bar: For you, Projects, Shared, Manager and Stats." data-fr="L’écran Pour toi de Hangar Mobile&nbsp;: quatre choses attendent. En attente de ta réponse, Ben et Cora dans hangar-ai, depuis 4 et 2&nbsp;minutes, chacun avec un bouton Répondre. Des questions pour toi&nbsp;: Tailscale Funnel doit-il rester hors du périmètre, ou être proposé en option&nbsp;? En bas, la barre d’onglets&nbsp;: Pour toi, Projets, Partages, Chef de projet et Stats." src="img/mobile-for-you-300.webp?v=d8fe43d98f" width="300" height="649">
+            </picture>
           </div>
-          <ol class="delivery__list">
-            <li class="dstep" data-state="done">
-              <span class="dstep__mark" aria-hidden="true"></span>
-              <span class="dstep__what">Merged onto <code>main</code> in a scratch worktree</span>
-              <span class="dstep__why">Your checkout is left alone until the fast-forward.</span>
-            </li>
-            <li class="dstep" data-state="done">
-              <span class="dstep__mark" aria-hidden="true"></span>
-              <span class="dstep__what"><code>pnpm test</code> passed</span>
-              <span class="dstep__why">The check command you set, run by your shell.</span>
-            </li>
-            <li class="dstep" data-state="done">
-              <span class="dstep__mark" aria-hidden="true"></span>
-              <span class="dstep__what">Review approved</span>
-              <span class="dstep__why">A reviewer with a fresh context, read-only tools.</span>
-            </li>
-            <li class="dstep" data-state="done">
-              <span class="dstep__mark" aria-hidden="true"></span>
-              <span class="dstep__what">Landed: <code>main</code> fast-forwarded</span>
-              <span class="dstep__why">Local only. Nothing is pushed.</span>
-            </li>
-          </ol>
-          <p class="delivery__note">An illustration of the stages, with the task in these pictures.</p>
-        </div>
-      </article>
-    </div>
-
-    <div class="facts">
-      <details class="fold" open>
-        <summary>Hangar never pushes</summary>
-        <p>Merges are local fast-forwards. Pushing, pull requests and releases stay your call.</p>
-      </details>
-      <details class="fold" open>
-        <summary>Checked in batches</summary>
-        <p>Deliveries that wait together share one run of the check. If it fails, Hangar finds the one that breaks it and sends back only that one.</p>
-      </details>
-      <details class="fold" open>
-        <summary>On the worker's pane</summary>
-        <p>Where its delivery stands: queued, merging, checking, reviewing, landing, then how it ended.</p>
-      </details>
-      <details class="fold" open>
-        <summary>Woken for what matters</summary>
-        <p>The orchestrator rests while workers run. A delivery, a question or a worker that stops wakes it at once; the rest comes in a digest, every five minutes at most.</p>
-      </details>
-      <details class="fold" open>
-        <summary>No false alarms</summary>
-        <p>A worker busy with a long build or test is not reported idle, and one that is idle is reported once, not over and over.</p>
-      </details>
-      <details class="fold" open>
-        <summary>Rules a prompt can't bend</summary>
-        <p>Permissions, the check command and the branch work lands on are set per workspace and enforced by Hangar.</p>
-      </details>
-    </div>
-  </div>
-</section>
-
-<!-- Hangar Mobile ────────────────────────────────────────────────── -->
-<section class="sec mobile" id="mobile" aria-labelledby="mobile-title">
-  <div class="wrap">
-    <header class="head">
-      <p class="eyebrow">Hangar Mobile</p>
-      <h2 class="sec__title" id="mobile-title">Answer your agents from your phone.</h2>
-      <p class="sec__lede">
-        See what waits for you in every project, answer your agents' questions with a tap, allow or
-        deny a permission.<span class="wide-only"> Hangar serves the app itself, over your own Tailscale
-        network: no app store, no account, no server of ours.</span>
-      </p>
-    </header>
-
-    <div class="phones">
-      <figure class="phones__item">
-        <div class="phone">
-          <picture class="phone__screen">
-            <source type="image/avif" data-crop="mobile-for-you" sizes="(min-width: 1180px) 246px, (min-width: 960px) calc(25vw - 50px), (min-width: 600px) 246px, 214px" srcset="img/mobile-for-you-300.avif?v=c7aa8ad12e 300w, img/mobile-for-you-600.avif?v=4c7bd10a07 600w" width="300" height="649">
-            <source type="image/webp" data-crop="mobile-for-you" sizes="(min-width: 1180px) 246px, (min-width: 960px) calc(25vw - 50px), (min-width: 600px) 246px, 214px" srcset="img/mobile-for-you-300.webp?v=7dae349dd2 300w, img/mobile-for-you-600.webp?v=953d97a09d 600w" width="300" height="649">
-            <img data-crop="mobile-for-you" loading="lazy" decoding="async"
-              alt="Hangar Mobile's For you screen: four things wait. Waiting for your answer, Ben and Cora in hangar-ai, for 4 and 2 minutes, each with an Answer button. Questions for you: should Tailscale Funnel stay out of scope, or be offered as an option? Below, the tab bar: For you, Projects, Shared and Manager." src="img/mobile-for-you-300.webp?v=7dae349dd2" width="300" height="649">
-          </picture>
-        </div>
-        <figcaption><b>For you.</b> What waits for you, in every project.</figcaption>
-      </figure>
-      <figure class="phones__item">
-        <div class="phone">
-          <picture class="phone__screen">
-            <source type="image/avif" data-crop="mobile-question" sizes="(min-width: 1180px) 246px, (min-width: 960px) calc(25vw - 50px), (min-width: 600px) 246px, 214px" srcset="img/mobile-question-300.avif?v=78e3fb1933 300w, img/mobile-question-600.avif?v=a4e07b05f4 600w" width="300" height="649">
-            <source type="image/webp" data-crop="mobile-question" sizes="(min-width: 1180px) 246px, (min-width: 960px) calc(25vw - 50px), (min-width: 600px) 246px, 214px" srcset="img/mobile-question-300.webp?v=18edcd872b 300w, img/mobile-question-600.webp?v=25b38555e7 600w" width="300" height="649">
-            <img data-crop="mobile-question" loading="lazy" decoding="async"
-              alt="Cora's conversation, a Claude Code pane, waiting for your answer: her summary of the checks she ran, then a card, Cora asks you 3 questions. The first, shall I submit the delivery now, offers Submit now, Wait for the screenshots and Other as large buttons, with Next." src="img/mobile-question-300.webp?v=18edcd872b" width="300" height="649">
-          </picture>
-        </div>
-        <figcaption><b>An agent asks.</b> Its questions as buttons.</figcaption>
-      </figure>
-      <figure class="phones__item">
-        <div class="phone">
-          <picture class="phone__screen">
-            <source type="image/avif" data-crop="mobile-permission" sizes="(min-width: 1180px) 246px, (min-width: 960px) calc(25vw - 50px), (min-width: 600px) 246px, 214px" srcset="img/mobile-permission-300.avif?v=eae4e0fa5d 300w, img/mobile-permission-600.avif?v=646770fa3e 600w" width="300" height="649">
-            <source type="image/webp" data-crop="mobile-permission" sizes="(min-width: 1180px) 246px, (min-width: 960px) calc(25vw - 50px), (min-width: 600px) 246px, 214px" srcset="img/mobile-permission-300.webp?v=b16dde836f 300w, img/mobile-permission-600.webp?v=09a5bc1adb 600w" width="300" height="649">
-            <img data-crop="mobile-permission" loading="lazy" decoding="async"
-              alt="Ben's conversation: the files he read and edited, one line each, then a card, Ben asks for your permission. Bash, run the window ops' tests, with the command pnpm vitest run src/lib/remoteControl.test.ts, and the buttons Deny and Allow." src="img/mobile-permission-300.webp?v=b16dde836f" width="300" height="649">
-          </picture>
-        </div>
-        <figcaption><b>A permission.</b> What it will run, Allow or Deny.</figcaption>
-      </figure>
-      <figure class="phones__item">
-        <div class="phone">
-          <picture class="phone__screen">
-            <source type="image/avif" data-crop="mobile-shared" sizes="(min-width: 1180px) 246px, (min-width: 960px) calc(25vw - 50px), (min-width: 600px) 246px, 214px" srcset="img/mobile-shared-300.avif?v=c655e95e88 300w, img/mobile-shared-600.avif?v=d9ffebbec0 600w" width="300" height="649">
-            <source type="image/webp" data-crop="mobile-shared" sizes="(min-width: 1180px) 246px, (min-width: 960px) calc(25vw - 50px), (min-width: 600px) 246px, 214px" srcset="img/mobile-shared-300.webp?v=9609310a19 300w, img/mobile-shared-600.webp?v=c8a5561c17 600w" width="300" height="649">
-            <img data-crop="mobile-shared" loading="lazy" decoding="async"
-              alt="The Shared screen: a picture Cora shared from hangar-ai an hour ago, the For you screen in dark mode, with an Open button; under it, lighthouse.html, a Lighthouse report Mia shared from storefront." src="img/mobile-shared-300.webp?v=9609310a19" width="300" height="649">
-          </picture>
-        </div>
-        <figcaption><b>Shared.</b> The images and files agents send you.</figcaption>
-      </figure>
-    </div>
-    <p class="phones__note">Hangar Mobile running on sample projects.</p>
-
-    <div class="reach">
-      <div class="reach__card">
-        <h3>Private, through Tailscale</h3>
-        <p>
-          Hangar Mobile listens on <code>127.0.0.1</code> only: <a href="https://tailscale.com/">Tailscale</a>,
-          a free app that links your own devices, is the only way in, over HTTPS. Each phone pairs with
-          a one-time code. Notifications reach it even with the app closed, sent by your PC.
-        </p>
-      </div>
-      <div class="reach__card">
-        <h3>Set up in about a minute</h3>
-        <ol class="reach__steps">
-          <li>Install Tailscale on the PC and the phone, on the same account.</li>
-          <li>In Hangar, Settings › Mobile: turn on Hangar Mobile, then HTTPS access.</li>
-          <li>Scan the QR code, add Hangar to the Home Screen.</li>
-        </ol>
+          <figcaption><span data-l="en"><b>For you.</b> What waits for you, in every project.</span><span data-l="fr"><b>Pour toi.</b> Ce qui t’attend, dans chaque projet.</span></figcaption>
+        </figure>
+        <figure class="phones__item">
+          <div class="phone">
+            <picture class="phone__screen">
+              <source type="image/avif" data-crop="mobile-permission" sizes="(min-width: 600px) 246px, 170px" srcset="img/mobile-permission-300.avif?v=64a5bd8a79 300w, img/mobile-permission-600.avif?v=844402bf26 600w" width="300" height="649">
+              <source type="image/webp" data-crop="mobile-permission" sizes="(min-width: 600px) 246px, 170px" srcset="img/mobile-permission-300.webp?v=c670f0f960 300w, img/mobile-permission-600.webp?v=7aa852f8eb 600w" width="300" height="649">
+              <img data-crop="mobile-permission" loading="lazy" decoding="async"
+                alt="Ben's conversation: the files he read and edited, one line each, then a card, Ben asks for your permission. Bash, run the window ops' tests, with the command pnpm vitest run src/lib/remoteControl.test.ts, and the buttons Deny and Allow." aria-label="Ben's conversation: the files he read and edited, one line each, then a card, Ben asks for your permission. Bash, run the window ops' tests, with the command pnpm vitest run src/lib/remoteControl.test.ts, and the buttons Deny and Allow." data-fr="La conversation de Ben&nbsp;: les fichiers qu’il a lus et modifiés, une ligne chacun, puis une carte, Ben te demande ta permission. Bash, lancer les tests des opérations de fenêtre, avec la commande pnpm vitest run src/lib/remoteControl.test.ts, et les boutons Refuser et Autoriser." src="img/mobile-permission-300.webp?v=c670f0f960" width="300" height="649">
+            </picture>
+          </div>
+          <figcaption><span data-l="en"><b>A permission.</b> What it will run, Allow or Deny.</span><span data-l="fr"><b>Une permission.</b> Ce qu’il va lancer, Autoriser ou Refuser.</span></figcaption>
+        </figure>
       </div>
     </div>
-  </div>
-</section>
-
-<!-- Kits & previews ──────────────────────────────────────────────── -->
-<section class="sec sec--band" id="kits" aria-labelledby="kits-title">
-  <div class="wrap">
-    <header class="head">
-      <p class="eyebrow">Kits &amp; previews</p>
-      <h2 class="sec__title" id="kits-title">Agents show you their work, beside the terminal.</h2>
-      <p class="sec__lede">
-        Over MCP, an agent opens images, code, Markdown, PDFs, web pages, videos and 3D models next to
-        its pane<span class="wide-only">, then renders snapshots to check its own work</span>. Kits bring
-        skills, MCP servers and tabs of their own.
-      </p>
-    </header>
-  </div>
-
-  <figure class="shot wrap-wide">
-    <div class="window">
-      <picture>
-        <source media="(max-width: 599px)" type="image/avif" data-crop="model-m" sizes="calc(100vw - 32px)" srcset="img/model-m-400.avif?v=05f45628fe 400w, img/model-m-800.avif?v=2b016d52f3 800w" width="400" height="551">
-        <source media="(max-width: 599px)" type="image/webp" data-crop="model-m" sizes="calc(100vw - 32px)" srcset="img/model-m-400.webp?v=d17a76034f 400w, img/model-m-800.webp?v=f46380539c 800w" width="400" height="551">
-        <source type="image/avif" data-crop="model" sizes="(min-width: 1328px) 1186px, calc(100vw - 48px)" srcset="img/model-1186.avif?v=ba8f41a6fe 1186w, img/model-2372.avif?v=e1bb55368b 2372w" width="1186" height="815">
-        <source type="image/webp" data-crop="model" sizes="(min-width: 1328px) 1186px, calc(100vw - 48px)" srcset="img/model-1186.webp?v=4ff625652b 1186w, img/model-2372.webp?v=2d7484ee2b 2372w" width="1186" height="815">
-        <img data-crop="model" loading="lazy" decoding="async"
-          alt="Eve, a Claude Code pane in a landing-pad workspace, was asked to show public/models/hangar.glb and say what it is. She called model_show and model_snapshot over MCP; beside her terminal, Hangar's 3D preview shows hangar.glb, opened by Eve: an arched hangar with yellow doors on a landing pad marked H, with cones, a windsock, crates and a quadcopter. Under it, its Flight loop animation and the model's figures: 4,432 triangles, 32 materials." src="img/model-1186.webp?v=4ff625652b" width="1186" height="815">
-      </picture>
-    </div>
-  </figure>
-
-  <div class="wrap">
-    <div class="facts">
-      <details class="fold" open>
-        <summary>3D that checks itself</summary>
-        <p>glTF, GLB, OBJ, STL, PLY and FBX. A model reloads when its file changes, and glTF animations play.</p>
-      </details>
-      <details class="fold" open>
-        <summary>Kits with native tabs</summary>
-        <p>A kit's tab is an HTML page, or a native one in Rust compiled to WebAssembly that Hangar draws in your theme.</p>
-      </details>
-      <details class="fold" open>
-        <summary>33 themes, dark and light</summary>
-        <p>They restyle the whole window, not only the terminals. Graphite is the default, where colour only marks a state.</p>
-      </details>
-    </div>
-    <div class="themes js-only">
-      <p class="themes__label">Try one on this page</p>
-      <div class="swatches" id="swatches" role="group" aria-label="Preview a theme on this page"></div>
-    </div>
-  </div>
-</section>
-
-<!-- Experiments ──────────────────────────────────────────────────── -->
-<section class="sec" id="experiments" aria-labelledby="exp-title">
-  <div class="wrap">
-    <header class="head">
-      <p class="eyebrow">Experiments <span class="tag">Off by default</span></p>
-      <h2 class="sec__title" id="exp-title">Try what comes next.</h2>
-      <p class="sec__lede">
-        Under Settings › Experiments. Unfinished work: they can change, break or disappear in any update.
-      </p>
-    </header>
-
-    <div class="exp">
-      <article class="card card--wide">
-        <div class="card__copy">
-          <h3>Nodes: Hangar on another machine</h3>
-          <p>
-            Add a Linux machine you reach over SSH: Hangar installs a headless <code>hangar-node</code>,
-            starts it and keeps a tunnel to it. A workspace can live there, its terminals, agents
-            and board included, and the window shows it like a local one. It keeps working there with
-            your computer off.
-          </p>
-          <p>
-            Or send one worker to the node for a heavy build or a GPU box: its branch comes back to be
-            checked, reviewed and landed here.
-          </p>
-        </div>
-        <div class="card__art card__art--nodes">
-          <picture>
-            <source media="(max-width: 599px)" type="image/avif" data-crop="nodes-m" sizes="calc(100vw - 66px)" srcset="img/nodes-m-400.avif?v=e8d5883248 400w, img/nodes-m-800.avif?v=1b78cf6abc 800w" width="400" height="122">
-            <source media="(max-width: 599px)" type="image/webp" data-crop="nodes-m" sizes="calc(100vw - 66px)" srcset="img/nodes-m-400.webp?v=bd1a44d9ba 400w, img/nodes-m-800.webp?v=c2e2360b2e 800w" width="400" height="122">
-            <source type="image/avif" data-crop="nodes" sizes="(min-width: 960px) 600px, calc(100vw - 66px)" srcset="img/nodes-560.avif?v=2eb25c2ebe 560w, img/nodes-1120.avif?v=3c0b30e5b6 1120w" width="560" height="182">
-            <source type="image/webp" data-crop="nodes" sizes="(min-width: 960px) 600px, calc(100vw - 66px)" srcset="img/nodes-560.webp?v=0a4592b6df 560w, img/nodes-1120.webp?v=1d6b6109af 1120w" width="560" height="182">
-            <img data-crop="nodes" loading="lazy" decoding="async"
-              alt="Settings › Nodes: Linux machines Hangar reaches over SSH with your keys. The node gpu-box is Connected: hangar-node 2.2.0-rc.1 on gpu-box (x86_64-unknown-linux-gnu), with git and without Claude Code, with Disconnect and Remove buttons." src="img/nodes-560.webp?v=0a4592b6df" width="560" height="182">
-          </picture>
-        </div>
-      </article>
-      <article class="card">
-        <h3>Chat view</h3>
-        <p>A workspace as a conversation with its orchestrator, its tasks beside it. <a href="#chat">See above</a>.</p>
-      </article>
-      <article class="card">
-        <h3>Pane scopes <span class="tag">Linux</span></h3>
-        <p>Each pane in a systemd scope of its own: when memory runs out, the system stops the pane that uses it, a build say, not Hangar and every agent.</p>
-      </article>
-    </div>
-  </div>
-</section>
-
-<!-- Performance ──────────────────────────────────────────────────── -->
-<section class="sec sec--band" id="performance" aria-labelledby="perf-title">
-  <div class="wrap">
-    <header class="head">
-      <p class="eyebrow">Performance</p>
-      <h2 class="sec__title" id="perf-title">Native, in Rust. And lighter with every release.</h2>
-      <p class="sec__lede">
-        No Electron: Hangar draws its own window, and each terminal reads its output on a thread of its own.
-        Measured, not estimated.
-      </p>
-    </header>
-
-    <h3 class="perf__group">2.2, against the release before</h3>
-    <div class="perf" role="list">
-      <div class="perf__item" role="listitem">
-        <p class="perf__now">2.9<small>%</small></p>
-        <p class="perf__what">Hangar's CPU with eight agents printing, chat view</p>
-        <p class="perf__was">was 8.1 %</p>
-      </div>
-      <div class="perf__item" role="listitem">
-        <p class="perf__now">3.2<small>s</small></p>
-        <p class="perf__what">Eight sessions all back after a relaunch</p>
-        <p class="perf__was">was 9.1 s</p>
-      </div>
-      <div class="perf__item" role="listitem">
-        <p class="perf__now">0.38<small>s</small></p>
-        <p class="perf__what">A workspace in the chat view, ready</p>
-        <p class="perf__was">was 0.66 s</p>
-      </div>
-      <div class="perf__item" role="listitem">
-        <p class="perf__now">79<small>MB</small></p>
-        <p class="perf__what">The executable, with whole-program optimization</p>
-        <p class="perf__was">was 119 MB</p>
-      </div>
-    </div>
-
-    <h3 class="perf__group">2.0 native, against 1.12.1 in a web view</h3>
-    <div class="perf perf--three" role="list">
-      <div class="perf__item" role="listitem">
-        <p class="perf__now">249<small>MiB</small></p>
-        <p class="perf__what">16 terminals printing non-stop for 30 s</p>
-        <p class="perf__was">1.12.1: 8.1 GiB</p>
-      </div>
-      <div class="perf__item" role="listitem">
-        <p class="perf__now">2.5<small>ms</small></p>
-        <p class="perf__what">Echo of a key in a pane while 15 others print</p>
-        <p class="perf__was">1.12.1: no echo within a minute</p>
-      </div>
-      <div class="perf__item" role="listitem">
-        <p class="perf__now">0.57<small>s</small></p>
-        <p class="perf__what">Cold start, four prompts readable</p>
-        <p class="perf__was">1.12.1: 0.96 s</p>
-      </div>
-    </div>
-    <p class="fine perf__note">
-      Where they come from:
-      <a href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md">2.2's, in the changelog</a> ·
-      <a href="https://github.com/hangar-ai/hangar/blob/main/docs/native/BENCHMARK.md">how 2.0 against 1.12.1 was measured</a>
-    </p>
   </div>
 </section>
 
 <!-- Everything else ──────────────────────────────────────────────── -->
 <section class="sec sec--tight" id="features" aria-labelledby="features-title">
+  <span class="alias" id="kits"></span><span class="alias" id="experiments"></span>
   <div class="wrap">
-    <h2 class="sec__title sec__title--sm" id="features-title">Also in the box</h2>
+    <h2 class="sec__title sec__title--sm" id="features-title"><span data-l="en">Also in the box</span><span data-l="fr">Et aussi, dans la boîte</span></h2>
     <div class="specs">
       <details class="fold" open>
-        <summary>A shared memory</summary>
-        <p>Notes every agent can search and write, across workspaces: conventions, decisions, traps.</p>
+        <summary><span data-l="en">Previews beside the terminal</span><span data-l="fr">Des aperçus à côté du terminal</span></summary>
+        <p><span data-l="en">Over MCP, an agent opens images, code, Markdown, PDFs, web pages, videos and 3D models next to its pane, then snapshots them to check its own work.</span><span data-l="fr">Via MCP, un agent ouvre des images, du code, du Markdown, des PDF, des pages web, des vidéos et des modèles 3D à côté de son panneau, puis en fait des captures pour vérifier son travail.</span></p>
       </details>
       <details class="fold" open>
-        <summary>Claude Code and Codex <span class="tag">Beta</span></summary>
-        <p>Either one is enough. An orchestrator of either agent hands tasks to workers of either agent, and each workspace keeps an account per agent.</p>
+        <summary>Kits</summary>
+        <p><span data-l="en">Skills, MCP servers and tabs of their own, from the Library, each pinned to a commit.</span><span data-l="fr">Des skills, des serveurs MCP et leurs propres onglets, depuis la Bibliothèque, chacun épinglé à un commit.</span></p>
       </details>
       <details class="fold" open>
-        <summary>Delegate, and images from Codex</summary>
-        <p>An agent hands a sub-task to the other and gets the result back. What Codex draws shows in the chat, on your phone and on Discord.</p>
+        <summary><span data-l="en">One view, in tiles</span><span data-l="fr">Une seule vue, en tuiles</span></summary>
+        <p><span data-l="en">The conversation with the orchestrator, the terminals, the agents, the board and the cloud runs as tiles, in layouts you switch with a tab. Drop files, folders and images on the conversation.</span><span data-l="fr">La conversation avec l’orchestrateur, les terminaux, les agents, le tableau et les exécutions cloud en tuiles, dans des dispositions que tu changes d’un onglet. Glisse des fichiers, des dossiers et des images sur la conversation.</span></p>
       </details>
       <details class="fold" open>
-        <summary>Up to 16 panes per workspace</summary>
-        <p>Claude Code, Codex or any shell: PowerShell, cmd, WSL, zsh, bash, fish, Nushell.</p>
+        <summary><span data-l="en">Images for your agents</span><span data-l="fr">Des images pour tes agents</span></summary>
+        <p><span data-l="en">Claude Code and Codex draw or edit an image for you, from a quick draft to the best quality, paid with your credits. It opens beside the terminal.</span><span data-l="fr">Claude Code et Codex dessinent ou retouchent une image pour toi, du brouillon rapide à la meilleure qualité, payée avec tes crédits. Elle s’ouvre à côté du terminal.</span></p>
       </details>
       <details class="fold" open>
-        <summary>Sessions come back</summary>
-        <p>Reopen the window and every agent pane resumes its conversation, the ones on screen first.</p>
+        <summary><span data-l="en">Share links</span><span data-l="fr">Liens de partage</span></summary>
+        <p><span data-l="en">A page, a PDF, an image or a 3D model published at hangarai.dev for 30 days, from its pane, with a code to open it on a phone.</span><span data-l="fr">Une page, un PDF, une image ou un modèle 3D publié sur hangarai.dev pendant 30&nbsp;jours, depuis son panneau, avec un code pour l’ouvrir sur un téléphone.</span></p>
       </details>
       <details class="fold" open>
-        <summary>Idle workspaces sleep</summary>
-        <p>After 10 minutes untouched and out of sight, a workspace stops its agents to free memory, and resumes them when you return.</p>
+        <summary><span data-l="en">Dictation</span><span data-l="fr">Dictée</span></summary>
+        <p><span data-l="en">Hold a key and speak. Hosted and paid with your credits: the audio goes to HangarAI’s server, then to Groq, and is not stored. Off until you turn it on.</span><span data-l="fr">Maintiens une touche et parle. Hébergée et payée avec tes crédits&nbsp;: l’audio passe par le serveur de HangarAI, puis par Groq, et n’est pas conservé. Désactivée tant que tu ne l’actives pas.</span></p>
       </details>
       <details class="fold" open>
-        <summary>Where the tokens go</summary>
-        <p>Tokens, active time and an API-equivalent cost by project, model and agent, read from your agents' own transcripts.</p>
+        <summary><span data-l="en">Accounts that switch in time</span><span data-l="fr">Des comptes qui changent à temps</span></summary>
+        <p><span data-l="en">With several Claude Code or Codex accounts, a pane about to start past 80, 90 or 95&nbsp;% of its window starts on the one with the most room. Off by default.</span><span data-l="fr">Avec plusieurs comptes Claude Code ou Codex, un panneau qui va démarrer au-delà de 80, 90 ou 95&nbsp;% de sa fenêtre part sur celui qui a le plus de marge. Désactivé par défaut.</span></p>
       </details>
       <details class="fold" open>
-        <summary>Dictation</summary>
-        <p>Hold a key and speak: whisper.cpp transcribes on your machine. Off until you turn it on.</p>
+        <summary><span data-l="en">A project manager</span><span data-l="fr">Un chef de projet</span></summary>
+        <p><span data-l="en">One agent that follows every workspace: ask where they stand, or pass an instruction to an orchestrator.</span><span data-l="fr">Un agent qui suit tous les workspaces&nbsp;: demande-lui où ils en sont, ou fais passer une instruction à un orchestrateur.</span></p>
       </details>
       <details class="fold" open>
-        <summary>Broadcast</summary>
-        <p>One instruction to every pane; agent panes can hold it until their agent is free.</p>
+        <summary><span data-l="en">Sessions come back</span><span data-l="fr">Les sessions reviennent</span></summary>
+        <p><span data-l="en">Reopen the window and every agent resumes its conversation. Idle workspaces sleep after 10 minutes and wake when you return.</span><span data-l="fr">Rouvre la fenêtre et chaque agent reprend sa conversation. Les workspaces inactifs se mettent en veille après 10&nbsp;minutes et repartent à ton retour.</span></p>
       </details>
       <details class="fold" open>
-        <summary>A project manager</summary>
-        <p>One agent that follows every workspace: ask where they stand, or pass an instruction to an orchestrator.</p>
+        <summary><span data-l="en">Where the tokens go</span><span data-l="fr">Où passent les tokens</span></summary>
+        <p><span data-l="en">Tokens, active time and an API-equivalent cost by project, model and agent, read from your agents’ own transcripts; all your machines together once you turn on the sync.</span><span data-l="fr">Tokens, temps actif et coût en équivalent API par projet, modèle et agent, lus dans les transcriptions de tes agents&nbsp;; toutes tes machines ensemble une fois la synchronisation activée.</span></p>
       </details>
       <details class="fold" open>
-        <summary>Your agents, set up for you</summary>
-        <p>When neither Claude Code nor Codex is there, one click installs either with its maker's official installer; then you sign in.</p>
+        <summary><span data-l="en">Clickable paths</span><span data-l="fr">Des chemins cliquables</span></summary>
+        <p><span data-l="en">A path a pane prints opens in the preview at its line; Alt-click opens it in VS Code.</span><span data-l="fr">Un chemin affiché dans un panneau s’ouvre dans l’aperçu, à sa ligne&nbsp;; Alt-clic l’ouvre dans VS Code.</span></p>
       </details>
       <details class="fold" open>
-        <summary>Any file, in the viewers</summary>
-        <p>Images, PDFs, code, videos and 3D models from anywhere on the computer, not only the project. A viewer loads only what was shown.</p>
+        <summary><span data-l="en">Any machine, agents set up</span><span data-l="fr">N’importe quelle machine, agents installés</span></summary>
+        <p><span data-l="en">A workspace can also live on a Linux machine of yours reached over SSH, a server or a GPU box. Where Claude Code or Codex is missing, here or there, one click installs it with its maker’s official installer; then you sign in.</span><span data-l="fr">Un workspace peut aussi vivre sur une de tes machines Linux jointe en SSH, un serveur ou une machine à GPU. Là où Claude Code ou Codex manque, ici ou là-bas, un clic l’installe avec l’installeur officiel de son éditeur&nbsp;; il ne te reste qu’à te connecter.</span></p>
       </details>
-      <details class="fold" open>
-        <summary>Hangar on Discord</summary>
-        <p>Experimental: a server of your own as a remote, a channel per workspace and a thread per worker, with the files agents share. ⚡ sends a waiting message at once.</p>
-      </details>
-      <details class="fold" open>
-        <summary>An account, if you want one</summary>
-        <p>Sign in with GitHub to see the statistics of all your machines together. Off by default; <a href="privacy.html">what it stores</a>.</p>
-      </details>
+    </div>
+    <div class="themes js-only">
+      <p class="themes__label"><span data-l="en">33 themes, dark and light. Try one on this page:</span><span data-l="fr">33 thèmes, sombres et clairs. Essaie-en un sur cette page&nbsp;:</span></p>
+      <div class="swatches" id="swatches" role="group" aria-label="Preview a theme on this page" data-fr="Essayer un thème sur cette page"></div>
+    </div>
+    <p class="native" id="performance"><span data-l="en"><b>Native, in Rust.</b> No Electron: HangarAI draws its own window. Sixteen terminals printing non-stop for 30&nbsp;s take 249&nbsp;MiB, where 1.12.1 in a web view took 8.1&nbsp;GiB. <a href="https://github.com/hangar-ai/hangar/blob/main/docs/native/BENCHMARK.md">How it was measured</a></span><span data-l="fr"><b>Natif, en Rust.</b> Pas d’Electron&nbsp;: HangarAI dessine sa propre fenêtre. Seize terminaux qui écrivent sans arrêt pendant 30&nbsp;s occupent 249&nbsp;Mio, là où la 1.12.1 dans une web view prenait 8,1&nbsp;Gio. <a href="https://github.com/hangar-ai/hangar/blob/main/docs/native/BENCHMARK.md">Comment c’est mesuré</a></span></p>
+  </div>
+</section>
+
+<!-- Pricing ────────────────────────────────────────────────────── -->
+<section class="sec sec--band" id="pricing" aria-labelledby="pricing-title">
+  <div class="wrap">
+    <header class="head head--center">
+      <p class="eyebrow"><span data-l="en">Pricing</span><span data-l="fr">Tarifs</span></p>
+      <h2 class="sec__title" id="pricing-title"><span data-l="en">Try all of it for 14 days. Then pick your plan.</span><span data-l="fr">Essaie tout pendant 14&nbsp;jours. Puis choisis ton&nbsp;offre.</span></h2>
+      <p class="sec__lede">
+        <span data-l="en">The trial is the whole app on your computer, with no card: you sign in with GitHub to start it. After it, Pro has all of HangarAI, and Max adds more than three times the credits.</span>
+        <span data-l="fr">L’essai, c’est toute l’app sur ton ordinateur, sans carte&nbsp;: tu te connectes avec GitHub pour le démarrer. Ensuite, Pro a tout HangarAI, et Max y ajoute plus de trois fois plus de crédits.</span>
+      </p>
+    </header>
+
+    <div class="pricing" data-period="year">
+      <div class="period js-only" role="group" aria-label="Billing period" data-fr="Période de facturation">
+        <button type="button" class="period__btn" data-set-period="month" aria-pressed="false"><span data-l="en">Monthly</span><span data-l="fr">Mensuel</span></button>
+        <button type="button" class="period__btn" data-set-period="year" aria-pressed="true"><span data-l="en">Yearly</span><span data-l="fr">Annuel</span> <span class="period__save"><span data-l="en">Save 20%</span><span data-l="fr">−20&nbsp;%</span></span></button>
+      </div>
+
+      <div class="plans">
+        <article class="plan" aria-labelledby="plan-trial">
+          <h3 class="plan__name" id="plan-trial"><span data-l="en">Free trial</span><span data-l="fr">Essai gratuit</span></h3>
+          <p class="plan__price"><span class="plan__amount"><span data-l="en">€0</span><span data-l="fr">0&nbsp;€</span></span><span class="plan__per"><span data-l="en">for 14 days</span><span data-l="fr">pendant 14&nbsp;jours</span></span></p>
+          <p class="plan__note"><span data-l="en">No card. You sign in with GitHub when you first open the app.</span><span data-l="fr">Sans carte. Tu te connectes avec GitHub à la première ouverture de l’app.</span></p>
+          <a class="btn plan__cta" href="#download"><span data-l="en">Download</span><span data-l="fr">Télécharger</span></a>
+          <ul class="plan__list">
+            <li><span data-l="en">All of HangarAI on your computer</span><span data-l="fr">Tout HangarAI sur ton ordinateur</span></li>
+            <li><span data-l="en">150 credits to try dictation, images and share links</span><span data-l="fr">150 crédits pour essayer la dictée, les images et les liens de partage</span></li>
+            <li><span data-l="en">After 14 days, pick a plan to keep going</span><span data-l="fr">Après 14&nbsp;jours, choisis une offre pour continuer</span></li>
+          </ul>
+        </article>
+
+        <article class="plan plan--pro" aria-labelledby="plan-pro">
+          <h3 class="plan__name" id="plan-pro">HangarAI Pro</h3>
+          <p class="plan__price" data-when="month"><span class="plan__amount"><span data-l="en">€20</span><span data-l="fr">20&nbsp;€</span></span><span class="plan__per"><span data-l="en">a month</span><span data-l="fr">par mois</span></span></p>
+          <p class="plan__price" data-when="year"><span class="plan__amount"><span data-l="en">€192</span><span data-l="fr">192&nbsp;€</span></span><span class="plan__per"><span data-l="en">a year</span><span data-l="fr">par an</span></span></p>
+          <p class="plan__note" data-when="month"><span data-l="en">Or €192 a year, and save €48.</span><span data-l="fr">Ou 192&nbsp;€ par an, soit 48&nbsp;€ d’économie.</span></p>
+          <p class="plan__note" data-when="year"><span data-l="en">That is €16 a month, €48 less than paying monthly.</span><span data-l="fr">Soit 16&nbsp;€ par mois, 48&nbsp;€ de moins qu’en payant au mois.</span></p>
+          <a class="btn btn--primary plan__cta" data-when="month" href="buy/?product=pro_monthly"><span data-l="en">Subscribe monthly</span><span data-l="fr">S’abonner au mois</span></a>
+          <a class="btn btn--primary plan__cta" data-when="year" href="buy/?product=pro_yearly"><span data-l="en">Subscribe yearly</span><span data-l="fr">S’abonner à l’année</span></a>
+          <ul class="plan__list">
+            <li><span data-l="en">The whole app, and every update</span><span data-l="fr">Toute l’app, et chaque mise à jour</span></li>
+            <li><span data-l="en">3,000 credits every month</span><span data-l="fr">3&nbsp;000 crédits chaque mois</span></li>
+            <li><span data-l="en">3 cloud machines at once: Cloud Builds, CPU or GPU, and hosted nodes</span><span data-l="fr">3 machines cloud à la fois&nbsp;: Cloud Builds, CPU ou GPU, et nœuds hébergés</span></li>
+            <li><span data-l="en">On up to 3 computers</span><span data-l="fr">Sur 3 ordinateurs au plus</span></li>
+            <li><span data-l="en">Statistics synced across your machines</span><span data-l="fr">Statistiques synchronisées entre tes machines</span></li>
+            <li><span data-l="en">Cancel from your account at any time</span><span data-l="fr">Résiliable à tout moment depuis ton compte</span></li>
+          </ul>
+        </article>
+
+        <article class="plan plan--max" aria-labelledby="plan-max">
+          <h3 class="plan__name" id="plan-max">HangarAI Max</h3>
+          <p class="plan__price" data-when="month"><span class="plan__amount"><span data-l="en">€39</span><span data-l="fr">39&nbsp;€</span></span><span class="plan__per"><span data-l="en">a month</span><span data-l="fr">par mois</span></span></p>
+          <p class="plan__price" data-when="year"><span class="plan__amount"><span data-l="en">€374</span><span data-l="fr">374&nbsp;€</span></span><span class="plan__per"><span data-l="en">a year</span><span data-l="fr">par an</span></span></p>
+          <p class="plan__note" data-when="month"><span data-l="en">Or €374 a year, and save €94.</span><span data-l="fr">Ou 374&nbsp;€ par an, soit 94&nbsp;€ d’économie.</span></p>
+          <p class="plan__note" data-when="year"><span data-l="en">That is €31.17 a month, €94 less than paying monthly.</span><span data-l="fr">Soit 31,17&nbsp;€ par mois, 94&nbsp;€ de moins qu’en payant au mois.</span></p>
+          <a class="btn plan__cta" data-when="month" href="buy/?product=max_monthly"><span data-l="en">Subscribe monthly</span><span data-l="fr">S’abonner au mois</span></a>
+          <a class="btn plan__cta" data-when="year" href="buy/?product=max_yearly"><span data-l="en">Subscribe yearly</span><span data-l="fr">S’abonner à l’année</span></a>
+          <ul class="plan__list">
+            <li><span data-l="en">Everything in Pro</span><span data-l="fr">Tout ce qu’a Pro</span></li>
+            <li><span data-l="en">10,000 credits every month</span><span data-l="fr">10&nbsp;000 crédits chaque mois</span></li>
+            <li><span data-l="en">5 cloud machines at once, Cloud Builds first in the queue</span><span data-l="fr">5 machines cloud à la fois, Cloud Builds en tête de file</span></li>
+            <li><span data-l="en">Switch back to Pro, or cancel, at any time</span><span data-l="fr">Retour à Pro, ou résiliation, à tout moment</span></li>
+          </ul>
+        </article>
+      </div>
+
+      <p class="credits-line">
+        <span data-l="en"><b>Credits</b> pay for what runs on our servers (Cloud Builds, hosted nodes, images, share links, dictation), each at a rate shown before you use it. Pro’s 3,000 a month are about <span data-hours="dictation:3000">75</span> hours of hosted dictation, Max’s 10,000 about <span data-hours="dictation:10000">250</span>. Packs of 1,000 for €3 or 5,000 for €10 never expire, and pay as you go can take over when they run out, up to a limit you set. Prices include VAT. <a href="pricing/#compare">Pro or Max, and questions</a></span>
+        <span data-l="fr"><b>Les crédits</b> paient ce qui tourne sur nos serveurs (Cloud Builds, nœuds hébergés, images, liens de partage, dictée), chacun à un tarif affiché avant que tu t’en serves. Les 3&nbsp;000 par mois de Pro font environ <span data-hours="dictation:3000">75</span>&nbsp;heures de dictée hébergée, les 10&nbsp;000 de Max environ <span data-hours="dictation:10000">250</span>. Les packs de 1&nbsp;000 pour 3&nbsp;€ ou de 5&nbsp;000 pour 10&nbsp;€ n’expirent jamais, et le paiement à l’usage peut prendre le relais quand ils sont épuisés, jusqu’à une limite que tu fixes. Prix TTC. <a href="pricing/#compare">Pro ou Max, et tes questions</a></span>
+      </p>
+      <p class="credits-line"><span data-l="en">Using HangarAI 2.5.1 or earlier? You keep it for free. <a href="pricing/#faq-free">How</a></span><span data-l="fr">Tu utilises HangarAI 2.5.1 ou une version antérieure&nbsp;? Tu la gardes gratuitement. <a href="pricing/#faq-free">Comment</a></span></p>
     </div>
   </div>
 </section>
@@ -611,42 +725,43 @@
 <section class="sec download" id="download" aria-labelledby="download-title">
   <div class="wrap">
     <header class="head head--center">
-      <h2 class="sec__title" id="download-title">Download HangarAI 2.5.1</h2>
+      <h2 class="sec__title" id="download-title"><span data-l="en">Download HangarAI 3.0</span><span data-l="fr">Télécharge HangarAI 3.0</span></h2>
       <p class="sec__lede">
-        Install it once: it offers each new version and installs it in one click.
+        <span data-l="en">Every download starts with a 14-day free trial, no card: you sign in with GitHub when you first open it. Install it once: it offers each new version and installs it in one click.</span>
+        <span data-l="fr">Chaque téléchargement commence par 14&nbsp;jours d’essai gratuit, sans carte&nbsp;: tu te connectes avec GitHub à la première ouverture. Installe-la une fois&nbsp;: elle te propose chaque nouvelle version et l’installe en un clic.</span>
       </p>
     </header>
 
     <div class="plats">
       <article class="plat" data-os="windows">
         <h3 class="plat__os">Windows</h3>
-        <p class="plat__what">64-bit installer, for you alone, no administrator rights.</p>
-        <a class="btn btn--primary plat__get" href="https://github.com/hangar-ai/hangar/releases/download/v2.5.1/Hangar.AI_2.5.1_x64-setup.exe">Download <span class="ext">.exe</span></a>
-        <p class="plat__note">Not code-signed yet: SmartScreen asks once. <a href="#faq-smartscreen">What to do</a></p>
+        <p class="plat__what"><span data-l="en">64-bit installer, for you alone, no administrator rights.</span><span data-l="fr">Installeur 64&nbsp;bits, pour ton utilisateur seulement, sans droits d’administrateur.</span></p>
+        <a class="btn btn--primary plat__get" href="https://github.com/hangar-ai/hangar/releases/latest/download/Hangar.AI_x64-setup.exe"><span data-l="en">Download</span><span data-l="fr">Télécharger</span> <span class="ext">.exe</span></a>
+        <p class="plat__note"><span data-l="en">Not code-signed yet: SmartScreen asks once. <a href="#faq-smartscreen">What to do</a></span><span data-l="fr">Pas encore signé&nbsp;: SmartScreen demande une fois. <a href="#faq-smartscreen">Que faire</a></span></p>
       </article>
 
       <article class="plat" data-os="macos">
         <h3 class="plat__os">macOS</h3>
-        <p class="plat__what">2.2.0, the latest for the Mac for now. Universal, macOS 10.15 or later.</p>
-        <a class="btn btn--primary plat__get" href="https://github.com/hangar-ai/hangar/releases/download/v2.2.0/Hangar.AI_2.2.0_universal.dmg">Download 2.2.0 <span class="ext">.dmg</span></a>
-        <p class="plat__note">New macOS builds are on their way. <a href="#faq-macos">Details</a></p>
+        <p class="plat__what"><span data-l="en">Universal, for Apple Silicon and Intel. macOS 10.15 or later.</span><span data-l="fr">Universel, pour Apple Silicon et Intel. macOS 10.15 ou plus récent.</span></p>
+        <a class="btn btn--primary plat__get" href="https://github.com/hangar-ai/hangar/releases/latest/download/Hangar.AI_universal.dmg"><span data-l="en">Download</span><span data-l="fr">Télécharger</span> <span class="ext">.dmg</span></a>
+        <p class="plat__note"><span data-l="en">Signed and notarised by Apple: it opens like any Mac app.</span><span data-l="fr">Signé et notarié par Apple&nbsp;: il s’ouvre comme n’importe quelle app Mac.</span></p>
       </article>
 
       <article class="plat" data-os="linux">
         <h3 class="plat__os">Linux</h3>
-        <p class="plat__what">x86-64. The AppImage runs on distributions from 2022 on (glibc 2.35).</p>
-        <a class="btn btn--primary plat__get" href="https://github.com/hangar-ai/hangar/releases/download/v2.5.1/Hangar.AI_2.5.1_amd64.AppImage">Download <span class="ext">.AppImage</span></a>
+        <p class="plat__what"><span data-l="en">x86-64. The AppImage runs on distributions from 2022 on (glibc 2.35).</span><span data-l="fr">x86-64. L’AppImage tourne sur les distributions de 2022 et après (glibc 2.35).</span></p>
+        <a class="btn btn--primary plat__get" href="https://github.com/hangar-ai/hangar/releases/latest/download/Hangar.AI_amd64.AppImage"><span data-l="en">Download</span><span data-l="fr">Télécharger</span> <span class="ext">.AppImage</span></a>
         <p class="plat__note plat__alts">
-          Or a package:
-          <a href="https://github.com/hangar-ai/hangar/releases/download/v2.5.1/Hangar.AI_2.5.1_amd64.deb">.deb</a>
-          <a href="https://github.com/hangar-ai/hangar/releases/download/v2.5.1/Hangar.AI-2.5.1-1.x86_64.rpm">.rpm</a>
+          <span data-l="en">Or a package:</span><span data-l="fr">Ou un paquet&nbsp;:</span>
+          <a href="https://github.com/hangar-ai/hangar/releases/latest/download/Hangar.AI_amd64.deb">.deb</a>
+          <a href="https://github.com/hangar-ai/hangar/releases/latest/download/Hangar.AI_x86_64.rpm">.rpm</a>
         </p>
       </article>
     </div>
 
     <p class="after">
-      You also need <a href="https://code.claude.com/docs/en/overview">Claude Code</a> or <a href="https://learn.chatgpt.com/docs/codex/cli">Codex</a> (beta), or both: Hangar installs them if they are missing, and you sign in once.
-      <a href="https://github.com/hangar-ai/hangar/releases/latest">Every file of the latest release</a>
+      <span data-l="en">You also need <a href="https://code.claude.com/docs/en/overview">Claude Code</a> or <a href="https://learn.chatgpt.com/docs/codex/cli">Codex</a> (beta), or both: Hangar installs them if they are missing, and you sign in once. <a href="https://github.com/hangar-ai/hangar/releases/latest">Every file of the latest release</a></span>
+      <span data-l="fr">Il te faut aussi <a href="https://code.claude.com/docs/en/overview">Claude Code</a> ou <a href="https://learn.chatgpt.com/docs/codex/cli">Codex</a> (bêta), ou les deux&nbsp;: Hangar les installe s’ils manquent, et tu te connectes une seule fois. <a href="https://github.com/hangar-ai/hangar/releases/latest">Tous les fichiers de la dernière version</a></span>
     </p>
   </div>
 </section>
@@ -658,115 +773,127 @@
 
     <div class="qa">
       <details>
-        <summary>What does it cost?</summary>
+        <summary><span data-l="en">What does it cost?</span><span data-l="fr">Combien ça coûte&nbsp;?</span></summary>
         <div class="qa__a">
           <p>
-            Nothing at the moment, and no account is needed. The agents cost what they
-            already cost you, on your own plan or API key. An orchestrator, its workers and a reviewer run
-            at once, so they use a plan's limits faster than a single agent.
+            <span data-l="en">After a 14-day free trial with no card, HangarAI Pro is €20 a month or €192 a year, and HangarAI Max €39 a month or €374 a year, VAT included. They come with 3,000 or 10,000 credits a month for the hosted features: Cloud Builds, hosted nodes, images, share links and dictation. <a href="pricing/">Pricing</a>.</span>
+            <span data-l="fr">Après 14&nbsp;jours d’essai gratuit sans carte, HangarAI Pro coûte 20&nbsp;€ par mois ou 192&nbsp;€ par an, et HangarAI Max 39&nbsp;€ par mois ou 374&nbsp;€ par an, TVA comprise. Ils incluent 3&nbsp;000 ou 10&nbsp;000 crédits par mois pour les services hébergés&nbsp;: Cloud Builds, nœuds hébergés, images, liens de partage et dictée. <a href="pricing/">Voir les tarifs</a>.</span>
+          </p>
+          <p>
+            <span data-l="en">The agents cost what they already cost you, on your own plan or API key. An orchestrator, its workers and a reviewer run at once, so they use a plan’s limits faster than a single agent.</span>
+            <span data-l="fr">Les agents te coûtent ce qu’ils te coûtent déjà, sur ton propre abonnement ou ta clé API. Un orchestrateur, ses workers et un relecteur tournent en même temps&nbsp;: ils consomment donc les limites d’un abonnement plus vite qu’un agent seul.</span>
           </p>
         </div>
       </details>
 
       <details>
-        <summary>Does it work with my Claude or ChatGPT plan?</summary>
+        <summary><span data-l="en">Does it work with my Claude or ChatGPT plan?</span><span data-l="fr">Ça marche avec mon abonnement Claude ou ChatGPT&nbsp;?</span></summary>
         <div class="qa__a">
           <p>
-            Yes. Hangar starts the <code>claude</code> and the <code>codex</code> you installed, with the
-            logins they already have, and never asks for your credentials. The navigator shows your plan's
-            five-hour and weekly usage.
-          </p>
-        </div>
-      </details>
-
-      <details id="faq-codex">
-        <summary>Why is Codex marked beta?</summary>
-        <div class="qa__a">
-          <p>
-            Hangar drives Codex through the protocol OpenAI publishes for it, and was written from that
-            protocol's schema, source and docs rather than from recorded sessions. Until Codex users
-            confirm it, it stays beta. Something wrong in a Codex pane?
-            <a href="https://github.com/hangar-ai/hangar/issues/new?template=codex-bug.yml">Report it</a>.
-            What works with which agent: <a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/codex.md">the Codex guide</a>.
-          </p>
-        </div>
-      </details>
-
-      <details>
-        <summary>Does my code or data leave my machine?</summary>
-        <div class="qa__a">
-          <p>
-            Not through Hangar: no telemetry, and your code, prompts and transcripts never reach a server
-            of ours. The board lives in your project (<code>.hangar/board.json</code>); memory, settings
-            and statistics stay in the app's data folder. Hangar goes online to check GitHub for updates,
-            for the dictation model or Groq if you turn them on, for Hangar Mobile's notifications and
-            Discord once you enable them, and for the optional Hangar account once you sign in.
+            <span data-l="en">Yes. Hangar starts the <code>claude</code> and the <code>codex</code> you installed, with the logins they already have, and never asks for your credentials. The navigator shows your plan’s five-hour and weekly usage.</span>
+            <span data-l="fr">Oui. Hangar lance le <code>claude</code> et le <code>codex</code> que tu as installés, avec les connexions qu’ils ont déjà, et ne te demande jamais tes identifiants. Le navigateur affiche l’usage de ton abonnement, sur cinq heures et sur la semaine.</span>
           </p>
         </div>
       </details>
 
       <details id="faq-account">
-        <summary>Do I need a Hangar account?</summary>
+        <summary><span data-l="en">Do I need a HangarAI account?</span><span data-l="fr">Faut-il un compte HangarAI&nbsp;?</span></summary>
         <div class="qa__a">
           <p>
-            No. It is off by default, and Hangar works the same without one: it never contacts the account
-            server until you sign in. Sign in with GitHub, in Settings › Hangar account, to link your
-            machines; turn on the statistics sync, a switch of its own, and the Statistics page shows all
-            of them. It never receives a file path, a prompt or a line of code.
-            <a href="privacy.html">What it stores, and how to delete it</a>.
+            <span data-l="en">Yes, to start the trial: the first time you open the app, you sign in with GitHub. No card is asked, and there is one trial per account. Your account holds your license and its computers, your credits and your invoices, at <a href="account/">hangarai.dev/account</a>. Statistics across your machines are a switch of their own, off by default. <a href="privacy.html">What it stores, and how to delete it</a>.</span>
+            <span data-l="fr">Oui, pour démarrer l’essai&nbsp;: à la première ouverture de l’app, tu te connectes avec GitHub. Aucune carte n’est demandée, et il y a un essai par compte. Ton compte réunit ta licence et ses ordinateurs, tes crédits et tes factures, sur <a href="account/">hangarai.dev/account</a>. Les statistiques de toutes tes machines sont un interrupteur à part, désactivé par défaut. <a href="privacy.html">Ce qu’il stocke, et comment l’effacer</a>.</span>
+          </p>
+        </div>
+      </details>
+
+      <details id="faq-data">
+        <summary><span data-l="en">What leaves my computer?</span><span data-l="fr">Qu’est-ce qui quitte mon ordinateur&nbsp;?</span></summary>
+        <div class="qa__a">
+          <p>
+            <span data-l="en">Your code, prompts and transcripts stay on your computer, and there is no telemetry. The board lives in your project (<code>.hangar/board.json</code>); memory, settings and statistics stay in the app’s data folder.</span>
+            <span data-l="fr">Ton code, tes prompts et tes transcriptions restent sur ton ordinateur, et il n’y a aucune télémétrie. Le tableau vit dans ton projet (<code>.hangar/board.json</code>)&nbsp;; la mémoire, les réglages et les statistiques restent dans le dossier de données de l’app.</span>
+          </p>
+          <p>
+            <span data-l="en">HangarAI goes online to check your license, at launch and about once a day (its id, hashes of the machine and the app’s version), to look for updates on GitHub, and for the hosted features you use. A Cloud Build sends the project’s files, secrets left out, to a machine rented in the EU for that job alone, with a GPU or not, and wiped with it, unless you choose Any region for a run. A hosted node runs a workspace’s files and its agents’ sessions on a server rented for the session at Hetzner, in Germany or Finland; at the end they are parked, sealed so that only your computer can open them, for 7 days at most. An image’s prompt goes to fal, in the United States, which is told not to keep it. A share link stores the file you share in the EU until the link ends. Dictation’s audio goes to HangarAI’s server, then to Groq, and is not kept. Hangar Mobile’s relay passes on what it cannot read: your phone and your computer encrypt it end to end. <a href="privacy.html">The details</a>.</span>
+            <span data-l="fr">HangarAI se connecte pour vérifier ta licence, au lancement et environ une fois par jour (son identifiant, des empreintes de la machine et la version de l’app), pour chercher les mises à jour sur GitHub, et pour les services hébergés dont tu te sers. Un Cloud Build envoie les fichiers du projet, secrets exclus, sur une machine louée dans l’UE pour cette seule tâche, avec ou sans GPU, et effacée avec elle, sauf si tu choisis Toute région pour un lancement. Un nœud hébergé fait tourner les fichiers d’un workspace et les sessions de ses agents sur un serveur loué pour la session chez Hetzner, en Allemagne ou en Finlande&nbsp;; à la fin, ils sont mis de côté, scellés pour que seul ton ordinateur puisse les ouvrir, 7&nbsp;jours au plus. Le prompt d’une image part chez fal, aux États-Unis, à qui il est demandé de ne pas le garder. Un lien de partage stocke le fichier partagé dans l’UE jusqu’à ce que le lien expire. L’audio de la dictée passe par le serveur de HangarAI, puis par Groq, et n’est pas conservé. Le relais de Hangar Mobile transmet ce qu’il ne peut pas lire&nbsp;: ton téléphone et ton ordinateur le chiffrent de bout en bout. <a href="privacy.html">Le détail</a>.</span>
+          </p>
+        </div>
+      </details>
+
+      <details id="faq-off">
+        <summary><span data-l="en">Does it keep working with my computer off?</span><span data-l="fr">Ça continue ordinateur éteint&nbsp;?</span></summary>
+        <div class="qa__a">
+          <p>
+            <span data-l="en">Yes. With your computer on, close the window: HangarAI keeps working in the background. With it off, <b>Keep running in the cloud…</b>, in a workspace’s menu, rents a server for you alone at Hetzner, in Falkenstein, Nuremberg or Helsinki, and moves the workspace there with its board, memory and conversations. Its workers keep coding and delivering, and the window shows the server like any machine of yours. Claude Code and Codex are installed from their official channels, and you sign in on the server with your own account, which HangarAI never sees.</span>
+            <span data-l="fr">Oui. Ordinateur allumé, ferme la fenêtre&nbsp;: HangarAI continue en arrière-plan. Ordinateur éteint, <b>Continuer dans le cloud…</b>, dans le menu d’un workspace, loue un serveur rien que pour toi chez Hetzner, à Falkenstein, Nuremberg ou Helsinki, et y déplace le workspace avec son tableau, sa mémoire et ses conversations. Ses workers continuent de coder et de livrer, et la fenêtre affiche le serveur comme n’importe laquelle de tes machines. Claude Code et Codex y sont installés depuis leurs canaux officiels, et tu t’y connectes avec ton propre compte, que HangarAI ne voit jamais.</span>
+          </p>
+          <p>
+            <span data-l="en">Small, Standard or Large: 34, 61.4 or 119.4 credits a started hour, until the time you choose, up to 24 hours ahead and extended as often as your credits allow. The hours are reserved at the start and what you do not use comes back: an 11-hour night on a Standard is 675.4 credits, about €1.35. Hosted nodes come with Pro and Max, among your plan’s 3 or 5 cloud machines.</span>
+            <span data-l="fr">Petit, Standard ou Grand&nbsp;: 34, 61,4 ou 119,4&nbsp;crédits l’heure entamée, jusqu’à l’heure que tu choisis, au plus 24&nbsp;heures à l’avance, et prolongeable autant que tes crédits le permettent. Les heures sont réservées au départ et ce que tu n’utilises pas te revient&nbsp;: une nuit de 11&nbsp;heures sur un Standard, c’est 675,4&nbsp;crédits, environ 1,35&nbsp;€. Les nœuds hébergés viennent avec Pro et Max, parmi les 3 ou 5 machines cloud de ton offre.</span>
+          </p>
+          <p>
+            <span data-l="en">At the end, the node parks the work (each workspace’s branches, board, memory and conversations), sealed so that only your computer can open it, and the server is deleted. The work waits 7 days and comes back when your computer is on; if it is on at the end, it comes back at once. A Linux machine of your own reached over SSH works too: Settings › Nodes. <a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/hosted-nodes.md">The guide</a>.</span>
+            <span data-l="fr">À la fin, le nœud met le travail de côté (les branches, le tableau, la mémoire et les conversations de chaque workspace), scellé pour que seul ton ordinateur puisse l’ouvrir, et le serveur est supprimé. Le travail attend 7&nbsp;jours et revient quand ton ordinateur est allumé&nbsp;; s’il l’est à la fin, il revient aussitôt. Une machine Linux à toi, jointe en SSH, fait aussi l’affaire&nbsp;: Réglages › Nœuds. <a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/hosted-nodes.md">Le guide</a>.</span>
           </p>
         </div>
       </details>
 
       <details>
-        <summary>Will the orchestrator push to my repository?</summary>
+        <summary><span data-l="en">Will the orchestrator push to my repository?</span><span data-l="fr">L’orchestrateur va-t-il pousser sur mon dépôt&nbsp;?</span></summary>
         <div class="qa__a">
           <p>
-            No. Workers commit on branches of their own, and a delivery lands on yours as a local
-            fast-forward. Hangar never pushes, opens a pull request, tags or deploys, and its agents are
-            told not to either.
+            <span data-l="en">No. Workers commit on branches of their own, and a delivery lands on yours as a local merge. Hangar never pushes, opens a pull request, tags or deploys, and its agents are told not to either.</span>
+            <span data-l="fr">Non. Les workers commitent sur leurs propres branches, et une livraison arrive sur la tienne par une fusion locale. Hangar ne pousse jamais, n’ouvre pas de pull request, ne pose pas de tag et ne déploie rien, et ses agents ont pour consigne de ne pas le faire non plus.</span>
           </p>
         </div>
       </details>
 
-      <details id="faq-smartscreen">
-        <summary>Why does Windows warn me about the installer?</summary>
+      <details id="faq-codex">
+        <summary><span data-l="en">Why is Codex marked beta?</span><span data-l="fr">Pourquoi Codex est-il marqué bêta&nbsp;?</span></summary>
         <div class="qa__a">
           <p>
-            It is not code-signed yet, so SmartScreen warns the first time: choose <b>More info</b>, then
-            <b>Run anyway</b>.
-          </p>
-        </div>
-      </details>
-
-      <details id="faq-macos">
-        <summary>Is there a version for the Mac?</summary>
-        <div class="qa__a">
-          <p>
-            Releases after 2.2.0 are built for Windows and Linux only. 2.2.0's universal disk image,
-            signed and notarised, is the latest one for the Mac for now, and there is none to update it
-            to yet. New macOS builds are on their way.
+            <span data-l="en">Hangar drives Codex through the protocol OpenAI publishes for it, and was written from that protocol’s schema, source and docs rather than from recorded sessions. Until Codex users confirm it, it stays beta. Something wrong in a Codex pane? <a href="https://github.com/hangar-ai/hangar/issues/new?template=codex-bug.yml">Report it</a>. What works with which agent: <a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/codex.md">the Codex guide</a>.</span>
+            <span data-l="fr">Hangar pilote Codex par le protocole qu’OpenAI publie pour lui, et a été écrit à partir du schéma, du code source et de la doc de ce protocole plutôt que de sessions enregistrées. Tant que des utilisateurs de Codex ne l’ont pas confirmé, il reste en bêta. Un souci dans un panneau Codex&nbsp;? <a href="https://github.com/hangar-ai/hangar/issues/new?template=codex-bug.yml">Signale-le</a>. Ce qui marche avec quel agent&nbsp;: <a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/codex.md">le guide Codex</a>.</span>
           </p>
         </div>
       </details>
 
       <details id="faq-mobile">
-        <summary>What does Hangar Mobile need?</summary>
+        <summary><span data-l="en">What does Hangar Mobile need?</span><span data-l="fr">De quoi Hangar Mobile a-t-il besoin&nbsp;?</span></summary>
         <div class="qa__a">
           <p>
-            Hangar open on a PC that stays on, and Tailscale on the PC and the phone, on the same account.
-            On an iPhone, notifications need iOS 16.4 or later and the app opened from the Home Screen.
-            Merging a delivery is still done on the PC.
+            <span data-l="en">HangarAI running on a computer that stays on. Turn it on in Settings › Mobile and scan the QR code: your phone then reaches the computer from anywhere through HangarAI’s relay, encrypted end to end, or through your own Tailscale network. On an iPhone, notifications need iOS 16.4 or later and the app opened from the Home Screen; pairing through the relay needs iOS 17. Merging a delivery is still done on the computer. <a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/mobile.md">The Hangar Mobile guide</a>.</span>
+            <span data-l="fr">HangarAI ouvert sur un ordinateur qui reste allumé. Active-le dans Réglages › Mobile et scanne le QR code&nbsp;: ton téléphone joint alors l’ordinateur de partout via le relais de HangarAI, chiffré de bout en bout, ou via ton propre réseau Tailscale. Sur iPhone, les notifications demandent iOS 16.4 ou plus récent, et l’app ouverte depuis l’écran d’accueil&nbsp;; l’association via le relais demande iOS 17. Fusionner une livraison se fait toujours sur l’ordinateur. <a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/mobile.md">Le guide de Hangar Mobile</a>.</span>
+          </p>
+        </div>
+      </details>
+
+      <details id="faq-smartscreen">
+        <summary><span data-l="en">Why does Windows warn me about the installer?</span><span data-l="fr">Pourquoi Windows me met-il en garde contre l’installeur&nbsp;?</span></summary>
+        <div class="qa__a">
+          <p>
+            <span data-l="en">It is not code-signed yet, so SmartScreen warns the first time: choose <b>More info</b>, then <b>Run anyway</b>.</span>
+            <span data-l="fr">Il n’est pas encore signé, alors SmartScreen te prévient la première fois&nbsp;: choisis <b>Informations complémentaires</b>, puis <b>Exécuter quand même</b>.</span>
+          </p>
+        </div>
+      </details>
+
+      <details id="faq-macos">
+        <summary><span data-l="en">Is there a version for the Mac?</span><span data-l="fr">Y a-t-il une version pour Mac&nbsp;?</span></summary>
+        <div class="qa__a">
+          <p>
+            <span data-l="en">Yes. HangarAI 3.0 comes for the Mac as for Windows and Linux: one universal disk image for Apple Silicon and Intel, signed and notarised, for macOS 10.15 or later. Like the others, it offers each new version and installs it in one click.</span>
+            <span data-l="fr">Oui. HangarAI 3.0 sort sur Mac comme sur Windows et Linux&nbsp;: une image disque universelle pour Apple Silicon et Intel, signée et notariée, pour macOS 10.15 ou plus récent. Comme les autres, elle te propose chaque nouvelle version et l’installe en un clic.</span>
           </p>
         </div>
       </details>
 
       <details>
-        <summary>Where do I ask a question?</summary>
+        <summary><span data-l="en">Where do I ask a question?</span><span data-l="fr">Où poser une question&nbsp;?</span></summary>
         <div class="qa__a">
           <p>
-            On the <a href="https://discord.gg/hangarai">Discord</a>. Bugs and requests go to
-            <a href="https://github.com/hangar-ai/hangar/issues">GitHub issues</a>.
+            <span data-l="en">On the <a href="https://discord.gg/hangarai">Discord</a>. Bugs and requests go to <a href="https://github.com/hangar-ai/hangar/issues">GitHub issues</a>.</span>
+            <span data-l="fr">Sur le <a href="https://discord.gg/hangarai">Discord</a>. Les bugs et les demandes vont dans les <a href="https://github.com/hangar-ai/hangar/issues">issues GitHub</a>.</span>
           </p>
         </div>
       </details>
@@ -776,30 +903,84 @@
 
 </main>
 
-<footer class="foot">
+<!-- site footer: the same on every page -->
+<footer class="foot" id="site-map">
   <div class="wrap foot__in">
-    <a class="brand brand--foot" href="#top" aria-label="HangarAI, back to top">
-      <svg class="brand__mark" width="16" height="16" viewBox="200 200 624 624" aria-hidden="true">
+    <div class="foot__top">
+      <div class="foot__brand">
+        <a class="brand" href="#top" aria-label="HangarAI, back to top" data-fr="HangarAI, retour en haut">
+          <svg class="brand__mark" width="20" height="20" viewBox="200 200 624 624" aria-hidden="true">
         <rect x="200" y="200" width="260" height="624" fill="var(--accent)"></rect>
         <rect x="538" y="200" width="286" height="260" fill="var(--fg-hi)"></rect>
         <rect x="538" y="538" width="286" height="286" fill="var(--fg-hi)"></rect>
       </svg>
-      <span class="brand__name">HangarAI</span>
-    </a>
-    <p class="foot__by">Made by <a href="https://github.com/simnJS">simnJS</a>.</p>
-    <nav class="foot__links" aria-label="Project">
-      <a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/README.md">Guide</a>
-      <a href="https://github.com/hangar-ai/hangar/releases">Releases</a>
-      <a href="https://discord.gg/hangarai">Discord</a>
-      <a href="https://github.com/hangar-ai/hangar/blob/main/LICENSE">License</a>
-      <a href="privacy.html">Privacy</a>
-    </nav>
+          <span class="brand__name">HangarAI</span>
+        </a>
+        <p class="foot__tag"><span data-l="en">A team of coding agents, in one native window. Local, with no usage telemetry.</span><span data-l="fr">Une équipe d’agents de code, dans une seule fenêtre native. En local, sans télémétrie d’usage.</span></p>
+        <div class="foot__social">
+          <a href="https://github.com/hangar-ai/hangar" aria-label="HangarAI on GitHub" data-fr="HangarAI sur GitHub"><svg width="17" height="17" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"></path></svg></a>
+          <a href="https://discord.gg/hangarai" aria-label="HangarAI on Discord" data-fr="HangarAI sur Discord"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.32 4.37a19.8 19.8 0 0 0-4.89-1.52.07.07 0 0 0-.08.04c-.21.37-.44.86-.61 1.25a18.27 18.27 0 0 0-5.49 0 12.6 12.6 0 0 0-.62-1.25.08.08 0 0 0-.08-.04 19.74 19.74 0 0 0-4.88 1.52.07.07 0 0 0-.03.03C.53 9.05-.32 13.58.1 18.06a.08.08 0 0 0 .03.06 19.9 19.9 0 0 0 5.99 3.03.08.08 0 0 0 .08-.03c.46-.63.87-1.3 1.23-1.99a.08.08 0 0 0-.04-.11 13.1 13.1 0 0 1-1.87-.89.08.08 0 0 1-.01-.13l.37-.29a.07.07 0 0 1 .08-.01c3.93 1.79 8.18 1.79 12.06 0a.07.07 0 0 1 .08.01l.37.29a.08.08 0 0 1-.01.13c-.6.35-1.22.64-1.87.89a.08.08 0 0 0-.04.11c.36.7.77 1.36 1.22 1.99a.08.08 0 0 0 .08.03 19.84 19.84 0 0 0 6-3.03.08.08 0 0 0 .04-.06c.5-5.18-.84-9.67-3.55-13.66a.06.06 0 0 0-.03-.03ZM8.02 15.33c-1.18 0-2.16-1.09-2.16-2.42s.96-2.42 2.16-2.42c1.21 0 2.18 1.1 2.16 2.42 0 1.33-.96 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.15-1.09-2.15-2.42s.95-2.42 2.15-2.42c1.21 0 2.18 1.1 2.16 2.42 0 1.33-.95 2.42-2.16 2.42Z"></path></svg></a>
+        </div>
+      </div>
+      <nav class="foot__cols" aria-label="Site map" data-fr="Plan du site">
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Product</span><span data-l="fr">Produit</span></h2>
+        <ul>
+          <li><a href="#how"><span data-l="en">Features</span><span data-l="fr">Fonctionnalités</span></a></li>
+          <li><a href="pricing/"><span data-l="en">Pricing</span><span data-l="fr">Tarifs</span></a></li>
+          <li><a href="#download"><span data-l="en">Download</span><span data-l="fr">Télécharger</span></a></li>
+          <li><a href="#control">Hangar Mobile</a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md"><span data-l="en">Changelog</span><span data-l="fr">Nouveautés</span></a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Resources</span><span data-l="fr">Ressources</span></h2>
+        <ul>
+          <li><a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/README.md">Guide</a></li>
+          <li><a href="#faq">Questions</a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/releases"><span data-l="en">Releases</span><span data-l="fr">Versions</span></a></li>
+          <li><a href="https://discord.gg/hangarai"><span data-l="en">Discord community</span><span data-l="fr">Communauté Discord</span></a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/issues"><span data-l="en">Report a bug</span><span data-l="fr">Signaler un bug</span></a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Company</span><span data-l="fr">Société</span></h2>
+        <ul>
+          <li><a href="account/"><span data-l="en">Account</span><span data-l="fr">Compte</span></a></li>
+          <li><a href="affiliates/"><span data-l="en">Affiliates</span><span data-l="fr">Affiliation</span></a></li>
+          <li><a href="mailto:contact@hangarai.dev">Contact</a></li>
+          <li><a href="https://github.com/simnJS"><span data-l="en">Made by simnJS</span><span data-l="fr">Fait par simnJS</span></a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Legal</span><span data-l="fr">Légal</span></h2>
+        <ul>
+          <li><a href="privacy.html"><span data-l="en">Privacy</span><span data-l="fr">Confidentialité</span></a></li>
+          <li><a href="terms/"><span data-l="en">Cloud terms</span><span data-l="fr">Conditions du Cloud</span></a></li>
+          <li><a href="legal/affiliate-terms.html"><span data-l="en">Affiliate terms</span><span data-l="fr">Conditions d’affiliation</span></a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/blob/main/LICENSE"><span data-l="en">License</span><span data-l="fr">Licence</span></a></li>
+        </ul>
+      </div>
+      </nav>
+    </div>
+    <div class="foot__base">
+      <p><span>© 2026 HangarAI</span><span><span data-l="en">Payments by</span><span data-l="fr">Paiements par</span> <a href="https://polar.sh">Polar</a></span></p>
+      <div class="foot__end"><div class="lang-seg" role="group" aria-label="Language" data-fr="Langue">
+        <button type="button" class="lang-seg__btn" data-set-lang="en" lang="en" aria-label="English" aria-pressed="true">EN</button>
+        <button type="button" class="lang-seg__btn" data-set-lang="fr" lang="fr" aria-label="Français" aria-pressed="false">FR</button>
+      </div></div>
+    </div>
   </div>
 </footer>
+<!-- /site footer -->
 
-<script src="main.js?v=0630350228" defer></script>
+<script src="main.js?v=a849d1e48d" defer></script>
+<script src="assets/lang.js?v=a961f665bf" defer></script>
+<script src="assets/api.js?v=f0a126ddde" defer></script>
+<script src="assets/offers.js?v=c4d8b4590a" defer></script>
 <script src="vendor/gsap.min.js?v=3.15.0" defer></script>
 <script src="vendor/ScrollTrigger.min.js?v=3.15.0" defer></script>
-<script src="assets/motion.js?v=28ea0d6bba" defer></script>
+<script src="assets/motion.js?v=df5717ed2c" defer></script>
+<script src="assets/nav.js?v=a2538a43ce" defer></script>
 </body>
 </html>

@@ -1,0 +1,462 @@
+{
+ "v": 1,
+ "title": "Lumen",
+ "from": 1795010700000,
+ "to": 1795013070000,
+ "made": 1795013160000,
+ "totals": {
+  "tasks": 12,
+  "landed": 8,
+  "done": 8,
+  "failed": 2,
+  "agents": 6,
+  "duration": 2370000,
+  "added": 1914,
+  "removed": 359,
+  "files": 75
+ },
+ "agents": [
+  {
+   "name": "Ada",
+   "role": "orchestrator",
+   "tasks": 0,
+   "landed": 0
+  },
+  {
+   "name": "Ben",
+   "role": "worker",
+   "tasks": 2,
+   "landed": 2
+  },
+  {
+   "name": "Cleo",
+   "role": "worker",
+   "tasks": 2,
+   "landed": 1
+  },
+  {
+   "name": "Finn",
+   "role": "worker",
+   "tasks": 2,
+   "landed": 1
+  },
+  {
+   "name": "Iris",
+   "role": "worker",
+   "tasks": 3,
+   "landed": 3
+  },
+  {
+   "name": "Theo",
+   "role": "worker",
+   "tasks": 2,
+   "landed": 1
+  }
+ ],
+ "tasks": [
+  {
+   "id": "t1",
+   "title": "Sign in with a magic link",
+   "labels": [
+    "auth"
+   ],
+   "agent": "Ben"
+  },
+  {
+   "id": "t2",
+   "title": "Dark mode that follows the system",
+   "labels": [
+    "ui"
+   ],
+   "agent": "Cleo"
+  },
+  {
+   "id": "t3",
+   "title": "Search across notes, as you type",
+   "labels": [
+    "search"
+   ],
+   "agent": "Finn"
+  },
+  {
+   "id": "t4",
+   "title": "Export a notebook as Markdown",
+   "labels": [
+    "export"
+   ],
+   "agent": "Iris"
+  },
+  {
+   "id": "t5",
+   "title": "Faster first paint on the notes list",
+   "labels": [
+    "perf"
+   ],
+   "agent": "Theo"
+  },
+  {
+   "id": "t6",
+   "title": "Keyboard shortcuts sheet",
+   "labels": [
+    "ui"
+   ],
+   "agent": "Iris"
+  },
+  {
+   "id": "t7",
+   "title": "Offline edits sync when the network is back",
+   "labels": [
+    "sync"
+   ],
+   "agent": "Cleo"
+  },
+  {
+   "id": "t8",
+   "title": "Drag images into a note",
+   "labels": [
+    "editor"
+   ],
+   "agent": "Theo"
+  },
+  {
+   "id": "t9",
+   "title": "Visible focus rings everywhere",
+   "labels": [
+    "a11y"
+   ],
+   "agent": "Iris"
+  },
+  {
+   "id": "t10",
+   "title": "Onboarding: three cards, skippable",
+   "labels": [
+    "ui"
+   ],
+   "agent": "Ben"
+  },
+  {
+   "id": "t11",
+   "title": "Rate-limit the API per account",
+   "labels": [
+    "api"
+   ],
+   "agent": "Finn"
+  },
+  {
+   "id": "t12",
+   "title": "Weekly digest email",
+   "labels": [
+    "email"
+   ]
+  }
+ ],
+ "events": [
+  {
+   "at": 1795010700000,
+   "task": "t1",
+   "type": "created"
+  },
+  {
+   "at": 1795010720000,
+   "task": "t2",
+   "type": "created"
+  },
+  {
+   "at": 1795010740000,
+   "task": "t3",
+   "type": "created"
+  },
+  {
+   "at": 1795010760000,
+   "task": "t4",
+   "type": "created"
+  },
+  {
+   "at": 1795010780000,
+   "task": "t5",
+   "type": "created"
+  },
+  {
+   "at": 1795010800000,
+   "task": "t6",
+   "type": "created"
+  },
+  {
+   "at": 1795010820000,
+   "task": "t7",
+   "type": "created"
+  },
+  {
+   "at": 1795010840000,
+   "task": "t1",
+   "type": "started",
+   "agent": "Ben"
+  },
+  {
+   "at": 1795010845000,
+   "task": "t2",
+   "type": "started",
+   "agent": "Cleo"
+  },
+  {
+   "at": 1795010880000,
+   "task": "t3",
+   "type": "started",
+   "agent": "Finn"
+  },
+  {
+   "at": 1795010890000,
+   "task": "t5",
+   "type": "started",
+   "agent": "Theo"
+  },
+  {
+   "at": 1795010940000,
+   "task": "t4",
+   "type": "started",
+   "agent": "Iris"
+  },
+  {
+   "at": 1795011180000,
+   "task": "t1",
+   "type": "progress",
+   "agent": "Ben",
+   "percent": 40,
+   "note": "Token table and email template done; the SMTP password ([secret]) now comes from the environment."
+  },
+  {
+   "at": 1795011300000,
+   "task": "t2",
+   "type": "progress",
+   "agent": "Cleo",
+   "percent": 70,
+   "note": "Every colour is a token now; the switch needs no reload."
+  },
+  {
+   "at": 1795011360000,
+   "task": "t3",
+   "type": "progress",
+   "agent": "Finn",
+   "percent": 35,
+   "note": "Index built in a worker; ranking next."
+  },
+  {
+   "at": 1795011540000,
+   "task": "t4",
+   "type": "landed",
+   "agent": "Iris",
+   "commit": "4f1c9a2",
+   "summary": "A notebook exports as a folder of Markdown files with its images beside them, ready for any editor.",
+   "checked": true,
+   "reviewed": true,
+   "added": 186,
+   "removed": 12,
+   "files": 5
+  },
+  {
+   "at": 1795011580000,
+   "task": "t8",
+   "type": "created"
+  },
+  {
+   "at": 1795011600000,
+   "task": "t6",
+   "type": "started",
+   "agent": "Iris"
+  },
+  {
+   "at": 1795011720000,
+   "task": "t2",
+   "type": "landed",
+   "agent": "Cleo",
+   "commit": "b83e017",
+   "summary": "The app follows the system’s light or dark appearance, switches without a reload, and every colour now comes from one set of tokens.",
+   "checked": true,
+   "reviewed": true,
+   "added": 268,
+   "removed": 94,
+   "files": 12
+  },
+  {
+   "at": 1795011780000,
+   "task": "t7",
+   "type": "started",
+   "agent": "Cleo"
+  },
+  {
+   "at": 1795011840000,
+   "task": "t1",
+   "type": "failed",
+   "agent": "Ben",
+   "why": "check"
+  },
+  {
+   "at": 1795011960000,
+   "task": "t3",
+   "type": "progress",
+   "agent": "Finn",
+   "percent": 70,
+   "note": "Ranking by title first, then by recent edits; highlights done."
+  },
+  {
+   "at": 1795012020000,
+   "task": "t5",
+   "type": "failed",
+   "agent": "Theo",
+   "why": "conflict"
+  },
+  {
+   "at": 1795012140000,
+   "task": "t6",
+   "type": "landed",
+   "agent": "Iris",
+   "commit": "0d2b6c8",
+   "summary": "Press ? anywhere to see every shortcut, grouped by what it does; the sheet can be searched.",
+   "checked": true,
+   "reviewed": true,
+   "added": 142,
+   "removed": 8,
+   "files": 4
+  },
+  {
+   "at": 1795012200000,
+   "task": "t9",
+   "type": "created"
+  },
+  {
+   "at": 1795012210000,
+   "task": "t11",
+   "type": "created"
+  },
+  {
+   "at": 1795012230000,
+   "task": "t9",
+   "type": "started",
+   "agent": "Iris"
+  },
+  {
+   "at": 1795012260000,
+   "task": "t1",
+   "type": "landed",
+   "agent": "Ben",
+   "commit": "7aa41e5",
+   "summary": "Sign-in by a one-time link sent by email: the link works once, for 15 minutes, and opens the app already signed in. Passwords stay as they were.",
+   "checked": true,
+   "reviewed": true,
+   "added": 412,
+   "removed": 36,
+   "files": 9
+  },
+  {
+   "at": 1795012320000,
+   "task": "t10",
+   "type": "created"
+  },
+  {
+   "at": 1795012340000,
+   "task": "t10",
+   "type": "started",
+   "agent": "Ben"
+  },
+  {
+   "at": 1795012380000,
+   "task": "t7",
+   "type": "progress",
+   "agent": "Cleo",
+   "percent": 60,
+   "note": "Edits queue up offline; conflicts resolve per field, last edit wins."
+  },
+  {
+   "at": 1795012440000,
+   "task": "t5",
+   "type": "landed",
+   "agent": "Theo",
+   "commit": "c19f3d4",
+   "summary": "The notes list draws in 180 ms instead of 640 ms on a cold start: the first screen is drawn before the rest loads.",
+   "checked": true,
+   "reviewed": true,
+   "added": 94,
+   "removed": 120,
+   "files": 6
+  },
+  {
+   "at": 1795012500000,
+   "task": "t8",
+   "type": "started",
+   "agent": "Theo"
+  },
+  {
+   "at": 1795012560000,
+   "task": "t12",
+   "type": "created"
+  },
+  {
+   "at": 1795012680000,
+   "task": "t3",
+   "type": "landed",
+   "agent": "Finn",
+   "commit": "e5207b9",
+   "summary": "Search finds notes as you type, titles first, with the matched words highlighted. The index is built in a background worker and kept up to date as notes change.",
+   "checked": true,
+   "reviewed": true,
+   "added": 530,
+   "removed": 41,
+   "files": 14
+  },
+  {
+   "at": 1795012740000,
+   "task": "t11",
+   "type": "started",
+   "agent": "Finn"
+  },
+  {
+   "at": 1795012800000,
+   "task": "t9",
+   "type": "landed",
+   "agent": "Iris",
+   "commit": "91be4f0",
+   "summary": "Every button, link and field shows a visible focus ring in both themes, with the contrast WCAG 2.2 asks for.",
+   "checked": true,
+   "reviewed": true,
+   "added": 77,
+   "removed": 31,
+   "files": 18
+  },
+  {
+   "at": 1795012860000,
+   "task": "t8",
+   "type": "progress",
+   "agent": "Theo",
+   "percent": 35,
+   "note": "Drop zone and upload done; resizing next."
+  },
+  {
+   "at": 1795012920000,
+   "task": "t11",
+   "type": "progress",
+   "agent": "Finn",
+   "percent": 20,
+   "note": "Limits per plan read from the database."
+  },
+  {
+   "at": 1795012980000,
+   "task": "t7",
+   "type": "review",
+   "agent": "Cleo"
+  },
+  {
+   "at": 1795013070000,
+   "task": "t10",
+   "type": "landed",
+   "agent": "Ben",
+   "commit": "3e6d58a",
+   "summary": "New accounts see three short cards on what Lumen does; one tap skips them, and they never come back.",
+   "checked": true,
+   "reviewed": true,
+   "added": 205,
+   "removed": 17,
+   "files": 7
+  }
+ ],
+ "referral": "lumen"
+}

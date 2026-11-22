@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title data-fr="Partagé avec HangarAI">Shared with HangarAI</title>
+<meta name="description" content="A page, a PDF, an image or a 3D model shared with HangarAI." data-fr="Une page, un PDF, une image ou un modèle 3D partagé avec HangarAI.">
+<meta name="robots" content="noindex, nofollow">
+<!-- The share's id in this page's address is the link's only secret: no
+     request from here names it to anyone else. -->
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#121316" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+
+<!-- Absolute paths: this page is served at /s/<id> as well as /s/. Its
+     script and style live in /assets/: the server rewrites every /s/* here.
+     docs/native/shares.md says how the files are served, and why never from
+     this origin. -->
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+<link rel="preload" href="/fonts/inter-latin-opsz.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/styles.css?v=925761be91">
+<link rel="stylesheet" href="/assets/pages.css?v=2d3d68d3af">
+<link rel="stylesheet" href="/assets/share.css?v=8175e191aa">
+<script>
+(function (r) {
+  r.classList.add('js');
+  var l = null;
+  try { l = new URLSearchParams(location.search).get('lang'); } catch (e) {}
+  if (l !== 'en' && l !== 'fr') { try { l = localStorage.getItem('hangar.lang'); } catch (e) {} }
+  if (l !== 'en' && l !== 'fr') l = /^fr\b/i.test((navigator.languages && navigator.languages[0]) || navigator.language || '') ? 'fr' : 'en';
+  r.lang = l;
+  r.dataset.lang = l;
+})(document.documentElement);
+</script>
+</head>
+<body>
+
+<a class="skip" href="#main"><span data-l="en">Skip to content</span><span data-l="fr">Aller au contenu</span></a>
+
+<!-- the site's header, kept to the brand and the language: the viewer
+     shows what was shared, not the site (assets/nav.js wires the menu) -->
+<header class="bar" id="bar">
+  <div class="bar__in">
+    <a class="brand" href="/" aria-label="HangarAI, home" data-fr="HangarAI, accueil">
+      <svg class="brand__mark" width="20" height="20" viewBox="200 200 624 624" aria-hidden="true">
+        <rect x="200" y="200" width="260" height="624" fill="var(--accent)"></rect>
+        <rect x="538" y="200" width="286" height="260" fill="var(--fg-hi)"></rect>
+        <rect x="538" y="538" width="286" height="286" fill="var(--fg-hi)"></rect>
+      </svg>
+      <span class="brand__name">HangarAI</span>
+    </a>
+    <div class="bar__end share-bar__end">
+      <div class="lang">
+        <button type="button" class="nav__link lang__btn" aria-expanded="false" aria-controls="lang-menu" aria-label="Language" data-fr="Langue"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><circle cx="8" cy="8" r="6.25"></circle><path d="M1.75 8h12.5M8 1.75c1.7 1.8 2.5 3.9 2.5 6.25S9.7 12.45 8 14.25C6.3 12.45 5.5 10.35 5.5 8S6.3 3.55 8 1.75Z"></path></svg><span data-l="en">EN</span><span data-l="fr">FR</span></button>
+        <div class="lang__menu" id="lang-menu" role="group" aria-label="Language" data-fr="Langue">
+          <button type="button" class="lang__opt" data-set-lang="en" lang="en" aria-pressed="true">English<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"></path></svg></button>
+          <button type="button" class="lang__opt" data-set-lang="fr" lang="fr" aria-pressed="false">Français<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"></path></svg></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main id="main" class="share" tabindex="-1" data-state="loading" aria-busy="true">
+
+  <!-- loading, then live: the share's head and its content -->
+  <section class="share__live" data-show="loading live" aria-labelledby="share-title">
+    <div class="share__head">
+      <div class="share__titles">
+        <p class="share__kind" id="share-kind">
+          <span class="share__kind-icon" aria-hidden="true"></span>
+          <span class="share__kind-name"></span>
+        </p>
+        <h1 class="share__title" id="share-title"><span class="share__wait share__wait--title" aria-hidden="true"></span></h1>
+        <p class="share__meta" id="share-meta"><span class="share__wait share__wait--meta" aria-hidden="true"></span></p>
+      </div>
+      <div class="share__tools" data-show="live">
+        <button type="button" class="btn btn--sm btn--quiet" id="share-full" hidden>
+          <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.75 6V2.75H6M10 2.75h3.25V6M13.25 10v3.25H10M6 13.25H2.75V10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span data-l="en">Full screen</span><span data-l="fr">Plein écran</span>
+        </button>
+        <a class="btn btn--sm" id="share-open" target="_blank" rel="noopener noreferrer" hidden>
+          <span data-l="en">Open</span><span data-l="fr">Ouvrir</span>
+          <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.25H3.75a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V10M9 2.75h4.25V7M13 3 7.5 8.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+      </div>
+    </div>
+
+    <!-- share.js puts the content here: an image, a PDF in the browser's
+         own viewer, a page in a sandboxed frame, a 3D model. -->
+    <div class="share__stage" id="share-stage" data-kind="">
+      <div class="share__shimmer" aria-hidden="true"></div>
+    </div>
+
+    <p class="share__trouble" id="share-trouble" role="alert" hidden></p>
+  </section>
+
+  <!-- gone: expired, deleted or taken down; nothing of the content -->
+  <section class="share__end" data-show="gone missing none error" hidden aria-labelledby="share-end-title">
+    <div class="share__end-card">
+      <span class="share__end-icon" aria-hidden="true">
+        <svg data-show-icon="gone" width="26" height="26" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg data-show-icon="taken_down" width="26" height="26" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m6.5 17.5 11-11" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <svg data-show-icon="missing" width="26" height="26" viewBox="0 0 24 24"><path d="M9.5 14.5 7.75 16.25a2.83 2.83 0 0 1-4-4L6.5 9.5a2.83 2.83 0 0 1 4 0M14.5 9.5l1.75-1.75a2.83 2.83 0 0 1 4 4L17.5 14.5a2.83 2.83 0 0 1-4 0M9 15l6-6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg data-show-icon="error" width="26" height="26" viewBox="0 0 24 24"><path d="M12 4 3.5 19h17L12 4Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 10v4M12 16.6v.1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </span>
+
+      <div data-show="gone" data-show-reason="expired deleted">
+        <h1 class="share__end-title" id="share-end-title" tabindex="-1">
+          <span data-l="en">This link has expired</span>
+          <span data-l="fr">Ce lien a expiré</span>
+        </h1>
+        <p class="share__end-text">
+          <span data-l="en">What it showed was deleted. Ask the person who sent it for a new link.</span>
+          <span data-l="fr">Ce qu’il montrait a été supprimé. Demande un nouveau lien à la personne qui te l’a envoyé.</span>
+        </p>
+      </div>
+
+      <div data-show="gone" data-show-reason="taken_down">
+        <h1 class="share__end-title" tabindex="-1">
+          <span data-l="en">This page was taken down</span>
+          <span data-l="fr">Cette page a été retirée</span>
+        </h1>
+        <p class="share__end-text">
+          <span data-l="en">HangarAI removed it after a report: it broke the rules of what may be shared.</span>
+          <span data-l="fr">HangarAI l’a retirée après un signalement&nbsp;: elle enfreignait les règles de ce qui peut être partagé.</span>
+        </p>
+      </div>
+
+      <div data-show="missing">
+        <h1 class="share__end-title" tabindex="-1">
+          <span data-l="en">No share at this address</span>
+          <span data-l="fr">Aucun partage à cette adresse</span>
+        </h1>
+        <p class="share__end-text">
+          <span data-l="en">Check the link with the person who sent it: a share link looks like hangarai.dev/s/ followed by 22 letters and digits.</span>
+          <span data-l="fr">Vérifie le lien auprès de la personne qui te l’a envoyé&nbsp;: un lien de partage ressemble à hangarai.dev/s/ suivi de 22 lettres et chiffres.</span>
+        </p>
+      </div>
+
+      <div data-show="none">
+        <h1 class="share__end-title" tabindex="-1">
+          <span data-l="en">Nothing shared here</span>
+          <span data-l="fr">Rien de partagé ici</span>
+        </h1>
+        <p class="share__end-text">
+          <span data-l="en">A share link looks like hangarai.dev/s/ followed by 22 letters and digits. HangarAI makes them from its previews: a page, a PDF, an image or a 3D model, for 30 days.</span>
+          <span data-l="fr">Un lien de partage ressemble à hangarai.dev/s/ suivi de 22 lettres et chiffres. HangarAI les crée depuis ses aperçus&nbsp;: une page, un PDF, une image ou un modèle 3D, pour 30 jours.</span>
+        </p>
+      </div>
+
+      <div data-show="error">
+        <h1 class="share__end-title" tabindex="-1">
+          <span data-l="en">This share could not be read</span>
+          <span data-l="fr">Ce partage n’a pas pu être lu</span>
+        </h1>
+        <p class="share__end-text" id="share-error-text"></p>
+        <p class="share__end-actions">
+          <button type="button" class="btn btn--primary" id="share-retry"><span data-l="en">Try again</span><span data-l="fr">Réessayer</span></button>
+        </p>
+      </div>
+
+      <p class="share__end-more">
+        <a href="/"><span data-l="en">What is HangarAI?</span><span data-l="fr">Qu’est-ce que HangarAI&nbsp;?</span></a>
+      </p>
+    </div>
+  </section>
+</main>
+
+<footer class="share-foot">
+  <div class="share-foot__in">
+    <button type="button" class="share-foot__report" id="share-report" data-show="live" hidden>
+      <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.25 14.25V2.5M3.25 2.75h8.1l-1.6 3 1.6 3h-8.1" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span data-l="en">Report this page</span><span data-l="fr">Signaler cette page</span>
+    </button>
+    <a class="share-foot__made" href="/">
+      <svg class="brand__mark" width="12" height="12" viewBox="200 200 624 624" aria-hidden="true">
+        <rect x="200" y="200" width="260" height="624" fill="var(--accent)"></rect>
+        <rect x="538" y="200" width="286" height="260" fill="var(--fg-hi)"></rect>
+        <rect x="538" y="538" width="286" height="286" fill="var(--fg-hi)"></rect>
+      </svg>
+      <span data-l="en">Made with HangarAI</span><span data-l="fr">Fait avec HangarAI</span>
+      <span class="share-foot__try" hidden><span aria-hidden="true">·</span><span data-l="en">Try it</span><span data-l="fr">Essayer</span></span>
+    </a>
+  </div>
+</footer>
+
+<!-- The report: a reason, a few words if the visitor wants, and nothing
+     that says who they are (POST /v1/shares/<id>/report). -->
+<dialog class="dlg share-report" id="report-dialog" aria-labelledby="report-title">
+  <form method="dialog" class="share-report__form" id="report-form" novalidate>
+    <div class="dlg__body">
+      <h2 class="dlg__title" id="report-title"><span data-l="en">Report this page</span><span data-l="fr">Signaler cette page</span></h2>
+      <p class="dlg__text" data-step="ask"><span data-l="en">HangarAI looks at every report within the hour and takes down what breaks its rules. Your report says nothing about you.</span><span data-l="fr">HangarAI examine chaque signalement dans l’heure et retire ce qui enfreint ses règles. Ton signalement ne dit rien de toi.</span></p>
+
+      <fieldset class="share-report__reasons" data-step="ask">
+        <legend class="sr-only"><span data-l="en">What is wrong with it?</span><span data-l="fr">Quel est le problème&nbsp;?</span></legend>
+        <label class="share-report__reason"><input type="radio" name="reason" value="phishing" required><span><b><span data-l="en">Phishing or a scam</span><span data-l="fr">Hameçonnage ou arnaque</span></b><small><span data-l="en">It asks for a password or a card, or pretends to be someone.</span><span data-l="fr">Elle demande un mot de passe ou une carte, ou se fait passer pour quelqu’un.</span></small></span></label>
+        <label class="share-report__reason"><input type="radio" name="reason" value="malware"><span><b><span data-l="en">Malware</span><span data-l="fr">Logiciel malveillant</span></b><small><span data-l="en">It tries to get something installed or run.</span><span data-l="fr">Elle essaie de faire installer ou lancer quelque chose.</span></small></span></label>
+        <label class="share-report__reason"><input type="radio" name="reason" value="illegal"><span><b><span data-l="en">Illegal content</span><span data-l="fr">Contenu illégal</span></b><small><span data-l="en">Child abuse, terrorism, hatred.</span><span data-l="fr">Abus sur des enfants, terrorisme, haine.</span></small></span></label>
+        <label class="share-report__reason"><input type="radio" name="reason" value="copyright"><span><b><span data-l="en">Someone else’s work</span><span data-l="fr">Le travail de quelqu’un d’autre</span></b><small><span data-l="en">Shared without its author’s leave.</span><span data-l="fr">Partagé sans l’accord de son auteur.</span></small></span></label>
+        <label class="share-report__reason"><input type="radio" name="reason" value="privacy"><span><b><span data-l="en">About a person</span><span data-l="fr">Au sujet d’une personne</span></b><small><span data-l="en">Private details, without their consent.</span><span data-l="fr">Des informations privées, sans son accord.</span></small></span></label>
+        <label class="share-report__reason"><input type="radio" name="reason" value="other"><span><b><span data-l="en">Something else</span><span data-l="fr">Autre chose</span></b></span></label>
+      </fieldset>
+
+      <label class="share-report__details" data-step="ask">
+        <span class="share-report__label"><span data-l="en">Anything to add? (optional)</span><span data-l="fr">Quelque chose à ajouter&nbsp;? (facultatif)</span></span>
+        <textarea name="details" id="report-details" rows="3" maxlength="2000"></textarea>
+      </label>
+
+      <p class="share-report__trouble" id="report-trouble" role="alert" hidden></p>
+
+      <div class="share-report__done" data-step="done" hidden>
+        <p class="share-report__thanks" id="report-thanks" role="status"></p>
+      </div>
+
+      <p class="share-report__fine"><span data-l="en">To be answered, write to</span><span data-l="fr">Pour avoir une réponse, écris à</span> <a href="mailto:abuse@hangarai.dev" id="report-abuse">abuse@hangarai.dev</a>.</p>
+    </div>
+    <div class="dlg__actions">
+      <button type="button" class="btn btn--quiet" id="report-cancel" data-step="ask"><span data-l="en">Cancel</span><span data-l="fr">Annuler</span></button>
+      <button type="submit" class="btn btn--primary" id="report-send" data-step="ask" disabled><span data-l="en">Send the report</span><span data-l="fr">Envoyer le signalement</span></button>
+      <button type="button" class="btn btn--primary" id="report-close" data-step="done" hidden><span data-l="en">Done</span><span data-l="fr">Terminé</span></button>
+    </div>
+  </form>
+</dialog>
+
+<p id="live" class="sr-only" role="status" aria-live="polite"></p>
+
+<script src="/assets/lang.js?v=3f125a4686" defer></script>
+<script src="/assets/nav.js?v=a2538a43ce" defer></script>
+<script src="/assets/share.js?v=64bb8eae90" defer></script>
+</body>
+</html>

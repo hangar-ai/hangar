@@ -25,3 +25,29 @@ Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
 source = "/logo.svg"
 [advanced.headers.headers]
 Cache-Control = "public, max-age=604800"
+
+# Referral links: hangarai.dev/r/<code> is one static page that reads the code
+# from its own path (site/r/index.html).
+[[advanced.rewrites]]
+source = "/r/*"
+destination = "/r/index.html"
+
+# Share links: hangarai.dev/s/<id> is one viewer page that reads the id from its own
+# path (site/s/index.html, docs/native/shares.md). The shared files are never served
+# from this origin: they come from share.hangarai.dev, sandboxed, which the viewer
+# frames. Its script and style live in /assets/, since every /s/* comes here.
+[[advanced.rewrites]]
+source = "/s/*"
+destination = "/s/index.html"
+
+# The viewer may reach only the account server (the share's metadata, the report) and
+# the shares' origin (the files); a script of its own or the one inline in its <head>
+# (by hash: change it and its hash goes here too), no form, no framing, no referrer
+# (the id in its address is the link's secret), never in a search engine.
+[[advanced.headers]]
+source = "/s/**"
+[advanced.headers.headers]
+Content-Security-Policy = "default-src 'none'; script-src 'self' 'sha256-y5kbssESj3xlCZdEJighxcvdABMijknd5Yfbh2WhXwo='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://share.hangarai.dev; media-src https://share.hangarai.dev; frame-src https://share.hangarai.dev; connect-src https://account.hangarai.dev https://share.hangarai.dev data: blob:; worker-src blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'"
+Referrer-Policy = "no-referrer"
+X-Frame-Options = "DENY"
+X-Robots-Tag = "noindex, nofollow"

@@ -1,0 +1,71 @@
+name: HangarAI Cloud backstop reaper
+
+# HangarAI Cloud's build machines are Vast.ai instances labelled "hgc-<job>"
+# (docs/native/cloud-services.md, "No machine runs for nothing"). The account
+# server destroys them on time and sweeps for strays every minute. This is the
+# last layer, rule 7: every 15 minutes, on a runner that knows nothing of that
+# server, it destroys the "hgc-" instances that are past their ceiling, so a
+# machine cannot run for nothing even when the server is down.
+#
+# The Vast account is the person's own, shared with rbuild's "hangar-rbuild …"
+# machines (rbuild-reaper.yml) and others. The script never destroys, nor even
+# names, an instance whose label does not start with "hgc-"; its test proves
+# it (scripts/cloud-reaper/test_cloud_reaper.py). The log of a public
+# repository is public: it shows "hgc-" instances only.
+#
+# The hosted nodes' servers are Hetzner Cloud servers named "hgn-…" and
+# labelled "hangar-node=1", their ceiling on the label "hgn-ceiling"
+# (docs/native/cloud-services.md, "2. Hosted nodes"). The same script deletes
+# those past their ceiling, never later than 24 h 10 min after Hetzner created
+# them, and never touches, nor names, a server that is not named and
+# labelled so.
+#
+# Run it by hand from the Actions tab with "dry_run" ticked to see what it
+# would destroy without destroying anything.
+#
+# VAST_API_KEY is a restricted key (instance read and write only), and
+# HETZNER_API_TOKEN a token of the project "hangarai-nodes" alone. The script
+# reads them from the environment; they are never written out. A scheduled
+# workflow of a public repository stops after 60 days without any activity in
+# it: a publication (scripts/publish-public) that changes something counts as
+# activity, one that finds nothing to publish does not.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only say what would be destroyed"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloud-reaper
+  cancel-in-progress: false
+
+jobs:
+  reap:
+    # A fork has neither the secret nor anything to reap.
+    if: github.repository == 'hangar-ai/hangar'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/cloud-reaper
+
+      - name: Destroy the machines past their ceiling
+        env:
+          VAST_API_KEY: ${{ secrets.VAST_API_KEY }}
+          HETZNER_API_TOKEN: ${{ secrets.HETZNER_API_TOKEN }}
+          # "true" only for a manual dry run; empty on a schedule.
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            python3 -I scripts/cloud-reaper/cloud_reaper.py --dry-run
+          else
+            python3 -I scripts/cloud-reaper/cloud_reaper.py
+          fi

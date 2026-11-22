@@ -4,8 +4,8 @@
 #
 # What the CI's rust job installs on its ubuntu-22.04 runner (.github/workflows/ci.yml): the same release, so
 # the same glibc as the AppImage; the system libraries the workspace links (WebKitGTK for the webview helper's
-# engine, ALSA for cpal, libclang for whisper.cpp's bindings, OpenSSL), cmake and a C/C++ compiler for
-# whisper.cpp, mold as the linker (`ld` points to it, like rui314/setup-mold), and rustup's stable toolchain
+# engine, ALSA for cpal, OpenSSL), a C compiler for the crates whose build scripts compile C, mold as the
+# linker (`ld` points to it, like rui314/setup-mold), and rustup's stable toolchain
 # with rustfmt, clippy and the wasm32 target the kit tests build for. Mesa's software Vulkan driver (lavapipe)
 # lets the 3D capture tests draw, as on a GitHub runner, instead of skipping for want of an adapter, and the
 # fonts a runner has let the views' tests shape text (cosmic-text panics with "no default font found" without).
@@ -18,7 +18,7 @@ say() { echo "[rbuild-box] $*"; }
 t0=$(date +%s)
 
 APT=(apt-get -o DPkg::Lock::Timeout=300 -o Acquire::Retries=3)
-PKGS=(build-essential pkg-config cmake clang libclang-dev libwebkit2gtk-4.1-dev libasound2-dev libssl-dev
+PKGS=(build-essential pkg-config libwebkit2gtk-4.1-dev libasound2-dev libssl-dev
       git rsync curl ca-certificates python3 xz-utils zstd procps openssh-client file
       mesa-vulkan-drivers libvulkan1 fontconfig fonts-dejavu-core fonts-liberation)
 ok=0

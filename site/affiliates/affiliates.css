@@ -1,0 +1,420 @@
+/* ═══════════════════════════════════════════════════════════════
+   HangarAI affiliates: the page's own layout
+
+   On styles.css (sections, titles, the FAQ) and assets/pages.css (the
+   bar, the head). Here: the three facts under the head, the example
+   drawn as bars, the steps and the way in. The figures that follow the
+   server's terms are filled by assets/offers.js.
+   ═══════════════════════════════════════════════════════════════ */
+
+.aff-head {
+  padding-bottom: clamp(64px, 8vw, 104px);
+}
+
+.aff-head .sec__title {
+  max-width: 15ch;
+  font-size: clamp(38px, 6.4vw, 76px);
+}
+
+.aff-head .sec__lede {
+  max-width: 40em;
+}
+
+.aff-head__cta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.aff-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  max-width: 860px;
+  margin: clamp(44px, 6vw, 64px) auto 0;
+  padding: 0;
+  list-style: none;
+}
+
+.aff-fact {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 22px 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: color-mix(in srgb, var(--chrome) 80%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.aff-fact__big {
+  background: linear-gradient(100deg, var(--fg-hi) 35%, var(--accent-hi));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: clamp(36px, 5vw, 52px);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.aff-fact__what {
+  color: var(--fg-secondary);
+  font-size: 14.5px;
+}
+
+/* ── the example ─────────────────────────────────────────────── */
+
+.aff-example {
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--chrome) 55%, var(--bg-sunken));
+}
+
+.aff-hl {
+  color: var(--accent-hi);
+}
+
+.aff-example .sec__title {
+  max-width: 20ch;
+  margin-inline: auto;
+}
+
+.aff-chart {
+  display: grid;
+  gap: 14px;
+  max-width: 860px;
+  margin: clamp(40px, 5vw, 56px) auto 0;
+  padding: clamp(22px, 3vw, 32px);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--chrome);
+}
+
+.aff-bar {
+  display: grid;
+  grid-template-columns: 7.5em minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.aff-bar__who {
+  color: var(--fg-secondary);
+  font-size: 14.5px;
+  white-space: nowrap;
+}
+
+.aff-bar__track {
+  height: 24px;
+}
+
+.aff-bar__track i {
+  display: block;
+  width: var(--w);
+  min-width: 6px;
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+  background: color-mix(in srgb, var(--accent) 55%, var(--chrome));
+}
+
+.aff-bar--top .aff-bar__track i {
+  background: linear-gradient(90deg, var(--accent), var(--accent-hi));
+}
+
+.aff-bar__val {
+  min-width: 8.5em;
+  color: var(--fg-secondary);
+  font-size: 14.5px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.aff-bar__val > span > span {
+  color: var(--fg-hi);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.aff-chart__year {
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  color: var(--fg-secondary);
+  font-size: 15px;
+  text-align: center;
+}
+
+/* assets/motion.js grows them from the left as the chart comes in. */
+.aff-bar__track i {
+  transform-origin: 0 50%;
+}
+
+/* Pro and Max, by the month and by the year: two by two, four in a
+   row on a wide screen. */
+.aff-kinds {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  max-width: 860px;
+  margin: 16px auto 0;
+}
+
+.aff-kind {
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--chrome);
+}
+
+.aff-kind h3 {
+  color: var(--fg-secondary);
+  font-size: 14px;
+  font-weight: 560;
+}
+
+.aff-kind__fig {
+  margin-top: 4px;
+  color: var(--fg-secondary);
+  font-size: 15px;
+}
+
+.aff-kind__fig b {
+  font-size: 24px;
+  font-weight: 660;
+  letter-spacing: -0.02em;
+}
+
+.aff-kind__fine {
+  margin-top: 6px;
+  color: var(--fg-muted);
+  font-size: 13.5px;
+}
+
+.aff-note {
+  max-width: 860px;
+  margin: 16px auto 0;
+  color: var(--fg-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ── how it works ────────────────────────────────────────────── */
+
+.aff-how {
+  border-top: 1px solid var(--border);
+}
+
+.aff-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: clamp(40px, 5vw, 56px);
+  padding: 0;
+  list-style: none;
+}
+
+.aff-step {
+  position: relative;
+  padding: 26px 24px 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--chrome);
+}
+
+.aff-step__n {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-hi);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.aff-step h3 {
+  margin-top: 16px;
+  font-size: 18px;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.aff-step p {
+  margin-top: 8px;
+  color: var(--fg-secondary);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* ── the way in ──────────────────────────────────────────────── */
+
+.aff-end {
+  padding-top: 0;
+}
+
+.aff-end__card {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  max-width: 860px;
+  margin-inline: auto;
+  padding: clamp(36px, 6vw, 64px) 24px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  border-radius: 16px;
+  background:
+    radial-gradient(70% 90% at 50% 0%, var(--accent-soft), transparent 70%),
+    var(--chrome);
+  text-align: center;
+}
+
+.aff-end__title {
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+}
+
+.aff-end__lede {
+  color: var(--fg-secondary);
+  font-size: 17px;
+}
+
+.aff-end__fine {
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+
+/* ── wide screens: the page takes the room ───────────────────────
+   The facts span the page; the example sets its head beside the
+   chart, the four kinds of payment in a row under them; the way in
+   becomes a banner, its words on the left and the button on the right. */
+
+@media (min-width: 1100px) {
+  .aff-facts {
+    max-width: none;
+    gap: 20px;
+  }
+
+  .aff-fact {
+    padding: 28px 20px 26px;
+  }
+
+  .aff-example .wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    column-gap: clamp(48px, 5vw, 88px);
+    align-items: center;
+  }
+
+  .aff-example .head {
+    margin: 0;
+    text-align: left;
+  }
+
+  .aff-example .head .eyebrow {
+    justify-content: flex-start;
+  }
+
+  .aff-example .sec__title {
+    margin-inline: 0;
+  }
+
+  .aff-example .head .sec__lede {
+    margin-inline: 0;
+  }
+
+  .aff-chart {
+    max-width: none;
+    margin: 0;
+  }
+
+  .aff-kinds,
+  .aff-note {
+    grid-column: 1 / -1;
+    max-width: none;
+    margin-inline: 0;
+  }
+
+  .aff-kinds {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px;
+    margin-top: clamp(40px, 4vw, 56px);
+  }
+
+  .aff-kind {
+    padding: 22px 24px;
+  }
+
+  .aff-note {
+    text-align: left;
+  }
+
+  .aff-end__card {
+    grid-template-columns: minmax(0, 1fr) auto;
+    justify-items: start;
+    column-gap: 48px;
+    row-gap: 10px;
+    max-width: none;
+    padding: clamp(40px, 4vw, 56px) clamp(40px, 4.4vw, 64px);
+    background:
+      radial-gradient(60% 120% at 0% 0%, var(--accent-soft), transparent 70%),
+      var(--chrome);
+    text-align: left;
+  }
+
+  .aff-end__card > * {
+    grid-column: 1;
+  }
+
+  .aff-end__card > .btn {
+    grid-row: 1 / span 3;
+    grid-column: 2;
+    align-self: center;
+  }
+}
+
+/* ── narrower screens ────────────────────────────────────────── */
+
+@media (max-width: 799px) {
+  .aff-steps,
+  .aff-kinds {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 599px) {
+  .aff-facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .aff-fact {
+    grid-template-columns: auto minmax(0, 1fr);
+    justify-items: start;
+    align-items: baseline;
+    gap: 14px;
+    padding: 14px 18px;
+    text-align: left;
+  }
+
+  .aff-head__cta {
+    display: grid;
+  }
+
+  .aff-bar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 12px;
+  }
+
+  .aff-bar__track {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    height: 18px;
+  }
+
+  .aff-bar__val {
+    min-width: 0;
+  }
+}

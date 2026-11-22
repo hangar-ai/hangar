@@ -1,0 +1,371 @@
+/* ═══════════════════════════════════════════════════════════════
+   HangarAI site: what pricing/, buy/ and account/ share
+
+   On top of styles.css and its tokens (which hold the site's header
+   and footer): panels, notices, the spinner, the dialog and the
+   toast. Colour keeps the meaning it has in the app:
+   green a thing at work, amber one waiting on you, cyan your turn,
+   blue the focus and the thing to click, red what cannot be undone.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── two languages in one page ──────────────────────────────────
+   Every text is written in English and in French (data-l="en" and
+   data-l="fr"); the inline script in <head> sets data-lang on <html>
+   before the first paint, and only that language shows. Without
+   script the page is English. */
+
+:root:not([data-lang="fr"]) [data-l="fr"],
+:root[data-lang="fr"] [data-l="en"] {
+  display: none !important;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── a page's head ───────────────────────────────────────────── */
+
+.page {
+  position: relative;
+  isolation: isolate;
+  /* The footer starts below the fold, so a page that fills in after
+     load (the account) pushes nothing on screen. */
+  min-height: calc(100vh - var(--bar-h));
+  min-height: calc(100dvh - var(--bar-h));
+}
+
+.page__glow {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: -1;
+  height: 720px;
+  background: radial-gradient(55% 60% at 50% 0%, var(--accent-soft), transparent 70%);
+  pointer-events: none;
+}
+
+/* Under the head of pricing/ and affiliates/, a hairline grid in the
+   theme's line colour spans the window and fades out from the top: the
+   page reads as wide as the screen, not as a strip down its middle. */
+.page__glow--grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-position: 50% -1px;
+  background-size: 72px 72px;
+  -webkit-mask-image: radial-gradient(75% 85% at 50% 0%, #000 20%, transparent 72%);
+  mask-image: radial-gradient(75% 85% at 50% 0%, #000 20%, transparent 72%);
+}
+
+.page-head {
+  padding-top: clamp(56px, 8vw, 104px);
+  text-align: center;
+}
+
+.page-head .sec__title {
+  max-width: 18ch;
+  margin-inline: auto;
+  font-size: clamp(34px, 5vw, 60px);
+  letter-spacing: -0.032em;
+}
+
+.page-head .sec__lede {
+  margin-inline: auto;
+}
+
+.page-head .eyebrow {
+  justify-content: center;
+}
+
+/* ── buttons, beyond styles.css ──────────────────────────────── */
+
+.btn--block {
+  width: 100%;
+}
+
+.btn--danger {
+  border-color: transparent;
+  background: var(--danger);
+  color: var(--bg);
+}
+
+.btn--danger:hover {
+  border-color: transparent;
+  color: var(--bg);
+  filter: brightness(1.08);
+}
+
+.btn--quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--fg-secondary);
+}
+
+.btn--quiet:hover {
+  border-color: transparent;
+  background: var(--raised);
+  color: var(--fg-hi);
+}
+
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: default;
+  filter: none;
+}
+
+.btn[aria-busy="true"] {
+  position: relative;
+  color: transparent !important;
+  cursor: progress;
+}
+
+.btn[aria-busy="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 16px;
+  height: 16px;
+  margin: auto;
+  border: 2px solid currentColor;
+  border-color: var(--fg-secondary);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.btn--primary[aria-busy="true"]::after {
+  border-color: var(--accent-fg);
+  border-top-color: transparent;
+}
+
+.btn svg {
+  flex: none;
+}
+
+/* ── panels ──────────────────────────────────────────────────── */
+
+.panel {
+  min-width: 0;
+  padding: clamp(20px, 2.4vw, 28px);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--chrome);
+}
+
+.panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+
+.panel__title {
+  font-size: 17px;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.panel__aside {
+  color: var(--fg-muted);
+  font-size: 13.5px;
+}
+
+.panel__fine {
+  margin-top: 18px;
+  color: var(--fg-muted);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+/* ── notices ─────────────────────────────────────────────────── */
+
+.notice {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--bg-sunken);
+  color: var(--fg);
+  font-size: 14.5px;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.notice::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 0.5em;
+  border-radius: 50%;
+  background: var(--fg-muted);
+}
+
+.notice--warn {
+  border-color: color-mix(in srgb, var(--state-waiting) 45%, var(--border));
+}
+
+.notice--warn::before {
+  background: var(--state-waiting);
+}
+
+.notice--error {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+}
+
+.notice--error::before {
+  background: var(--danger);
+}
+
+.notice--ok::before {
+  background: var(--state-working);
+}
+
+.notice p + p {
+  margin-top: 4px;
+}
+
+/* ── the spinner ─────────────────────────────────────────────── */
+
+.spinner {
+  display: inline-block;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent-hi);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    border-top-color: var(--border-strong);
+    border-right-color: var(--accent-hi);
+    animation: none;
+  }
+}
+
+/* ── the dialog ──────────────────────────────────────────────── */
+
+.dlg {
+  width: min(440px, calc(100vw - 32px));
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-xl);
+  background: var(--chrome);
+  color: var(--fg);
+  box-shadow: 0 30px 80px -20px var(--shadow), 0 12px 30px -16px var(--shadow);
+}
+
+.dlg::backdrop {
+  background: color-mix(in srgb, var(--bg-sunken) 62%, transparent);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.dlg[open] {
+  animation: dlg-in 180ms var(--ease);
+}
+
+@keyframes dlg-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+.dlg__body {
+  padding: 24px 24px 8px;
+}
+
+.dlg__title {
+  font-size: 18px;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.dlg__text {
+  margin-top: 10px;
+  color: var(--fg-secondary);
+  font-size: 15px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.dlg__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px 22px;
+}
+
+/* ── the toast ───────────────────────────────────────────────── */
+
+.toast {
+  position: fixed;
+  bottom: max(20px, env(safe-area-inset-bottom));
+  left: 50%;
+  z-index: 60;
+  max-width: calc(100vw - 32px);
+  padding: 11px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--raised);
+  color: var(--fg-hi);
+  font-size: 14.5px;
+  box-shadow: 0 18px 40px -16px var(--shadow);
+  transform: translateX(-50%);
+  transition: opacity 200ms var(--ease), transform 200ms var(--ease);
+}
+
+.toast[hidden] {
+  display: block;
+  opacity: 0;
+  transform: translate(-50%, 12px);
+  pointer-events: none;
+  visibility: hidden;
+}
+
+/* ── the mock banner ─────────────────────────────────────────── */
+
+.mock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 14px;
+  padding: 8px var(--gutter);
+  border-bottom: 1px solid color-mix(in srgb, var(--state-waiting) 40%, var(--border));
+  background: color-mix(in srgb, var(--state-waiting) 10%, var(--bg));
+  color: var(--fg);
+  font-size: 13px;
+  text-align: center;
+}
+
+.mock b {
+  color: var(--state-waiting);
+}
+
+.mock select {
+  min-height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-xs);
+  background: var(--raised);
+  color: var(--fg-hi);
+  font: inherit;
+  font-size: 13px;
+}

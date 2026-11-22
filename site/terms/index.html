@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-fr="Conditions de HangarAI Cloud : HangarAI">HangarAI Cloud terms: HangarAI</title>
+<meta name="description" content="The terms of HangarAI Cloud, the services that run on HangarAI’s servers: hosted dictation, Hangar Mobile from anywhere, Cloud Builds, hosted nodes, image generation and share links. What is not allowed, credits and refunds, takedowns and suspension." data-fr="Les conditions de HangarAI Cloud, les services qui tournent sur les serveurs de HangarAI : la dictée hébergée, Hangar Mobile de partout, les Cloud Builds, les nœuds hébergés, la génération d’images et les liens de partage. Ce qui n’est pas permis, les crédits et remboursements, les retraits et la suspension.">
+<link rel="canonical" href="https://hangarai.dev/terms/">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#202124" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f0f0f0" media="(prefers-color-scheme: light)">
+
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<link rel="icon" href="../logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+
+<link rel="preload" href="../fonts/inter-latin-opsz.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css?v=925761be91">
+<link rel="stylesheet" href="../assets/pages.css?v=2d3d68d3af">
+<link rel="stylesheet" href="../legal/legal.css?v=da3d6ec99f">
+<link rel="stylesheet" href="terms.css?v=ffbbe70116">
+<script>
+(function (r) {
+  r.classList.add('js');
+  // The header before the first paint: the announcement already dismissed, and
+  // "Account" rather than "Sign in" where the account was opened before.
+  try {
+    r.setAttribute('data-announce-seen', localStorage.getItem('hangar.announce') || '');
+    if (localStorage.getItem('hangar.account.seen') === '1') r.classList.add('signed');
+  } catch (e) {}
+  // The language before the first paint (assets/lang.js wires the switch).
+  var l = null;
+  try { l = new URLSearchParams(location.search).get('lang'); } catch (e) {}
+  if (l !== 'en' && l !== 'fr') { try { l = localStorage.getItem('hangar.lang'); } catch (e) {} }
+  if (l !== 'en' && l !== 'fr') l = /^fr\b/i.test((navigator.languages && navigator.languages[0]) || navigator.language || '') ? 'fr' : 'en';
+  r.lang = l;
+  r.dataset.lang = l;
+})(document.documentElement);
+</script>
+</head>
+<body>
+
+<a class="skip" href="#main"><span data-l="en">Skip to content</span><span data-l="fr">Aller au contenu</span></a>
+
+<!-- site header: the same on every page (assets/nav.js wires it) -->
+<header class="bar" id="bar">
+  <div class="bar__in">
+    <a class="brand" href="../" aria-label="HangarAI, home" data-fr="HangarAI, accueil">
+      <svg class="brand__mark" width="20" height="20" viewBox="200 200 624 624" aria-hidden="true">
+        <rect x="200" y="200" width="260" height="624" fill="var(--accent)"></rect>
+        <rect x="538" y="200" width="286" height="260" fill="var(--fg-hi)"></rect>
+        <rect x="538" y="538" width="286" height="286" fill="var(--fg-hi)"></rect>
+      </svg>
+      <span class="brand__name">HangarAI</span>
+    </a>
+
+    <nav class="nav" aria-label="Main" data-fr="Principal">
+      <ul class="nav__list">
+        <li class="nav__item nav__item--menu">
+          <a class="nav__link nav__trigger" href="../#how" aria-expanded="false" aria-controls="menu-product"><span data-l="en">Product</span><span data-l="fr">Produit</span><svg class="nav__chev" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 4.5 3 3 3-3"></path></svg></a>
+          <div class="menu" id="menu-product">
+            <ul class="menu__grid">
+              <li><a class="menu__item" href="../#how" data-spy="how">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="5" r="2.5"></circle><circle cx="18.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="19" r="2.5"></circle><path d="M8 12h8M7.6 10.7l8.8-4.4M7.6 13.3l8.8 4.4"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">How it works</span><span data-l="fr">Comment ça marche</span></span><span class="menu__desc"><span data-l="en">Say the objective. The team does the rest.</span><span data-l="fr">Donne l’objectif. L’équipe fait le reste.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="../#team" data-spy="team">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.2 19.5a5.8 5.8 0 0 1 11.6 0"></path><circle cx="17.2" cy="9" r="2.4"></circle><path d="M16.2 14.1a4.6 4.6 0 0 1 5 4.6"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">A team, not a chatbot</span><span data-l="fr">Une équipe, pas un chatbot</span></span><span class="menu__desc"><span data-l="en">Claude Code and Codex, up to 40 at once.</span><span data-l="fr">Claude Code et Codex, jusqu’à 40 à la fois.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="../#land" data-spy="land">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5.5" r="2.2"></circle><circle cx="6" cy="18.5" r="2.2"></circle><circle cx="18" cy="12" r="2.2"></circle><path d="M6 7.7v8.6M7.6 7.1c1.5 3 4.3 4.7 8.2 4.9"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">Lands fast, and safe</span><span data-l="fr">Fusionné vite, sans casse</span></span><span class="menu__desc"><span data-l="en">Ten deliveries landed in 65&nbsp;s.</span><span data-l="fr">Dix livraisons fusionnées en 65&nbsp;s.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="../#night" data-spy="night">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 14.6A7.8 7.8 0 0 1 9.4 4.5a7.8 7.8 0 1 0 10.1 10.1Z"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">Works while you sleep</span><span data-l="fr">Avance pendant que tu dors</span></span><span class="menu__desc"><span data-l="en">A report in the morning, computer on or off.</span><span data-l="fr">Un rapport au réveil, ordinateur allumé ou éteint.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="../#cloud" data-spy="cloud">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.2 18.5h10.3a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.6 9.3a4.6 4.6 0 0 0 .6 9.2Z"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">Cloud power</span><span data-l="fr">La puissance du cloud</span></span><span class="menu__desc"><span data-l="en">CPU or GPU machines, by the second.</span><span data-l="fr">Des machines CPU ou GPU, à la seconde.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="../#control" data-spy="control">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 21V4.5"></path><path d="M5.5 4.5h11.8l-2.3 4 2.3 4H5.5"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">You stay in control</span><span data-l="fr">Tu gardes la main</span></span><span class="menu__desc"><span data-l="en">Needs you, budgets, Hangar Mobile.</span><span data-l="fr">Besoin de toi, budgets, Hangar Mobile.</span></span></span>
+              </a></li>
+            </ul>
+            <p class="menu__foot">
+              <a href="../#features"><span data-l="en">Also in the box</span><span data-l="fr">Et aussi</span></a>
+              <a href="../#faq">Questions</a>
+              <a class="menu__get" href="../#download"><span data-l="en">Download</span><span data-l="fr">Télécharger</span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"></path></svg></a>
+            </p>
+          </div>
+        </li>
+        <li><a class="nav__link" href="../pricing/"><span data-l="en">Pricing</span><span data-l="fr">Tarifs</span></a></li>
+        <li><a class="nav__link" href="../affiliates/"><span data-l="en">Affiliates</span><span data-l="fr">Affiliation</span></a></li>
+        <li><a class="nav__link" href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/README.md">Guide<svg class="nav__ext" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 7.5 7.5 2.5M3.5 2.5h4v4"></path></svg></a></li>
+        <li><a class="nav__link" href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md"><span data-l="en">Changelog</span><span data-l="fr">Nouveautés</span><svg class="nav__ext" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 7.5 7.5 2.5M3.5 2.5h4v4"></path></svg></a></li>
+      </ul>
+    </nav>
+
+    <div class="bar__end">
+      <div class="lang">
+        <button type="button" class="nav__link lang__btn" aria-expanded="false" aria-controls="lang-menu" aria-label="Language" data-fr="Langue"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><circle cx="8" cy="8" r="6.25"></circle><path d="M1.75 8h12.5M8 1.75c1.7 1.8 2.5 3.9 2.5 6.25S9.7 12.45 8 14.25C6.3 12.45 5.5 10.35 5.5 8S6.3 3.55 8 1.75Z"></path></svg><span data-l="en">EN</span><span data-l="fr">FR</span></button>
+        <div class="lang__menu" id="lang-menu" role="group" aria-label="Language" data-fr="Langue">
+          <button type="button" class="lang__opt" data-set-lang="en" lang="en" aria-pressed="true">English<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"></path></svg></button>
+          <button type="button" class="lang__opt" data-set-lang="fr" lang="fr" aria-pressed="false">Français<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"></path></svg></button>
+        </div>
+      </div>
+      <a class="nav__link bar__signin" href="../account/"><span class="if-out"><span data-l="en">Sign in</span><span data-l="fr">Se connecter</span></span><span class="if-in"><span data-l="en">Account</span><span data-l="fr">Compte</span></span></a>
+      <a class="btn btn--primary btn--sm bar__cta" href="../#download"><span data-l="en">Start free trial</span><span data-l="fr">Essai gratuit</span></a>
+      <a class="bar__menu" href="#site-map" role="button" aria-controls="sheet" aria-expanded="false" aria-label="Menu"><i></i><i></i></a>
+    </div>
+  </div>
+</header>
+
+<div class="sheet" id="sheet" hidden>
+  <nav class="sheet__nav" aria-label="Main" data-fr="Principal">
+    <p class="sheet__h"><span data-l="en">Product</span><span data-l="fr">Produit</span></p>
+    <ul class="sheet__grid">
+        <li><a href="../#how" data-spy="how"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="5" r="2.5"></circle><circle cx="18.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="19" r="2.5"></circle><path d="M8 12h8M7.6 10.7l8.8-4.4M7.6 13.3l8.8 4.4"></path></svg></span><span data-l="en">How it works</span><span data-l="fr">Comment ça marche</span></a></li>
+        <li><a href="../#team" data-spy="team"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.2 19.5a5.8 5.8 0 0 1 11.6 0"></path><circle cx="17.2" cy="9" r="2.4"></circle><path d="M16.2 14.1a4.6 4.6 0 0 1 5 4.6"></path></svg></span><span data-l="en">The team</span><span data-l="fr">L’équipe</span></a></li>
+        <li><a href="../#land" data-spy="land"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5.5" r="2.2"></circle><circle cx="6" cy="18.5" r="2.2"></circle><circle cx="18" cy="12" r="2.2"></circle><path d="M6 7.7v8.6M7.6 7.1c1.5 3 4.3 4.7 8.2 4.9"></path></svg></span><span data-l="en">Landing</span><span data-l="fr">La fusion</span></a></li>
+        <li><a href="../#night" data-spy="night"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 14.6A7.8 7.8 0 0 1 9.4 4.5a7.8 7.8 0 1 0 10.1 10.1Z"></path></svg></span><span data-l="en">Night shift</span><span data-l="fr">Mode nuit</span></a></li>
+        <li><a href="../#cloud" data-spy="cloud"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.2 18.5h10.3a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.6 9.3a4.6 4.6 0 0 0 .6 9.2Z"></path></svg></span>Cloud Builds</a></li>
+        <li><a href="../#control" data-spy="control"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 21V4.5"></path><path d="M5.5 4.5h11.8l-2.3 4 2.3 4H5.5"></path></svg></span><span data-l="en">In control</span><span data-l="fr">Tu gardes la main</span></a></li>
+    </ul>
+  </nav>
+  <ul class="sheet__list">
+    <li><a href="../pricing/"><span data-l="en">Pricing</span><span data-l="fr">Tarifs</span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+    <li><a href="../affiliates/"><span data-l="en">Affiliates</span><span data-l="fr">Affiliation</span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+    <li><a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/README.md">Guide<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+    <li><a href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md"><span data-l="en">Changelog</span><span data-l="fr">Nouveautés</span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+  </ul>
+  <div class="sheet__end">
+    <div class="sheet__lang"><span data-l="en">Language</span><span data-l="fr">Langue</span><div class="lang-seg" role="group" aria-label="Language" data-fr="Langue">
+        <button type="button" class="lang-seg__btn" data-set-lang="en" lang="en" aria-label="English" aria-pressed="true">EN</button>
+        <button type="button" class="lang-seg__btn" data-set-lang="fr" lang="fr" aria-label="Français" aria-pressed="false">FR</button>
+      </div></div>
+    <a class="btn" href="../account/"><span class="if-out"><span data-l="en">Sign in</span><span data-l="fr">Se connecter</span></span><span class="if-in"><span data-l="en">Account</span><span data-l="fr">Compte</span></span></a>
+    <a class="btn btn--primary" href="../#download"><span data-l="en">Start free trial</span><span data-l="fr">Essai gratuit</span></a>
+  </div>
+</div>
+<!-- /site header -->
+
+<main id="main" class="page" tabindex="-1">
+  <article class="wrap legal" aria-labelledby="terms-title">
+    <p class="eyebrow"><span data-l="en">Legal</span><span data-l="fr">Juridique</span></p>
+    <h1 class="legal__title" id="terms-title">
+      <span data-l="en">HangarAI Cloud terms</span>
+      <span data-l="fr">Conditions de HangarAI Cloud</span>
+    </h1>
+    <p class="legal__meta">
+      <span data-l="en">Version of <time datetime="2026-11-20">20 November 2026</time> · Acceptable use, credits, takedowns</span>
+      <span data-l="fr">Version du <time datetime="2026-11-20">20 novembre 2026</time> · Usage acceptable, crédits, retraits</span>
+    </p>
+
+    <div class="legal__draft" role="note">
+      <p data-l="en"><b>To be reviewed.</b> This text has not been checked by a lawyer yet. It says plainly what HangarAI Cloud allows and what happens when a rule is broken; a reviewed version will replace it, with its own date.</p>
+      <p data-l="fr"><b>À relire.</b> Ce texte n’a pas encore été vérifié par un juriste. Il dit simplement ce que HangarAI Cloud permet et ce qui se passe quand une règle n’est pas respectée&nbsp;; une version relue le remplacera, avec sa propre date.</p>
+    </div>
+
+    <nav class="legal__toc" aria-label="Contents" data-fr="Sommaire">
+      <ol>
+        <li><a href="#cloud"><span data-l="en">HangarAI Cloud</span><span data-l="fr">HangarAI Cloud</span></a></li>
+        <li><a href="#credits"><span data-l="en">Credits, prices and refunds</span><span data-l="fr">Crédits, prix et remboursements</span></a></li>
+        <li><a href="#not-allowed"><span data-l="en">What is not allowed</span><span data-l="fr">Ce qui n’est pas permis</span></a></li>
+        <li><a href="#services"><span data-l="en">Each service’s rules</span><span data-l="fr">Les règles de chaque service</span></a></li>
+        <li><a href="#content"><span data-l="en">Your content</span><span data-l="fr">Vos contenus</span></a></li>
+        <li><a href="#reports"><span data-l="en">Reports and takedowns</span><span data-l="fr">Signalements et retraits</span></a></li>
+        <li><a href="#suspension"><span data-l="en">Limits, pauses and suspension</span><span data-l="fr">Limites, pauses et suspension</span></a></li>
+        <li><a href="#promise"><span data-l="en">What we promise, and what we can’t</span><span data-l="fr">Ce que nous promettons, ou pas</span></a></li>
+        <li><a href="#data"><span data-l="en">Your data</span><span data-l="fr">Vos données</span></a></li>
+        <li><a href="#changes"><span data-l="en">Changes, and contact</span><span data-l="fr">Changements, et contact</span></a></li>
+      </ol>
+    </nav>
+
+    <section id="cloud" aria-labelledby="h-cloud">
+      <h2 id="h-cloud"><span data-l="en">1. HangarAI Cloud</span><span data-l="fr">1. HangarAI Cloud</span></h2>
+      <p data-l="en">HangarAI runs on your computer. HangarAI Cloud is the few services that run on HangarAI’s servers instead, or on machines rented for you, and that come with your license or are paid with its credits. It is run by the publisher of HangarAI (“we”). These terms apply whenever you use one of these services, yourself or through an agent you run in HangarAI: using one means you accept them.</p>
+      <p data-l="fr">HangarAI tourne sur votre ordinateur. HangarAI Cloud, ce sont les quelques services qui tournent plutôt sur les serveurs de HangarAI, ou sur des machines louées pour vous, et qui viennent avec votre licence ou se paient avec ses crédits. Il est géré par l’éditeur de HangarAI («&nbsp;nous&nbsp;»). Ces conditions s’appliquent dès que vous utilisez l’un de ces services, vous-même ou par un agent que vous lancez dans HangarAI&nbsp;: en utiliser un vaut acceptation.</p>
+
+      <table class="svc">
+        <caption class="sr-only"><span data-l="en">The services of HangarAI Cloud, who can use them, and whether they are open</span><span data-l="fr">Les services de HangarAI Cloud, qui peut les utiliser, et s’ils sont ouverts</span></caption>
+        <thead>
+          <tr>
+            <th scope="col"><span data-l="en">Service</span><span data-l="fr">Service</span></th>
+            <th scope="col"><span data-l="en">What it does</span><span data-l="fr">Ce qu’il fait</span></th>
+            <th scope="col"><span data-l="en">Who can use it</span><span data-l="fr">Pour qui</span></th>
+            <th scope="col"><span data-l="en">State</span><span data-l="fr">État</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row"><span data-l="en">Hosted dictation</span><span data-l="fr">Dictée hébergée</span></th>
+            <td><span class="svc__k"><span data-l="en">What it does</span><span data-l="fr">Ce qu’il fait</span></span><span data-l="en">Turns what you say into text.</span><span data-l="fr">Transforme ce que vous dites en texte.</span></td>
+            <td><span class="svc__k"><span data-l="en">Who can use it</span><span data-l="fr">Pour qui</span></span><span data-l="en">Every license, with its credits</span><span data-l="fr">Toutes les licences, avec leurs crédits</span></td>
+            <td><span class="state state--live"><span data-l="en">Open</span><span data-l="fr">Ouvert</span></span></td>
+          </tr>
+          <tr>
+            <th scope="row"><span data-l="en">Hangar Mobile from anywhere</span><span data-l="fr">Hangar Mobile de partout</span></th>
+            <td><span class="svc__k"><span data-l="en">What it does</span><span data-l="fr">Ce qu’il fait</span></span><span data-l="en">Lets your phones reach your PC without Tailscale, through a relay that cannot read what it passes.</span><span data-l="fr">Permet à vos téléphones de joindre votre PC sans Tailscale, par un relais qui ne peut pas lire ce qu’il transmet.</span></td>
+            <td><span class="svc__k"><span data-l="en">Who can use it</span><span data-l="fr">Pour qui</span></span><span data-l="en">Pro, Max, Lifetime and the trial; included</span><span data-l="fr">Pro, Max, Lifetime et l’essai&nbsp;; inclus</span></td>
+            <td><span class="state state--live"><span data-l="en">Open</span><span data-l="fr">Ouvert</span></span></td>
+          </tr>
+          <tr>
+            <th scope="row"><span data-l="en">Image generation</span><span data-l="fr">Génération d’images</span></th>
+            <td><span class="svc__k"><span data-l="en">What it does</span><span data-l="fr">Ce qu’il fait</span></span><span data-l="en">Lets an agent draw an image, or edit one.</span><span data-l="fr">Permet à un agent de dessiner une image, ou d’en retoucher une.</span></td>
+            <td><span class="svc__k"><span data-l="en">Who can use it</span><span data-l="fr">Pour qui</span></span><span data-l="en">Pro, Max, Lifetime and the trial</span><span data-l="fr">Pro, Max, Lifetime et l’essai</span></td>
+            <td><span class="state state--live"><span data-l="en">Open</span><span data-l="fr">Ouvert</span></span></td>
+          </tr>
+          <tr>
+            <th scope="row"><span data-l="en">Share links</span><span data-l="fr">Liens de partage</span></th>
+            <td><span class="svc__k"><span data-l="en">What it does</span><span data-l="fr">Ce qu’il fait</span></span><span data-l="en">Publishes a page, a PDF, an image or a 3D model for anyone with the link, for 30 days or more.</span><span data-l="fr">Publie une page, un PDF, une image ou un modèle 3D pour quiconque a le lien, pendant 30 jours ou plus.</span></td>
+            <td><span class="svc__k"><span data-l="en">Who can use it</span><span data-l="fr">Pour qui</span></span><span data-l="en">Pro, Max and Lifetime; the trial, 3 links at a time</span><span data-l="fr">Pro, Max et Lifetime&nbsp;; l’essai, 3 liens à la fois</span></td>
+            <td><span class="state state--live"><span data-l="en">Open</span><span data-l="fr">Ouvert</span></span></td>
+          </tr>
+          <tr>
+            <th scope="row">Cloud Builds</th>
+            <td><span class="svc__k"><span data-l="en">What it does</span><span data-l="fr">Ce qu’il fait</span></span><span data-l="en">Runs a check, a build, a training run or a render on a CPU or GPU machine rented for you alone, destroyed afterwards.</span><span data-l="fr">Lance une vérification, une compilation, un entraînement ou un rendu sur une machine CPU ou GPU louée pour vous seul, détruite ensuite.</span></td>
+            <td><span class="svc__k"><span data-l="en">Who can use it</span><span data-l="fr">Pour qui</span></span><span data-l="en">Pro, Max and Lifetime only</span><span data-l="fr">Pro, Max et Lifetime seulement</span></td>
+            <td><span class="state state--live"><span data-l="en">Open</span><span data-l="fr">Ouvert</span></span></td>
+          </tr>
+          <tr>
+            <th scope="row"><span data-l="en">Hosted nodes</span><span data-l="fr">Nœuds hébergés</span></th>
+            <td><span class="svc__k"><span data-l="en">What it does</span><span data-l="fr">Ce qu’il fait</span></span><span data-l="en">Keeps your workspaces running while your computer is off, on a server rented for you alone, deleted afterwards.</span><span data-l="fr">Fait avancer vos workspaces pendant que votre ordinateur est éteint, sur un serveur loué pour vous seul, supprimé ensuite.</span></td>
+            <td><span class="svc__k"><span data-l="en">Who can use it</span><span data-l="fr">Pour qui</span></span><span data-l="en">Pro, Max and Lifetime only</span><span data-l="fr">Pro, Max et Lifetime seulement</span></td>
+            <td><span class="state state--live"><span data-l="en">Open</span><span data-l="fr">Ouvert</span></span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p data-l="en">The free license that installs of HangarAI 2.5.1 and earlier keep includes dictation, with 30 credits a month, and none of the other services.</p>
+      <p data-l="fr">La licence offerte que gardent les installations de HangarAI 2.5.1 et antérieures comprend la dictée, avec 30 crédits par mois, et aucun des autres services.</p>
+    </section>
+
+    <section id="credits" aria-labelledby="h-credits">
+      <h2 id="h-credits"><span data-l="en">2. Credits, prices and refunds</span><span data-l="fr">2. Crédits, prix et remboursements</span></h2>
+      <p data-l="en">Plans, credit packs and pay as you go are priced on the <a href="../pricing/">pricing page</a>, VAT included. Payments are handled by Polar, the merchant of record, which sells to you and sends your invoices.</p>
+      <p data-l="fr">Les formules, les recharges de crédits et le paiement à l’usage ont leurs prix sur la <a href="../pricing/">page des tarifs</a>, TVA comprise. Les paiements sont gérés par Polar, le vendeur officiel («&nbsp;merchant of record&nbsp;»), qui vous vend et vous envoie vos factures.</p>
+      <ul data-l="en">
+        <li><b>The price before, the cost after.</b> Before a paid action, HangarAI shows its rate in credits, or an estimate, and your balance; afterwards, what it cost. A service’s rate can follow its provider’s price; an action is charged at the rate it started with.</li>
+        <li><b>Only what was used.</b> An action holds the most it may cost before it starts, is charged what it used, and gives back the rest. A request that fails, on our side or the provider’s, or that the provider refuses, costs nothing.</li>
+        <li><b>In this order:</b> your monthly allowance first, then the credits you bought, then pay as you go if you turned it on, up to the monthly limit you chose. Nothing is spent past it, and an action your balance cannot cover does not start.</li>
+        <li><b>What expires.</b> A monthly allowance resets each period and does not carry over. Credits you buy, and Lifetime’s 5,000, never expire, and stay on your license if a subscription ends.</li>
+        <li><b>Pay as you go</b> is off by default, offered after a first payment, and billed by Polar with your plan. An unpaid invoice suspends it until it is paid.</li>
+        <li><b>Credits are not money.</b> They belong to the license they are on and pay for HangarAI Cloud, nothing else. They cannot be exchanged for cash, except as the refund of a pack below.</li>
+        <li><b>Refunds.</b> Ask at <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>, from the address you paid with. Refunds go through Polar, back to the way you paid. A refunded credit pack takes back the credits not spent yet; a refunded Lifetime license stops working. Monthly allowances, bonus and gifted credits are not refunded, nor are credits spent on something these terms forbid.</li>
+      </ul>
+      <ul data-l="fr">
+        <li><b>Le prix avant, le coût après.</b> Avant une action payante, HangarAI affiche son tarif en crédits, ou une estimation, et votre solde&nbsp;; après, ce qu’elle a coûté. Le tarif d’un service peut suivre le prix de son fournisseur&nbsp;; une action est facturée au tarif auquel elle a commencé.</li>
+        <li><b>Seulement ce qui a servi.</b> Une action réserve le maximum qu’elle peut coûter avant de commencer, est facturée ce qu’elle a utilisé, et rend le reste. Une requête qui échoue, de notre côté ou de celui du fournisseur, ou que le fournisseur refuse, ne coûte rien.</li>
+        <li><b>Dans cet ordre&nbsp;:</b> votre allocation mensuelle d’abord, puis les crédits achetés, puis le paiement à l’usage si vous l’avez activé, jusqu’à la limite mensuelle que vous avez choisie. Rien n’est dépensé au-delà, et une action que votre solde ne couvre pas ne démarre pas.</li>
+        <li><b>Ce qui expire.</b> L’allocation mensuelle repart à chaque période et ne se reporte pas. Les crédits achetés, et les 5&nbsp;000 de Lifetime, n’expirent jamais, et restent sur votre licence si un abonnement s’arrête.</li>
+        <li><b>Le paiement à l’usage</b> est désactivé par défaut, proposé après un premier paiement, et facturé par Polar avec votre formule. Une facture impayée le suspend jusqu’à son paiement.</li>
+        <li><b>Les crédits ne sont pas de l’argent.</b> Ils appartiennent à la licence qui les porte et paient HangarAI Cloud, rien d’autre. Ils ne s’échangent pas contre de l’argent, sauf par le remboursement d’une recharge ci-dessous.</li>
+        <li><b>Remboursements.</b> Demandez-le à <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>, depuis l’adresse avec laquelle vous avez payé. Le remboursement passe par Polar, sur le moyen de paiement utilisé. Une recharge remboursée reprend les crédits pas encore dépensés&nbsp;; une licence Lifetime remboursée cesse de fonctionner. Les allocations mensuelles, les crédits offerts ou bonus ne sont pas remboursés, pas plus que les crédits dépensés pour une chose que ces conditions interdisent.</li>
+      </ul>
+    </section>
+
+    <section id="not-allowed" aria-labelledby="h-not-allowed">
+      <h2 id="h-not-allowed"><span data-l="en">3. What is not allowed</span><span data-l="fr">3. Ce qui n’est pas permis</span></h2>
+      <p data-l="en">Whatever the service, do not use HangarAI Cloud, or let an agent use it, to:</p>
+      <p data-l="fr">Quel que soit le service, n’utilisez pas HangarAI Cloud, et ne laissez pas un agent l’utiliser, pour&nbsp;:</p>
+      <ul data-l="en">
+        <li>break the law, or help anyone break it, including other people’s rights: their copyright, their privacy, their image;</li>
+        <li>deceive, defraud, harass or threaten anyone, or pass for a person or an organisation you are not (phishing included);</li>
+        <li>make, store or spread malware, or any sexual content involving a minor;</li>
+        <li>scan, probe, attack or overload any system, HangarAI’s and its providers’ included, or send spam or bulk email;</li>
+        <li>mine cryptocurrency, or run a proxy, a VPN exit or anything else that lends the machine or its connection to others;</li>
+        <li>get around a limit, a cap, the credits or the license: several trials, a license that is not yours, requests cut up to slip under a limit.</li>
+      </ul>
+      <ul data-l="fr">
+        <li>enfreindre la loi, ou aider quiconque à le faire, y compris les droits des autres&nbsp;: leurs droits d’auteur, leur vie privée, leur image&nbsp;;</li>
+        <li>tromper, escroquer, harceler ou menacer qui que ce soit, ou vous faire passer pour une personne ou une organisation que vous n’êtes pas (hameçonnage compris)&nbsp;;</li>
+        <li>créer, stocker ou diffuser un logiciel malveillant, ou tout contenu sexuel impliquant un mineur&nbsp;;</li>
+        <li>scanner, sonder, attaquer ou surcharger un système, ceux de HangarAI et de ses fournisseurs compris, ou envoyer du spam ou des e-mails en masse&nbsp;;</li>
+        <li>miner de la cryptomonnaie, ou faire tourner un proxy, une sortie VPN ou quoi que ce soit qui prête la machine ou sa connexion à d’autres&nbsp;;</li>
+        <li>contourner une limite, un plafond, les crédits ou la licence&nbsp;: plusieurs essais, une licence qui n’est pas la vôtre, des requêtes découpées pour passer sous une limite.</li>
+      </ul>
+      <p data-l="en">Agents act for you: what an agent does with HangarAI Cloud under your license counts as done by you.</p>
+      <p data-l="fr">Les agents agissent pour vous&nbsp;: ce qu’un agent fait avec HangarAI Cloud sous votre licence compte comme fait par vous.</p>
+    </section>
+
+    <section id="services" aria-labelledby="h-services">
+      <h2 id="h-services"><span data-l="en">4. Each service’s rules</span><span data-l="fr">4. Les règles de chaque service</span></h2>
+
+      <h3 id="dictation"><span data-l="en">Hosted dictation</span><span data-l="fr">Dictée hébergée</span><span class="state state--live"><span data-l="en">Open</span><span data-l="fr">Ouvert</span></span></h3>
+      <p data-l="en">Dictate what you have the right to record: your own voice, or someone else’s with their consent. Dictation has limits per license, to keep it fair for everyone; the app says when one is reached.</p>
+      <p data-l="fr">Dictez ce que vous avez le droit d’enregistrer&nbsp;: votre propre voix, ou celle de quelqu’un d’autre avec son accord. La dictée a des limites par licence, pour rester équitable pour tous&nbsp;; l’app indique quand l’une est atteinte.</p>
+
+      <h3 id="mobile-relay"><span data-l="en">Hangar Mobile from anywhere</span><span data-l="fr">Hangar Mobile de partout</span><span class="state state--live"><span data-l="en">Open</span><span data-l="fr">Ouvert</span></span></h3>
+      <p data-l="en">The relay carries Hangar Mobile’s traffic between your PC and the phones you paired with it, and nothing else. Each connection has caps on the size and rate of what it carries (a phone’s 25 MB photo takes about 20 seconds), and a PC has at most 64 phones paired and 16 connected at once.</p>
+      <p data-l="fr">Le relais transporte le trafic de Hangar Mobile entre votre PC et les téléphones que vous y avez appairés, et rien d’autre. Chaque connexion a des plafonds de taille et de débit (une photo de 25&nbsp;Mo prise au téléphone passe en 20&nbsp;secondes environ), et un PC a au plus 64 téléphones appairés et 16 connectés à la fois.</p>
+
+      <h3 id="images"><span data-l="en">Image generation</span><span data-l="fr">Génération d’images</span><span class="state state--live"><span data-l="en">Open</span><span data-l="fr">Ouvert</span></span></h3>
+      <ul data-l="en">
+        <li>No image of a real person made to deceive, mock, harass or sexualise them, and no edit of someone’s photo they would not agree to.</li>
+        <li>Nothing you could not lawfully publish where you are.</li>
+        <li>The models’ safety checks stay on and may refuse a prompt; a refused prompt costs nothing. A license makes 200 images a day at most.</li>
+        <li>What you do with an image is up to you: check that you may use it as you intend.</li>
+      </ul>
+      <ul data-l="fr">
+        <li>Aucune image d’une personne réelle faite pour tromper, moquer, harceler ou la sexualiser, et aucune retouche de la photo de quelqu’un qui ne l’accepterait pas.</li>
+        <li>Rien que vous ne pourriez pas publier légalement là où vous êtes.</li>
+        <li>Les contrôles de sécurité des modèles restent actifs et peuvent refuser une demande&nbsp;; une demande refusée ne coûte rien. Une licence produit au plus 200 images par jour.</li>
+        <li>Ce que vous faites d’une image vous revient&nbsp;: vérifiez que vous pouvez l’utiliser comme vous le prévoyez.</li>
+      </ul>
+
+      <h3 id="share-links"><span data-l="en">Share links</span><span data-l="fr">Liens de partage</span><span class="state state--live"><span data-l="en">Open</span><span data-l="fr">Ouvert</span></span></h3>
+      <p data-l="en">What you share can be seen by <b>anyone who has the link</b>, until the share ends: 30 days, extendable up to 365. Share only what you have the right to publish, and nothing of someone else’s private life.</p>
+      <p data-l="fr">Ce que vous partagez peut être vu par <b>quiconque a le lien</b>, jusqu’à la fin du partage&nbsp;: 30 jours, prolongeables jusqu’à 365. Ne partagez que ce que vous avez le droit de publier, et rien de la vie privée de quelqu’un d’autre.</p>
+      <ul data-l="en">
+        <li>Shared files are served from <code>share.hangarai.dev</code>, apart from HangarAI’s site and in a sandbox: they cannot set cookies, send forms or reach anyone’s HangarAI account.</li>
+        <li>Pages, PDFs, images, Markdown and 3D models in glTF can be shared, and nothing else. A page with a password or card field, or a form that posts anywhere, is refused before it is uploaded: a share link is not a place to collect anything from anyone.</li>
+        <li>A share holds 100 MB at most, and a license has at most 1 GB and 100 shares live at once (3 shares for the trial).</li>
+        <li>Every share carries a “Report this page” link, and a share that breaks these terms is taken down within the hour of a report (section 6).</li>
+      </ul>
+      <ul data-l="fr">
+        <li>Les fichiers partagés sont servis depuis <code>share.hangarai.dev</code>, à l’écart du site de HangarAI et dans un bac à sable&nbsp;: ils ne peuvent ni poser de cookie, ni envoyer de formulaire, ni atteindre le compte HangarAI de qui que ce soit.</li>
+        <li>Pages, PDF, images, Markdown et modèles 3D en glTF peuvent être partagés, et rien d’autre. Une page avec un champ de mot de passe ou de carte bancaire, ou un formulaire qui envoie quoi que ce soit, est refusée avant l’envoi&nbsp;: un lien de partage n’est pas un endroit pour collecter quoi que ce soit auprès de qui que ce soit.</li>
+        <li>Un partage contient au plus 100&nbsp;Mo, et une licence a au plus 1&nbsp;Go et 100 partages en ligne à la fois (3 partages pour l’essai).</li>
+        <li>Chaque partage porte un lien «&nbsp;Signaler cette page&nbsp;», et un partage qui enfreint ces conditions est retiré dans l’heure qui suit un signalement (section 6).</li>
+      </ul>
+
+      <h3 id="cloud-builds"><span data-l="en">Cloud Builds</span><span data-l="fr">Cloud Builds</span><span class="state state--live"><span data-l="en">Open</span><span data-l="fr">Ouvert</span></span></h3>
+      <p data-l="en">A Cloud Builds machine is rented for you alone, for your projects’ checks, builds and tests: compiling, testing, linting, packaging, and fetching what they need to; on a GPU machine, also training and running models and rendering. Nothing else. Before your first run, HangarAI asks you to accept these terms, once for each version of them.</p>
+      <p data-l="fr">Une machine Cloud Builds est louée pour vous seul, pour les vérifications, compilations et tests de vos projets&nbsp;: compiler, tester, analyser, empaqueter, et récupérer ce dont ils ont besoin&nbsp;; sur une machine GPU, aussi entraîner et faire tourner des modèles, et faire des rendus. Rien d’autre. Avant votre première tâche, HangarAI vous demande d’accepter ces conditions, une fois pour chacune de leurs versions.</p>
+      <ul data-l="en">
+        <li><b>Not allowed on a machine</b>, on top of section 3: mining, on the processor or the graphics card (a run on a CPU machine has no access to the card, and any use of it counts as mining; the card of a GPU machine is for your work, and mining on it is mining all the same); serving anything to others, as a server, a proxy, a VPN exit or a tunnel; scanning, attacks or floods; sending email (a connection to port 25 stops the run); trying to become root, to reach the host, other machines or HangarAI’s servers, or to get around the time limits, the watch or the limits below.</li>
+        <li><b>What you send.</b> Send only code you have the right to run there. Your files go to a machine of our provider, Vast.ai, in a certified datacenter in Europe, or elsewhere for a run you choose “Any region” for, as the <a href="../privacy.html#cloud-builds">privacy page</a> says. Files named like a secret stay on your computer unless you list them in <code>.hangar/cloud-include</code>; keep secrets out of the rest.</li>
+        <li><b>The watch.</b> While a run goes, its machine is watched for abuse: the names and fingerprints of its programs, their use of the processor, the graphics card’s use, and the number and ports of its outgoing connections. Never your files, your commands or their output.</li>
+        <li><b>When a rule is broken.</b> The run is stopped at once, and what it used is charged and not refunded. A sign of mining also destroys the machine and freezes Cloud Builds on the license until we review it: meanwhile no run starts, and the license’s other machines stop. Other signs (mail, a flood, too much traffic) stop the run and are reviewed without freezing anything. After a review we lift the freeze, or end Cloud Builds on the license for good; the rest of the license is not affected (section 7).</li>
+        <li><b>Limits.</b> A run lasts 30 minutes unless you choose otherwise (2 hours on a GPU machine), 24 hours at most, and sends 20 GB out of its machine at most. A license runs on up to 3 machines at once (5 with Max), GPU machines and hosted nodes among them, 4 runs on each, with no limit of hours: its credits are the limit.</li>
+        <li><b>A machine is temporary.</b> It is destroyed a few minutes after your last run (half an hour at most if you ask to keep it), and nothing on it is kept: keep your own copy of anything you need. A machine that fails is not charged, and its run is tried once more.</li>
+        <li><b>What you pay.</b> A machine’s rate, in credits a minute, is shown before it starts and fixed until the machine goes. It is billed by the second, for the start, the run and the minutes it is kept. A run holds the most it can cost before it starts, and is charged only what it used.</li>
+      </ul>
+      <ul data-l="fr">
+        <li><b>Pas permis sur une machine</b>, en plus de la section 3&nbsp;: le minage, sur le processeur ou la carte graphique (une tâche sur une machine CPU n’y a pas accès, et tout usage compte comme du minage&nbsp;; la carte d’une machine GPU est pour votre travail, et y miner reste du minage)&nbsp;; servir quoi que ce soit à d’autres, comme serveur, proxy, sortie VPN ou tunnel&nbsp;; les scans, attaques ou inondations de requêtes&nbsp;; l’envoi d’e-mails (une connexion au port 25 arrête la tâche)&nbsp;; tenter de devenir root, d’atteindre l’hôte, d’autres machines ou les serveurs de HangarAI, ou de contourner les limites de temps, la surveillance ou les limites ci-dessous.</li>
+        <li><b>Ce que vous envoyez.</b> N’envoyez que du code que vous avez le droit d’y faire tourner. Vos fichiers vont sur une machine de notre fournisseur, Vast.ai, dans un datacenter certifié en Europe, ou ailleurs pour un lancement pour lequel vous choisissez «&nbsp;Toute région&nbsp;», comme le dit la <a href="../privacy.html#cloud-builds">page de confidentialité</a>. Les fichiers nommés comme un secret restent sur votre ordinateur, sauf si vous les listez dans <code>.hangar/cloud-include</code>&nbsp;; gardez les secrets à l’écart du reste.</li>
+        <li><b>La surveillance.</b> Pendant qu’une tâche tourne, sa machine est surveillée contre les abus&nbsp;: les noms et empreintes de ses programmes, leur usage du processeur, celui de la carte graphique, et le nombre et les ports de ses connexions sortantes. Jamais vos fichiers, vos commandes ni leur sortie.</li>
+        <li><b>Quand une règle n’est pas respectée.</b> La tâche est arrêtée sur-le-champ, et ce qu’elle a utilisé est facturé et non remboursé. Un signe de minage détruit aussi la machine et gèle les Cloud Builds sur la licence jusqu’à notre examen&nbsp;: entre-temps aucune tâche ne démarre, et les autres machines de la licence s’arrêtent. Les autres signes (e-mail, inondation, trafic excessif) arrêtent la tâche et sont examinés sans rien geler. Après l’examen, nous levons le gel, ou mettons fin aux Cloud Builds sur la licence pour de bon&nbsp;; le reste de la licence n’est pas touché (section 7).</li>
+        <li><b>Limites.</b> Une tâche dure 30&nbsp;minutes sauf si vous choisissez autrement (2&nbsp;heures sur une machine GPU), 24&nbsp;heures au plus, et envoie au plus 20&nbsp;Go hors de sa machine. Une licence fait tourner 3 machines à la fois au plus (5 avec Max), machines GPU et nœuds hébergés compris, 4 tâches sur chacune, sans limite d’heures&nbsp;: ses crédits sont la limite.</li>
+        <li><b>Une machine est temporaire.</b> Elle est détruite quelques minutes après votre dernière tâche (une demi-heure au plus si vous demandez à la garder), et rien de ce qu’elle contient n’est conservé&nbsp;: gardez votre propre copie de ce dont vous avez besoin. Une machine qui tombe en panne n’est pas facturée, et sa tâche est relancée une fois.</li>
+        <li><b>Ce que vous payez.</b> Le tarif d’une machine, en crédits par minute, est affiché avant qu’elle démarre et fixé jusqu’à son départ. Il est facturé à la seconde, pour le démarrage, la tâche et les minutes où elle est gardée. Une tâche réserve le maximum qu’elle peut coûter avant de démarrer, et n’est facturée que ce qu’elle a utilisé.</li>
+      </ul>
+
+      <h3 id="hosted-nodes"><span data-l="en">Hosted nodes</span><span data-l="fr">Nœuds hébergés</span><span class="state state--live"><span data-l="en">Open</span><span data-l="fr">Ouvert</span></span></h3>
+      <p data-l="en">A hosted node is a server rented for you alone at Hetzner, in Germany or Finland, that keeps the workspaces you choose running while your computer is off: their agents and workers carry on, and their work comes back to your computer when the session ends. Before your first session, HangarAI asks you to accept these terms, once for each version of them, as for Cloud Builds.</p>
+      <p data-l="fr">Un nœud hébergé est un serveur loué pour vous seul chez Hetzner, en Allemagne ou en Finlande, qui fait avancer les workspaces que vous choisissez pendant que votre ordinateur est éteint&nbsp;: leurs agents et leurs workers continuent, et leur travail revient sur votre ordinateur à la fin de la session. Avant votre première session, HangarAI vous demande d’accepter ces conditions, une fois pour chacune de leurs versions, comme pour les Cloud Builds.</p>
+      <ul data-l="en">
+        <li><b>Not allowed on a node</b>, on top of section 3: mining, and anything that lends the server or its connection to others, as a proxy, a VPN exit or a tunnel.</li>
+        <li><b>What you send.</b> Send only code you have the right to run there. The workspaces you choose go over SSH, straight from your computer to the server, not through HangarAI’s servers, as the <a href="../privacy.html#hosted-nodes">privacy page</a> says. Keep secrets out of what you move there.</li>
+        <li><b>The watch.</b> While a session runs, Hetzner measures its server’s processor use, which our server reads: more than 85 % for 30 minutes is a sign for review, and you are told; for 2 hours, the session ends, its work is parked, and Cloud Builds and hosted nodes are frozen on the license until we review it (section 7). Never your files, your commands or their output.</li>
+        <li><b>Limits.</b> A session lasts from 30 minutes to 24 hours from the moment you start it, and you extend it as often as your credits allow: there is no limit of hours. A license runs on up to 3 machines at once (5 with Max), hosted nodes and Cloud Builds machines together.</li>
+        <li><b>A server is temporary.</b> It is deleted when the session ends, and nothing on it is kept. Your work comes back to your computer; when your computer is off, it is parked, sealed so that only your computer can open it, and kept 7 days for it, then deleted: turn your computer on in time, and keep your own copy of anything you need. A server that is lost is replaced once, and the hour it lost is refunded.</li>
+        <li><b>What you pay.</b> A node is billed by the started hour, at the rate of its size shown before it starts and fixed for the session: 10 hours and 40 minutes are 11 hours. The hours are held at the start, and what you do not use comes back when the session ends. Nothing is charged when no server could be had.</li>
+      </ul>
+      <ul data-l="fr">
+        <li><b>Pas permis sur un nœud</b>, en plus de la section 3&nbsp;: le minage, et tout ce qui prête le serveur ou sa connexion à d’autres, comme proxy, sortie VPN ou tunnel.</li>
+        <li><b>Ce que vous envoyez.</b> N’envoyez que du code que vous avez le droit d’y faire tourner. Les workspaces que vous choisissez partent par SSH, directement depuis votre ordinateur vers le serveur, sans passer par les serveurs de HangarAI, comme le dit la <a href="../privacy.html#hosted-nodes">page de confidentialité</a>. Gardez les secrets à l’écart de ce que vous y déplacez.</li>
+        <li><b>La surveillance.</b> Pendant qu’une session tourne, Hetzner mesure l’usage du processeur de son serveur, que notre serveur lit&nbsp;: plus de 85&nbsp;% pendant 30&nbsp;minutes est un signe examiné, et vous en êtes averti&nbsp;; pendant 2&nbsp;heures, la session s’arrête, son travail est mis de côté, et les Cloud Builds et les nœuds hébergés sont gelés sur la licence jusqu’à notre examen (section 7). Jamais vos fichiers, vos commandes ni leur sortie.</li>
+        <li><b>Limites.</b> Une session dure de 30&nbsp;minutes à 24&nbsp;heures à partir du moment où vous la démarrez, et vous la prolongez aussi souvent que vos crédits le permettent&nbsp;: il n’y a pas de limite d’heures. Une licence fait tourner 3 machines à la fois au plus (5 avec Max), nœuds hébergés et machines Cloud Builds ensemble.</li>
+        <li><b>Un serveur est temporaire.</b> Il est supprimé à la fin de la session, et rien de ce qu’il contient n’est conservé. Votre travail revient sur votre ordinateur&nbsp;; quand il est éteint, il est mis de côté, scellé pour que seul votre ordinateur puisse l’ouvrir, et gardé 7&nbsp;jours pour lui, puis supprimé&nbsp;: rallumez votre ordinateur à temps, et gardez votre propre copie de ce dont vous avez besoin. Un serveur perdu est remplacé une fois, et l’heure perdue est remboursée.</li>
+        <li><b>Ce que vous payez.</b> Un nœud est facturé à l’heure entamée, au tarif de sa taille affiché avant qu’il démarre et fixé pour la session&nbsp;: 10&nbsp;heures et 40&nbsp;minutes comptent pour 11&nbsp;heures. Les heures sont réservées au départ, et ce que vous n’utilisez pas est rendu à la fin de la session. Rien n’est facturé quand aucun serveur n’a pu être obtenu.</li>
+      </ul>
+    </section>
+
+    <section id="content" aria-labelledby="h-content">
+      <h2 id="h-content"><span data-l="en">5. Your content</span><span data-l="fr">5. Vos contenus</span></h2>
+      <p data-l="en">What you send (your voice, your prompts, your files) and what you get back (a transcript, an image) stays yours: we claim no rights over it, and use it only to give you the service, as the <a href="../privacy.html#hosted">privacy page</a> says. You are responsible for having the right to send it, and for what you do with what comes back.</p>
+      <p data-l="fr">Ce que vous envoyez (votre voix, vos demandes, vos fichiers) et ce que vous recevez (une transcription, une image) reste à vous&nbsp;: nous ne revendiquons aucun droit dessus, et ne l’utilisons que pour vous rendre le service, comme le dit la <a href="../privacy.html#hosted">page de confidentialité</a>. Vous êtes responsable d’avoir le droit de l’envoyer, et de ce que vous faites de ce qui revient.</p>
+      <p data-l="en">What AI models produce can be wrong, or look like someone else’s work: check it before you rely on it or publish it.</p>
+      <p data-l="fr">Ce que produisent les modèles d’IA peut être faux, ou ressembler au travail de quelqu’un d’autre&nbsp;: vérifiez-le avant de vous y fier ou de le publier.</p>
+    </section>
+
+    <section id="reports" aria-labelledby="h-reports">
+      <h2 id="h-reports"><span data-l="en">6. Reports and takedowns</span><span data-l="fr">6. Signalements et retraits</span></h2>
+      <p data-l="en">To report a share or any abuse of HangarAI Cloud, use the “Report this page” link on the share, or write to <a href="mailto:abuse@hangarai.dev">abuse@hangarai.dev</a> with the link or what you saw. Our providers’ abuse desks write to the same address.</p>
+      <p data-l="fr">Pour signaler un partage ou tout abus de HangarAI Cloud, utilisez le lien «&nbsp;Signaler cette page&nbsp;» du partage, ou écrivez à <a href="mailto:abuse@hangarai.dev">abuse@hangarai.dev</a> avec le lien ou ce que vous avez vu. Les services anti-abus de nos fournisseurs écrivent à la même adresse.</p>
+      <ul data-l="en">
+        <li>We may look at what was reported, take content down and stop a job that breaks these terms or the law, without notice. A reported share that breaks them is taken down within the hour of the report.</li>
+        <li>A share’s record (which license published it, and when) is kept to act on reports, as the privacy page says; where the law requires it, we pass what we hold to the authorities.</li>
+        <li>When we can reach you, we tell you what was taken down and why, and you can answer at <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>: a mistake is put right.</li>
+        <li>A security problem in HangarAI or its servers goes to the repository’s <a href="https://github.com/hangar-ai/hangar/security/advisories/new">private security report</a>.</li>
+      </ul>
+      <ul data-l="fr">
+        <li>Nous pouvons examiner ce qui a été signalé, retirer un contenu et arrêter une tâche qui enfreint ces conditions ou la loi, sans préavis. Un partage signalé qui les enfreint est retiré dans l’heure qui suit le signalement.</li>
+        <li>La fiche d’un partage (quelle licence l’a publié, et quand) est conservée pour traiter les signalements, comme le dit la page de confidentialité&nbsp;; quand la loi l’exige, nous transmettons ce que nous détenons aux autorités.</li>
+        <li>Quand nous pouvons vous joindre, nous vous disons ce qui a été retiré et pourquoi, et vous pouvez répondre à <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>&nbsp;: une erreur est réparée.</li>
+        <li>Un problème de sécurité dans HangarAI ou ses serveurs se signale par le <a href="https://github.com/hangar-ai/hangar/security/advisories/new">signalement de sécurité privé</a> du dépôt.</li>
+      </ul>
+    </section>
+
+    <section id="suspension" aria-labelledby="h-suspension">
+      <h2 id="h-suspension"><span data-l="en">7. Limits, pauses and suspension</span><span data-l="fr">7. Limites, pauses et suspension</span></h2>
+      <ul data-l="en">
+        <li><b>Limits.</b> Each service has limits per license, some of them above; the app says when one is reached.</li>
+        <li><b>Pauses.</b> We cap what each provider may cost us in a month. A service that reaches its cap pauses for everyone, and the app says until when; nothing is charged meanwhile. A service can also pause while its provider is down.</li>
+        <li><b>Suspension.</b> When these terms are broken, we act in proportion: we refuse a request, take down a share, stop a job, freeze a service on the license until a review, or end the license’s access to HangarAI Cloud. Mining, phishing, malware, sexual content involving a minor and attacks end it at once, without refund of the credits on the license.</li>
+        <li><b>Disputed payments.</b> A payment disputed with your bank (a chargeback) freezes the license’s HangarAI Cloud until it is settled.</li>
+        <li>Unless the law forbids it, we tell you why, and you can answer at <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>.</li>
+      </ul>
+      <ul data-l="fr">
+        <li><b>Limites.</b> Chaque service a des limites par licence, dont certaines ci-dessus&nbsp;; l’app indique quand l’une est atteinte.</li>
+        <li><b>Pauses.</b> Nous plafonnons ce que chaque fournisseur peut nous coûter par mois. Un service qui atteint son plafond se met en pause pour tous, et l’app dit jusqu’à quand&nbsp;; rien n’est facturé entre-temps. Un service peut aussi se mettre en pause quand son fournisseur est en panne.</li>
+        <li><b>Suspension.</b> Quand ces conditions ne sont pas respectées, nous agissons en proportion&nbsp;: nous refusons une requête, retirons un partage, arrêtons une tâche, gelons un service sur la licence jusqu’à un examen, ou mettons fin à l’accès de la licence à HangarAI Cloud. Le minage, l’hameçonnage, les logiciels malveillants, les contenus sexuels impliquant un mineur et les attaques y mettent fin sur-le-champ, sans remboursement des crédits de la licence.</li>
+        <li><b>Paiements contestés.</b> Un paiement contesté auprès de votre banque (une rétrofacturation) gèle HangarAI Cloud sur la licence jusqu’à son règlement.</li>
+        <li>Sauf si la loi l’interdit, nous vous disons pourquoi, et vous pouvez répondre à <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>.</li>
+      </ul>
+    </section>
+
+    <section id="promise" aria-labelledby="h-promise">
+      <h2 id="h-promise"><span data-l="en">8. What we promise, and what we can’t</span><span data-l="fr">8. Ce que nous promettons, ou pas</span></h2>
+      <ul data-l="en">
+        <li>We show the price before and the cost after, and charge only what a service used, within what you allowed.</li>
+        <li>We keep only what the privacy page says, and delete it when it says.</li>
+        <li>We cannot promise that a service is always there: it depends on providers and networks, and can be slow, pause or fail. AI models make mistakes. Keep your own copy of anything that matters: a share ends, a build machine is destroyed, and we keep no transcript, no image and no build output.</li>
+        <li>A service can change or close. If one closes, the credits on your license stay there for the others.</li>
+        <li>Nothing in these terms takes away the rights the law gives you as a consumer.</li>
+      </ul>
+      <ul data-l="fr">
+        <li>Nous affichons le prix avant et le coût après, et ne facturons que ce qu’un service a utilisé, dans ce que vous avez autorisé.</li>
+        <li>Nous ne conservons que ce que dit la page de confidentialité, et l’effaçons quand elle le dit.</li>
+        <li>Nous ne pouvons pas promettre qu’un service soit toujours là&nbsp;: il dépend de fournisseurs et de réseaux, et peut être lent, se mettre en pause ou échouer. Les modèles d’IA se trompent. Gardez votre propre copie de ce qui compte&nbsp;: un partage prend fin, une machine de compilation est détruite, et nous ne gardons ni transcription, ni image, ni résultat de compilation.</li>
+        <li>Un service peut changer ou fermer. Si l’un ferme, les crédits de votre licence y restent pour les autres.</li>
+        <li>Rien dans ces conditions ne vous retire les droits que la loi vous donne en tant que consommateur.</li>
+      </ul>
+    </section>
+
+    <section id="data" aria-labelledby="h-data">
+      <h2 id="h-data"><span data-l="en">9. Your data</span><span data-l="fr">9. Vos données</span></h2>
+      <p data-l="en">What each service sends, to which provider, and how long it is kept: the <a href="../privacy.html#hosted">privacy page</a>, in its section on hosted services, which lists every provider before it receives anything.</p>
+      <p data-l="fr">Ce que chaque service envoie, à quel fournisseur, et combien de temps c’est conservé&nbsp;: la <a href="../privacy.html#hosted">page de confidentialité</a>, dans sa partie sur les services hébergés, qui liste chaque fournisseur avant qu’il reçoive quoi que ce soit.</p>
+    </section>
+
+    <section id="changes" aria-labelledby="h-changes">
+      <h2 id="h-changes"><span data-l="en">10. Changes, and contact</span><span data-l="fr">10. Changements, et contact</span></h2>
+      <p data-l="en">These terms can change, and a new service’s rules are written here before it opens. The date at the top says which version you are reading; a change applies from its date, never to what you already did.</p>
+      <p data-l="fr">Ces conditions peuvent changer, et les règles d’un nouveau service sont écrites ici avant qu’il ouvre. La date en haut indique la version que vous lisez&nbsp;; un changement s’applique à partir de sa date, jamais à ce que vous avez déjà fait.</p>
+      <p data-l="en">Questions: <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>. Abuse: <a href="mailto:abuse@hangarai.dev">abuse@hangarai.dev</a>.</p>
+      <p data-l="fr">Questions&nbsp;: <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>. Abus&nbsp;: <a href="mailto:abuse@hangarai.dev">abuse@hangarai.dev</a>.</p>
+    </section>
+  </article>
+</main>
+
+<!-- site footer: the same on every page -->
+<footer class="foot" id="site-map">
+  <div class="wrap foot__in">
+    <div class="foot__top">
+      <div class="foot__brand">
+        <a class="brand" href="../" aria-label="HangarAI, home" data-fr="HangarAI, accueil">
+          <svg class="brand__mark" width="20" height="20" viewBox="200 200 624 624" aria-hidden="true">
+        <rect x="200" y="200" width="260" height="624" fill="var(--accent)"></rect>
+        <rect x="538" y="200" width="286" height="260" fill="var(--fg-hi)"></rect>
+        <rect x="538" y="538" width="286" height="286" fill="var(--fg-hi)"></rect>
+      </svg>
+          <span class="brand__name">HangarAI</span>
+        </a>
+        <p class="foot__tag"><span data-l="en">A team of coding agents, in one native window. Local, with no usage telemetry.</span><span data-l="fr">Une équipe d’agents de code, dans une seule fenêtre native. En local, sans télémétrie d’usage.</span></p>
+        <div class="foot__social">
+          <a href="https://github.com/hangar-ai/hangar" aria-label="HangarAI on GitHub" data-fr="HangarAI sur GitHub"><svg width="17" height="17" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"></path></svg></a>
+          <a href="https://discord.gg/hangarai" aria-label="HangarAI on Discord" data-fr="HangarAI sur Discord"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.32 4.37a19.8 19.8 0 0 0-4.89-1.52.07.07 0 0 0-.08.04c-.21.37-.44.86-.61 1.25a18.27 18.27 0 0 0-5.49 0 12.6 12.6 0 0 0-.62-1.25.08.08 0 0 0-.08-.04 19.74 19.74 0 0 0-4.88 1.52.07.07 0 0 0-.03.03C.53 9.05-.32 13.58.1 18.06a.08.08 0 0 0 .03.06 19.9 19.9 0 0 0 5.99 3.03.08.08 0 0 0 .08-.03c.46-.63.87-1.3 1.23-1.99a.08.08 0 0 0-.04-.11 13.1 13.1 0 0 1-1.87-.89.08.08 0 0 1-.01-.13l.37-.29a.07.07 0 0 1 .08-.01c3.93 1.79 8.18 1.79 12.06 0a.07.07 0 0 1 .08.01l.37.29a.08.08 0 0 1-.01.13c-.6.35-1.22.64-1.87.89a.08.08 0 0 0-.04.11c.36.7.77 1.36 1.22 1.99a.08.08 0 0 0 .08.03 19.84 19.84 0 0 0 6-3.03.08.08 0 0 0 .04-.06c.5-5.18-.84-9.67-3.55-13.66a.06.06 0 0 0-.03-.03ZM8.02 15.33c-1.18 0-2.16-1.09-2.16-2.42s.96-2.42 2.16-2.42c1.21 0 2.18 1.1 2.16 2.42 0 1.33-.96 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.15-1.09-2.15-2.42s.95-2.42 2.15-2.42c1.21 0 2.18 1.1 2.16 2.42 0 1.33-.95 2.42-2.16 2.42Z"></path></svg></a>
+        </div>
+      </div>
+      <nav class="foot__cols" aria-label="Site map" data-fr="Plan du site">
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Product</span><span data-l="fr">Produit</span></h2>
+        <ul>
+          <li><a href="../#how"><span data-l="en">Features</span><span data-l="fr">Fonctionnalités</span></a></li>
+          <li><a href="../pricing/"><span data-l="en">Pricing</span><span data-l="fr">Tarifs</span></a></li>
+          <li><a href="../#download"><span data-l="en">Download</span><span data-l="fr">Télécharger</span></a></li>
+          <li><a href="../#control">Hangar Mobile</a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md"><span data-l="en">Changelog</span><span data-l="fr">Nouveautés</span></a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Resources</span><span data-l="fr">Ressources</span></h2>
+        <ul>
+          <li><a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/README.md">Guide</a></li>
+          <li><a href="../#faq">Questions</a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/releases"><span data-l="en">Releases</span><span data-l="fr">Versions</span></a></li>
+          <li><a href="https://discord.gg/hangarai"><span data-l="en">Discord community</span><span data-l="fr">Communauté Discord</span></a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/issues"><span data-l="en">Report a bug</span><span data-l="fr">Signaler un bug</span></a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Company</span><span data-l="fr">Société</span></h2>
+        <ul>
+          <li><a href="../account/"><span data-l="en">Account</span><span data-l="fr">Compte</span></a></li>
+          <li><a href="../affiliates/"><span data-l="en">Affiliates</span><span data-l="fr">Affiliation</span></a></li>
+          <li><a href="mailto:contact@hangarai.dev">Contact</a></li>
+          <li><a href="https://github.com/simnJS"><span data-l="en">Made by simnJS</span><span data-l="fr">Fait par simnJS</span></a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Legal</span><span data-l="fr">Légal</span></h2>
+        <ul>
+          <li><a href="../privacy.html"><span data-l="en">Privacy</span><span data-l="fr">Confidentialité</span></a></li>
+          <li><a href="../terms/" aria-current="page"><span data-l="en">Cloud terms</span><span data-l="fr">Conditions du Cloud</span></a></li>
+          <li><a href="../legal/affiliate-terms.html"><span data-l="en">Affiliate terms</span><span data-l="fr">Conditions d’affiliation</span></a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/blob/main/LICENSE"><span data-l="en">License</span><span data-l="fr">Licence</span></a></li>
+        </ul>
+      </div>
+      </nav>
+    </div>
+    <div class="foot__base">
+      <p><span>© 2026 HangarAI</span><span><span data-l="en">Payments by</span><span data-l="fr">Paiements par</span> <a href="https://polar.sh">Polar</a></span></p>
+      <div class="foot__end"><div class="lang-seg" role="group" aria-label="Language" data-fr="Langue">
+        <button type="button" class="lang-seg__btn" data-set-lang="en" lang="en" aria-label="English" aria-pressed="true">EN</button>
+        <button type="button" class="lang-seg__btn" data-set-lang="fr" lang="fr" aria-label="Français" aria-pressed="false">FR</button>
+      </div></div>
+    </div>
+  </div>
+</footer>
+<!-- /site footer -->
+
+<script src="../assets/lang.js?v=3f125a4686" defer></script>
+<script src="../assets/nav.js?v=a2538a43ce" defer></script>
+</body>
+</html>

@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-fr="Conditions d’affiliation : HangarAI">Affiliate terms: HangarAI</title>
+<meta name="description" content="The terms of HangarAI’s referral program: the 30 % commission, the 30-day hold, refunds, attribution, what is not allowed, payouts and changes." data-fr="Les conditions du programme de parrainage de HangarAI : la commission de 30 %, le délai de 30 jours, les remboursements, l’attribution, ce qui n’est pas permis, les versements et les changements.">
+<link rel="canonical" href="https://hangarai.dev/legal/affiliate-terms.html">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#202124" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f0f0f0" media="(prefers-color-scheme: light)">
+
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<link rel="icon" href="../logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+
+<link rel="preload" href="../fonts/inter-latin-opsz.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css?v=925761be91">
+<link rel="stylesheet" href="../assets/pages.css?v=2d3d68d3af">
+<link rel="stylesheet" href="legal.css?v=da3d6ec99f">
+<script>
+(function (r) {
+  r.classList.add('js');
+  // The header before the first paint: the announcement already dismissed, and
+  // "Account" rather than "Sign in" where the account was opened before.
+  try {
+    r.setAttribute('data-announce-seen', localStorage.getItem('hangar.announce') || '');
+    if (localStorage.getItem('hangar.account.seen') === '1') r.classList.add('signed');
+  } catch (e) {}
+  // The language before the first paint (assets/lang.js wires the switch).
+  var l = null;
+  try { l = new URLSearchParams(location.search).get('lang'); } catch (e) {}
+  if (l !== 'en' && l !== 'fr') { try { l = localStorage.getItem('hangar.lang'); } catch (e) {} }
+  if (l !== 'en' && l !== 'fr') l = /^fr\b/i.test((navigator.languages && navigator.languages[0]) || navigator.language || '') ? 'fr' : 'en';
+  r.lang = l;
+  r.dataset.lang = l;
+})(document.documentElement);
+</script>
+</head>
+<body>
+
+<a class="skip" href="#main"><span data-l="en">Skip to content</span><span data-l="fr">Aller au contenu</span></a>
+
+<!-- site header: the same on every page (assets/nav.js wires it) -->
+<header class="bar" id="bar">
+  <div class="bar__in">
+    <a class="brand" href="../" aria-label="HangarAI, home" data-fr="HangarAI, accueil">
+      <svg class="brand__mark" width="20" height="20" viewBox="200 200 624 624" aria-hidden="true">
+        <rect x="200" y="200" width="260" height="624" fill="var(--accent)"></rect>
+        <rect x="538" y="200" width="286" height="260" fill="var(--fg-hi)"></rect>
+        <rect x="538" y="538" width="286" height="286" fill="var(--fg-hi)"></rect>
+      </svg>
+      <span class="brand__name">HangarAI</span>
+    </a>
+
+    <nav class="nav" aria-label="Main" data-fr="Principal">
+      <ul class="nav__list">
+        <li class="nav__item nav__item--menu">
+          <a class="nav__link nav__trigger" href="../#how" aria-expanded="false" aria-controls="menu-product"><span data-l="en">Product</span><span data-l="fr">Produit</span><svg class="nav__chev" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 4.5 3 3 3-3"></path></svg></a>
+          <div class="menu" id="menu-product">
+            <ul class="menu__grid">
+              <li><a class="menu__item" href="../#how" data-spy="how">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="5" r="2.5"></circle><circle cx="18.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="19" r="2.5"></circle><path d="M8 12h8M7.6 10.7l8.8-4.4M7.6 13.3l8.8 4.4"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">How it works</span><span data-l="fr">Comment ça marche</span></span><span class="menu__desc"><span data-l="en">Say the objective. The team does the rest.</span><span data-l="fr">Donne l’objectif. L’équipe fait le reste.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="../#team" data-spy="team">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.2 19.5a5.8 5.8 0 0 1 11.6 0"></path><circle cx="17.2" cy="9" r="2.4"></circle><path d="M16.2 14.1a4.6 4.6 0 0 1 5 4.6"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">A team, not a chatbot</span><span data-l="fr">Une équipe, pas un chatbot</span></span><span class="menu__desc"><span data-l="en">Claude Code and Codex, up to 40 at once.</span><span data-l="fr">Claude Code et Codex, jusqu’à 40 à la fois.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="../#land" data-spy="land">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5.5" r="2.2"></circle><circle cx="6" cy="18.5" r="2.2"></circle><circle cx="18" cy="12" r="2.2"></circle><path d="M6 7.7v8.6M7.6 7.1c1.5 3 4.3 4.7 8.2 4.9"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">Lands fast, and safe</span><span data-l="fr">Fusionné vite, sans casse</span></span><span class="menu__desc"><span data-l="en">Ten deliveries landed in 65&nbsp;s.</span><span data-l="fr">Dix livraisons fusionnées en 65&nbsp;s.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="../#night" data-spy="night">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 14.6A7.8 7.8 0 0 1 9.4 4.5a7.8 7.8 0 1 0 10.1 10.1Z"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">Works while you sleep</span><span data-l="fr">Avance pendant que tu dors</span></span><span class="menu__desc"><span data-l="en">A report in the morning, computer on or off.</span><span data-l="fr">Un rapport au réveil, ordinateur allumé ou éteint.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="../#cloud" data-spy="cloud">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.2 18.5h10.3a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.6 9.3a4.6 4.6 0 0 0 .6 9.2Z"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">Cloud power</span><span data-l="fr">La puissance du cloud</span></span><span class="menu__desc"><span data-l="en">CPU or GPU machines, by the second.</span><span data-l="fr">Des machines CPU ou GPU, à la seconde.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="../#control" data-spy="control">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 21V4.5"></path><path d="M5.5 4.5h11.8l-2.3 4 2.3 4H5.5"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">You stay in control</span><span data-l="fr">Tu gardes la main</span></span><span class="menu__desc"><span data-l="en">Needs you, budgets, Hangar Mobile.</span><span data-l="fr">Besoin de toi, budgets, Hangar Mobile.</span></span></span>
+              </a></li>
+            </ul>
+            <p class="menu__foot">
+              <a href="../#features"><span data-l="en">Also in the box</span><span data-l="fr">Et aussi</span></a>
+              <a href="../#faq">Questions</a>
+              <a class="menu__get" href="../#download"><span data-l="en">Download</span><span data-l="fr">Télécharger</span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"></path></svg></a>
+            </p>
+          </div>
+        </li>
+        <li><a class="nav__link" href="../pricing/"><span data-l="en">Pricing</span><span data-l="fr">Tarifs</span></a></li>
+        <li><a class="nav__link" href="../affiliates/"><span data-l="en">Affiliates</span><span data-l="fr">Affiliation</span></a></li>
+        <li><a class="nav__link" href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/README.md">Guide<svg class="nav__ext" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 7.5 7.5 2.5M3.5 2.5h4v4"></path></svg></a></li>
+        <li><a class="nav__link" href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md"><span data-l="en">Changelog</span><span data-l="fr">Nouveautés</span><svg class="nav__ext" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 7.5 7.5 2.5M3.5 2.5h4v4"></path></svg></a></li>
+      </ul>
+    </nav>
+
+    <div class="bar__end">
+      <div class="lang">
+        <button type="button" class="nav__link lang__btn" aria-expanded="false" aria-controls="lang-menu" aria-label="Language" data-fr="Langue"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><circle cx="8" cy="8" r="6.25"></circle><path d="M1.75 8h12.5M8 1.75c1.7 1.8 2.5 3.9 2.5 6.25S9.7 12.45 8 14.25C6.3 12.45 5.5 10.35 5.5 8S6.3 3.55 8 1.75Z"></path></svg><span data-l="en">EN</span><span data-l="fr">FR</span></button>
+        <div class="lang__menu" id="lang-menu" role="group" aria-label="Language" data-fr="Langue">
+          <button type="button" class="lang__opt" data-set-lang="en" lang="en" aria-pressed="true">English<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"></path></svg></button>
+          <button type="button" class="lang__opt" data-set-lang="fr" lang="fr" aria-pressed="false">Français<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"></path></svg></button>
+        </div>
+      </div>
+      <a class="nav__link bar__signin" href="../account/"><span class="if-out"><span data-l="en">Sign in</span><span data-l="fr">Se connecter</span></span><span class="if-in"><span data-l="en">Account</span><span data-l="fr">Compte</span></span></a>
+      <a class="btn btn--primary btn--sm bar__cta" href="../#download"><span data-l="en">Start free trial</span><span data-l="fr">Essai gratuit</span></a>
+      <a class="bar__menu" href="#site-map" role="button" aria-controls="sheet" aria-expanded="false" aria-label="Menu"><i></i><i></i></a>
+    </div>
+  </div>
+</header>
+
+<div class="sheet" id="sheet" hidden>
+  <nav class="sheet__nav" aria-label="Main" data-fr="Principal">
+    <p class="sheet__h"><span data-l="en">Product</span><span data-l="fr">Produit</span></p>
+    <ul class="sheet__grid">
+        <li><a href="../#how" data-spy="how"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="5" r="2.5"></circle><circle cx="18.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="19" r="2.5"></circle><path d="M8 12h8M7.6 10.7l8.8-4.4M7.6 13.3l8.8 4.4"></path></svg></span><span data-l="en">How it works</span><span data-l="fr">Comment ça marche</span></a></li>
+        <li><a href="../#team" data-spy="team"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.2 19.5a5.8 5.8 0 0 1 11.6 0"></path><circle cx="17.2" cy="9" r="2.4"></circle><path d="M16.2 14.1a4.6 4.6 0 0 1 5 4.6"></path></svg></span><span data-l="en">The team</span><span data-l="fr">L’équipe</span></a></li>
+        <li><a href="../#land" data-spy="land"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5.5" r="2.2"></circle><circle cx="6" cy="18.5" r="2.2"></circle><circle cx="18" cy="12" r="2.2"></circle><path d="M6 7.7v8.6M7.6 7.1c1.5 3 4.3 4.7 8.2 4.9"></path></svg></span><span data-l="en">Landing</span><span data-l="fr">La fusion</span></a></li>
+        <li><a href="../#night" data-spy="night"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 14.6A7.8 7.8 0 0 1 9.4 4.5a7.8 7.8 0 1 0 10.1 10.1Z"></path></svg></span><span data-l="en">Night shift</span><span data-l="fr">Mode nuit</span></a></li>
+        <li><a href="../#cloud" data-spy="cloud"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.2 18.5h10.3a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.6 9.3a4.6 4.6 0 0 0 .6 9.2Z"></path></svg></span>Cloud Builds</a></li>
+        <li><a href="../#control" data-spy="control"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 21V4.5"></path><path d="M5.5 4.5h11.8l-2.3 4 2.3 4H5.5"></path></svg></span><span data-l="en">In control</span><span data-l="fr">Tu gardes la main</span></a></li>
+    </ul>
+  </nav>
+  <ul class="sheet__list">
+    <li><a href="../pricing/"><span data-l="en">Pricing</span><span data-l="fr">Tarifs</span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+    <li><a href="../affiliates/"><span data-l="en">Affiliates</span><span data-l="fr">Affiliation</span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+    <li><a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/README.md">Guide<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+    <li><a href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md"><span data-l="en">Changelog</span><span data-l="fr">Nouveautés</span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+  </ul>
+  <div class="sheet__end">
+    <div class="sheet__lang"><span data-l="en">Language</span><span data-l="fr">Langue</span><div class="lang-seg" role="group" aria-label="Language" data-fr="Langue">
+        <button type="button" class="lang-seg__btn" data-set-lang="en" lang="en" aria-label="English" aria-pressed="true">EN</button>
+        <button type="button" class="lang-seg__btn" data-set-lang="fr" lang="fr" aria-label="Français" aria-pressed="false">FR</button>
+      </div></div>
+    <a class="btn" href="../account/"><span class="if-out"><span data-l="en">Sign in</span><span data-l="fr">Se connecter</span></span><span class="if-in"><span data-l="en">Account</span><span data-l="fr">Compte</span></span></a>
+    <a class="btn btn--primary" href="../#download"><span data-l="en">Start free trial</span><span data-l="fr">Essai gratuit</span></a>
+  </div>
+</div>
+<!-- /site header -->
+
+<main id="main" class="page" tabindex="-1">
+  <article class="wrap legal" aria-labelledby="terms-title">
+    <p class="eyebrow"><span data-l="en">Legal</span><span data-l="fr">Juridique</span></p>
+    <h1 class="legal__title" id="terms-title">
+      <span data-l="en">Affiliate terms</span>
+      <span data-l="fr">Conditions d’affiliation</span>
+    </h1>
+    <p class="legal__meta">
+      <span data-l="en">Version of <time datetime="2026-11-19">19 November 2026</time></span>
+      <span data-l="fr">Version du <time datetime="2026-11-19">19 novembre 2026</time></span>
+    </p>
+
+    <div class="legal__draft" role="note">
+      <p data-l="en"><b>To be reviewed.</b> This text has not been checked by a lawyer yet. It says plainly how the program works; a reviewed version will replace it, and you will be told before it applies.</p>
+      <p data-l="fr"><b>À relire.</b> Ce texte n’a pas encore été vérifié par un juriste. Il dit simplement comment fonctionne le programme&nbsp;; une version relue le remplacera, et vous en serez prévenu avant qu’elle s’applique.</p>
+    </div>
+
+    <nav class="legal__toc" aria-label="Contents" data-fr="Sommaire">
+      <ol>
+        <li><a href="#program"><span data-l="en">The program</span><span data-l="fr">Le programme</span></a></li>
+        <li><a href="#commission"><span data-l="en">Commission</span><span data-l="fr">Commission</span></a></li>
+        <li><a href="#hold"><span data-l="en">The hold, and refunds</span><span data-l="fr">Le délai, et les remboursements</span></a></li>
+        <li><a href="#attribution"><span data-l="en">Who brought whom</span><span data-l="fr">Qui a amené qui</span></a></li>
+        <li><a href="#abuse"><span data-l="en">Self-referral and abuse</span><span data-l="fr">Auto-parrainage et abus</span></a></li>
+        <li><a href="#payment"><span data-l="en">Payment</span><span data-l="fr">Paiement</span></a></li>
+        <li><a href="#tax"><span data-l="en">Taxes</span><span data-l="fr">Impôts</span></a></li>
+        <li><a href="#friend"><span data-l="en">What your friends get</span><span data-l="fr">Ce que reçoivent vos amis</span></a></li>
+        <li><a href="#data"><span data-l="en">Your data</span><span data-l="fr">Vos données</span></a></li>
+        <li><a href="#changes"><span data-l="en">Changes, and leaving</span><span data-l="fr">Changements, et départ</span></a></li>
+      </ol>
+    </nav>
+
+    <section id="program" aria-labelledby="h-program">
+      <h2 id="h-program"><span data-l="en">1. The program</span><span data-l="fr">1. Le programme</span></h2>
+      <p data-l="en">HangarAI’s referral program (“the program”) pays you a share of what the customers you bring to HangarAI pay. It is run by the publisher of HangarAI (“we”). You join by having a HangarAI account: every account has a referral code and a link, <code>hangarai.dev/r/&lt;code&gt;</code>. Sharing your link, or saving payout details, means you accept these terms.</p>
+      <p data-l="fr">Le programme de parrainage de HangarAI («&nbsp;le programme&nbsp;») vous verse une part de ce que paient les clients que vous amenez à HangarAI. Il est géré par l’éditeur de HangarAI («&nbsp;nous&nbsp;»). Vous y participez dès que vous avez un compte HangarAI&nbsp;: chaque compte a un code de parrainage et un lien, <code>hangarai.dev/r/&lt;code&gt;</code>. Partager votre lien, ou enregistrer vos coordonnées de versement, vaut acceptation de ces conditions.</p>
+      <p data-l="en">You must be of legal age where you live and able to receive payments in your own name or your company’s.</p>
+      <p data-l="fr">Vous devez être majeur là où vous vivez et pouvoir recevoir des paiements à votre nom ou à celui de votre société.</p>
+    </section>
+
+    <section id="commission" aria-labelledby="h-commission">
+      <h2 id="h-commission"><span data-l="en">2. Commission</span><span data-l="fr">2. Commission</span></h2>
+      <p data-l="en">You earn <b>30&nbsp;% of the net amount</b> of every payment made by a customer attributed to you: subscriptions to HangarAI Pro or HangarAI Max (monthly or yearly), credit packs and pay as you go. The net amount is the price without VAT, less the fee of our payment provider, Polar, on that payment.</p>
+      <p data-l="fr">Vous touchez <b>30&nbsp;% du montant net</b> de chaque paiement d’un client qui vous est attribué&nbsp;: abonnements à HangarAI Pro ou HangarAI Max (mensuels ou annuels), recharges de crédits et paiement à l’usage. Le montant net est le prix hors TVA, moins les frais de notre prestataire de paiement, Polar, sur ce paiement.</p>
+      <p data-l="en">For example, for a customer in France (20&nbsp;% VAT), at today’s prices and Polar’s fees: HangarAI Pro at €20 a month brings you about <b>€4.47 a month</b>; Pro at €192 a year, about <b>€44.12 a year</b>; HangarAI Max at €39 a month, about <b>€8.85 a month</b>; Max at €374 a year, about <b>€86.07 a year</b>. These examples are estimates: your account shows the exact amount of each commission.</p>
+      <p data-l="fr">Par exemple, pour un client en France (TVA à 20&nbsp;%), aux prix et frais de Polar d’aujourd’hui&nbsp;: HangarAI Pro à 20&nbsp;€ par mois vous rapporte environ <b>4,47&nbsp;€ par mois</b>&nbsp;; Pro à 192&nbsp;€ par an, environ <b>44,12&nbsp;€ par an</b>&nbsp;; HangarAI Max à 39&nbsp;€ par mois, environ <b>8,85&nbsp;€ par mois</b>&nbsp;; Max à 374&nbsp;€ par an, environ <b>86,07&nbsp;€ par an</b>. Ces exemples sont des estimations&nbsp;: votre compte affiche le montant exact de chaque commission.</p>
+      <p data-l="en">You earn it <b>for life</b>: on every payment of that customer, for as long as they pay. Commissions are counted in euros; a payment in another currency is converted at Polar’s rate on the day it is paid.</p>
+      <p data-l="fr">Vous la touchez <b>à vie</b>&nbsp;: sur chaque paiement de ce client, tant qu’il paie. Les commissions sont comptées en euros&nbsp;; un paiement dans une autre devise est converti au taux de Polar le jour du paiement.</p>
+      <p data-l="en">Free trials, free licenses and bonus credits earn nothing by themselves.</p>
+      <p data-l="fr">Les essais gratuits, les licences offertes et les crédits offerts ne rapportent rien en eux-mêmes.</p>
+    </section>
+
+    <section id="hold" aria-labelledby="h-hold">
+      <h2 id="h-hold"><span data-l="en">3. The hold, and refunds</span><span data-l="fr">3. Le délai, et les remboursements</span></h2>
+      <p data-l="en">Each commission is <b>held 30 days</b> from the payment it comes from, the time a customer has to ask for a refund. After that it becomes payable.</p>
+      <p data-l="fr">Chaque commission est <b>retenue 30 jours</b> à compter du paiement dont elle vient, le temps qu’a un client pour demander un remboursement. Elle devient ensuite payable.</p>
+      <p data-l="en">If a payment is refunded, in whole or in part, or disputed with the customer’s bank (a chargeback), its commission is cancelled in the same proportion. If it was already paid to you, the amount is taken off your next payouts.</p>
+      <p data-l="fr">Si un paiement est remboursé, en tout ou en partie, ou contesté auprès de la banque du client (une rétrofacturation), sa commission est annulée dans la même proportion. Si elle vous a déjà été versée, le montant est déduit de vos prochains versements.</p>
+    </section>
+
+    <section id="attribution" aria-labelledby="h-attribution">
+      <h2 id="h-attribution"><span data-l="en">4. Who brought whom</span><span data-l="fr">4. Qui a amené qui</span></h2>
+      <p data-l="en">A customer is attributed to you when they pay after arriving through your link, or after entering your code in the app. Your link remembers your code on their browser for <b>60 days</b>, with a cookie and the browser’s storage holding that code and nothing else.</p>
+      <p data-l="fr">Un client vous est attribué quand il paie après être arrivé par votre lien, ou après avoir saisi votre code dans l’app. Votre lien retient votre code dans son navigateur pendant <b>60 jours</b>, avec un cookie et le stockage du navigateur qui ne contiennent que ce code.</p>
+      <p data-l="en"><b>The first referral wins</b>: a customer, a license or a payment address already attributed to someone stays theirs. A customer who already paid before arriving through your link is not attributed to you. Our records decide, and you can see every attributed customer, anonymously, in your account.</p>
+      <p data-l="fr"><b>Le premier parrainage l’emporte</b>&nbsp;: un client, une licence ou une adresse de paiement déjà attribués à quelqu’un le restent. Un client qui avait déjà payé avant d’arriver par votre lien ne vous est pas attribué. Nos enregistrements font foi, et vous voyez chaque client attribué, de façon anonyme, dans votre compte.</p>
+    </section>
+
+    <section id="abuse" aria-labelledby="h-abuse">
+      <h2 id="h-abuse"><span data-l="en">5. Self-referral and abuse</span><span data-l="fr">5. Auto-parrainage et abus</span></h2>
+      <p data-l="en">These earn nothing, and may end your part in the program:</p>
+      <p data-l="fr">Ce qui suit ne rapporte rien, et peut mettre fin à votre participation au programme&nbsp;:</p>
+      <ul data-l="en">
+        <li>referring yourself: your own account, your own machines, your own payment details, or accounts made to look like someone else;</li>
+        <li>ads that bid on HangarAI’s name or look like they come from us, and pages that pretend to be HangarAI’s;</li>
+        <li>spam, messages to people who did not ask for them, and fake reviews;</li>
+        <li>promises we don’t make: discounts, features or prices that aren’t real;</li>
+        <li>paying or rewarding people to sign up, and any trick to make a sale look like it came through your link when it didn’t.</li>
+      </ul>
+      <ul data-l="fr">
+        <li>vous parrainer vous-même&nbsp;: votre propre compte, vos propres machines, vos propres moyens de paiement, ou des comptes créés pour passer pour quelqu’un d’autre&nbsp;;</li>
+        <li>des publicités qui achètent le nom HangarAI ou semblent venir de nous, et des pages qui se font passer pour celles de HangarAI&nbsp;;</li>
+        <li>le spam, les messages envoyés à des personnes qui ne les ont pas demandés, et les faux avis&nbsp;;</li>
+        <li>des promesses que nous ne faisons pas&nbsp;: réductions, fonctions ou prix qui n’existent pas&nbsp;;</li>
+        <li>payer ou récompenser des personnes pour qu’elles s’inscrivent, et toute manœuvre pour faire passer une vente par votre lien alors qu’elle n’en vient pas.</li>
+      </ul>
+      <p data-l="en">We watch for unusual patterns (many trials from one place, for example). When something looks wrong, we may hold the commissions concerned while we look, and cancel those that break these terms. We will tell you why, and you can answer at <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>.</p>
+      <p data-l="fr">Nous surveillons les situations inhabituelles (beaucoup d’essais depuis un même endroit, par exemple). Quand quelque chose semble anormal, nous pouvons retenir les commissions concernées le temps de vérifier, et annuler celles qui enfreignent ces conditions. Nous vous dirons pourquoi, et vous pourrez répondre à <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>.</p>
+    </section>
+
+    <section id="payment" aria-labelledby="h-payment">
+      <h2 id="h-payment"><span data-l="en">6. Payment</span><span data-l="fr">6. Paiement</span></h2>
+      <p data-l="en">Payable commissions are paid <b>once a month</b>, from the 1st, by bank transfer to an IBAN or by PayPal, to the payout details saved in your account, <b>once at least €20 are payable</b>. Below that, they carry over to the next month. A payout waits for your payout details if you have not saved them.</p>
+      <p data-l="fr">Les commissions payables sont versées <b>une fois par mois</b>, à partir du 1er, par virement sur un IBAN ou par PayPal, selon les coordonnées enregistrées dans votre compte, <b>dès qu’au moins 20&nbsp;€ sont payables</b>. En dessous, elles passent au mois suivant. Un versement attend vos coordonnées si vous ne les avez pas enregistrées.</p>
+      <p data-l="en">You are responsible for your payout details being right. We pay the transfer fees on our side; fees your bank or PayPal charge you are yours. Each payout has a reference, and your account keeps a statement for every month.</p>
+      <p data-l="fr">L’exactitude de vos coordonnées vous incombe. Nous payons les frais de virement de notre côté&nbsp;; ceux que vous facture votre banque ou PayPal restent à votre charge. Chaque versement a une référence, et votre compte conserve un relevé pour chaque mois.</p>
+    </section>
+
+    <section id="tax" aria-labelledby="h-tax">
+      <h2 id="h-tax"><span data-l="en">7. Taxes</span><span data-l="fr">7. Impôts</span></h2>
+      <p data-l="en">Commissions are your income. Declaring them, and paying any tax, VAT or social contribution they are subject to where you live, is up to you. We withhold nothing, unless a law requires us to. If you invoice as a business, your statements can serve as the basis for your invoices.</p>
+      <p data-l="fr">Les commissions sont un revenu pour vous. Les déclarer, et payer l’impôt, la TVA ou les cotisations sociales auxquels elles sont soumises là où vous vivez, vous revient. Nous ne retenons rien, sauf si une loi nous y oblige. Si vous facturez en tant qu’entreprise, vos relevés peuvent servir de base à vos factures.</p>
+    </section>
+
+    <section id="friend" aria-labelledby="h-friend">
+      <h2 id="h-friend"><span data-l="en">8. What your friends get</span><span data-l="fr">8. Ce que reçoivent vos amis</span></h2>
+      <p data-l="en">A customer attributed to you gets <b>1,000 bonus credits</b> on their license with their first payment. Bonus credits work like purchased credits, have no cash value and are not refunded.</p>
+      <p data-l="fr">Un client qui vous est attribué reçoit <b>1&nbsp;000 crédits offerts</b> sur sa licence avec son premier paiement. Les crédits offerts fonctionnent comme des crédits achetés, n’ont pas de valeur monétaire et ne sont pas remboursés.</p>
+    </section>
+
+    <section id="data" aria-labelledby="h-data">
+      <h2 id="h-data"><span data-l="en">9. Your data</span><span data-l="fr">9. Vos données</span></h2>
+      <p data-l="en">For the program we keep your code, the visits and attributions it brings (never the names or addresses of the people you refer, which you never see), the commissions and payouts, and your payout details, encrypted. We use them only to run the program and pay you. The <a href="../privacy.html">privacy page</a> says more.</p>
+      <p data-l="fr">Pour le programme, nous conservons votre code, les visites et attributions qu’il amène (jamais le nom ni l’adresse des personnes que vous parrainez, que vous ne voyez pas), les commissions et versements, et vos coordonnées de versement, chiffrées. Nous ne les utilisons que pour faire fonctionner le programme et vous payer. La <a href="../privacy.html">page de confidentialité</a> en dit plus.</p>
+    </section>
+
+    <section id="changes" aria-labelledby="h-changes">
+      <h2 id="h-changes"><span data-l="en">10. Changes, and leaving</span><span data-l="fr">10. Changements, et départ</span></h2>
+      <p data-l="en">We may change these terms, the rate or the program. We will tell you at least <b>30 days</b> before a change applies, in your account and by email. Commissions already earned keep the terms they were earned under.</p>
+      <p data-l="fr">Nous pouvons modifier ces conditions, le taux ou le programme. Nous vous préviendrons au moins <b>30 jours</b> avant qu’un changement s’applique, dans votre compte et par e-mail. Les commissions déjà acquises gardent les conditions sous lesquelles elles l’ont été.</p>
+      <p data-l="en">You can leave at any time by writing to us or deleting your account; we can end the program, or your part in it, with the same 30 days’ notice, or at once for a breach of section 5. Either way, what is payable and not cancelled is paid, even below €20.</p>
+      <p data-l="fr">Vous pouvez partir à tout moment en nous écrivant ou en supprimant votre compte&nbsp;; nous pouvons arrêter le programme, ou votre participation, avec le même préavis de 30 jours, ou immédiatement en cas de manquement à la section 5. Dans tous les cas, ce qui est payable et non annulé est versé, même en dessous de 20&nbsp;€.</p>
+      <p data-l="en">Questions: <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>.</p>
+      <p data-l="fr">Questions&nbsp;: <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>.</p>
+    </section>
+  </article>
+</main>
+
+<!-- site footer: the same on every page -->
+<footer class="foot" id="site-map">
+  <div class="wrap foot__in">
+    <div class="foot__top">
+      <div class="foot__brand">
+        <a class="brand" href="../" aria-label="HangarAI, home" data-fr="HangarAI, accueil">
+          <svg class="brand__mark" width="20" height="20" viewBox="200 200 624 624" aria-hidden="true">
+        <rect x="200" y="200" width="260" height="624" fill="var(--accent)"></rect>
+        <rect x="538" y="200" width="286" height="260" fill="var(--fg-hi)"></rect>
+        <rect x="538" y="538" width="286" height="286" fill="var(--fg-hi)"></rect>
+      </svg>
+          <span class="brand__name">HangarAI</span>
+        </a>
+        <p class="foot__tag"><span data-l="en">A team of coding agents, in one native window. Local, with no usage telemetry.</span><span data-l="fr">Une équipe d’agents de code, dans une seule fenêtre native. En local, sans télémétrie d’usage.</span></p>
+        <div class="foot__social">
+          <a href="https://github.com/hangar-ai/hangar" aria-label="HangarAI on GitHub" data-fr="HangarAI sur GitHub"><svg width="17" height="17" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"></path></svg></a>
+          <a href="https://discord.gg/hangarai" aria-label="HangarAI on Discord" data-fr="HangarAI sur Discord"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.32 4.37a19.8 19.8 0 0 0-4.89-1.52.07.07 0 0 0-.08.04c-.21.37-.44.86-.61 1.25a18.27 18.27 0 0 0-5.49 0 12.6 12.6 0 0 0-.62-1.25.08.08 0 0 0-.08-.04 19.74 19.74 0 0 0-4.88 1.52.07.07 0 0 0-.03.03C.53 9.05-.32 13.58.1 18.06a.08.08 0 0 0 .03.06 19.9 19.9 0 0 0 5.99 3.03.08.08 0 0 0 .08-.03c.46-.63.87-1.3 1.23-1.99a.08.08 0 0 0-.04-.11 13.1 13.1 0 0 1-1.87-.89.08.08 0 0 1-.01-.13l.37-.29a.07.07 0 0 1 .08-.01c3.93 1.79 8.18 1.79 12.06 0a.07.07 0 0 1 .08.01l.37.29a.08.08 0 0 1-.01.13c-.6.35-1.22.64-1.87.89a.08.08 0 0 0-.04.11c.36.7.77 1.36 1.22 1.99a.08.08 0 0 0 .08.03 19.84 19.84 0 0 0 6-3.03.08.08 0 0 0 .04-.06c.5-5.18-.84-9.67-3.55-13.66a.06.06 0 0 0-.03-.03ZM8.02 15.33c-1.18 0-2.16-1.09-2.16-2.42s.96-2.42 2.16-2.42c1.21 0 2.18 1.1 2.16 2.42 0 1.33-.96 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.15-1.09-2.15-2.42s.95-2.42 2.15-2.42c1.21 0 2.18 1.1 2.16 2.42 0 1.33-.95 2.42-2.16 2.42Z"></path></svg></a>
+        </div>
+      </div>
+      <nav class="foot__cols" aria-label="Site map" data-fr="Plan du site">
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Product</span><span data-l="fr">Produit</span></h2>
+        <ul>
+          <li><a href="../#how"><span data-l="en">Features</span><span data-l="fr">Fonctionnalités</span></a></li>
+          <li><a href="../pricing/"><span data-l="en">Pricing</span><span data-l="fr">Tarifs</span></a></li>
+          <li><a href="../#download"><span data-l="en">Download</span><span data-l="fr">Télécharger</span></a></li>
+          <li><a href="../#control">Hangar Mobile</a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md"><span data-l="en">Changelog</span><span data-l="fr">Nouveautés</span></a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Resources</span><span data-l="fr">Ressources</span></h2>
+        <ul>
+          <li><a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/README.md">Guide</a></li>
+          <li><a href="../#faq">Questions</a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/releases"><span data-l="en">Releases</span><span data-l="fr">Versions</span></a></li>
+          <li><a href="https://discord.gg/hangarai"><span data-l="en">Discord community</span><span data-l="fr">Communauté Discord</span></a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/issues"><span data-l="en">Report a bug</span><span data-l="fr">Signaler un bug</span></a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Company</span><span data-l="fr">Société</span></h2>
+        <ul>
+          <li><a href="../account/"><span data-l="en">Account</span><span data-l="fr">Compte</span></a></li>
+          <li><a href="../affiliates/"><span data-l="en">Affiliates</span><span data-l="fr">Affiliation</span></a></li>
+          <li><a href="mailto:contact@hangarai.dev">Contact</a></li>
+          <li><a href="https://github.com/simnJS"><span data-l="en">Made by simnJS</span><span data-l="fr">Fait par simnJS</span></a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Legal</span><span data-l="fr">Légal</span></h2>
+        <ul>
+          <li><a href="../privacy.html"><span data-l="en">Privacy</span><span data-l="fr">Confidentialité</span></a></li>
+          <li><a href="../terms/"><span data-l="en">Cloud terms</span><span data-l="fr">Conditions du Cloud</span></a></li>
+          <li><a href="../legal/affiliate-terms.html" aria-current="page"><span data-l="en">Affiliate terms</span><span data-l="fr">Conditions d’affiliation</span></a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/blob/main/LICENSE"><span data-l="en">License</span><span data-l="fr">Licence</span></a></li>
+        </ul>
+      </div>
+      </nav>
+    </div>
+    <div class="foot__base">
+      <p><span>© 2026 HangarAI</span><span><span data-l="en">Payments by</span><span data-l="fr">Paiements par</span> <a href="https://polar.sh">Polar</a></span></p>
+      <div class="foot__end"><div class="lang-seg" role="group" aria-label="Language" data-fr="Langue">
+        <button type="button" class="lang-seg__btn" data-set-lang="en" lang="en" aria-label="English" aria-pressed="true">EN</button>
+        <button type="button" class="lang-seg__btn" data-set-lang="fr" lang="fr" aria-label="Français" aria-pressed="false">FR</button>
+      </div></div>
+    </div>
+  </div>
+</footer>
+<!-- /site footer -->
+
+<script src="../assets/lang.js?v=3f125a4686" defer></script>
+<script src="../assets/nav.js?v=a2538a43ce" defer></script>
+</body>
+</html>

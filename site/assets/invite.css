@@ -1,0 +1,277 @@
+/* ═══════════════════════════════════════════════════════════════
+   HangarAI: the landing of a referral link (assets/invite.js)
+
+   On styles.css and assets/pages.css. One card in the middle of the
+   page: who invited the visitor, the gift, then the way in.
+   ═══════════════════════════════════════════════════════════════ */
+
+.invite [hidden] {
+  display: none !important;
+}
+
+.invite__in {
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+  max-width: calc(620px + 2 * var(--gutter));
+  padding-block: clamp(40px, 7vw, 88px) clamp(72px, 9vw, 120px);
+}
+
+.invite__card {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: clamp(28px, 5vw, 48px) clamp(20px, 5vw, 48px) clamp(24px, 4vw, 36px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background:
+    radial-gradient(80% 50% at 50% 0%, var(--accent-soft), transparent 70%),
+    var(--chrome);
+  box-shadow: 0 40px 100px -60px var(--shadow), 0 12px 30px -24px var(--shadow);
+  text-align: center;
+}
+
+/* the person who invited, a ring around them, and the gift */
+.invite__who {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+}
+
+.invite__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 210deg, var(--accent), var(--state-yours), var(--state-working), var(--accent));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  opacity: 0.9;
+}
+
+.invite__avatar {
+  display: grid;
+  place-items: center;
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, var(--raised), var(--bg-sunken));
+  color: var(--fg-secondary);
+  font-size: 32px;
+  font-weight: 680;
+}
+
+.invite__avatar.has-initial {
+  background: linear-gradient(145deg, var(--accent), color-mix(in srgb, var(--state-yours) 70%, var(--accent)));
+  color: #fff;
+}
+
+.invite__gift {
+  position: absolute;
+  right: -4px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 3px solid var(--chrome);
+  border-radius: 50%;
+  background: var(--state-working);
+  color: var(--bg);
+}
+
+.invite__state {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+
+.invite__title {
+  max-width: 16ch;
+  font-size: clamp(32px, 6vw, 48px);
+  line-height: 1.08;
+  letter-spacing: -0.032em;
+}
+
+.invite__title:focus {
+  outline: none;
+}
+
+.invite__name-wait {
+  display: inline-block;
+  width: min(300px, 70vw);
+  height: 0.9em;
+  border-radius: 8px;
+  background: var(--line-strong);
+  vertical-align: middle;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .invite__name-wait {
+    animation: bone 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes bone {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.invite__bonus {
+  max-width: 30em;
+  color: var(--fg-secondary);
+  font-size: clamp(17px, 2.2vw, 20px);
+  line-height: 1.45;
+}
+
+.invite__bonus b {
+  color: var(--fg-hi);
+}
+
+.invite__lede {
+  max-width: 34em;
+  color: var(--fg-muted);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.invite__cta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.invite__steps {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 18px 0 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+  text-align: left;
+}
+
+.invite__steps li {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  color: var(--fg-secondary);
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+.invite__step-n {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-hi);
+  font-size: 12px;
+  font-weight: 700;
+  transform: translateY(-1px);
+}
+
+.invite__fine {
+  max-width: 36em;
+  color: var(--fg-muted);
+  font-size: 13px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.invite__fine:focus {
+  outline: none;
+}
+
+.invite__fine code {
+  color: var(--fg);
+}
+
+.invite__forget {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-hi);
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.invite__forget:hover {
+  color: var(--fg-hi);
+}
+
+.invite__more {
+  color: var(--fg-secondary);
+  font-size: 14px;
+  text-align: center;
+}
+
+[data-state="unknown"] .invite__avatar,
+[data-state="none"] .invite__avatar {
+  color: var(--fg-muted);
+}
+
+[data-state="unknown"] .invite__ring,
+[data-state="none"] .invite__ring {
+  opacity: 0.25;
+  filter: grayscale(1);
+}
+
+[data-state="unknown"] .invite__gift,
+[data-state="none"] .invite__gift {
+  background: var(--border-strong);
+}
+
+/* coming in */
+@media (prefers-reduced-motion: no-preference) {
+  .invite__card > *,
+  .invite__in > p {
+    animation: rise 640ms var(--ease) both;
+  }
+
+  .invite__card > :nth-child(2) { animation-delay: 60ms; }
+  .invite__card > :nth-child(3) { animation-delay: 100ms; }
+  .invite__card > :nth-child(4) { animation-delay: 140ms; }
+  .invite__card > :nth-child(n + 5) { animation-delay: 200ms; }
+  .invite__in > p { animation-delay: 260ms; }
+
+  .invite__ring {
+    animation: turn 9s linear infinite;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+@keyframes turn {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@media (max-width: 599px) {
+  .invite__cta {
+    display: grid;
+    width: 100%;
+  }
+
+  .invite__cta .btn {
+    width: 100%;
+  }
+}

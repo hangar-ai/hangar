@@ -1,0 +1,153 @@
+name: Cloud Builds machine image
+
+# The image HangarAI Cloud Builds rents its machines with, ghcr.io/hangar-ai/hangar-box:<version>, one per release of
+# HangarAI: Ubuntu with the toolchains a build needs and hangar-box, the agent of the machine (cloud-image/Dockerfile
+# says what is in it). Started only at a release, by the private repository's scripts/release/cloud-image: hangar-box
+# is built from sources that are not here, and handed over through a draft release made for that alone, which this
+# run deletes once it has the file. The run checks the file's SHA-256, builds the image, checks it as a machine starts
+# it, and pushes it. A version's image is pushed once: a tag that is there already is refused, never overwritten.
+# With it, from the same hangar-box: the GPU sessions' variant, <version>-gpu (cloud-image/gpu.Dockerfile: Vulkan and
+# OpenGL ready for the host's NVIDIA driver), checked and pushed the same way; and the box's kit (cloud-image/
+# kit.Dockerfile: the static programs a machine made from the person's own image downloads at start, cloud-image/
+# boot.sh), kept as this run's artifact hangar-box-kit-<version>, its SHA256SUMS's hash in the summary, for the release
+# to serve from HangarAI's server.
+run-name: hangar-box ${{ inputs.version }} (inputs ${{ inputs.inputs_release }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "The release's version (3.0.0)"
+        required: true
+      sha256:
+        description: "hangar-box's SHA-256, as the build machine gave it"
+        required: true
+      inputs_release:
+        description: "The id of the draft release that holds hangar-box"
+        required: true
+
+concurrency:
+  group: cloud-box
+  cancel-in-progress: false
+
+permissions:
+  # The draft release: its file read, then the release deleted.
+  contents: write
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    env:
+      IMAGE: ghcr.io/hangar-ai/hangar-box
+      VERSION: ${{ inputs.version }}
+      SHA256: ${{ inputs.sha256 }}
+      INPUTS: ${{ inputs.inputs_release }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The inputs are a version, a hash and a release's id
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "not a version: $VERSION"; exit 1; }
+          [[ "$SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "not a SHA-256: $SHA256"; exit 1; }
+          [[ "$INPUTS" =~ ^[0-9]+$ ]] || { echo "not a release's id: $INPUTS"; exit 1; }
+
+      - name: hangar-box, from the draft release, as the build machine hashed it
+        run: |
+          set -euo pipefail
+          asset=$(gh api "repos/$GITHUB_REPOSITORY/releases/$INPUTS" \
+            --jq 'select(.draft) | .assets[] | select(.name == "hangar-box") | .id')
+          [ -n "$asset" ] || { echo "the draft release $INPUTS holds no hangar-box"; exit 1; }
+          gh api -H "Accept: application/octet-stream" "repos/$GITHUB_REPOSITORY/releases/assets/$asset" \
+            > cloud-image/hangar-box
+          echo "$SHA256  cloud-image/hangar-box" | sha256sum -c -
+          chmod 755 cloud-image/hangar-box
+
+      - name: The draft release is deleted, whatever comes next
+        if: always()
+        run: gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/$INPUTS" || true
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Never a version pushed twice
+        run: |
+          for tag in "$VERSION" "$VERSION-gpu"; do
+            if docker manifest inspect "$IMAGE:$tag" >/dev/null 2>&1; then
+              echo "$IMAGE:$tag is there already: a release's image is never pushed again"
+              exit 1
+            fi
+          done
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          docker build --pull --build-arg VERSION="$VERSION" -t "$IMAGE:$VERSION" cloud-image
+          docker build --build-arg BOX="$IMAGE:$VERSION" --build-arg VERSION="$VERSION" \
+            -f cloud-image/gpu.Dockerfile -t "$IMAGE:$VERSION-gpu" cloud-image
+
+      # What the broker and the box rely on: hangar-box of this version as the entrypoint's program, the SSH port
+      # the broker maps exposed, the name the broker asks for, the jobs' user, the toolchains, and no host key of
+      # the image's own (each machine draws one).
+      - name: Check the image as a machine starts it
+        run: |
+          set -euo pipefail
+          test "$(docker run --rm --entrypoint /usr/local/bin/hangar-box "$IMAGE:$VERSION" version)" = "hangar-box $VERSION"
+          docker image inspect "$IMAGE:$VERSION" --format '{{json .Config.ExposedPorts}}' | grep -q '"2222/tcp"'
+          test "$(docker image inspect "$IMAGE:$VERSION" --format '{{index .Config.Labels "org.opencontainers.image.ref.name"}}')" = "$IMAGE:$VERSION"
+          docker image inspect "$IMAGE:$VERSION" --format '{{json .Config.Entrypoint}}' | grep -q '/usr/local/bin/hangar-box'
+          docker run --rm --entrypoint /bin/sh "$IMAGE:$VERSION" -c '
+            set -e
+            id -u builder | grep -qx 2000
+            for tool in git cc clang mold cmake java python3 node npm pnpm uv sshd tini zstd; do command -v "$tool" >/dev/null; done
+            /opt/cargo/bin/cargo --version && /opt/cargo/bin/rustup --version && /usr/local/go/bin/go version
+            test "$(stat -c %u:%g /opt/rustup)" = 2000:2000
+            test -f /etc/hangar-box/job.env
+            ! ls /etc/ssh/ssh_host_* 2>/dev/null
+            test "$(PYTHON_CPU_COUNT=3 python3 -c "import os; print(os.cpu_count())")" = 3
+            python3 -m venv /tmp/venv
+            test "$(PYTHON_CPU_COUNT=3 /tmp/venv/bin/python -c "import os; print(os.cpu_count())")" = 3'
+
+      # The GPU variant: the same box, the Vulkan loader pointed at NVIDIA's libraries (which the host's runtime
+      # mounts, so not here), lavapipe answering on the CPU meanwhile, the tools.
+      - name: Check the GPU variant
+        run: |
+          set -euo pipefail
+          test "$(docker run --rm --entrypoint /usr/local/bin/hangar-box "$IMAGE:$VERSION-gpu" version)" = "hangar-box $VERSION"
+          test "$(docker image inspect "$IMAGE:$VERSION-gpu" --format '{{index .Config.Labels "org.opencontainers.image.ref.name"}}')" = "$IMAGE:$VERSION-gpu"
+          docker image inspect "$IMAGE:$VERSION-gpu" --format '{{json .Config.Env}}' | grep -q 'NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics'
+          docker run --rm --entrypoint /bin/sh "$IMAGE:$VERSION-gpu" -c '
+            set -e
+            for tool in vulkaninfo vkcube spirv-val Xvfb weston gdb; do command -v "$tool" >/dev/null; done
+            grep -q libGLX_nvidia.so.0 /etc/vulkan/icd.d/nvidia_icd.json
+            test -f /usr/share/vulkan/explicit_layer.d/VkLayer_khronos_validation.json
+            VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json vulkaninfo --summary | grep -q llvmpipe'
+
+      # The kit, from the same hangar-box: every program static, the box the one checked above.
+      - name: The box's kit
+        run: |
+          set -euo pipefail
+          docker build -f cloud-image/kit.Dockerfile --output type=local,dest=kit cloud-image
+          echo "$SHA256  kit/bin/hangar-box" | sha256sum -c -
+          (cd kit && sha256sum -c SHA256SUMS)
+          echo "kit $VERSION: SHA256SUMS $(sha256sum kit/SHA256SUMS | cut -d' ' -f1)" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hangar-box-kit-${{ inputs.version }}
+          path: kit/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Push
+        run: |
+          set -euo pipefail
+          for tag in "$VERSION" "$VERSION-gpu"; do
+            docker push "$IMAGE:$tag"
+            digest=$(docker image inspect "$IMAGE:$tag" --format '{{index .RepoDigests 0}}')
+            echo "pushed $digest" | tee -a "$GITHUB_STEP_SUMMARY"
+          done

@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Privacy: HangarAI and the optional Hangar account</title>
-<meta name="description" content="What the optional Hangar account stores (who signed in, the machines linked, usage totals), what it never stores (paths, transcripts, code, prompts), how long it is kept and how to delete it.">
+<title data-fr="Confidentialité : HangarAI, sa licence et le compte Hangar facultatif">Privacy: HangarAI, its license and the optional Hangar account</title>
+<meta name="description" data-fr="Ce que la vérification de la licence envoie et quand, ce que la dictée hébergée et les crédits font de vos données, quels prestataires utilisent les services hébergés et ce que chacun garde, ce que stocke le compte Hangar facultatif, ce que rien ne stocke jamais (chemins, transcriptions, code, prompts), combien de temps c’est conservé et comment le supprimer." content="What the license check sends and when, what hosted dictation and credits do with your data, which providers the hosted services use and what each keeps, what the optional Hangar account stores, what nothing ever stores (paths, transcripts, code, prompts), how long it is kept and how to delete it.">
 <link rel="canonical" href="https://hangarai.dev/privacy.html">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#202124" media="(prefers-color-scheme: dark)">
@@ -15,9 +15,12 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 
 <link rel="preload" href="fonts/inter-latin-opsz.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="styles.css?v=36067723b1">
+<link rel="stylesheet" href="styles.css?v=925761be91">
 <style>
 /* The page's own: a column of text, on the tokens of styles.css. */
+/* Two languages in one page: every text in English and in French (data-l), and only the language
+   the head script chose shows (assets/lang.js wires the switch). Without script, English. */
+:root:not([data-lang="fr"]) [data-l="fr"], :root[data-lang="fr"] [data-l="en"] { display: none !important; }
 .legal { max-width: 44em; margin-top: 48px; }
 .legal h2 { margin: 48px 0 12px; font-size: 22px; line-height: 1.25; letter-spacing: -0.015em; }
 .legal h3 { margin: 28px 0 8px; font-size: 16.5px; line-height: 1.35; }
@@ -28,75 +31,1323 @@
 .legal__date { color: var(--fg-muted); font-size: 13.5px; }
 .legal__short { margin: 0 0 14px; padding: 18px 20px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-sunken); }
 .legal__short p:last-child, .legal__short ul:last-child { margin-bottom: 0; }
-.bar__back { margin-left: auto; color: var(--fg-secondary); font-size: 13.5px; text-decoration: none; }
-.bar__back:hover { color: var(--fg-hi); }
+/* A hosted service's state: a dot and a word, green while it is open. */
+.state { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 560; letter-spacing: 0; white-space: nowrap; }
+.state::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.state--live { color: var(--state-working); }
+.legal h2 .state { margin-left: 10px; vertical-align: 2px; }
+.legal .services { list-style: none; padding-left: 0; }
+.legal .services li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+/* The providers: one row each; below 640 px a row becomes a card, its labels written in the cells. */
+.subp { width: 100%; margin: 4px 0 14px; border: 1px solid var(--border); border-radius: 8px; border-collapse: separate; border-spacing: 0; overflow: hidden; font-size: 14px; line-height: 1.55; }
+.subp th, .subp td { padding: 12px 14px; border-top: 1px solid var(--border); text-align: left; vertical-align: top; }
+.subp thead th { border-top: 0; background: var(--chrome); color: var(--fg-muted); font-size: 12.5px; font-weight: 600; letter-spacing: 0.02em; }
+.subp tbody th { width: 28%; font-weight: 400; }
+.subp td { color: var(--fg-secondary); }
+.subp__name { display: block; color: var(--fg-hi); font-size: 15px; font-weight: 600; }
+.subp__for, .subp__where { display: block; color: var(--fg-secondary); }
+.subp__where { margin-top: 2px; color: var(--fg-muted); font-size: 13px; }
+.subp .state { margin-top: 8px; }
+.subp__k { display: none; }
+/* A section whose legal wording has not been checked by a lawyer yet. */
+.legal__review { margin: 0 0 14px; padding: 12px 16px; border: 1px solid color-mix(in srgb, var(--state-waiting) 50%, var(--border)); border-radius: var(--r-lg); background: color-mix(in srgb, var(--state-waiting) 9%, var(--bg)); color: var(--fg); font-size: 15px; line-height: 1.55; }
+.legal__review p { margin: 0; color: inherit; }
+.legal__review b { color: var(--state-waiting); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 639px) {
+  .subp, .subp tbody, .subp tr, .subp th, .subp td { display: block; }
+  .subp thead { display: none; }
+  .subp tr { padding: 14px 16px; border-top: 1px solid var(--border); }
+  .subp tbody tr:first-child { border-top: 0; }
+  .subp th, .subp tbody th, .subp td { width: auto; padding: 0; border-top: 0; }
+  .subp td { margin-top: 10px; }
+  .subp__k { display: block; color: var(--fg-muted); font-size: 12.5px; font-weight: 600; letter-spacing: 0.02em; }
+}
 </style>
+<script>
+(function (r) {
+  r.classList.add('js');
+  // The header before the first paint: the announcement already dismissed, and
+  // "Account" rather than "Sign in" where the account was opened before.
+  try {
+    r.setAttribute('data-announce-seen', localStorage.getItem('hangar.announce') || '');
+    if (localStorage.getItem('hangar.account.seen') === '1') r.classList.add('signed');
+  } catch (e) {}
+  // The language before the first paint (assets/lang.js wires the switch).
+  var l = null;
+  try { l = new URLSearchParams(location.search).get('lang'); } catch (e) {}
+  if (l !== 'en' && l !== 'fr') { try { l = localStorage.getItem('hangar.lang'); } catch (e) {} }
+  if (l !== 'en' && l !== 'fr') l = /^fr\b/i.test((navigator.languages && navigator.languages[0]) || navigator.language || '') ? 'fr' : 'en';
+  r.lang = l;
+  r.dataset.lang = l;
+})(document.documentElement);
+</script>
 </head>
 <body>
-<a class="skip" href="#main">Skip to the text</a>
+<a class="skip" href="#main"><span data-l="en">Skip to the text</span><span data-l="fr">Aller au texte</span></a>
 
-<header class="bar">
+<!-- site header: the same on every page (assets/nav.js wires it) -->
+<header class="bar" id="bar">
   <div class="bar__in">
-    <a class="brand" href="./" aria-label="HangarAI, home">
-      <svg class="brand__mark" width="18" height="18" viewBox="200 200 624 624" aria-hidden="true">
+    <a class="brand" href="./" aria-label="HangarAI, home" data-fr="HangarAI, accueil">
+      <svg class="brand__mark" width="20" height="20" viewBox="200 200 624 624" aria-hidden="true">
         <rect x="200" y="200" width="260" height="624" fill="var(--accent)"></rect>
         <rect x="538" y="200" width="286" height="260" fill="var(--fg-hi)"></rect>
         <rect x="538" y="538" width="286" height="286" fill="var(--fg-hi)"></rect>
       </svg>
       <span class="brand__name">HangarAI</span>
     </a>
-    <a class="bar__back" href="./">Back to the site</a>
+
+    <nav class="nav" aria-label="Main" data-fr="Principal">
+      <ul class="nav__list">
+        <li class="nav__item nav__item--menu">
+          <a class="nav__link nav__trigger" href="./#chat" aria-expanded="false" aria-controls="menu-product"><span data-l="en">Product</span><span data-l="fr">Produit</span><svg class="nav__chev" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 4.5 3 3 3-3"></path></svg></a>
+          <div class="menu" id="menu-product">
+            <ul class="menu__grid">
+              <li><a class="menu__item" href="./#chat" data-spy="chat">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"></path><path d="M8 9h8M8 12.5h5"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">Chat view</span><span data-l="fr">Vue chat</span></span><span class="menu__desc"><span data-l="en">Talk to the orchestrator, not to sixteen terminals.</span><span data-l="fr">Parlez à l’orchestrateur, pas à seize terminaux.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="./#orchestrator" data-spy="orchestrator">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="5" r="2.5"></circle><circle cx="18.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="19" r="2.5"></circle><path d="M8 12h8M7.6 10.7l8.8-4.4M7.6 13.3l8.8 4.4"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">Orchestrator</span><span data-l="fr">Orchestrateur</span></span><span class="menu__desc"><span data-l="en">One plans, the others build, Hangar checks.</span><span data-l="fr">L’un planifie, les autres codent, Hangar vérifie.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="./#mobile" data-spy="mobile">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"></rect><path d="M10.5 18.5h3"></path></svg></span>
+                <span><span class="menu__title">Hangar Mobile</span><span class="menu__desc"><span data-l="en">Answer your agents from your phone.</span><span data-l="fr">Répondez à vos agents depuis votre téléphone.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="./#kits" data-spy="kits">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8 20 7.2v9.6L12 21.2 4 16.8V7.2Z"></path><path d="m4 7.2 8 4.4 8-4.4M12 11.6v9.6"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">Kits &amp; previews</span><span data-l="fr">Kits et aperçus</span></span><span class="menu__desc"><span data-l="en">Agents show you their work, beside the terminal.</span><span data-l="fr">Les agents montrent leur travail, à côté du terminal.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="./#experiments" data-spy="experiments">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6.2L4.7 18.4A1.7 1.7 0 0 0 6.2 21h11.6a1.7 1.7 0 0 0 1.5-2.6L14 9.2V3"></path><path d="M7.2 15h9.6"></path></svg></span>
+                <span><span class="menu__title"><span data-l="en">Experiments</span><span data-l="fr">Expériences</span></span><span class="menu__desc"><span data-l="en">Try what comes next.</span><span data-l="fr">Essayez ce qui arrive.</span></span></span>
+              </a></li>
+              <li><a class="menu__item" href="./#performance" data-spy="performance">
+                <span class="menu__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.2 18a9 9 0 1 1 15.6 0"></path><path d="m12 14 4.5-5"></path><circle cx="12" cy="14" r="1.4"></circle></svg></span>
+                <span><span class="menu__title"><span data-l="en">Performance</span><span data-l="fr">Performances</span></span><span class="menu__desc"><span data-l="en">Native, in Rust, lighter with every release.</span><span data-l="fr">Natif, en Rust, plus léger à chaque version.</span></span></span>
+              </a></li>
+            </ul>
+            <p class="menu__foot">
+              <a href="./#features"><span data-l="en">Also in the box</span><span data-l="fr">Et aussi</span></a>
+              <a href="./#faq">Questions</a>
+              <a class="menu__get" href="./#download"><span data-l="en">Download</span><span data-l="fr">Télécharger</span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"></path></svg></a>
+            </p>
+          </div>
+        </li>
+        <li><a class="nav__link" href="pricing/"><span data-l="en">Pricing</span><span data-l="fr">Tarifs</span></a></li>
+        <li><a class="nav__link" href="affiliates/"><span data-l="en">Affiliates</span><span data-l="fr">Affiliation</span></a></li>
+        <li><a class="nav__link" href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/README.md">Guide<svg class="nav__ext" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 7.5 7.5 2.5M3.5 2.5h4v4"></path></svg></a></li>
+        <li><a class="nav__link" href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md"><span data-l="en">Changelog</span><span data-l="fr">Nouveautés</span><svg class="nav__ext" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 7.5 7.5 2.5M3.5 2.5h4v4"></path></svg></a></li>
+      </ul>
+    </nav>
+
+    <div class="bar__end">
+      <div class="lang">
+        <button type="button" class="nav__link lang__btn" aria-expanded="false" aria-controls="lang-menu" aria-label="Language" data-fr="Langue"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><circle cx="8" cy="8" r="6.25"></circle><path d="M1.75 8h12.5M8 1.75c1.7 1.8 2.5 3.9 2.5 6.25S9.7 12.45 8 14.25C6.3 12.45 5.5 10.35 5.5 8S6.3 3.55 8 1.75Z"></path></svg><span data-l="en">EN</span><span data-l="fr">FR</span></button>
+        <div class="lang__menu" id="lang-menu" role="group" aria-label="Language" data-fr="Langue">
+          <button type="button" class="lang__opt" data-set-lang="en" lang="en" aria-pressed="true">English<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"></path></svg></button>
+          <button type="button" class="lang__opt" data-set-lang="fr" lang="fr" aria-pressed="false">Français<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"></path></svg></button>
+        </div>
+      </div>
+      <a class="nav__link bar__signin" href="account/"><span class="if-out"><span data-l="en">Sign in</span><span data-l="fr">Se connecter</span></span><span class="if-in"><span data-l="en">Account</span><span data-l="fr">Compte</span></span></a>
+      <a class="btn btn--primary btn--sm bar__cta" href="./#download"><span data-l="en">Start free trial</span><span data-l="fr">Essai gratuit</span></a>
+      <a class="bar__menu" href="#site-map" role="button" aria-controls="sheet" aria-expanded="false" aria-label="Menu"><i></i><i></i></a>
+    </div>
   </div>
 </header>
+
+<div class="sheet" id="sheet" hidden>
+  <nav class="sheet__nav" aria-label="Main" data-fr="Principal">
+    <p class="sheet__h"><span data-l="en">Product</span><span data-l="fr">Produit</span></p>
+    <ul class="sheet__grid">
+        <li><a href="./#chat" data-spy="chat"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"></path><path d="M8 9h8M8 12.5h5"></path></svg></span><span data-l="en">Chat view</span><span data-l="fr">Vue chat</span></a></li>
+        <li><a href="./#orchestrator" data-spy="orchestrator"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="5" r="2.5"></circle><circle cx="18.5" cy="12" r="2.5"></circle><circle cx="18.5" cy="19" r="2.5"></circle><path d="M8 12h8M7.6 10.7l8.8-4.4M7.6 13.3l8.8 4.4"></path></svg></span><span data-l="en">Orchestrator</span><span data-l="fr">Orchestrateur</span></a></li>
+        <li><a href="./#mobile" data-spy="mobile"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"></rect><path d="M10.5 18.5h3"></path></svg></span>Hangar Mobile</a></li>
+        <li><a href="./#kits" data-spy="kits"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8 20 7.2v9.6L12 21.2 4 16.8V7.2Z"></path><path d="m4 7.2 8 4.4 8-4.4M12 11.6v9.6"></path></svg></span><span data-l="en">Kits &amp; previews</span><span data-l="fr">Kits et aperçus</span></a></li>
+        <li><a href="./#experiments" data-spy="experiments"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6.2L4.7 18.4A1.7 1.7 0 0 0 6.2 21h11.6a1.7 1.7 0 0 0 1.5-2.6L14 9.2V3"></path><path d="M7.2 15h9.6"></path></svg></span><span data-l="en">Experiments</span><span data-l="fr">Expériences</span></a></li>
+        <li><a href="./#performance" data-spy="performance"><span class="menu__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.2 18a9 9 0 1 1 15.6 0"></path><path d="m12 14 4.5-5"></path><circle cx="12" cy="14" r="1.4"></circle></svg></span><span data-l="en">Performance</span><span data-l="fr">Performances</span></a></li>
+    </ul>
+  </nav>
+  <ul class="sheet__list">
+    <li><a href="pricing/"><span data-l="en">Pricing</span><span data-l="fr">Tarifs</span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+    <li><a href="affiliates/"><span data-l="en">Affiliates</span><span data-l="fr">Affiliation</span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+    <li><a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/README.md">Guide<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+    <li><a href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md"><span data-l="en">Changelog</span><span data-l="fr">Nouveautés</span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"></path></svg></a></li>
+  </ul>
+  <div class="sheet__end">
+    <div class="sheet__lang"><span data-l="en">Language</span><span data-l="fr">Langue</span><div class="lang-seg" role="group" aria-label="Language" data-fr="Langue">
+        <button type="button" class="lang-seg__btn" data-set-lang="en" lang="en" aria-label="English" aria-pressed="true">EN</button>
+        <button type="button" class="lang-seg__btn" data-set-lang="fr" lang="fr" aria-label="Français" aria-pressed="false">FR</button>
+      </div></div>
+    <a class="btn" href="account/"><span class="if-out"><span data-l="en">Sign in</span><span data-l="fr">Se connecter</span></span><span class="if-in"><span data-l="en">Account</span><span data-l="fr">Compte</span></span></a>
+    <a class="btn btn--primary" href="./#download"><span data-l="en">Start free trial</span><span data-l="fr">Essai gratuit</span></a>
+  </div>
+</div>
+<!-- /site header -->
 
 <main id="main">
 <section class="sec" aria-labelledby="privacy-title">
   <div class="wrap">
     <header class="head">
-      <p class="eyebrow">Privacy</p>
-      <h1 class="sec__title" id="privacy-title">What Hangar knows about you</h1>
-      <p class="sec__lede">
-        HangarAI runs on your computer. The one thing that can leave it for a server of ours is the
-        optional <strong>Hangar account</strong>, and only once you sign in. This page says what that
-        account stores, what it never stores, and how to delete it.
-      </p>
+      <p class="eyebrow"><span data-l="en">Privacy</span><span data-l="fr">Confidentialité</span></p>
+      <h1 class="sec__title" id="privacy-title"><span data-l="en">What Hangar knows about you</span><span data-l="fr">Ce que Hangar sait de vous</span></h1>
+      <p class="sec__lede"><span data-l="en">        HangarAI runs on your computer, and sends nothing about how you use it. What leaves it is the
+        <strong>license check</strong>, what you send to the <strong>hosted features</strong> you use
+        (dictation, Cloud Builds, hosted nodes), and, once you sign in, the optional
+        <strong>Hangar account</strong>. This page says what each sends and stores, what none ever
+        stores, and how to delete it.
+      </span><span data-l="fr">        HangarAI tourne sur votre ordinateur, et n’envoie rien sur la façon dont vous l’utilisez. Ce qui le
+        quitte, c’est la <strong>vérification de la licence</strong>, ce que vous envoyez aux
+        <strong>fonctions hébergées</strong> que vous utilisez (dictée, Cloud Builds, nœuds hébergés) et, une
+        fois connecté, le <strong>compte Hangar</strong> facultatif. Cette page dit ce que chacun envoie et
+        stocke, ce que rien ne stocke jamais, et comment tout supprimer.
+      </span></p>
     </header>
 
     <div class="legal">
-      <p class="legal__date">Last updated: 19 November 2026.</p>
+      <p data-l="en" class="legal__date">Last updated: 22 November 2026.</p>
+      <p data-l="fr" class="legal__date">Dernière mise à jour&nbsp;: 22 novembre 2026.</p>
 
-      <div class="legal__short">
+      <div data-l="en" class="legal__short">
         <p><strong>In short.</strong></p>
         <ul>
-          <li>Without an account, HangarAI never contacts the account server. The account is optional and off by default.</li>
-          <li>With one, the server stores who signed in, the machines you linked, and, only if you turn the statistics sync on, usage totals per machine, day, model and project name.</li>
-          <li>It never receives a file path, a transcript, a prompt, an answer or a line of your code.</li>
+          <li>No usage telemetry: nothing is sent about what you do in HangarAI.</li>
+          <li>The license check sends a hash of your machine, the app's version and the license's own signed token: at the first launch, then about once a day with a second hash of the computer.</li>
+          <li>Dictation sends the audio you record to our server, which has Groq transcribe it. Neither keeps the audio or the text.</li>
+          <li>Cloud Builds, when you start one, sends your project's files over SSH, straight from your computer, to a machine rented for you alone, with CPU threads or a GPU, then wipes and destroys it. Our server gets the job's record, never a file or a line of output; the dependency cache is stored encrypted with a key only your computer has, for 14 days.</li>
+          <li>Hosted nodes, when you keep a workspace running in the cloud, send the workspaces you move there over SSH, straight from your computer, to a server rented for you alone at Hetzner, in Germany or Finland, which is deleted at the end. Our server gets the session's record, never your code. When your computer is off at the end, the work waits in Cloudflare R2 sealed with a key only your computer has, and is deleted once restored or after 7 days.</li>
+          <li>Image generation sends an agent's prompt, and the image to edit, through our server to fal, which is told not to store them; our server keeps neither. A share link stores the files you publish until it ends, and anyone with the link can see them.</li>
+          <li>Hosted services use a few providers, each listed with what it receives and keeps: Polar for payments, Groq for dictation, Vast.ai and Cloudflare R2 for Cloud Builds, Hetzner and R2 for hosted nodes, fal for image generation, and R2 again for share links.</li>
+          <li>Hangar Mobile from anywhere, when you turn it on, passes your devices' traffic through our server, encrypted end to end: the relay cannot read it, and stores nothing.</li>
+          <li>Your computers, on by default with a paid license, shows each of your computers to the others through the same relay: it sees each computer's name and system and when it is connected, passes what one computer says to another encrypted end to end, and keeps none of it. You can turn it off on each computer.</li>
+          <li>The Hangar account is optional and off by default. With one, the server stores who signed in, the machines you linked, and, only if you turn the statistics sync on, usage totals per machine, day, model and project name.</li>
+          <li>Our servers never receive a conversation with your agents, an answer or a line of your code. Only what you ask for leaves your computer: an image's prompt, passed on to fal and not kept; the files of a share link you publish; and, for a Cloud Build or a hosted node you start, your project's files, sent only to the machine rented for it.</li>
+          <li>This website sets two cookies, and only when you use what needs them: the code of a referral link you followed, and the session of your customer account. No analytics, no tracker.</li>
           <li><strong>Delete my account</strong>, in Hangar's settings, deletes everything at once.</li>
         </ul>
       </div>
+      <div data-l="fr" class="legal__short">
+        <p><strong>En bref.</strong></p>
+        <ul>
+          <li>Aucune télémétrie d’usage&nbsp;: rien n’est envoyé sur ce que vous faites dans HangarAI.</li>
+          <li>La vérification de la licence envoie un hash de votre machine, la version de l’app et le jeton signé de la licence&nbsp;: au premier lancement, puis environ une fois par jour avec un second hash de l’ordinateur.</li>
+          <li>La dictée envoie l’audio que vous enregistrez à notre serveur, qui le fait transcrire par Groq. Ni l’un ni l’autre ne garde l’audio ni le texte.</li>
+          <li>Cloud Builds, quand vous en lancez un, envoie les fichiers de votre projet par SSH, directement depuis votre ordinateur, vers une machine louée pour vous seul, avec des threads CPU ou un GPU, puis l’efface et la détruit. Notre serveur reçoit l’enregistrement du job, jamais un fichier ni une ligne de sortie&nbsp;; le cache des dépendances est stocké chiffré, avec une clé que seul votre ordinateur possède, pendant 14 jours.</li>
+          <li>Les nœuds hébergés, quand vous gardez un workspace en marche dans le cloud, envoient les workspaces que vous y déplacez par SSH, directement depuis votre ordinateur, vers un serveur loué pour vous seul chez Hetzner, en Allemagne ou en Finlande, supprimé à la fin. Notre serveur reçoit l’enregistrement de la session, jamais votre code. Si votre ordinateur est éteint à la fin, le travail attend dans Cloudflare R2, scellé avec une clé que seul votre ordinateur possède, et il est supprimé une fois rapatrié ou au bout de 7 jours.</li>
+          <li>La génération d’images envoie le prompt d’un agent, et l’image à retoucher, à fal en passant par notre serveur&nbsp;; fal a pour consigne de ne pas les stocker, et notre serveur ne garde ni l’un ni l’autre. Un lien de partage stocke les fichiers que vous publiez jusqu’à son terme, et toute personne qui a le lien peut les voir.</li>
+          <li>Les services hébergés font appel à quelques prestataires, chacun listé avec ce qu’il reçoit et ce qu’il garde&nbsp;: Polar pour les paiements, Groq pour la dictée, Vast.ai et Cloudflare R2 pour Cloud Builds, Hetzner et R2 pour les nœuds hébergés, fal pour la génération d’images, et R2 encore pour les liens de partage.</li>
+          <li>Hangar Mobile de partout, quand vous l’activez, fait passer le trafic de vos appareils par notre serveur, chiffré de bout en bout&nbsp;: le relais ne peut pas le lire, et ne stocke rien.</li>
+          <li>Tes ordinateurs, activé par défaut avec une licence payante, montre chacun de vos ordinateurs aux autres par le même relais&nbsp;: il voit le nom et le système de chaque ordinateur et quand il est connecté, fait passer ce qu’un ordinateur dit à l’autre chiffré de bout en bout, et n’en garde rien. Vous pouvez le désactiver sur chaque ordinateur.</li>
+          <li>Le compte Hangar est facultatif et désactivé par défaut. Avec un compte, le serveur stocke qui s’est connecté, les machines que vous avez liées, et, seulement si vous activez la synchronisation des statistiques, des totaux d’usage par machine, jour, modèle et nom de projet.</li>
+          <li>Nos serveurs ne reçoivent jamais une conversation avec vos agents, une réponse ni une ligne de votre code. Seul ce que vous demandez quitte votre ordinateur&nbsp;: le prompt d’une image, transmis à fal et non conservé&nbsp;; les fichiers d’un lien de partage que vous publiez&nbsp;; et, pour un Cloud Build ou un nœud hébergé que vous lancez, les fichiers de votre projet, envoyés uniquement à la machine louée pour cela.</li>
+          <li>Ce site dépose deux cookies, et seulement quand vous utilisez ce qui en a besoin&nbsp;: le code d’un lien de parrainage que vous avez suivi, et la session de votre compte client. Pas d’analytics, pas de traceur.</li>
+          <li><strong>Supprimer mon compte</strong>, dans les réglages de Hangar, supprime tout d’un coup.</li>
+        </ul>
+      </div>
 
-      <h2 id="scope">What this page covers</h2>
-      <p>
-        The Hangar account, served at <code>account.hangarai.dev</code>, and this website,
-        <code>hangarai.dev</code>. Both are run by simnJS, the author of HangarAI, who is
+      <h2 id="scope"><span data-l="en">What this page covers</span><span data-l="fr">Ce que couvre cette page</span></h2>
+      <p data-l="en">
+        HangarAI's license, its credits and its hosted features, and the Hangar account, all served
+        by the account server at <code>account.hangarai.dev</code>, and this website,
+        <code>hangarai.dev</code>. They are run by simnJS, the author of HangarAI, who is
         responsible for the data described here.
       </p>
-      <p>
+      <p data-l="fr">
+        La licence de HangarAI, ses crédits et ses fonctions hébergées, et le compte Hangar, tous servis
+        par le serveur de comptes à <code>account.hangarai.dev</code>, ainsi que ce site,
+        <code>hangarai.dev</code>. Ils sont exploités par simnJS, l’auteur de HangarAI, qui est
+        responsable des données décrites ici.
+      </p>
+      <p data-l="en">
         It does not cover the coding agents HangarAI runs on your computer under your own accounts,
         Claude Code and Codex: what Claude Code sends to Anthropic, or Codex to OpenAI, is between you
-        and them. Nor does it cover GitHub, which you use to sign in and which has a privacy policy of
-        its own.
+        and them. Nor does it cover GitHub, which you use to sign in, or Polar, which handles
+        payments: each has a privacy policy of its own.
+      </p>
+      <p data-l="fr">
+        Elle ne couvre pas les agents de code que HangarAI fait tourner sur votre ordinateur avec vos
+        propres comptes, Claude Code et Codex&nbsp;: ce que Claude Code envoie à Anthropic, ou Codex à OpenAI,
+        se passe entre eux et vous. Elle ne couvre pas non plus GitHub, que vous utilisez pour vous
+        connecter, ni Polar, qui gère les paiements&nbsp;: chacun a sa propre politique de confidentialité.
       </p>
 
-      <h2 id="account">The Hangar account</h2>
-      <p>
+      <h2 id="license"><span data-l="en">The license</span><span data-l="fr">La licence</span></h2>
+      <p data-l="en">
+        HangarAI is paid from version 3.0, after a free trial of 14 days. Installs of 2.5.1 and
+        earlier get a free license. The trial and the free license are given to a HangarAI
+        account, one of each per account, so that each is given once and you find it in your
+        account; a license you buy needs no account. A license is a key, a token our server
+        signs, and your machine. The app checks it on the machine, and asks the server for a new
+        token now and then, so that a license that ends or a machine you deactivate stops being
+        honoured.
+      </p>
+      <p data-l="fr">
+        HangarAI est payant à partir de la version 3.0, après un essai gratuit de 14 jours. Les installations
+        de la 2.5.1 et antérieures reçoivent une licence gratuite. L’essai et la licence gratuite sont
+        donnés à un compte HangarAI, un de chaque par compte, pour que chacun ne soit donné qu’une fois et
+        que vous le retrouviez dans votre compte&nbsp;; une licence achetée n’a pas besoin de compte. Une
+        licence, c’est une clé, un jeton que notre serveur signe, et votre machine. L’app la vérifie sur la machine,
+        et demande de temps en temps un nouveau jeton au serveur, pour qu’une licence qui se termine ou une
+        machine que vous désactivez cesse d’être reconnue.
+      </p>
+
+      <h3 id="license-sends"><span data-l="en">What the app sends, and when</span><span data-l="fr">Ce que l’app envoie, et quand</span></h3>
+      <ul data-l="en">
+        <li>
+          <strong>At the first launch</strong>, once you are signed in to your HangarAI account, to
+          start the trial or give an earlier install its free license: the account's device token, a
+          hash of the machine and the app's version. The hash is an HMAC-SHA256 of the identifier
+          your operating system keeps for the machine. The identifier itself never leaves your
+          computer, and the hash matches nothing another program could derive from it. For the free
+          license, also what the earlier version left in its data folder: each file's name, size and
+          dates, and a SHA-256 of the files' names and contents, never what they hold.
+        </li>
+        <li>
+          <strong>About once a day</strong>, while the app runs and can reach the server, to renew
+          the license: its signed token, which holds only what the server put in it (the license's
+          id and kind, the machine's hash, its dates), the app's version and the computer's second
+          hash (below). Offline, the app keeps working for two weeks after it last reached the
+          server.
+        </li>
+        <li>
+          <strong>When you type a license key</strong>: the key, the machine's hash, the app's
+          version and the computer's second hash. <strong>When you deactivate this machine</strong>:
+          the token, to free its seat.
+        </li>
+        <li>
+          <strong>The computer's second hash</strong> tells two computers apart when one license
+          and its machine's identifier were copied to both. It is an HMAC-SHA256 of what your
+          operating system says of the computer (its name, its maker and model, its processor),
+          keyed with the machine's own identifier, which never leaves your computer: nobody can
+          tell from it which computer it is, nor test a guess against it.
+        </li>
+        <li>
+          <strong>When you are signed in to the Hangar account</strong>: the token, with the
+          account's own, so that the account knows which license this machine runs on.
+        </li>
+        <li>
+          <strong>When the license on your computer fails its checks</strong> (a token altered,
+          signed by another key, copied from another machine, or a clock set back): a report with
+          the license's id when there is one, the app's version and a reason code. Nothing else: no
+          machine, no address.
+        </li>
+      </ul>
+      <ul data-l="fr">
+        <li>
+          <strong>Au premier lancement</strong>, une fois connecté à votre compte HangarAI, pour démarrer
+          l’essai ou donner sa licence gratuite à une installation antérieure&nbsp;: le jeton d’appareil du
+          compte, un hash de la machine et la version de l’app. Le hash est un HMAC-SHA256 de l’identifiant
+          que votre système d’exploitation garde pour la machine. L’identifiant lui-même ne quitte jamais
+          votre ordinateur, et le hash ne correspond à rien qu’un autre programme pourrait en dériver. Pour
+          la licence gratuite, aussi ce que la version précédente a laissé dans son dossier de données&nbsp;:
+          le nom, la taille et les dates de chaque fichier, et un SHA-256 des noms et du contenu des
+          fichiers, jamais ce qu’ils contiennent.
+        </li>
+        <li>
+          <strong>Environ une fois par jour</strong>, tant que l’app tourne et peut joindre le serveur, pour
+          renouveler la licence&nbsp;: son jeton signé, qui ne contient que ce que le serveur y a mis (l’id et
+          le type de la licence, le hash de la machine, ses dates), la version de l’app et le second hash de
+          l’ordinateur (ci-dessous). Hors ligne, l’app continue de fonctionner pendant deux semaines après
+          sa dernière connexion au serveur.
+        </li>
+        <li>
+          <strong>Quand vous saisissez une clé de licence</strong>&nbsp;: la clé, le hash de la machine, la
+          version de l’app et le second hash de l’ordinateur. <strong>Quand vous désactivez cette machine</strong>&nbsp;:
+          le jeton, pour libérer sa place.
+        </li>
+        <li>
+          <strong>Le second hash de l’ordinateur</strong> permet de distinguer deux ordinateurs quand une
+          même licence et l’identifiant de sa machine ont été copiés sur les deux. C’est un HMAC-SHA256 de
+          ce que votre système d’exploitation dit de l’ordinateur (son nom, son fabricant et son modèle, son
+          processeur), calculé avec l’identifiant propre de la machine, qui ne quitte jamais votre ordinateur&nbsp;:
+          personne ne peut en déduire de quel ordinateur il s’agit, ni tester une hypothèse contre lui.
+        </li>
+        <li>
+          <strong>Quand vous êtes connecté au compte Hangar</strong>&nbsp;: le jeton, avec celui du compte, pour
+          que le compte sache sur quelle licence tourne cette machine.
+        </li>
+        <li>
+          <strong>Quand la licence de votre ordinateur échoue à ses vérifications</strong> (un jeton altéré,
+          signé par une autre clé, copié d’une autre machine, ou une horloge reculée)&nbsp;: un rapport avec l’id
+          de la licence quand il y en a une, la version de l’app et un code de raison. Rien d’autre&nbsp;: ni
+          machine, ni adresse.
+        </li>
+      </ul>
+      <p data-l="en">
+        None of this says anything about how you use HangarAI: not which features, not how often,
+        not what you work on.
+      </p>
+      <p data-l="fr">
+        Rien de tout cela ne dit quoi que ce soit sur la façon dont vous utilisez HangarAI&nbsp;: ni quelles
+        fonctions, ni à quelle fréquence, ni sur quoi vous travaillez.
+      </p>
+
+      <h3 id="license-stores"><span data-l="en">What the server stores</span><span data-l="fr">Ce que le serveur stocke</span></h3>
+      <ul data-l="en">
+        <li><strong>The license</strong>: its id, its kind, how it was given (trial, free, bought), the SHA-256 of its key (never the key), the payment provider's id for its order or subscription, its holder when it has one (an account id, or the SHA-256 of the buyer's email address, never the address), its number of seats, its dates.</li>
+        <li><strong>Its machines</strong>: each machine's hash, when it was activated, last renewed and released.</li>
+        <li><strong>Where each machine was seen from today</strong>: keyed hashes of the addresses its renewals came from and of the computer's second hash, made with the day, deleted when the day is over. Never an address. One license seen on many computers in a day is held until a seat is freed in the account.</li>
+        <li><strong>The reports</strong> above: the license's id, the version, the reason and the time.</li>
+      </ul>
+      <ul data-l="fr">
+        <li><strong>La licence</strong>&nbsp;: son id, son type, la façon dont elle a été donnée (essai, gratuite, achetée), le SHA-256 de sa clé (jamais la clé), l’id chez le prestataire de paiement de sa commande ou de son abonnement, son titulaire quand elle en a un (un id de compte, ou le SHA-256 de l’adresse e-mail de l’acheteur, jamais l’adresse), son nombre de places, ses dates.</li>
+        <li><strong>Ses machines</strong>&nbsp;: le hash de chaque machine, la date de son activation, de son dernier renouvellement et de sa libération.</li>
+        <li><strong>D’où chaque machine a été vue aujourd’hui</strong>&nbsp;: des hashs à clé des adresses d’où venaient ses renouvellements et du second hash de l’ordinateur, calculés avec le jour et supprimés quand le jour est fini. Jamais une adresse. Une licence vue sur plusieurs ordinateurs dans la journée est suspendue jusqu’à ce qu’une place soit libérée dans le compte.</li>
+        <li><strong>Les rapports</strong> ci-dessus&nbsp;: l’id de la licence, la version, la raison et l’heure.</li>
+      </ul>
+
+      <h2 id="credits"><span data-l="en">Credits and purchases</span><span data-l="fr">Crédits et achats</span></h2>
+      <p data-l="en">
+        HangarAI's hosted features are paid with one balance of credits per license. The app reads
+        that balance, and turns pay as you go on or off, with the license's token. The server
+        counts, for each request of a hosted feature, which feature it was and how many credits it
+        used: never what it processed.
+      </p>
+      <p data-l="fr">
+        Les fonctions hébergées de HangarAI se paient avec un solde de crédits par licence. L’app lit ce
+        solde, et active ou désactive le paiement à l’usage, avec le jeton de la licence. Le serveur
+        compte, pour chaque requête d’une fonction hébergée, de quelle fonction il s’agissait et combien
+        de crédits elle a utilisés&nbsp;: jamais ce qu’elle a traité.
+      </p>
+      <p data-l="en">
+        To buy, the app asks the server for a checkout (the license's id or the machine's hash, the
+        offer, and a referral code when you typed one) and opens it in your browser. The payment is
+        handled by <a href="https://polar.sh">Polar</a>, the merchant of record, which collects your
+        payment details and invoices you under its own privacy policy. Polar tells our server
+        what was bought, so that it can give you your license or your credits; HangarAI never sees
+        your card.
+      </p>
+      <p data-l="fr">
+        Pour acheter, l’app demande un paiement au serveur (l’id de la licence ou le hash de la machine,
+        l’offre, et un code de parrainage si vous en avez saisi un) et l’ouvre dans votre navigateur. Le
+        paiement est géré par <a href="https://polar.sh">Polar</a>, le marchand officiel, qui recueille vos
+        informations de paiement et vous facture selon sa propre politique de confidentialité. Polar dit à
+        notre serveur ce qui a été acheté, pour qu’il puisse vous donner votre licence ou vos crédits&nbsp;;
+        HangarAI ne voit jamais votre carte.
+      </p>
+
+      <h2 id="customer-account"><span data-l="en">The customer account</span><span data-l="fr">Le compte client</span></h2>
+      <p data-l="en">
+        At <code>hangarai.dev/account</code> you can sign in with the same Hangar account, through
+        GitHub, to see your licenses, their machines and their credits, buy, and manage your
+        subscription. Signing in there keeps a session in a cookie,
+        <code>__Host-hangar_session</code>: it belongs to <code>account.hangarai.dev</code> alone, the
+        page's scripts cannot read it, it is never sent along with what another site starts, and it
+        ends after 30 days, or at once when you sign out. The server keeps a hash of it, from which it
+        cannot be recovered.
+      </p>
+      <p data-l="fr">
+        À <code>hangarai.dev/account</code>, vous pouvez vous connecter avec le même compte Hangar, via
+        GitHub, pour voir vos licences, leurs machines et leurs crédits, acheter, et gérer votre
+        abonnement. Se connecter ici garde une session dans un cookie,
+        <code>__Host-hangar_session</code>&nbsp;: il appartient à <code>account.hangarai.dev</code> seul, les
+        scripts de la page ne peuvent pas le lire, il n’est jamais envoyé avec ce qu’un autre site
+        déclenche, et il prend fin au bout de 30 jours, ou tout de suite quand vous vous déconnectez. Le
+        serveur en garde un hash, à partir duquel il ne peut pas être retrouvé.
+      </p>
+      <p data-l="en">
+        Your subscription, your card and your invoices are at <a href="https://polar.sh">Polar</a>, the
+        merchant of record: "Manage subscription" opens a session of Polar's customer portal that ends
+        within the hour, which we do not keep.
+      </p>
+      <p data-l="fr">
+        Votre abonnement, votre carte et vos factures sont chez <a href="https://polar.sh">Polar</a>, le
+        marchand officiel&nbsp;: «&nbsp;Gérer l’abonnement&nbsp;» ouvre une session du portail client de Polar qui se
+        termine dans l’heure, et que nous ne conservons pas.
+      </p>
+
+      <h2 id="referrals"><span data-l="en">Referrals</span><span data-l="fr">Parrainage</span></h2>
+      <ul data-l="en">
+        <li>
+          <strong>A referral link</strong> (<code>hangarai.dev/r/&lt;code&gt;</code>) sets a cookie on
+          this site, <code>hangar_ref</code>, that holds the invitation's code and nothing else, for 60
+          days, so that a purchase you make in that time counts for whoever invited you. A code typed in
+          the app is sent with the checkout, and to the account server for your license.
+        </li>
+        <li>
+          <strong>If you refer others</strong> and want to be paid, the payout details you give (your
+          legal name, your country, and your IBAN and BIC or your PayPal address) are stored encrypted,
+          with a key kept apart from the database, and are shown back with all but a few characters
+          hidden. They are used to pay what you earned, and for nothing else. The statements of what was
+          earned and paid are kept as accounting records.
+        </li>
+      </ul>
+      <ul data-l="fr">
+        <li>
+          <strong>Un lien de parrainage</strong> (<code>hangarai.dev/r/&lt;code&gt;</code>) dépose sur ce
+          site un cookie, <code>hangar_ref</code>, qui contient le code de l’invitation et rien d’autre,
+          pendant 60 jours, pour qu’un achat fait dans ce délai compte pour la personne qui vous a invité.
+          Un code saisi dans l’app est envoyé avec le paiement, et au serveur de comptes pour votre licence.
+        </li>
+        <li>
+          <strong>Si vous parrainez d’autres personnes</strong> et voulez être payé, les informations de
+          versement que vous donnez (votre nom légal, votre pays, et votre IBAN et BIC ou votre adresse
+          PayPal) sont stockées chiffrées, avec une clé gardée à part de la base, et vous sont montrées
+          avec tout sauf quelques caractères masqués. Elles servent à payer ce que vous avez gagné, et à
+          rien d’autre. Les relevés de ce qui a été gagné et versé sont conservés comme pièces comptables.
+        </li>
+      </ul>
+
+      <h2 id="hosted"><span data-l="en">Hosted services and their providers</span><span data-l="fr">Services hébergés et leurs prestataires</span></h2>
+      <p data-l="en">
+        HangarAI Cloud is what runs on our servers rather than on your computer, or on a machine
+        rented for you, under the <a href="terms/">HangarAI Cloud terms</a>. Each service has a section
+        of its own below, saying what leaves your computer, who processes it and how long it is kept.
+      </p>
+      <p data-l="fr">
+        HangarAI Cloud, c’est ce qui tourne sur nos serveurs plutôt que sur votre ordinateur, ou sur une
+        machine louée pour vous, selon les <a href="terms/">conditions de HangarAI Cloud</a>. Chaque service
+        a sa propre section ci-dessous, qui dit ce qui quitte votre ordinateur, qui le traite et combien de
+        temps c’est conservé.
+      </p>
+      <ul data-l="en" class="services">
+        <li><a href="#dictation">Dictation</a> <span class="state state--live">Open</span></li>
+        <li><a href="#mobile-relay">Hangar Mobile from anywhere</a> <span class="state state--live">Open</span></li>
+        <li><a href="#your-computers">Your computers</a> <span class="state state--live">Open</span></li>
+        <li><a href="#images">Image generation</a> <span class="state state--live">Open</span></li>
+        <li><a href="#share-links">Share links</a> <span class="state state--live">Open</span></li>
+        <li><a href="#cloud-builds">Cloud Builds</a> <span class="state state--live">Open</span></li>
+        <li><a href="#hosted-nodes">Hosted nodes</a> <span class="state state--live">Open</span></li>
+      </ul>
+      <ul data-l="fr" class="services">
+        <li><a href="#dictation">Dictée</a> <span class="state state--live">Ouvert</span></li>
+        <li><a href="#mobile-relay">Hangar Mobile de partout</a> <span class="state state--live">Ouvert</span></li>
+        <li><a href="#your-computers">Tes ordinateurs</a> <span class="state state--live">Ouvert</span></li>
+        <li><a href="#images">Génération d’images</a> <span class="state state--live">Ouvert</span></li>
+        <li><a href="#share-links">Liens de partage</a> <span class="state state--live">Ouvert</span></li>
+        <li><a href="#cloud-builds">Cloud Builds</a> <span class="state state--live">Ouvert</span></li>
+        <li><a href="#hosted-nodes">Nœuds hébergés</a> <span class="state state--live">Ouvert</span></li>
+      </ul>
+
+      <h3 id="subprocessors"><span data-l="en">The providers</span><span data-l="fr">Les prestataires</span></h3>
+      <p data-l="en">
+        These companies process data for the hosted services, each for one purpose. A provider is
+        listed here before it receives anything.
+      </p>
+      <p data-l="fr">
+        Ces entreprises traitent des données pour les services hébergés, chacune pour un seul usage. Un
+        prestataire est listé ici avant de recevoir quoi que ce soit.
+      </p>
+      <table data-l="en" class="subp">
+        <caption class="sr-only">The providers of the hosted services, what each receives and what each keeps</caption>
+        <thead>
+          <tr>
+            <th scope="col">Provider</th>
+            <th scope="col">What it receives</th>
+            <th scope="col">What it keeps</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">
+              <span class="subp__name"><a href="https://polar.sh">Polar</a></span>
+              <span class="subp__for">Payments, as the merchant of record</span>
+              <span class="state state--live">In use</span>
+            </th>
+            <td>
+              <span class="subp__k">What it receives</span>
+              What you type in its checkout: your email address, your billing address and your payment
+              details. From our server: what you buy, your license’s id (or, before you have one, your
+              machine’s hash) and the referral code you came with; with pay as you go, the credits each
+              feature used, per license.
+            </td>
+            <td>
+              <span class="subp__k">What it keeps</span>
+              Your customer record, your orders, subscriptions, invoices and payments, as the seller,
+              under its own privacy policy. HangarAI never sees your card.
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="subp__name"><a href="https://groq.com">Groq</a></span>
+              <span class="subp__for">Dictation: turning the audio into text</span>
+              <span class="subp__where">Based in the United States</span>
+              <span class="state state--live">In use</span>
+            </th>
+            <td>
+              <span class="subp__k">What it receives</span>
+              The audio you record, rebuilt by our server without its tags or file name, and sent from
+              our server: not your license, your machine, your account or your IP address.
+            </td>
+            <td>
+              <span class="subp__k">What it keeps</span>
+              Nothing of the audio or the text. Groq keeps no data of a request by default, and
+              HangarAI’s account has its Zero Data Retention on, which also turns off the logs Groq may
+              otherwise keep for up to 30 days to look into errors or abuse. Groq counts its own usage
+              (requests, durations), which holds none of your audio or text.
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="subp__name"><a href="https://developers.cloudflare.com/r2/">Cloudflare R2</a></span>
+              <span class="subp__for">Storing files</span>
+              <span class="subp__where">European Union</span>
+              <span class="state state--live">In use</span>
+            </th>
+            <td>
+              <span class="subp__k">What it receives</span>
+              For Cloud Builds, a project’s dependency cache, encrypted on the build machine with a key
+              only your computer has: R2 stores ciphertext it cannot read. For hosted nodes, the work a
+              server parks at the end of a session, sealed to a key only your computer has: ciphertext
+              again. For share links, the files of a share link you publish.
+            </td>
+            <td>
+              <span class="subp__k">What it keeps</span>
+              Each copy of a build cache until 14 days after it was saved, and only a project’s latest
+              two; a hosted node’s parked work until your computer has brought it back, or 7 days at
+              most after it was uploaded; a share’s files until the share ends (30 days, up to 365 if you
+              extend it). Then it deletes them, and a rule on the storage itself deletes whatever might have been missed.
+              The files stay in R2’s EU jurisdiction.
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="subp__name"><a href="https://fal.ai">fal</a></span>
+              <span class="subp__for">Image generation</span>
+              <span class="subp__where">Based in the United States</span>
+              <span class="state state--live">In use</span>
+            </th>
+            <td>
+              <span class="subp__k">What it receives</span>
+              The prompt, and for an edit the image being edited, sent by our server under HangarAI’s own
+              account: not your license, your machine or your IP address.
+            </td>
+            <td>
+              <span class="subp__k">What it keeps</span>
+              No retention: our server asks fal not to store the request, and the image it makes is
+              deleted from fal’s storage 10 minutes after.
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="subp__name"><a href="https://vast.ai">Vast.ai</a></span>
+              <span class="subp__for">Build machines, CPU or GPU, for Cloud Builds</span>
+              <span class="subp__where">Certified datacenters in Europe (elsewhere only for a run you send there)</span>
+              <span class="state state--live">In use</span>
+            </th>
+            <td>
+              <span class="subp__k">What it receives</span>
+              For a Cloud Build, on a machine, CPU or with a GPU, rented for you alone in a certified (ISO 27001) datacenter
+              of its Secure Cloud: your project’s files as git lists them (never <code>.git</code> or
+              ignored files), the command, the environment variables you choose to send (none by
+              default) and, for the job, the key of its dependency cache. They go over SSH straight
+              from your computer, not through our server. Vast also learns from us which machine to
+              rent and for how long: never who you are.
+            </td>
+            <td>
+              <span class="subp__k">What it keeps</span>
+              Nothing after the machine: your files, its keys and its cache are deleted from it, then
+              it is destroyed, its disk with it, a few minutes after your last run (half an hour at
+              most if you ask to keep it longer).
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="subp__name"><a href="https://www.hetzner.com/cloud">Hetzner Cloud</a></span>
+              <span class="subp__for">Servers, for hosted nodes</span>
+              <span class="subp__where">Falkenstein and Nuremberg (Germany), Helsinki (Finland)</span>
+              <span class="state state--live">In use</span>
+            </th>
+            <td>
+              <span class="subp__k">What it receives</span>
+              For a hosted node, the creation of a server rented for you alone: its size and place, and a
+              setup it runs at its first start (the session’s public SSH key, a one-time token to report
+              to our server, the public half of the sealing key, the agents to install), with a random
+              session id and a hash of the license’s id in its labels. The workspaces you move there go
+              over SSH, straight from your computer and not through our server, to a server Hetzner
+              hosts. Hetzner also measures the server’s processor use, which our server reads.
+            </td>
+            <td>
+              <span class="subp__k">What it keeps</span>
+              Nothing after the session: the server is deleted at its end, its disk with it, whether
+              its work was taken back over SSH or parked. Hetzner learns from us which server to create
+              and for how long: never who you are.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <table data-l="fr" class="subp">
+        <caption class="sr-only">Les prestataires des services hébergés, ce que chacun reçoit et ce que chacun garde</caption>
+        <thead>
+          <tr>
+            <th scope="col">Prestataire</th>
+            <th scope="col">Ce qu’il reçoit</th>
+            <th scope="col">Ce qu’il garde</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">
+              <span class="subp__name"><a href="https://polar.sh">Polar</a></span>
+              <span class="subp__for">Paiements, comme marchand officiel</span>
+              <span class="state state--live">Utilisé</span>
+            </th>
+            <td>
+              <span class="subp__k">Ce qu’il reçoit</span>
+              Ce que vous saisissez dans son paiement&nbsp;: votre adresse e-mail, votre adresse de facturation
+              et vos informations de paiement. De notre serveur&nbsp;: ce que vous achetez, l’id de votre licence
+              (ou, avant d’en avoir une, le hash de votre machine) et le code de parrainage avec lequel vous
+              êtes venu&nbsp;; avec le paiement à l’usage, les crédits utilisés par chaque fonction, par licence.
+            </td>
+            <td>
+              <span class="subp__k">Ce qu’il garde</span>
+              Votre fiche client, vos commandes, abonnements, factures et paiements, en tant que vendeur,
+              selon sa propre politique de confidentialité. HangarAI ne voit jamais votre carte.
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="subp__name"><a href="https://groq.com">Groq</a></span>
+              <span class="subp__for">Dictée&nbsp;: transformer l’audio en texte</span>
+              <span class="subp__where">Basé aux États-Unis</span>
+              <span class="state state--live">Utilisé</span>
+            </th>
+            <td>
+              <span class="subp__k">Ce qu’il reçoit</span>
+              L’audio que vous enregistrez, reconstruit par notre serveur sans ses étiquettes ni son nom de
+              fichier, et envoyé depuis notre serveur&nbsp;: ni votre licence, ni votre machine, ni votre compte,
+              ni votre adresse IP.
+            </td>
+            <td>
+              <span class="subp__k">Ce qu’il garde</span>
+              Rien de l’audio ni du texte. Groq ne garde par défaut aucune donnée d’une requête, et le compte
+              de HangarAI a sa Zero Data Retention activée, ce qui désactive aussi les journaux que Groq peut
+              sinon garder jusqu’à 30 jours pour examiner des erreurs ou des abus. Groq compte sa propre
+              utilisation (requêtes, durées), qui ne contient rien de votre audio ni de votre texte.
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="subp__name"><a href="https://developers.cloudflare.com/r2/">Cloudflare R2</a></span>
+              <span class="subp__for">Stockage de fichiers</span>
+              <span class="subp__where">Union européenne</span>
+              <span class="state state--live">Utilisé</span>
+            </th>
+            <td>
+              <span class="subp__k">Ce qu’il reçoit</span>
+              Pour Cloud Builds, le cache des dépendances d’un projet, chiffré sur la machine de build avec une
+              clé que seul votre ordinateur possède&nbsp;: R2 stocke des données chiffrées qu’il ne peut pas lire.
+              Pour les nœuds hébergés, le travail qu’un serveur met de côté à la fin d’une session, scellé avec
+              une clé que seul votre ordinateur possède&nbsp;: de nouveau des données chiffrées. Pour les liens de
+              partage, les fichiers d’un lien de partage que vous publiez.
+            </td>
+            <td>
+              <span class="subp__k">Ce qu’il garde</span>
+              Chaque copie d’un cache de build jusqu’à 14 jours après son enregistrement, et seulement les deux
+              dernières d’un projet&nbsp;; le travail mis de côté d’un nœud hébergé jusqu’à ce que votre ordinateur
+              l’ait rapatrié, ou 7 jours au plus après son envoi&nbsp;; les fichiers d’un partage jusqu’au terme du
+              partage (30 jours, jusqu’à 365 si vous le prolongez). Il les supprime ensuite, et une règle du
+              stockage lui-même supprime ce qui aurait pu être manqué. Les fichiers restent dans la juridiction
+              UE de R2.
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="subp__name"><a href="https://fal.ai">fal</a></span>
+              <span class="subp__for">Génération d’images</span>
+              <span class="subp__where">Basé aux États-Unis</span>
+              <span class="state state--live">Utilisé</span>
+            </th>
+            <td>
+              <span class="subp__k">Ce qu’il reçoit</span>
+              Le prompt, et pour une retouche l’image à retoucher, envoyés par notre serveur depuis le compte
+              propre de HangarAI&nbsp;: ni votre licence, ni votre machine, ni votre adresse IP.
+            </td>
+            <td>
+              <span class="subp__k">Ce qu’il garde</span>
+              Aucune rétention&nbsp;: notre serveur demande à fal de ne pas stocker la requête, et l’image qu’il
+              produit est supprimée du stockage de fal 10 minutes plus tard.
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="subp__name"><a href="https://vast.ai">Vast.ai</a></span>
+              <span class="subp__for">Machines de build, CPU ou GPU, pour Cloud Builds</span>
+              <span class="subp__where">Centres de données certifiés en Europe (ailleurs seulement pour un run que vous y envoyez)</span>
+              <span class="state state--live">Utilisé</span>
+            </th>
+            <td>
+              <span class="subp__k">Ce qu’il reçoit</span>
+              Pour un Cloud Build, sur une machine, CPU ou avec un GPU, louée pour vous seul dans un centre de
+              données certifié (ISO 27001) de son Secure Cloud&nbsp;: les fichiers de votre projet tels que git les
+              liste (jamais <code>.git</code> ni les fichiers ignorés), la commande, les variables d’environnement
+              que vous choisissez d’envoyer (aucune par défaut) et, pour le job, la clé de son cache de
+              dépendances. Ils partent par SSH directement depuis votre ordinateur, sans passer par notre
+              serveur. Vast apprend aussi de nous quelle machine louer et pour combien de temps&nbsp;: jamais qui
+              vous êtes.
+            </td>
+            <td>
+              <span class="subp__k">Ce qu’il garde</span>
+              Rien après la machine&nbsp;: vos fichiers, ses clés et son cache en sont supprimés, puis elle est
+              détruite, son disque avec, quelques minutes après votre dernier run (une demi-heure au plus si
+              vous demandez de la garder plus longtemps).
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="subp__name"><a href="https://www.hetzner.com/cloud">Hetzner Cloud</a></span>
+              <span class="subp__for">Serveurs, pour les nœuds hébergés</span>
+              <span class="subp__where">Falkenstein et Nuremberg (Allemagne), Helsinki (Finlande)</span>
+              <span class="state state--live">Utilisé</span>
+            </th>
+            <td>
+              <span class="subp__k">Ce qu’il reçoit</span>
+              Pour un nœud hébergé, la création d’un serveur loué pour vous seul&nbsp;: sa taille et son lieu, et
+              une installation qu’il exécute à son premier démarrage (la clé SSH publique de la session, un jeton
+              à usage unique pour se signaler à notre serveur, la moitié publique de la clé de scellement, les
+              agents à installer), avec un id de session aléatoire et un hash de l’id de la licence dans ses
+              étiquettes. Les workspaces que vous y déplacez partent par SSH, directement depuis votre ordinateur
+              et sans passer par notre serveur, vers un serveur qu’héberge Hetzner. Hetzner mesure aussi
+              l’utilisation du processeur du serveur, que notre serveur lit.
+            </td>
+            <td>
+              <span class="subp__k">Ce qu’il garde</span>
+              Rien après la session&nbsp;: le serveur est supprimé à sa fin, son disque avec, que son travail ait
+              été récupéré par SSH ou mis de côté. Hetzner apprend de nous quel serveur créer et pour combien de
+              temps&nbsp;: jamais qui vous êtes.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p data-l="en">
+        Cloudflare also carries every request to this site and to the account server, as said under
+        <a href="#where">Where it is</a>. Hangar Mobile from anywhere and the account server itself
+        use no provider: they run on the server we operate.
+      </p>
+      <p data-l="fr">
+        Cloudflare transporte aussi chaque requête vers ce site et vers le serveur de comptes, comme dit sous
+        <a href="#where">Où il se trouve</a>. Hangar Mobile de partout et le serveur de comptes lui-même
+        n’utilisent aucun prestataire&nbsp;: ils tournent sur le serveur que nous exploitons.
+      </p>
+
+      <h2 id="dictation"><span data-l="en">Dictation</span><span data-l="fr">Dictée</span></h2>
+      <p data-l="en">
+        The audio you record is sent to the account server, which has
+        <a href="https://groq.com">Groq</a> transcribe it and sends the text back. Groq receives the
+        audio only: nothing in what it receives identifies your license, your machine or you, and the
+        audio file's metadata is removed first. Neither the server nor HangarAI keeps the audio or the
+        text: the server writes down only the license's id, how many seconds were billed and whether
+        it worked, which is what the credits are counted from.
+      </p>
+      <p data-l="fr">
+        L’audio que vous enregistrez est envoyé au serveur de comptes, qui le fait transcrire par
+        <a href="https://groq.com">Groq</a> et vous renvoie le texte. Groq ne reçoit que l’audio&nbsp;: rien de
+        ce qu’il reçoit n’identifie votre licence, votre machine ou vous, et les métadonnées du fichier audio
+        sont supprimées au préalable. Ni le serveur ni HangarAI ne gardent l’audio ou le texte&nbsp;: le serveur
+        note seulement l’id de la licence, le nombre de secondes facturées et si cela a fonctionné, ce qui sert
+        à compter les crédits.
+      </p>
+
+      <h2 id="mobile-relay"><span data-l="en">Hangar Mobile from anywhere</span><span data-l="fr">Hangar Mobile de partout</span></h2>
+      <p data-l="en">
+        With a paid license or the trial, and only once you turn it on, your PC and your phones can
+        connect through a relay on the account server, which passes their traffic along. That traffic
+        is encrypted end to end between your devices, with keys the server never has: the relay cannot
+        read your projects, messages or files.
+      </p>
+      <p data-l="fr">
+        Avec une licence payante ou l’essai, et seulement une fois que vous l’activez, votre PC et vos
+        téléphones peuvent se connecter par un relais sur le serveur de comptes, qui fait passer leur trafic.
+        Ce trafic est chiffré de bout en bout entre vos appareils, avec des clés que le serveur n’a jamais&nbsp;:
+        le relais ne peut pas lire vos projets, vos messages ni vos fichiers.
+      </p>
+      <p data-l="en">
+        It sees when your devices connect and disconnect, the size and timing of what they exchange,
+        the IP addresses they connect from, and the license your PC uses. It stores none of this:
+        nothing is written to disk or to a log, and it is gone when the connection closes.
+      </p>
+      <p data-l="fr">
+        Il voit quand vos appareils se connectent et se déconnectent, la taille et le rythme de ce qu’ils
+        échangent, les adresses IP d’où ils se connectent, et la licence qu’utilise votre PC. Il ne stocke rien
+        de tout cela&nbsp;: rien n’est écrit sur disque ni dans un journal, et tout disparaît à la fermeture de la
+        connexion.
+      </p>
+      <p data-l="en">
+        A phone paired through the relay without Tailscale runs the Hangar Mobile web app the server
+        serves: the encryption protects your data from the relay, but you rely on that app being the
+        published one. To keep the server out of the picture entirely, pair over Tailscale.
+      </p>
+      <p data-l="fr">
+        Un téléphone appairé par le relais sans Tailscale exécute l’app web Hangar Mobile que sert le serveur&nbsp;:
+        le chiffrement protège vos données du relais, mais vous comptez sur le fait que cette app soit celle qui
+        est publiée. Pour tenir complètement le serveur à l’écart, appairez par Tailscale.
+      </p>
+
+      <h2 id="your-computers"><span data-l="en">Your computers</span><span data-l="fr">Tes ordinateurs</span></h2>
+      <p data-l="en">
+        With a paid license or the trial, HangarAI on one of your computers can drive HangarAI on another
+        of the same license: your laptop opens your PC's workspaces, and the work runs on the PC. Both
+        computers connect out to the same relay as Hangar Mobile, and nothing listens on either. It is on
+        by default, so that your laptop finds your PC with nothing to set up; “Show to my other
+        computers”, in Settings › Computers, turns it off on each computer.
+      </p>
+      <p data-l="fr">
+        Avec une licence payante ou l’essai, HangarAI sur un de vos ordinateurs peut piloter HangarAI sur un
+        autre de la même licence&nbsp;: votre portable ouvre les workspaces de votre PC, et le travail tourne sur le
+        PC. Les deux ordinateurs se connectent vers le même relais que Hangar Mobile, et rien n’écoute sur l’un ni
+        sur l’autre. C’est activé par défaut, pour que votre portable trouve votre PC sans rien régler&nbsp;; «&nbsp;Se
+        montrer à mes autres ordinateurs&nbsp;», dans Réglages › Ordinateurs, le désactive sur chaque ordinateur.
+      </p>
+      <p data-l="en">
+        To list your computers to each other, the relay sees each computer's name and system (the name you
+        gave it, or its own) and when it is connected, and tells them to the other computers of the same
+        license, and to nobody else. What two computers say to each other (your workspaces, terminals,
+        conversations and files) is encrypted end to end with keys they agree on when you pair them with a
+        six-digit code: the relay sees only its size and timing, and the IP addresses they connect from.
+      </p>
+      <p data-l="fr">
+        Pour lister vos ordinateurs les uns aux autres, le relais voit le nom et le système de chaque ordinateur
+        (le nom que vous lui avez donné, ou le sien) et quand il est connecté, et les dit aux autres ordinateurs
+        de la même licence, et à personne d’autre. Ce que deux ordinateurs se disent (vos workspaces, terminaux,
+        conversations et fichiers) est chiffré de bout en bout avec des clés qu’ils conviennent quand vous les
+        appairez avec un code à six chiffres&nbsp;: le relais n’en voit que la taille et le rythme, et les adresses
+        IP d’où ils se connectent.
+      </p>
+      <p data-l="en">
+        It keeps none of it: no name, date, frame or key is written to disk or to a log, the account
+        server's database has nothing of it, and it is gone when the connection closes. “Seen 3 h ago” is
+        what your other computer saw, kept on that computer.
+      </p>
+      <p data-l="fr">
+        Il n’en garde rien&nbsp;: aucun nom, aucune date, aucune trame ni clé n’est écrit sur disque ni dans un
+        journal, la base du serveur de comptes n’en a rien, et tout disparaît à la fermeture de la connexion.
+        «&nbsp;Vu il y a 3&nbsp;h&nbsp;» est ce qu’a vu votre autre ordinateur, gardé sur cet ordinateur.
+      </p>
+
+      <h2 id="images"><span data-l="en">Image generation</span><span data-l="fr">Génération d’images</span></h2>
+      <p data-l="en">
+        With a paid license or the trial, an agent asks for an image, or for an edit of one, through
+        HangarAI, within the budget you set for its workspace or once you allow it.
+      </p>
+      <p data-l="fr">
+        Avec une licence payante ou l’essai, un agent demande une image, ou la retouche d’une image, par
+        HangarAI, dans le budget que vous avez fixé pour son workspace ou une fois que vous l’autorisez.
+      </p>
+      <ul data-l="en">
+        <li>
+          <strong>What leaves your computer</strong>: the prompt, and for an edit the image being
+          edited. They go to our server, which keeps neither, and to <a href="https://fal.ai">fal</a>,
+          in the United States, which is told not to store the request; the image it makes is deleted
+          from fal’s storage after 10 minutes.
+        </li>
+        <li><strong>What comes back</strong>: the image, saved in the workspace’s folder on your computer.</li>
+        <li>
+          <strong>What our server keeps</strong>: for the credits, the preset, the size and what it
+          cost. Never the prompt, never the image.
+        </li>
+      </ul>
+      <ul data-l="fr">
+        <li>
+          <strong>Ce qui quitte votre ordinateur</strong>&nbsp;: le prompt, et pour une retouche l’image à
+          retoucher. Ils vont à notre serveur, qui ne garde ni l’un ni l’autre, et à <a href="https://fal.ai">fal</a>,
+          aux États-Unis, qui a pour consigne de ne pas stocker la requête&nbsp;; l’image produite est supprimée
+          du stockage de fal après 10 minutes.
+        </li>
+        <li><strong>Ce qui revient</strong>&nbsp;: l’image, enregistrée dans le dossier du workspace sur votre ordinateur.</li>
+        <li>
+          <strong>Ce que notre serveur garde</strong>&nbsp;: pour les crédits, le préréglage, la taille et ce que
+          cela a coûté. Jamais le prompt, jamais l’image.
+        </li>
+      </ul>
+
+      <h2 id="share-links"><span data-l="en">Share links</span><span data-l="fr">Liens de partage</span></h2>
+      <p data-l="en">
+        With a paid license or the trial, you, or an agent you allow to, publish a page, a PDF, an
+        image or a 3D model at a link.
+      </p>
+      <p data-l="fr">
+        Avec une licence payante ou l’essai, vous, ou un agent que vous y autorisez, publiez une page, un PDF,
+        une image ou un modèle 3D à un lien.
+      </p>
+      <ul data-l="en">
+        <li>
+          <strong>What leaves your computer</strong>: the files you share. They are stored on
+          Cloudflare R2 in the European Union, and <strong>anyone with the link can see them</strong>
+          until the share ends (30 days unless you extend it, 365 at most), when they are deleted.
+        </li>
+        <li>
+          <strong>What our server keeps</strong>: each share’s id, title, kind, file names and sizes,
+          the license that published it and its dates, until 30 days after the share ends. This is
+          also what lets us act on a report.
+        </li>
+        <li>
+          <strong>Visitors</strong> are not tracked: the page that shows a share runs no analytics and
+          sets no cookie. The shared files are served from <code>share.hangarai.dev</code>, in a
+          sandbox apart from this site, so they cannot read its cookies or reach your account.
+          Cloudflare sees visitors’ requests as it sees any visit.
+        </li>
+        <li>
+          <strong>Reporting a share</strong>: “Report this page” on the share, or
+          <a href="mailto:abuse@hangarai.dev">abuse@hangarai.dev</a>.
+        </li>
+      </ul>
+      <ul data-l="fr">
+        <li>
+          <strong>Ce qui quitte votre ordinateur</strong>&nbsp;: les fichiers que vous partagez. Ils sont stockés
+          sur Cloudflare R2 dans l’Union européenne, et <strong>toute personne qui a le lien peut les voir</strong>
+          jusqu’au terme du partage (30 jours sauf si vous le prolongez, 365 au plus), après quoi ils sont supprimés.
+        </li>
+        <li>
+          <strong>Ce que notre serveur garde</strong>&nbsp;: l’id, le titre, le type, les noms et tailles de fichiers
+          de chaque partage, la licence qui l’a publié et ses dates, jusqu’à 30 jours après le terme du partage.
+          C’est aussi ce qui nous permet d’agir sur un signalement.
+        </li>
+        <li>
+          <strong>Les visiteurs</strong> ne sont pas suivis&nbsp;: la page qui affiche un partage n’exécute aucun
+          analytics et ne dépose aucun cookie. Les fichiers partagés sont servis depuis
+          <code>share.hangarai.dev</code>, dans un bac à sable séparé de ce site, de sorte qu’ils ne peuvent
+          ni lire ses cookies ni atteindre votre compte. Cloudflare voit les requêtes des visiteurs comme il
+          voit n’importe quelle visite.
+        </li>
+        <li>
+          <strong>Signaler un partage</strong>&nbsp;: «&nbsp;Signaler cette page&nbsp;» sur le partage, ou
+          <a href="mailto:abuse@hangarai.dev">abuse@hangarai.dev</a>.
+        </li>
+      </ul>
+
+      <h2 id="cloud-builds"><span data-l="en">Cloud Builds</span><span data-l="fr">Cloud Builds</span></h2>
+      <div data-l="en" class="legal__review" role="note">
+        <p><b>To be reviewed.</b> This section says how Cloud Builds works, read from its code on
+        20 November 2026; a lawyer has not checked its wording yet. A reviewed version will replace
+        it, with its own date.</p>
+      </div>
+      <div data-l="fr" class="legal__review" role="note">
+        <p><b>À relire.</b> Cette section dit comment fonctionne Cloud Builds, d’après son code au
+        20 novembre 2026&nbsp;; un juriste n’a pas encore vérifié sa formulation. Une version relue la remplacera,
+        avec sa propre date.</p>
+      </div>
+      <p data-l="en">
+        A check, a build or a training run of your project runs on a machine rented for you alone,
+        with a Pro or Max license (a trial or a free license rents none), then the machine is
+        destroyed. The machine is one of the classes HangarAI offers, CPU threads or a GPU (an RTX
+        4090, an A100 or an H100, or several), or the one you describe under Advanced. An agent of
+        yours can start a run too (<code>cloud_run</code>): it is the same run, with the same files
+        going to the same kind of machine, and you are asked first past the budget you set. Running
+        checks on your own computer stays the default: nothing here happens unless you start a cloud run, or turn on cloud
+        checks for a workspace’s deliveries.
+      </p>
+      <p data-l="fr">
+        Une vérification, un build ou un entraînement de votre projet tourne sur une machine louée pour vous
+        seul, avec une licence Pro ou Max (un essai ou une licence gratuite n’en loue aucune), puis la machine
+        est détruite. La machine est l’une des classes que propose HangarAI, des threads CPU ou un GPU (une RTX
+        4090, une A100 ou une H100, ou plusieurs), ou celle que vous décrivez sous Avancé. Un de vos agents peut
+        aussi lancer un run (<code>cloud_run</code>)&nbsp;: c’est le même run, avec les mêmes fichiers envoyés au
+        même genre de machine, et on vous demande d’abord votre accord au-delà du budget que vous avez fixé.
+        Lancer les vérifications sur votre propre ordinateur reste le comportement par défaut&nbsp;: rien de tout
+        cela n’arrive sauf si vous lancez un run dans le cloud, ou activez les vérifications dans le cloud pour
+        les livraisons d’un workspace.
+      </p>
+      <ul data-l="en">
+        <li>
+          <strong>What leaves your computer</strong>, for the machine only: your project’s files as
+          git lists them, from the folder you run in. Files git tracks are sent, except those named
+          like a secret (<code>.env</code>, <code>*.pem</code>, <code>*.key</code>, <code>id_rsa</code>,
+          <code>credentials</code>, <code>secrets.*</code>…). Files git does not track are sent too,
+          unless git ignores them, they sit in a tool’s folder (<code>.claude</code>,
+          <code>.vscode</code>, <code>.ssh</code>…), they are named like a secret (the same names, and
+          anything with “secret”, “token” or “credential” in its name) or they are over 16 MB. A file
+          named like a secret goes only if you list it in your project’s
+          <code>.hangar/cloud-include</code>. Never <code>.git</code>. Also the command, the
+          environment variables you choose to send (none by default: those your project lists in
+          <code>.hangar/cloud.env</code>, or you pass with <code>--env</code>), and the key of the
+          project’s dependency cache. What stays on your computer is said before the run.
+        </li>
+        <li>
+          <strong>Where it goes</strong>: over SSH, straight from your computer, to a machine of a
+          <a href="https://vast.ai">Vast.ai</a> Secure Cloud datacenter (ISO 27001), with a GPU when the run asks for one, in the European
+          Union or the EEA, Switzerland, the United Kingdom or Serbia; in another country of Vast’s
+          Secure Cloud only for a run you choose “Any region” for, which the app offers when Europe
+          has no machine free and says before the run. Not through our server. The
+          machine’s identity is checked before the first connection, and a key drawn for that run
+          alone opens it.
+        </li>
+        <li>
+          <strong>On the machine</strong>: your files and their build, in folders of a user that is
+          not root, for your runs and the minutes the machine is kept afterwards (2 by default, 5
+          after a delivery’s check, 30 at most if you ask). No other customer ever uses it.
+        </li>
+        <li>
+          <strong>Nothing is kept after it is destroyed.</strong> When the machine goes, every program
+          of your runs is stopped, and your files, their build, the cache, the keys and the machine’s
+          temporary files are deleted; then the machine is destroyed at Vast, its disk with it. If it
+          does not answer, it is destroyed anyway.
+        </li>
+        <li>
+          <strong>What our server receives</strong>: the job’s record: the license, a random project
+          id, a random key for a workspace’s lane, the machine class, or the spec you described, and the time limit you chose, the
+          public half of the run’s SSH key, the times it was queued, started and ended, its outcome
+          and exit code, the traffic, the machine (its Vast id, processor, threads, memory and country,
+          and its public SSH key) and the credits. Never a file, a file name, the command or a line of
+          output. Kept with the license’s credits.
+        </li>
+        <li>
+          <strong>The abuse watch</strong>: while a job runs, the machine sends our server the names
+          and fingerprints of its programs, their processor use, the graphics card’s use, and the
+          ports and counts of its outgoing connections. Never command lines, arguments, environment,
+          file names or the addresses it connects to. Kept 30 days as a summary per job, and read
+          only to review abuse. A sign of abuse and its review are kept with the license.
+        </li>
+        <li>
+          <strong>The output</strong> streams to your computer only. We keep none of it. Your computer
+          keeps the output of your last 50 runs, in the app’s data folder.
+        </li>
+        <li>
+          <strong>The dependency cache</strong>: the downloaded packages and the build of your
+          dependencies, never your own code. It is packed and encrypted on the machine (AES-256-GCM)
+          with a key that stays in your computer’s keychain and goes to the machine only for the run,
+          then stored on Cloudflare R2 in the European Union. R2 and our server only ever hold
+          ciphertext. Each copy is deleted 14 days after it was saved, and only a project’s latest two
+          are kept. “Forget this project’s cache” deletes its copies at once, and its key from your
+          keychain.
+        </li>
+        <li>
+          <strong>What cannot be promised</strong>: the datacenter’s operator has, in principle, access
+          to the hardware while the machine runs, and a deleted file on an SSD is not guaranteed to be
+          overwritten.
+        </li>
+      </ul>
+      <ul data-l="fr">
+        <li>
+          <strong>Ce qui quitte votre ordinateur</strong>, pour la machine seulement&nbsp;: les fichiers de votre
+          projet tels que git les liste, depuis le dossier où vous lancez le run. Les fichiers que git suit
+          sont envoyés, sauf ceux dont le nom ressemble à un secret (<code>.env</code>, <code>*.pem</code>,
+          <code>*.key</code>, <code>id_rsa</code>, <code>credentials</code>, <code>secrets.*</code>…). Les
+          fichiers que git ne suit pas sont envoyés aussi, sauf si git les ignore, s’ils sont dans un dossier
+          d’outil (<code>.claude</code>, <code>.vscode</code>, <code>.ssh</code>…), s’ils ont un nom de secret
+          (les mêmes noms, et tout ce qui contient «&nbsp;secret&nbsp;», «&nbsp;token&nbsp;» ou «&nbsp;credential&nbsp;» dans
+          son nom) ou s’ils dépassent 16 Mo. Un fichier dont le nom ressemble à un secret n’est envoyé que si
+          vous le listez dans le <code>.hangar/cloud-include</code> de votre projet. Jamais <code>.git</code>.
+          Aussi la commande, les variables d’environnement que vous choisissez d’envoyer (aucune par défaut&nbsp;:
+          celles que votre projet liste dans <code>.hangar/cloud.env</code>, ou que vous passez avec
+          <code>--env</code>), et la clé du cache de dépendances du projet. Ce qui reste sur votre ordinateur
+          est dit avant le run.
+        </li>
+        <li>
+          <strong>Où cela va</strong>&nbsp;: par SSH, directement depuis votre ordinateur, vers une machine d’un
+          centre de données <a href="https://vast.ai">Vast.ai</a> Secure Cloud (ISO 27001), avec un GPU quand
+          le run en demande un, dans l’Union européenne ou l’EEE, en Suisse, au Royaume-Uni ou en Serbie&nbsp;; dans
+          un autre pays du Secure Cloud de Vast seulement pour un run pour lequel vous choisissez «&nbsp;Toute
+          région&nbsp;», que l’app propose quand l’Europe n’a pas de machine libre et dit avant le run. Sans passer
+          par notre serveur. L’identité de la machine est vérifiée avant la première connexion, et une clé tirée
+          pour ce run seul l’ouvre.
+        </li>
+        <li>
+          <strong>Sur la machine</strong>&nbsp;: vos fichiers et leur build, dans des dossiers d’un utilisateur qui
+          n’est pas root, pendant vos runs et les minutes où la machine est gardée ensuite (2 par défaut, 5 après
+          la vérification d’une livraison, 30 au plus si vous le demandez). Aucun autre client ne l’utilise jamais.
+        </li>
+        <li>
+          <strong>Rien n’est gardé une fois la machine détruite.</strong> Quand la machine s’en va, tous les
+          programmes de vos runs sont arrêtés, et vos fichiers, leur build, le cache, les clés et les fichiers
+          temporaires de la machine sont supprimés&nbsp;; puis la machine est détruite chez Vast, son disque avec.
+          Si elle ne répond pas, elle est détruite quand même.
+        </li>
+        <li>
+          <strong>Ce que reçoit notre serveur</strong>&nbsp;: l’enregistrement du job&nbsp;: la licence, un id de
+          projet aléatoire, une clé aléatoire pour la voie d’un workspace, la classe de machine, ou la
+          spécification que vous avez décrite, et la limite de temps que vous avez choisie, la moitié publique
+          de la clé SSH du run, les heures de mise en file, de démarrage et de fin, son résultat et son code de
+          sortie, le trafic, la machine (son id chez Vast, son processeur, ses threads, sa mémoire et son pays,
+          et sa clé SSH publique) et les crédits. Jamais un fichier, un nom de fichier, la commande ni une
+          ligne de sortie. Conservé avec les crédits de la licence.
+        </li>
+        <li>
+          <strong>La surveillance des abus</strong>&nbsp;: pendant qu’un job tourne, la machine envoie à notre
+          serveur les noms et empreintes de ses programmes, leur utilisation du processeur, l’utilisation de la
+          carte graphique, et les ports et le nombre de ses connexions sortantes. Jamais les lignes de commande,
+          les arguments, l’environnement, les noms de fichiers ni les adresses auxquelles elle se connecte.
+          Conservé 30 jours sous forme de résumé par job, et lu seulement pour examiner un abus. Un signe d’abus
+          et son examen sont conservés avec la licence.
+        </li>
+        <li>
+          <strong>La sortie</strong> n’est diffusée que vers votre ordinateur. Nous n’en gardons rien. Votre
+          ordinateur garde la sortie de vos 50 derniers runs, dans le dossier de données de l’app.
+        </li>
+        <li>
+          <strong>Le cache de dépendances</strong>&nbsp;: les paquets téléchargés et le build de vos dépendances,
+          jamais votre propre code. Il est empaqueté et chiffré sur la machine (AES-256-GCM) avec une clé qui
+          reste dans le trousseau de votre ordinateur et ne va à la machine que pour le run, puis stocké sur
+          Cloudflare R2 dans l’Union européenne. R2 et notre serveur ne détiennent jamais que des données
+          chiffrées. Chaque copie est supprimée 14 jours après son enregistrement, et seules les deux dernières
+          d’un projet sont gardées. «&nbsp;Oublier le cache de ce projet&nbsp;» supprime ses copies tout de suite, et sa
+          clé dans votre trousseau.
+        </li>
+        <li>
+          <strong>Ce qui ne peut pas être promis</strong>&nbsp;: l’exploitant du centre de données a, en principe,
+          accès au matériel pendant que la machine tourne, et un fichier supprimé sur un SSD n’est pas garanti
+          d’être écrasé.
+        </li>
+      </ul>
+
+      <h2 id="hosted-nodes"><span data-l="en">Hosted nodes</span><span data-l="fr">Nœuds hébergés</span></h2>
+      <div data-l="en" class="legal__review" role="note">
+        <p><b>To be reviewed.</b> This section says how hosted nodes work, read from their code on
+        20 November 2026; a lawyer has not checked its wording yet. A reviewed version will replace
+        it, with its own date.</p>
+      </div>
+      <div data-l="fr" class="legal__review" role="note">
+        <p><b>À relire.</b> Cette section dit comment fonctionnent les nœuds hébergés, d’après leur code au
+        20 novembre 2026&nbsp;; un juriste n’a pas encore vérifié sa formulation. Une version relue la remplacera,
+        avec sa propre date.</p>
+      </div>
+      <p data-l="en">
+        <strong>Keep running in the cloud…</strong>, in a workspace’s menu, keeps your workspaces
+        running while your computer is off, on a server rented for you alone, with a Pro or Max
+        license (a trial or a free license rents none); the server is deleted at the end of the
+        session. Nothing here happens unless you start a hosted node. Running on your own computer,
+        or on your own nodes, stays the default.
+      </p>
+      <p data-l="fr">
+        <strong>Continuer dans le cloud…</strong>, dans le menu d’un workspace, garde vos workspaces en marche
+        pendant que votre ordinateur est éteint, sur un serveur loué pour vous seul, avec une licence Pro ou
+        Max (un essai ou une licence gratuite n’en loue aucun)&nbsp;; le serveur est supprimé à la fin de la
+        session. Rien de tout cela n’arrive sauf si vous démarrez un nœud hébergé. Travailler sur votre propre
+        ordinateur, ou sur vos propres nœuds, reste le comportement par défaut.
+      </p>
+      <ul data-l="en">
+        <li>
+          <strong>What leaves your computer</strong>, for the server only: the workspaces you chose to
+          move there, each as one bundle over SSH, straight from your computer and not through our
+          server: the files of its checkouts (the branches and tags, and the work not committed), its
+          board and memory, and your agents’ conversations. Also, to our server, the public half of an
+          SSH key and the public half of a sealing key, both drawn on your computer for this session:
+          the private halves stay on your computer, the sealing key’s in its keychain. Your agents’
+          sign-in is not among them: you sign in on the server, in your browser, with your own account,
+          and an API key you type goes to the server alone, through SSH.
+        </li>
+        <li>
+          <strong>Where it goes</strong>: a server of <a href="https://www.hetzner.com/cloud">Hetzner
+          Cloud</a>, rented for you alone, in Falkenstein or Nuremberg, Germany, or in Helsinki,
+          Finland: Falkenstein first, another place when it has no server free. Its firewall opens SSH
+          alone and lets in the session’s own key only, with no password; outgoing mail and mining
+          pools’ ports are closed. The agents you chose (Claude Code, Codex) are installed on it from
+          their official channels, unmodified.
+        </li>
+        <li>
+          <strong>On the server</strong>: your workspaces, in the clear, on its disk, for as long as
+          the session lasts, as on any machine that runs them; the agents talk to their providers under
+          your own accounts, as on your computer. No other customer ever uses it. When the session
+          ends, the server is deleted, its disk with it.
+        </li>
+        <li>
+          <strong>What our server receives</strong>: the session’s record: the license, the size, the
+          place, the agents chosen, the times of the session and of its extensions, the credits
+          reserved and charged, the server’s address and SSH host keys, the public halves of the two
+          keys, the version of the node, a hash of the token the node uses to speak to our server, and
+          what the node says every 30 seconds (that it is alive, and, while it parks its work, how far
+          it is). Never a file, a branch, a card of your board or a line of a conversation. Kept with
+          the license’s credits.
+        </li>
+        <li>
+          <strong>The abuse watch</strong>: our server reads the server’s processor use from Hetzner’s
+          own metrics, every 5 minutes, and keeps no reading, only since when it has been above 85 %.
+          After 30 minutes a sign is recorded with the license, for review; after 2 hours the session
+          ends, its work is parked, and the license’s machines wait for a review. Nothing the node
+          holds, runs or prints is read.
+        </li>
+        <li>
+          <strong>The parked work</strong>: when the session ends and your computer cannot reach the
+          server, the node packs each workspace (its branches, the work not committed, its board,
+          memory and conversations) and seals the parcel to the public half of the sealing key (an
+          ephemeral X25519 key, then AES-256-GCM), so that it cannot open it again. It sends it to
+          Cloudflare R2, in the European Union, to an address our server gave it, and the server is
+          deleted. Only your computer can open the parcel: R2 and our server hold ciphertext. When
+          your computer opens HangarAI again, it downloads the parcel, opens it, brings the work back
+          and tells our server, which deletes it. Otherwise it is deleted 7 days after it was
+          uploaded, by our server and by a rule of the storage itself. The parcel’s size and checksum
+          are kept with the session’s record.
+        </li>
+        <li>
+          <strong>When your computer reaches the server at the end</strong>, it takes the workspaces
+          back straight over SSH, and nothing is parked.
+        </li>
+        <li>
+          <strong>What cannot be promised</strong>: Hetzner, whose datacenter it is, has in principle
+          access to the hardware while the server runs, and a deleted file on an SSD is not guaranteed
+          to be overwritten.
+        </li>
+      </ul>
+      <ul data-l="fr">
+        <li>
+          <strong>Ce qui quitte votre ordinateur</strong>, pour le serveur seulement&nbsp;: les workspaces que vous
+          avez choisi d’y déplacer, chacun en un seul paquet par SSH, directement depuis votre ordinateur et
+          sans passer par notre serveur&nbsp;: les fichiers de ses checkouts (les branches et tags, et le travail
+          non commité), son board et sa mémoire, et les conversations de vos agents. Aussi, vers notre serveur,
+          la moitié publique d’une clé SSH et la moitié publique d’une clé de scellement, toutes deux tirées sur
+          votre ordinateur pour cette session&nbsp;: les moitiés privées restent sur votre ordinateur, celle de la
+          clé de scellement dans son trousseau. La connexion de vos agents n’en fait pas partie&nbsp;: vous vous
+          connectez sur le serveur, dans votre navigateur, avec votre propre compte, et une clé d’API que vous
+          saisissez va au serveur seul, par SSH.
+        </li>
+        <li>
+          <strong>Où cela va</strong>&nbsp;: un serveur de <a href="https://www.hetzner.com/cloud">Hetzner
+          Cloud</a>, loué pour vous seul, à Falkenstein ou Nuremberg, en Allemagne, ou à Helsinki, en
+          Finlande&nbsp;: Falkenstein d’abord, un autre lieu quand il n’a pas de serveur libre. Son pare-feu
+          n’ouvre que SSH et ne laisse entrer que la clé propre de la session, sans mot de passe&nbsp;; les ports du
+          courrier sortant et des pools de minage sont fermés. Les agents que vous avez choisis (Claude Code,
+          Codex) y sont installés depuis leurs canaux officiels, sans modification.
+        </li>
+        <li>
+          <strong>Sur le serveur</strong>&nbsp;: vos workspaces, en clair, sur son disque, aussi longtemps que dure
+          la session, comme sur n’importe quelle machine qui les exécute&nbsp;; les agents parlent à leurs
+          fournisseurs avec vos propres comptes, comme sur votre ordinateur. Aucun autre client ne l’utilise
+          jamais. À la fin de la session, le serveur est supprimé, son disque avec.
+        </li>
+        <li>
+          <strong>Ce que reçoit notre serveur</strong>&nbsp;: l’enregistrement de la session&nbsp;: la licence, la
+          taille, le lieu, les agents choisis, les heures de la session et de ses prolongations, les crédits
+          réservés et facturés, l’adresse du serveur et ses clés d’hôte SSH, les moitiés publiques des deux
+          clés, la version du nœud, un hash du jeton que le nœud utilise pour parler à notre serveur, et ce que
+          le nœud dit toutes les 30 secondes (qu’il est en vie et, pendant qu’il met son travail de côté, où il
+          en est). Jamais un fichier, une branche, une carte de votre board ni une ligne de conversation.
+          Conservé avec les crédits de la licence.
+        </li>
+        <li>
+          <strong>La surveillance des abus</strong>&nbsp;: notre serveur lit l’utilisation du processeur du serveur
+          dans les mesures propres de Hetzner, toutes les 5 minutes, et n’en garde aucune lecture, seulement
+          depuis quand il dépasse 85&nbsp;%. Au bout de 30 minutes, un signe est enregistré avec la licence, pour
+          examen&nbsp;; au bout de 2 heures, la session prend fin, son travail est mis de côté, et les machines de
+          la licence attendent un examen. Rien de ce que le nœud contient, exécute ou affiche n’est lu.
+        </li>
+        <li>
+          <strong>Le travail mis de côté</strong>&nbsp;: quand la session prend fin et que votre ordinateur ne peut
+          pas joindre le serveur, le nœud empaquette chaque workspace (ses branches, le travail non commité, son
+          board, sa mémoire et ses conversations) et scelle le paquet avec la moitié publique de la clé de
+          scellement (une clé X25519 éphémère, puis AES-256-GCM), de sorte qu’il ne puisse pas le rouvrir. Il
+          l’envoie à Cloudflare R2, dans l’Union européenne, à une adresse que notre serveur lui a donnée, et le
+          serveur est supprimé. Seul votre ordinateur peut ouvrir le paquet&nbsp;: R2 et notre serveur ne détiennent
+          que des données chiffrées. Quand votre ordinateur rouvre HangarAI, il télécharge le paquet, l’ouvre,
+          rapatrie le travail et le dit à notre serveur, qui le supprime. Sinon il est supprimé 7 jours après son
+          envoi, par notre serveur et par une règle du stockage lui-même. La taille et la somme de contrôle du
+          paquet sont conservées avec l’enregistrement de la session.
+        </li>
+        <li>
+          <strong>Quand votre ordinateur joint le serveur à la fin</strong>, il reprend les workspaces
+          directement par SSH, et rien n’est mis de côté.
+        </li>
+        <li>
+          <strong>Ce qui ne peut pas être promis</strong>&nbsp;: Hetzner, dont c’est le centre de données, a en
+          principe accès au matériel pendant que le serveur tourne, et un fichier supprimé sur un SSD n’est pas
+          garanti d’être écrasé.
+        </li>
+      </ul>
+
+      <h2 id="account"><span data-l="en">The Hangar account</span><span data-l="fr">Le compte Hangar</span></h2>
+      <p data-l="en">
         A Hangar account links several of your machines, so that the usage statistics of all of them
         can be read from any of them. You create it by signing in with GitHub from Hangar's
         settings. Nothing in the app requires it.
       </p>
+      <p data-l="fr">
+        Un compte Hangar relie plusieurs de vos machines, pour que les statistiques d’usage de toutes puissent
+        être lues depuis n’importe laquelle. Vous le créez en vous connectant avec GitHub depuis les réglages
+        de Hangar. Rien dans l’app ne l’exige.
+      </p>
 
-      <h3 id="stores">What the server stores</h3>
-      <ul>
+      <h3 id="stores"><span data-l="en">What the server stores</span><span data-l="fr">Ce que le serveur stocke</span></h3>
+      <ul data-l="en">
         <li>
           <strong>Who signed in.</strong> What GitHub says about you when you sign in: its identifier
           for you, your display name, your email address when it confirms it is verified, and the
@@ -123,14 +1374,47 @@
           five minutes.
         </li>
       </ul>
-      <p>
+      <ul data-l="fr">
+        <li>
+          <strong>Qui s’est connecté.</strong> Ce que GitHub dit de vous quand vous vous connectez&nbsp;: son
+          identifiant pour vous, votre nom affiché, votre adresse e-mail quand il confirme qu’elle est
+          vérifiée, et l’adresse de votre avatar. Hangar demande à GitHub <code>read:user user:email</code>&nbsp;:
+          votre profil et votre adresse e-mail, rien d’autre. Il ne peut lire ni vos dépôts, ni vos fichiers,
+          ni vos contacts.
+        </li>
+        <li>
+          <strong>Vos machines.</strong> Pour chaque machine depuis laquelle vous vous connectez&nbsp;: son nom, son
+          système d’exploitation (<code>windows</code>, <code>macos</code> ou <code>linux</code>), un
+          identifiant que Hangar a tiré au hasard pour cette installation, la date de sa liaison et la date où
+          elle a été vue pour la dernière fois.
+        </li>
+        <li>
+          <strong>Statistiques d’usage</strong>, seulement tant que la synchronisation des statistiques est
+          activée. C’est un réglage à part, et se connecter ne l’active pas. Pour chaque machine, jour, modèle
+          et nom de projet&nbsp;: le nombre de tokens d’entrée, de sortie et de cache, ce que l’API aurait facturé
+          pour eux, le temps actif et le nombre de sessions. Le nom du projet est le nom de son dossier
+          (<code>hangar</code>), jamais son chemin.
+        </li>
+        <li>
+          <strong>Connexions en cours.</strong> Pendant que vous êtes sur la page de GitHub&nbsp;: le nom de la
+          machine et ce qu’il faut pour vous ramener dans Hangar. Supprimé quand vous revenez, et au bout de
+          dix minutes si vous ne revenez pas. Le code à usage unique qui termine une connexion est supprimé en
+          moins de cinq minutes.
+        </li>
+      </ul>
+      <p data-l="en">
         The token that keeps a machine signed in is stored on that machine only, in the operating
         system's keychain. The server keeps a hash of it (SHA-256), from which the token cannot be
         recovered.
       </p>
+      <p data-l="fr">
+        Le jeton qui garde une machine connectée est stocké sur cette machine seule, dans le trousseau du
+        système d’exploitation. Le serveur en garde un hash (SHA-256), à partir duquel le jeton ne peut pas
+        être retrouvé.
+      </p>
 
-      <h3 id="never">What it never stores</h3>
-      <ul>
+      <h3 id="never"><span data-l="en">What it never stores</span><span data-l="fr">Ce qu’il ne stocke jamais</span></h3>
+      <ul data-l="en">
         <li>The paths of your files or folders.</li>
         <li>Your conversations with your agents: no prompt, no answer, no transcript, no session title.</li>
         <li>Your code, your files, your diffs, your commits.</li>
@@ -138,77 +1422,168 @@
         <li>Your GitHub password, which Hangar never sees.</li>
         <li>Your IP address. The server keeps no request log. To limit abuse it counts requests per address in memory, for about a minute, and writes none of it down.</li>
       </ul>
-      <p>
+      <ul data-l="fr">
+        <li>Les chemins de vos fichiers ou dossiers.</li>
+        <li>Vos conversations avec vos agents&nbsp;: ni prompt, ni réponse, ni transcription, ni titre de session.</li>
+        <li>Votre code, vos fichiers, vos diffs, vos commits.</li>
+        <li>Le jeton d’accès de GitHub. Il sert une fois, à lire votre profil à la connexion, et n’est pas conservé.</li>
+        <li>Votre mot de passe GitHub, que Hangar ne voit jamais.</li>
+        <li>Votre adresse IP. Le serveur ne garde aucun journal de requêtes. Pour limiter les abus, il compte les requêtes par adresse en mémoire, pendant environ une minute, et n’en écrit rien.</li>
+      </ul>
+      <p data-l="en">
         The server has no field to receive any of this, and refuses a project name that contains a
         path separator.
       </p>
+      <p data-l="fr">
+        Le serveur n’a aucun champ pour recevoir tout cela, et refuse un nom de projet qui contient un
+        séparateur de chemin.
+      </p>
 
-      <h3 id="use">What it is used for</h3>
-      <p>
+      <h3 id="use"><span data-l="en">What it is used for</span><span data-l="fr">À quoi cela sert</span></h3>
+      <p data-l="en">
         To show you your account, your machines and your statistics in Hangar, on each of your
         machines. Nothing else: no advertising, no profiling, no analytics, no newsletter. Your data
         is not sold, rented or shared with anyone, and is not used to train any model.
       </p>
-      <p>
+      <p data-l="fr">
+        À vous montrer votre compte, vos machines et vos statistiques dans Hangar, sur chacune de vos
+        machines. Rien d’autre&nbsp;: ni publicité, ni profilage, ni analytics, ni lettre d’information. Vos
+        données ne sont ni vendues, ni louées, ni partagées avec qui que ce soit, et ne servent à entraîner
+        aucun modèle.
+      </p>
+      <p data-l="en">
         The basis for this processing is your consent: you give it by signing in, and withdraw it by
-        deleting your account.
+        deleting your account. The license, the credits and the hosted features are processed to
+        provide the app you use or try, under the terms you accept with it.
+      </p>
+      <p data-l="fr">
+        La base de ce traitement est votre consentement&nbsp;: vous le donnez en vous connectant, et le retirez en
+        supprimant votre compte. La licence, les crédits et les fonctions hébergées sont traités pour fournir
+        l’app que vous utilisez ou essayez, selon les conditions que vous acceptez avec elle.
       </p>
 
-      <h3 id="where">Where it is</h3>
-      <p>
+      <h3 id="where"><span data-l="en">Where it is</span><span data-l="fr">Où il se trouve</span></h3>
+      <p data-l="en">
         On one server operated by simnJS, in a single database. Requests reach it through Cloudflare,
         which, like any network intermediary, sees the IP address a request comes from and handles
         it under <a href="https://www.cloudflare.com/privacypolicy/">its own privacy policy</a>.
         Everything travels over HTTPS.
       </p>
+      <p data-l="fr">
+        Sur un serveur exploité par simnJS, dans une seule base de données. Les requêtes l’atteignent via
+        Cloudflare qui, comme tout intermédiaire réseau, voit l’adresse IP d’où vient une requête et la traite
+        selon <a href="https://www.cloudflare.com/privacypolicy/">sa propre politique de confidentialité</a>.
+        Tout circule en HTTPS.
+      </p>
 
-      <h2 id="retention">How long it is kept</h2>
-      <ul>
+      <h2 id="retention"><span data-l="en">How long it is kept</span><span data-l="fr">Combien de temps c’est conservé</span></h2>
+      <ul data-l="en">
         <li>Your account, your machines and your statistics are kept until you delete them. Nothing expires on its own.</li>
+        <li>A license, its machines and its credits are kept as long as the license exists: they are the record of what you are entitled to. The integrity reports are deleted after 180 days.</li>
         <li>Backups of the database are kept for 14 days at most. What you delete disappears from them as they are replaced.</li>
+        <li>What each hosted service keeps, and for how long, is in its own section above.</li>
+      </ul>
+      <ul data-l="fr">
+        <li>Votre compte, vos machines et vos statistiques sont conservés jusqu’à ce que vous les supprimiez. Rien n’expire de lui-même.</li>
+        <li>Une licence, ses machines et ses crédits sont conservés tant que la licence existe&nbsp;: ils sont la trace de ce à quoi vous avez droit. Les rapports d’intégrité sont supprimés après 180 jours.</li>
+        <li>Les sauvegardes de la base sont conservées 14 jours au plus. Ce que vous supprimez en disparaît à mesure qu’elles sont remplacées.</li>
+        <li>Ce que chaque service hébergé conserve, et pour combien de temps, est dans sa propre section ci-dessus.</li>
       </ul>
 
-      <h2 id="delete">Deleting your data</h2>
-      <p>All of it is done from Hangar, in Settings, under Hangar account:</p>
-      <ul>
+      <h2 id="delete"><span data-l="en">Deleting your data</span><span data-l="fr">Supprimer vos données</span></h2>
+      <p data-l="en">All of it is done from Hangar, in Settings, under Hangar account:</p>
+      <p data-l="fr">Tout se fait depuis Hangar, dans Réglages, sous Compte Hangar&nbsp;:</p>
+      <ul data-l="en">
         <li><strong>Sign out</strong> destroys this machine's token. Its statistics stay on your account, so that signing in again finds them.</li>
         <li><strong>Forget a machine</strong> deletes that machine and every statistic it sent.</li>
         <li><strong>Delete my account</strong> deletes everything: the account, what GitHub said about you, every machine and its token, every statistic. It happens at once, and nothing is kept aside.</li>
       </ul>
-      <p>
+      <ul data-l="fr">
+        <li><strong>Se déconnecter</strong> détruit le jeton de cette machine. Ses statistiques restent sur votre compte, pour qu’une nouvelle connexion les retrouve.</li>
+        <li><strong>Oublier une machine</strong> supprime cette machine et chaque statistique qu’elle a envoyée.</li>
+        <li><strong>Supprimer mon compte</strong> supprime tout&nbsp;: le compte, ce que GitHub a dit de vous, chaque machine et son jeton, chaque statistique. C’est immédiat, et rien n’est mis de côté.</li>
+      </ul>
+      <p data-l="en">
         Turning the statistics sync off stops sending new totals; forgetting the machine or deleting
         the account removes the ones already sent.
       </p>
-      <p>
+      <p data-l="fr">
+        Désactiver la synchronisation des statistiques arrête l’envoi de nouveaux totaux&nbsp;; oublier la machine
+        ou supprimer le compte retire ceux déjà envoyés.
+      </p>
+      <p data-l="en">
+        A license is not part of the account. <strong>Deactivate this machine</strong>, in Settings
+        under License, frees its seat. To have a license's records deleted, write to us (below).
+      </p>
+      <p data-l="fr">
+        Une licence ne fait pas partie du compte. <strong>Désactiver cette machine</strong>, dans Réglages sous
+        Licence, libère sa place. Pour faire supprimer les enregistrements d’une licence, écrivez-nous (ci-dessous).
+      </p>
+      <p data-l="en">
         To also withdraw the access you gave Hangar on GitHub, remove it from
         <a href="https://github.com/settings/applications">your GitHub applications</a>.
       </p>
+      <p data-l="fr">
+        Pour retirer aussi l’accès que vous avez donné à Hangar sur GitHub, supprimez-le de
+        <a href="https://github.com/settings/applications">vos applications GitHub</a>.
+      </p>
 
-      <h2 id="rights">Your rights</h2>
-      <p>
+      <h2 id="rights"><span data-l="en">Your rights</span><span data-l="fr">Vos droits</span></h2>
+      <p data-l="en">
         What Hangar shows you under Hangar account is what the server holds about you: your profile,
         your machines, your statistics. You can correct a machine's name there and delete any of it.
         If you live in the European Union you also have the right to ask for a copy of your data,
         to object to its processing, and to complain to your data protection authority. Write to us
         (below) and we will answer.
       </p>
-
-      <h2 id="site">This website</h2>
-      <p>
-        This site sets no cookie, runs no analytics and loads nothing from another origin: no
-        tracker, no font or script from a third party. Like the account server, it is served through
-        Cloudflare. The theme you pick on the home page is not remembered.
+      <p data-l="fr">
+        Ce que Hangar vous montre sous Compte Hangar, c’est ce que le serveur détient sur vous&nbsp;: votre profil,
+        vos machines, vos statistiques. Vous pouvez y corriger le nom d’une machine et supprimer n’importe quoi.
+        Si vous vivez dans l’Union européenne, vous avez aussi le droit de demander une copie de vos données,
+        de vous opposer à leur traitement, et de saisir votre autorité de protection des données. Écrivez-nous
+        (ci-dessous) et nous vous répondrons.
       </p>
 
-      <h2 id="changes">Changes</h2>
-      <p>
-        If what the account stores changes, this page changes first, with its date. The
-        account server's protocol is described in
+      <h2 id="site"><span data-l="en">This website</span><span data-l="fr">Ce site</span></h2>
+      <p data-l="en">
+        This site runs no analytics and loads nothing from another origin: no tracker, no font or
+        script from a third party. Its only cookies are the two above: the referral code, set only when
+        you follow a referral link, and the customer account's session, set only when you sign in
+        there. Its pricing pages ask the account server what is on sale (<code>/v1/offers</code>),
+        without sending anything about you. Like the account server, it is served through Cloudflare.
+        The theme you pick on the home page is not remembered.
+      </p>
+      <p data-l="fr">
+        Ce site n’exécute aucun analytics et ne charge rien depuis une autre origine&nbsp;: ni traceur, ni police
+        ou script tiers. Ses seuls cookies sont les deux ci-dessus&nbsp;: le code de parrainage, déposé seulement
+        quand vous suivez un lien de parrainage, et la session du compte client, déposée seulement quand vous
+        vous y connectez. Ses pages de tarifs demandent au serveur de comptes ce qui est en vente
+        (<code>/v1/offers</code>), sans rien envoyer sur vous. Comme le serveur de comptes, il est servi via
+        Cloudflare. Le thème que vous choisissez sur la page d’accueil n’est pas retenu.
+      </p>
+
+      <h2 id="changes"><span data-l="en">Changes</span><span data-l="fr">Changements</span></h2>
+      <p data-l="en">
+        If what the license, the credits or the account store changes, this page changes first, with
+        its date. The account server's protocol is described in
         <a href="https://github.com/hangar-ai/hangar/blob/main/docs/native/cloud.md"><code>docs/native/cloud.md</code></a>.
       </p>
+      <p data-l="fr">
+        Si ce que stockent la licence, les crédits ou le compte change, cette page change d’abord, avec sa
+        date. Le protocole du serveur de comptes est décrit dans
+        <a href="https://github.com/hangar-ai/hangar/blob/main/docs/native/cloud.md"><code>docs/native/cloud.md</code></a>.
+      </p>
+      <p data-l="en">
+        A provider joins the table of <a href="#subprocessors">hosted services’ providers</a> before it
+        receives anything, and a service’s section is written before the service opens.
+      </p>
+      <p data-l="fr">
+        Un prestataire rejoint le tableau des <a href="#subprocessors">prestataires des services hébergés</a>
+        avant de recevoir quoi que ce soit, et la section d’un service est écrite avant l’ouverture du service.
+      </p>
 
-      <h2 id="contact">Contact</h2>
-      <p>
+      <h2 id="contact"><span data-l="en">Contact</span><span data-l="fr">Contact</span></h2>
+      <p data-l="en">
         For a question about your data, or a request you cannot make from the app, open an issue at
         <a href="https://github.com/hangar-ai/hangar/issues">github.com/hangar-ai/hangar</a> (do not
         put personal data in it: say what you need, and we will reach you privately), or write to
@@ -216,30 +1591,98 @@
         use the repository's
         <a href="https://github.com/hangar-ai/hangar/security/advisories/new">private security report</a>.
       </p>
+      <p data-l="fr">
+        Pour une question sur vos données, ou une demande que vous ne pouvez pas faire depuis l’app, ouvrez un
+        ticket sur <a href="https://github.com/hangar-ai/hangar/issues">github.com/hangar-ai/hangar</a> (n’y
+        mettez pas de données personnelles&nbsp;: dites ce dont vous avez besoin, et nous vous joindrons en privé),
+        ou écrivez à <a href="mailto:contact@hangarai.dev">contact@hangarai.dev</a>. Pour signaler un problème
+        de sécurité, utilisez le
+        <a href="https://github.com/hangar-ai/hangar/security/advisories/new">signalement privé</a> du dépôt.
+      </p>
+      <p data-l="en">
+        To report a share link or another abuse of HangarAI Cloud, write to
+        <a href="mailto:abuse@hangarai.dev">abuse@hangarai.dev</a>.
+      </p>
+      <p data-l="fr">
+        Pour signaler un lien de partage ou un autre abus de HangarAI Cloud, écrivez à
+        <a href="mailto:abuse@hangarai.dev">abuse@hangarai.dev</a>.
+      </p>
     </div>
   </div>
 </section>
 </main>
 
-<footer class="foot">
+<!-- site footer: the same on every page -->
+<footer class="foot" id="site-map">
   <div class="wrap foot__in">
-    <a class="brand brand--foot" href="./" aria-label="HangarAI, home">
-      <svg class="brand__mark" width="16" height="16" viewBox="200 200 624 624" aria-hidden="true">
+    <div class="foot__top">
+      <div class="foot__brand">
+        <a class="brand" href="./" aria-label="HangarAI, home" data-fr="HangarAI, accueil">
+          <svg class="brand__mark" width="20" height="20" viewBox="200 200 624 624" aria-hidden="true">
         <rect x="200" y="200" width="260" height="624" fill="var(--accent)"></rect>
         <rect x="538" y="200" width="286" height="260" fill="var(--fg-hi)"></rect>
         <rect x="538" y="538" width="286" height="286" fill="var(--fg-hi)"></rect>
       </svg>
-      <span class="brand__name">HangarAI</span>
-    </a>
-    <p class="foot__by">Made by <a href="https://github.com/simnJS">simnJS</a>.</p>
-    <nav class="foot__links" aria-label="Project">
-      <a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/README.md">Guide</a>
-      <a href="https://github.com/hangar-ai/hangar/releases">Releases</a>
-      <a href="https://discord.gg/hangarai">Discord</a>
-      <a href="https://github.com/hangar-ai/hangar/blob/main/LICENSE">License</a>
-      <a href="privacy.html" aria-current="page">Privacy</a>
-    </nav>
+          <span class="brand__name">HangarAI</span>
+        </a>
+        <p class="foot__tag"><span data-l="en">A team of coding agents, in one native window. Local, with no usage telemetry.</span><span data-l="fr">Une équipe d’agents de code, dans une seule fenêtre native. En local, sans télémétrie d’usage.</span></p>
+        <div class="foot__social">
+          <a href="https://github.com/hangar-ai/hangar" aria-label="HangarAI on GitHub" data-fr="HangarAI sur GitHub"><svg width="17" height="17" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"></path></svg></a>
+          <a href="https://discord.gg/hangarai" aria-label="HangarAI on Discord" data-fr="HangarAI sur Discord"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.32 4.37a19.8 19.8 0 0 0-4.89-1.52.07.07 0 0 0-.08.04c-.21.37-.44.86-.61 1.25a18.27 18.27 0 0 0-5.49 0 12.6 12.6 0 0 0-.62-1.25.08.08 0 0 0-.08-.04 19.74 19.74 0 0 0-4.88 1.52.07.07 0 0 0-.03.03C.53 9.05-.32 13.58.1 18.06a.08.08 0 0 0 .03.06 19.9 19.9 0 0 0 5.99 3.03.08.08 0 0 0 .08-.03c.46-.63.87-1.3 1.23-1.99a.08.08 0 0 0-.04-.11 13.1 13.1 0 0 1-1.87-.89.08.08 0 0 1-.01-.13l.37-.29a.07.07 0 0 1 .08-.01c3.93 1.79 8.18 1.79 12.06 0a.07.07 0 0 1 .08.01l.37.29a.08.08 0 0 1-.01.13c-.6.35-1.22.64-1.87.89a.08.08 0 0 0-.04.11c.36.7.77 1.36 1.22 1.99a.08.08 0 0 0 .08.03 19.84 19.84 0 0 0 6-3.03.08.08 0 0 0 .04-.06c.5-5.18-.84-9.67-3.55-13.66a.06.06 0 0 0-.03-.03ZM8.02 15.33c-1.18 0-2.16-1.09-2.16-2.42s.96-2.42 2.16-2.42c1.21 0 2.18 1.1 2.16 2.42 0 1.33-.96 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.15-1.09-2.15-2.42s.95-2.42 2.15-2.42c1.21 0 2.18 1.1 2.16 2.42 0 1.33-.95 2.42-2.16 2.42Z"></path></svg></a>
+        </div>
+      </div>
+      <nav class="foot__cols" aria-label="Site map" data-fr="Plan du site">
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Product</span><span data-l="fr">Produit</span></h2>
+        <ul>
+          <li><a href="./#chat"><span data-l="en">Features</span><span data-l="fr">Fonctionnalités</span></a></li>
+          <li><a href="pricing/"><span data-l="en">Pricing</span><span data-l="fr">Tarifs</span></a></li>
+          <li><a href="./#download"><span data-l="en">Download</span><span data-l="fr">Télécharger</span></a></li>
+          <li><a href="./#mobile">Hangar Mobile</a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/blob/main/CHANGELOG.md"><span data-l="en">Changelog</span><span data-l="fr">Nouveautés</span></a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Resources</span><span data-l="fr">Ressources</span></h2>
+        <ul>
+          <li><a href="https://github.com/hangar-ai/hangar/blob/main/docs/guide/README.md">Guide</a></li>
+          <li><a href="./#faq">Questions</a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/releases"><span data-l="en">Releases</span><span data-l="fr">Versions</span></a></li>
+          <li><a href="https://discord.gg/hangarai"><span data-l="en">Discord community</span><span data-l="fr">Communauté Discord</span></a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/issues"><span data-l="en">Report a bug</span><span data-l="fr">Signaler un bug</span></a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Company</span><span data-l="fr">Société</span></h2>
+        <ul>
+          <li><a href="account/"><span data-l="en">Account</span><span data-l="fr">Compte</span></a></li>
+          <li><a href="affiliates/"><span data-l="en">Affiliates</span><span data-l="fr">Affiliation</span></a></li>
+          <li><a href="mailto:contact@hangarai.dev">Contact</a></li>
+          <li><a href="https://github.com/simnJS"><span data-l="en">Made by simnJS</span><span data-l="fr">Fait par simnJS</span></a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h2 class="foot__h"><span data-l="en">Legal</span><span data-l="fr">Légal</span></h2>
+        <ul>
+          <li><a href="privacy.html"><span data-l="en">Privacy</span><span data-l="fr">Confidentialité</span></a></li>
+          <li><a href="terms/" aria-current="page"><span data-l="en">Cloud terms</span><span data-l="fr">Conditions du Cloud</span></a></li>
+          <li><a href="legal/affiliate-terms.html"><span data-l="en">Affiliate terms</span><span data-l="fr">Conditions d’affiliation</span></a></li>
+          <li><a href="https://github.com/hangar-ai/hangar/blob/main/LICENSE"><span data-l="en">License</span><span data-l="fr">Licence</span></a></li>
+        </ul>
+      </div>
+      </nav>
+    </div>
+    <div class="foot__base">
+      <p><span>© 2026 HangarAI</span><span><span data-l="en">Payments by</span><span data-l="fr">Paiements par</span> <a href="https://polar.sh">Polar</a></span></p>
+      <div class="foot__end"><div class="lang-seg" role="group" aria-label="Language" data-fr="Langue">
+        <button type="button" class="lang-seg__btn" data-set-lang="en" lang="en" aria-label="English" aria-pressed="true">EN</button>
+        <button type="button" class="lang-seg__btn" data-set-lang="fr" lang="fr" aria-label="Français" aria-pressed="false">FR</button>
+      </div></div>
+    </div>
   </div>
 </footer>
+<!-- /site footer -->
+<script src="assets/lang.js?v=3f125a4686" defer></script>
+<script src="assets/nav.js?v=a2538a43ce" defer></script>
 </body>
 </html>

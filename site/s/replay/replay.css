@@ -1,0 +1,1136 @@
+/* ═══════════════════════════════════════════════════════════════
+   A HangarAI replay (index.html, replay.js)
+
+   The site's own tokens: GitHub Light for a light system, Graphite
+   for a dark one (styles.css), so that the page sits in the share
+   viewer as if it were the viewer's. Colour means what it means in
+   the app: green an agent at work, amber waiting on the person, blue
+   the focus and what landed. Each agent has a hue of its own.
+
+   Inlined into the shared page: no image or file of another origin.
+   Its one font is the site's Inter (SIL Open Font License 1.1,
+   site/fonts/Inter-OFL.txt), put in the page itself as it is made.
+   ═══════════════════════════════════════════════════════════════ */
+
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url(../../fonts/inter-latin-opsz.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  --bg: #ffffff;
+  --surface: #f6f7f8;
+  --column: #eef0f2;
+  --card: #ffffff;
+  --tile: #f6f7f8;
+  --line: rgba(0, 0, 0, 0.08);
+  --line-strong: rgba(0, 0, 0, 0.13);
+  --fg-hi: #1b1f23;
+  --fg: #24292f;
+  --fg-secondary: #595c61;
+  --fg-muted: #686c71;
+  --accent: #0969da;
+  --accent-soft: rgba(9, 105, 218, 0.1);
+  --working: #1a7f37;
+  --working-soft: rgba(26, 127, 55, 0.12);
+  --waiting: #9a6700;
+  --waiting-soft: rgba(154, 103, 0, 0.13);
+  --danger: #ba1f29;
+  --added: #1a7f37;
+  --removed: #ba1f29;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 2px 8px rgba(15, 23, 42, 0.05);
+  --shadow-lift: 0 10px 30px rgba(15, 23, 42, 0.14), 0 2px 6px rgba(15, 23, 42, 0.08);
+  --thumb: #ffffff;
+
+  --a0: #0969da;
+  --a1: #8250df;
+  --a2: #1a7f37;
+  --a3: #bc4c00;
+  --a4: #bf3989;
+  --a5: #0a7c8c;
+  --a6: #9a6700;
+  --a7: #cf222e;
+
+  --ui: "Inter Variable", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text",
+    "Segoe UI", system-ui, sans-serif;
+  --display: var(--ui);
+  --mono: "SF Mono", ui-monospace, "Cascadia Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --gutter: clamp(16px, 4vw, 40px);
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121316;
+    --surface: #17181b;
+    --column: #1d1e21;
+    --card: #26272a;
+    --tile: #1b1c1f;
+    --line: rgba(255, 255, 255, 0.07);
+    --line-strong: rgba(255, 255, 255, 0.12);
+    --fg-hi: #ecedf0;
+    --fg: #c8c9ce;
+    --fg-secondary: #9c9da2;
+    --fg-muted: #8c8d91;
+    --accent: #68a5ff;
+    --accent-soft: rgba(62, 139, 255, 0.16);
+    --working: #5fd27f;
+    --working-soft: rgba(95, 210, 127, 0.14);
+    --waiting: #e7c06b;
+    --waiting-soft: rgba(231, 192, 107, 0.14);
+    --danger: #ff7b72;
+    --added: #5fd27f;
+    --removed: #ff7b72;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-lift: 0 14px 34px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
+    --thumb: #ecedf0;
+
+    --a0: #68a5ff;
+    --a1: #b493ff;
+    --a2: #5fd27f;
+    --a3: #ff9e57;
+    --a4: #ff7ab8;
+    --a5: #5fcfdd;
+    --a6: #e7c06b;
+    --a7: #ff7b72;
+    color-scheme: dark;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.5 var(--ui);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.rp {
+  max-width: 1240px;
+  margin-inline: auto;
+  padding: clamp(22px, 4vw, 52px) var(--gutter) max(24px, env(safe-area-inset-bottom));
+}
+
+/* ── the head ──────────────────────────────────────────────── */
+
+.rp-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 12.5px;
+  font-weight: 560;
+  letter-spacing: 0.01em;
+}
+
+.rp-mark {
+  color: var(--fg-hi);
+}
+
+.rp-title {
+  margin: 10px 0 0;
+  color: var(--fg-hi);
+  font: 680 clamp(30px, 4.6vw, 48px) / 1.08 var(--display);
+  letter-spacing: -0.025em;
+  overflow-wrap: anywhere;
+}
+
+.rp-headline {
+  max-width: 46ch;
+  margin: 10px 0 0;
+  color: var(--fg-secondary);
+  font: 450 clamp(18px, 2.2vw, 23px) / 1.35 var(--display);
+  letter-spacing: -0.012em;
+}
+
+.rp-headline b {
+  color: var(--fg-hi);
+  font-weight: 640;
+}
+
+.rp-when {
+  margin: 8px 0 0;
+  color: var(--fg-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Waiting for the data: quiet shapes where the words go. */
+.rp[data-state="loading"] .rp-title::before,
+.rp[data-state="loading"] .rp-headline::before {
+  content: "";
+  display: block;
+  width: min(420px, 70%);
+  height: 0.9em;
+  border-radius: 8px;
+  background: var(--column);
+}
+
+/* ── the figures ───────────────────────────────────────────── */
+
+.rp-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: clamp(22px, 3vw, 32px);
+}
+
+.rp-stat {
+  min-width: 0;
+  padding: 14px 16px 13px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--tile);
+}
+
+.rp-stat__label {
+  display: block;
+  color: var(--fg-muted);
+  font-size: 12px;
+  font-weight: 560;
+}
+
+.rp-stat__value {
+  display: block;
+  margin-top: 2px;
+  color: var(--fg-hi);
+  font: 660 clamp(22px, 2.6vw, 28px) / 1.15 var(--display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.rp-stat__of {
+  color: var(--fg-muted);
+  font-weight: 500;
+  font-size: 0.62em;
+  letter-spacing: 0;
+}
+
+.rp-stat__sub {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--fg-secondary);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp-plus {
+  color: var(--added);
+}
+
+.rp-minus {
+  color: var(--removed);
+}
+
+/* ── the board ─────────────────────────────────────────────── */
+
+.rp-stage {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+
+.rp-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  min-height: 300px;
+}
+
+.rp-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 10px 8px 8px;
+  border-radius: 12px;
+  background: var(--column);
+}
+
+.rp-col__head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 4px 8px;
+  color: var(--fg-hi);
+  font-size: 13px;
+  font-weight: 620;
+}
+
+.rp-col__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--fg-muted);
+}
+
+.rp-col[data-col="doing"] .rp-col__dot {
+  background: var(--working);
+}
+
+.rp-col[data-col="review"] .rp-col__dot {
+  background: var(--waiting);
+}
+
+.rp-col[data-col="done"] .rp-col__dot {
+  background: var(--accent);
+}
+
+.rp-col__count {
+  margin-left: auto;
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--line);
+  color: var(--fg-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.rp-col__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rp-col__more {
+  margin: 8px 4px 0;
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.rp-col__empty {
+  margin: 2px 4px;
+  padding: 14px 8px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  color: var(--fg-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.rp-card {
+  position: relative;
+  padding: 9px 10px 9px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+  will-change: transform;
+}
+
+.rp-card__title {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--fg-hi);
+  font-size: 13px;
+  font-weight: 540;
+  line-height: 1.36;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.rp-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 7px;
+  color: var(--fg-secondary);
+  font-size: 11.5px;
+}
+
+.rp-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 100%;
+  font-weight: 560;
+}
+
+.rp-who__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--agent, var(--fg-muted));
+}
+
+.rp-who__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp-tag {
+  padding: 0 6px;
+  border-radius: 5px;
+  background: var(--line);
+  color: var(--fg-secondary);
+  font-size: 11px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.rp-card__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rp-card__status--landed {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.rp-card__status--review {
+  color: var(--waiting);
+  font-weight: 600;
+}
+
+.rp-card__status--back {
+  color: var(--waiting);
+}
+
+.rp-bar {
+  height: 3px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.rp-bar__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--working);
+  transition: width 0.5s var(--ease);
+}
+
+.rp-card.is-working::after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--working);
+  box-shadow: 0 0 0 0 var(--working-soft);
+  animation: rp-pulse 1.8s ease-out infinite;
+}
+
+.rp-card.is-working .rp-card__title {
+  padding-right: 12px;
+}
+
+.rp-card.is-flash {
+  animation: rp-flash 1.1s var(--ease);
+}
+
+@keyframes rp-pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--working-soft);
+  }
+  70% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes rp-flash {
+  0% {
+    box-shadow: 0 0 0 0 var(--accent-soft), var(--shadow);
+  }
+  35% {
+    box-shadow: 0 0 0 5px var(--accent-soft), var(--shadow-lift);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent, var(--shadow);
+  }
+}
+
+/* ── the player ────────────────────────────────────────────── */
+
+/* Under the board, never over it: the script shows as many cards a
+   column as let the board and this bar fit in the window (replay.js,
+   `fit`), so the timeline is in sight without covering anything. */
+.rp-player {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 10px;
+  padding: 8px 12px 8px 8px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.rp-play {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--fg-hi);
+  color: var(--bg);
+  cursor: pointer;
+  transition: transform 0.15s var(--ease), opacity 0.15s;
+}
+
+.rp-play:hover {
+  transform: scale(1.05);
+}
+
+.rp-play:active {
+  transform: scale(0.96);
+}
+
+.rp-play svg {
+  display: none;
+}
+
+.rp-play[data-mode="play"] .rp-play__go,
+.rp-play[data-mode="pause"] .rp-play__pause,
+.rp-play[data-mode="again"] .rp-play__again {
+  display: block;
+}
+
+.rp-play[data-mode="play"] .rp-play__go {
+  margin-left: 2px;
+}
+
+.rp-track {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+}
+
+.rp-track::before {
+  content: "";
+  position: absolute;
+  top: 13px;
+  right: 0;
+  left: 0;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+.rp-fill {
+  position: absolute;
+  top: 13px;
+  left: 0;
+  width: 0;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.rp-ticks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.rp-tick {
+  position: absolute;
+  top: 6px;
+  width: 2px;
+  height: 5px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--fg-muted);
+  opacity: 0.35;
+}
+
+.rp-tick--landed {
+  height: 7px;
+  top: 4px;
+  background: var(--accent);
+  opacity: 0.9;
+}
+
+.rp-tick--failed {
+  background: var(--waiting);
+  opacity: 0.8;
+}
+
+.rp-scrub {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 30px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.rp-scrub:focus-visible {
+  outline: none;
+}
+
+.rp-scrub::-webkit-slider-runnable-track {
+  height: 30px;
+  background: transparent;
+}
+
+.rp-scrub::-moz-range-track {
+  height: 30px;
+  background: transparent;
+}
+
+.rp-scrub::-webkit-slider-thumb {
+  width: 16px;
+  height: 16px;
+  margin-top: 7px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--thumb);
+  box-shadow: 0 0 0 1px var(--line-strong), 0 2px 6px rgba(0, 0, 0, 0.25);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.rp-scrub::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--thumb);
+  box-shadow: 0 0 0 1px var(--line-strong), 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.rp-scrub:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 1px var(--accent), 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.rp-scrub:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 1px var(--accent), 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.rp-clock {
+  flex: none;
+  min-width: 96px;
+  margin: 0;
+  color: var(--fg-secondary);
+  font: 500 12.5px/1.3 var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.rp-clock b {
+  display: block;
+  color: var(--fg-hi);
+  font-weight: 600;
+}
+
+.rp-speed {
+  display: inline-flex;
+  flex: none;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--line);
+}
+
+.rp-speed button {
+  min-width: 32px;
+  height: 26px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--fg-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.rp-speed button[aria-pressed="true"] {
+  background: var(--card);
+  color: var(--fg-hi);
+  box-shadow: var(--shadow);
+}
+
+.rp-play:focus-visible,
+.rp-speed button:focus-visible,
+.rp-made:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── what happened, and who ────────────────────────────────── */
+
+.rp-below {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  gap: clamp(16px, 3vw, 36px);
+  margin-top: clamp(24px, 3.5vw, 40px);
+}
+
+.rp-h2 {
+  margin: 0 0 12px;
+  color: var(--fg-hi);
+  font: 640 15px/1.3 var(--display);
+  letter-spacing: -0.005em;
+}
+
+.rp-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rp-item {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+.rp-item:first-child {
+  background: var(--surface);
+}
+
+.rp-item.is-in {
+  animation: rp-in 0.45s var(--ease);
+}
+
+@keyframes rp-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.rp-item__time {
+  padding-top: 1px;
+  color: var(--fg-muted);
+  font: 500 12px/1.5 var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.rp-item__line {
+  margin: 0;
+  color: var(--fg-secondary);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.rp-item__line .rp-who {
+  color: var(--fg-hi);
+}
+
+.rp-item__task {
+  color: var(--fg-hi);
+  font-weight: 540;
+}
+
+.rp-item__summary {
+  display: -webkit-box;
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: var(--fg-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+.rp-item__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.rp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 7px;
+  border-radius: 6px;
+  background: var(--line);
+  color: var(--fg-secondary);
+  font-size: 11.5px;
+  font-weight: 560;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rp-chip--ok {
+  background: var(--working-soft);
+  color: var(--working);
+}
+
+.rp-chip--back {
+  background: var(--waiting-soft);
+  color: var(--waiting);
+}
+
+.rp-chip--mono {
+  font-family: var(--mono);
+  font-weight: 500;
+}
+
+.rp-shots {
+  display: flex;
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.rp-shot {
+  display: block;
+  width: min(220px, 48%);
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--column);
+}
+
+.rp-shot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rp-feed__empty {
+  margin: 0;
+  padding: 12px;
+  color: var(--fg-muted);
+  font-size: 13.5px;
+}
+
+.rp-agents {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rp-agent {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px 7px 7px;
+  border-radius: 12px;
+  transition: background 0.3s;
+}
+
+.rp-agent.is-working {
+  background: var(--surface);
+}
+
+.rp-avatar {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--agent, var(--fg-muted)) 16%, transparent);
+  color: var(--agent, var(--fg-muted));
+  font: 680 14px/1 var(--display);
+}
+
+.rp-agent__name {
+  display: block;
+  overflow: hidden;
+  color: var(--fg-hi);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp-agent__what {
+  display: block;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp-agent__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--fg-muted);
+  font-size: 11.5px;
+  font-weight: 560;
+  white-space: nowrap;
+}
+
+.rp-agent.is-working .rp-agent__state {
+  color: var(--working);
+}
+
+.rp-agent.is-working .rp-agent__state::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--working);
+  animation: rp-pulse 1.8s ease-out infinite;
+}
+
+/* What was taken out before the page left the computer. */
+.rp-hidden {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--line);
+  color: var(--fg-muted);
+  font-size: 0.86em;
+  font-weight: 560;
+  line-height: 1.45;
+  vertical-align: 0.05em;
+}
+
+/* ── the foot ──────────────────────────────────────────────── */
+
+.rp-foot {
+  display: flex;
+  justify-content: center;
+  margin-top: clamp(28px, 4vw, 48px);
+}
+
+/* In the share viewer, whose head names the replay and whose foot says
+   "Made with HangarAI" (with the referral): the page starts at its
+   headline. */
+.rp.is-framed {
+  padding: clamp(16px, 2.6vw, 30px) clamp(12px, 2.4vw, 28px) 20px;
+}
+
+.rp.is-framed .rp-foot,
+.rp.is-framed .rp-eyebrow,
+.rp.is-framed .rp-title {
+  display: none;
+}
+
+.rp.is-framed .rp-headline {
+  margin-top: 0;
+}
+
+.rp-made {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  color: var(--fg-muted);
+  font-size: 12.5px;
+  font-weight: 520;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.rp-made:hover {
+  background: var(--surface);
+  color: var(--fg-hi);
+}
+
+.rp-made svg {
+  color: var(--fg-hi);
+}
+
+.rp-made__try {
+  color: var(--accent);
+}
+
+.rp-trouble {
+  margin: 18px 0 0;
+  color: var(--danger);
+  font-size: 14px;
+}
+
+/* ── a narrow window, a phone ──────────────────────────────── */
+
+@media (max-width: 860px) {
+  .rp-below {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rp-agents {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  /* The board and its timeline first, under the headline; the figures
+     after them. */
+  .rp {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .rp-stage {
+    order: 1;
+    margin-top: 18px;
+  }
+
+  .rp-stats {
+    order: 2;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .rp-below {
+    order: 3;
+  }
+
+  .rp-foot {
+    order: 4;
+  }
+
+  .rp-stat {
+    padding: 12px 13px 11px;
+    border-radius: 12px;
+  }
+
+  .rp-stage {
+    margin-inline: calc(var(--gutter) * -0.5);
+    padding: 8px;
+    border-radius: 16px;
+  }
+
+  .rp-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+    min-height: 0;
+  }
+
+  .rp-col {
+    padding: 8px 6px 6px;
+    border-radius: 11px;
+  }
+
+  .rp-col__head {
+    padding: 0 3px 7px;
+    font-size: 12.5px;
+  }
+
+  .rp-card {
+    padding: 8px 8px 7px;
+  }
+
+  .rp-card__title {
+    font-size: 12.5px;
+  }
+
+  .rp-card__meta .rp-tag {
+    display: none;
+  }
+
+  .rp-player {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 8px 10px 4px 8px;
+    border-radius: 12px;
+  }
+
+  .rp-track {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .rp-clock {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+  }
+
+  .rp-item {
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 10px;
+    padding: 9px 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

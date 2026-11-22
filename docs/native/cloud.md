@@ -377,8 +377,12 @@ this one included, is `401` from then on.
 | Link code, from the callback to the exchange | 5 minutes |
 
 And per caller, a minute (`crates/hangar-cloud/src/limit.rs`): 300 requests
-under `/v1` from one address, of which 10 exchanges and 10 starts; 120 requests
-with one device's token. `429 rate_limited` past them, with `Retry-After`.
+under `/v1` from one address that no license token signs, of which 10 exchanges
+and 10 starts; 120 requests with one device's token; 600 with one license's
+token on the desktop's routes that take it (Cloud Builds, hosted nodes, the
+credits, images, share links' owner routes, the events), counted by the license
+whatever the address it comes from (a household or an office share one, the app
+and a CLI too). `429 rate_limited` past them, with `Retry-After`.
 
 They are constants of `hangar-cloud-api`, which the desktop applies before it
 sends: a folder name over 100 characters is cut to 100.

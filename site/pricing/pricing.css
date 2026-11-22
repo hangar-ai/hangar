@@ -1,0 +1,377 @@
+/* ═══════════════════════════════════════════════════════════════
+   HangarAI pricing: the page's own layout
+
+   On styles.css (the offers' cards, the FAQ) and assets/pages.css
+   (the bar, the head). Here: the room around the offers, Pro and Max
+   side by side, and the cards that explain credits.
+   ═══════════════════════════════════════════════════════════════ */
+
+.offers-sec {
+  padding-bottom: clamp(56px, 7vw, 96px);
+}
+
+.offers-sec .pricing {
+  margin-top: clamp(36px, 4vw, 48px);
+}
+
+/* ── Pro or Max: one clean table, a row per difference ────────── */
+
+#compare {
+  border-top: 1px solid var(--border);
+}
+
+.compare {
+  max-width: 760px;
+  margin: clamp(36px, 4.5vw, 52px) auto 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--chrome);
+  overflow: hidden;
+}
+
+.compare__table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-variant-numeric: tabular-nums;
+}
+
+.compare__table th,
+.compare__table td {
+  padding: 14px 20px;
+  border-top: 1px solid var(--line);
+  font-size: 14.5px;
+  line-height: 1.45;
+  text-align: left;
+  vertical-align: baseline;
+}
+
+.compare__table thead th,
+.compare__table thead td {
+  width: 28%;
+  padding-block: 18px 14px;
+  border-top: 0;
+}
+
+.compare__table thead td {
+  width: auto;
+}
+
+.compare__table th[scope="row"] {
+  color: var(--fg);
+  font-weight: 500;
+}
+
+.compare__table td {
+  color: var(--fg-secondary);
+}
+
+.compare__table td b {
+  color: var(--fg-hi);
+  font-weight: 640;
+}
+
+.compare__plan {
+  color: var(--fg-hi);
+  font-size: 17px;
+  font-weight: 660;
+  letter-spacing: -0.01em;
+}
+
+/* Pro wears the accent, as its card does. */
+.compare__plan:not(.compare__plan--max)::after {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: 2px;
+}
+
+.compare__fine {
+  color: var(--fg-muted);
+  font-size: 13.5px;
+}
+
+.compare__sub {
+  display: block;
+  margin-top: 2px;
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+
+.compare__yes {
+  display: inline-block;
+  width: 6px;
+  height: 11px;
+  margin-left: 4px;
+  border: solid var(--accent-hi);
+  border-width: 0 1.75px 1.75px 0;
+  transform: rotate(45deg) translateY(-1px);
+}
+
+.compare__note {
+  max-width: 46em;
+  margin: 20px auto 0;
+  color: var(--fg-muted);
+  font-size: 13.5px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+@media (max-width: 599px) {
+  .compare__table th,
+  .compare__table td {
+    padding: 12px 10px;
+    font-size: 14px;
+  }
+
+  .compare__sub {
+    font-size: 12.5px;
+    white-space: nowrap;
+  }
+
+  .compare__table thead th {
+    width: 30%;
+  }
+
+  .compare__table th[scope="row"] {
+    padding-left: 16px;
+  }
+
+  .compare__fine {
+    display: block;
+    font-size: 12.5px;
+  }
+}
+
+#credits {
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--chrome) 55%, var(--bg-sunken));
+}
+
+.cred {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: clamp(40px, 5vw, 56px);
+}
+
+.cred__card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: clamp(22px, 2.4vw, 28px);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--chrome);
+}
+
+.cred__card h3 {
+  font-size: 17px;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.cred__rates {
+  display: grid;
+  margin: 16px 0 0;
+}
+
+.cred__rates > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.cred__rates > div:last-child {
+  border-bottom: 0;
+}
+
+.cred__rates dt {
+  color: var(--fg);
+  font-size: 14.5px;
+}
+
+.cred__rates dd {
+  margin: 0;
+  color: var(--fg-hi);
+  font-size: 14.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cred__fine {
+  margin-top: auto;
+  padding-top: 16px;
+  color: var(--fg-muted);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.packs-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.packs-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bg-sunken);
+}
+
+.packs-list__n {
+  color: var(--fg-secondary);
+  font-size: 14.5px;
+}
+
+.packs-list__n b {
+  font-size: 20px;
+  font-weight: 660;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.packs-list .btn {
+  min-width: 64px;
+}
+
+.cred__card--wide {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(24px, 4vw, 56px);
+}
+
+.cred__card--wide h3 .tag {
+  margin-left: 8px;
+}
+
+.cred__copy > p:not(.cred__fine) {
+  margin-top: 10px;
+  color: var(--fg-secondary);
+  font-size: 15.5px;
+}
+
+.cred__copy .cred__fine {
+  padding-top: 12px;
+}
+
+/* an illustration of the switch in the account: not a control */
+.payg-demo {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--bg-sunken);
+}
+
+.payg-demo__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 560;
+}
+
+.payg-demo__switch {
+  position: relative;
+  width: 40px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.payg-demo__switch i {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.payg-demo__chips {
+  display: flex;
+  gap: 4px;
+}
+
+.payg-demo__chips i {
+  padding: 2px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-xs);
+  color: var(--fg-secondary);
+  font-size: 12.5px;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.payg-demo__chips i.on {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--fg-hi);
+}
+
+.payg-demo__meter {
+  overflow: hidden;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+.payg-demo__meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.payg-demo__fine {
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+
+/* A sheet of the app, at the width the app draws it. */
+.shot--sheet {
+  max-width: 980px;
+  margin-inline: auto;
+}
+
+/* Cloud Builds' price sheet, under the comparison: the app's 600 points. */
+.shot--run {
+  max-width: 600px;
+  margin: clamp(36px, 4.5vw, 52px) auto 0;
+}
+
+@media (max-width: 959px) {
+  .cred__card--wide {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cred {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 560px;
+    margin-inline: auto;
+  }
+}

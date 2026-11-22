@@ -1,0 +1,597 @@
+/* ═══════════════════════════════════════════════════════════════
+   HangarAI site: the share viewer, hangarai.dev/s/<id> (s/index.html)
+
+   On top of styles.css and pages.css. One quiet frame around what was
+   shared: its kind, its title, "Shared with HangarAI · until …", the
+   content as wide as the window allows, and a footer with the report
+   and the site. Light or dark as the visitor's system is.
+   ═══════════════════════════════════════════════════════════════ */
+
+.share,
+.share-foot {
+  --share-foot: 56px;
+}
+
+/* What the script turns off stays off, whatever display a class gives. */
+.share [hidden],
+.share-foot [hidden] {
+  display: none !important;
+}
+
+.share {
+  --share-pad: var(--gutter);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1600px;
+  /* The window less the bar and the footer: the stage grows into what
+     is left, so that "Report this page" is on the first screen. */
+  min-height: calc(100vh - var(--bar-h) - var(--share-foot));
+  min-height: calc(100dvh - var(--bar-h) - var(--share-foot));
+  margin-inline: auto;
+  padding: clamp(20px, 3vw, 36px) var(--share-pad) 8px;
+  outline: none;
+}
+
+.share-bar__end {
+  margin-left: auto;
+}
+
+/* The viewer's bar has no sheet to take the language on a phone: it stays
+   in the bar, the one control there. */
+@media (max-width: 959px) {
+  .share-bar__end > .lang {
+    display: block;
+  }
+}
+
+/* ── the head ───────────────────────────────────────────────── */
+
+.share__live {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.share__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px 24px;
+  margin-bottom: clamp(16px, 2vw, 22px);
+}
+
+.share__titles {
+  min-width: 0;
+  flex: 1 1 320px;
+}
+
+.share__kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 22px;
+  margin: 0 0 8px;
+  color: var(--fg-muted);
+  font-size: 12px;
+  font-weight: 620;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.share__kind:empty,
+.share__kind-name:empty {
+  display: none;
+}
+
+.share__kind-icon {
+  display: inline-flex;
+  color: var(--fg-secondary);
+}
+
+.share__title {
+  margin: 0;
+  color: var(--fg-hi);
+  font-size: clamp(22px, 2.6vw, 30px);
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.022em;
+  overflow-wrap: anywhere;
+}
+
+.share__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  margin: 8px 0 0;
+  color: var(--fg-secondary);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.share__meta .dot {
+  color: var(--fg-muted);
+}
+
+.share__soon {
+  color: var(--state-waiting);
+}
+
+.share__tools {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+
+.share__tools[hidden],
+.share__tools .btn[hidden] {
+  display: none;
+}
+
+/* What is waited for: grey bars where the words will be. */
+.share__wait {
+  display: inline-block;
+  height: 0.8em;
+  border-radius: var(--r-xs);
+  background: var(--raised);
+  vertical-align: middle;
+}
+
+.share__wait--title {
+  width: min(420px, 70%);
+  height: 0.9em;
+}
+
+.share__wait--meta {
+  width: min(260px, 50%);
+}
+
+/* ── the stage ──────────────────────────────────────────────── */
+
+.share__stage {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--bg-sunken);
+}
+
+.share__shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, color-mix(in srgb, var(--fg-hi) 5%, transparent) 50%, transparent 80%);
+  background-size: 200% 100%;
+  animation: share-shimmer 1.6s linear infinite;
+}
+
+@keyframes share-shimmer {
+  from {
+    background-position: 150% 0;
+  }
+
+  to {
+    background-position: -50% 0;
+  }
+}
+
+/* A page or a Markdown document: the frame fills the stage, white as a
+   page with no background of its own is. */
+.share__stage[data-kind="page"],
+.share__stage[data-kind="markdown"],
+.share__stage[data-kind="pdf"] {
+  min-height: 420px;
+  background: #ffffff;
+}
+
+/* A replay (s/replay/) draws its own page, light or dark as the
+   visitor's system is: as tall as the window lets it be. */
+.share__stage[data-kind="replay"] {
+  min-height: max(560px, calc(100dvh - var(--bar-h) - var(--share-foot) - 150px));
+  background: var(--bg);
+}
+
+.share__frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+}
+
+/* An image: fitted, on a quiet checkerboard that shows its transparency. */
+.share__stage[data-kind="image"] {
+  padding: clamp(12px, 2vw, 28px);
+  background-color: var(--bg-sunken);
+  background-image:
+    linear-gradient(45deg, var(--line) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--line) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--line) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--line) 75%);
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background-size: 16px 16px;
+}
+
+.share__image {
+  display: block;
+  max-width: 100%;
+  max-height: max(240px, calc(100vh - var(--bar-h) - 360px));
+  max-height: max(240px, calc(100dvh - var(--bar-h) - 360px));
+  min-height: 0;
+  object-fit: contain;
+  border-radius: var(--r-xs);
+  box-shadow: 0 18px 50px -24px var(--shadow);
+}
+
+/* A 3D model: turned by hand, on a soft pool of light. */
+.share__stage[data-kind="model"] {
+  min-height: 420px;
+  background: radial-gradient(70% 60% at 50% 42%, color-mix(in srgb, var(--fg-hi) 7%, var(--bg-sunken)), var(--bg-sunken) 72%);
+}
+
+.share__model {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  --poster-color: transparent;
+  --progress-bar-color: var(--accent);
+  --progress-bar-height: 2px;
+}
+
+.share__hint {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  margin: 0;
+  padding: 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chrome) 86%, transparent);
+  color: var(--fg-secondary);
+  font-size: 12.5px;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  transition: opacity 250ms var(--ease);
+}
+
+.share__hint.is-gone {
+  opacity: 0;
+}
+
+/* What was shared comes in once it has loaded, never half-drawn. */
+.share__content {
+  opacity: 0;
+  transition: opacity 220ms var(--ease);
+}
+
+.share__content.is-in {
+  opacity: 1;
+}
+
+.share__stage:fullscreen {
+  border: 0;
+  border-radius: 0;
+}
+
+.share__stage:fullscreen .share__image {
+  max-height: 100vh;
+}
+
+.share__trouble {
+  margin: 12px 0 0;
+  color: var(--danger);
+  font-size: 14px;
+}
+
+/* ── an ended share, or none ────────────────────────────────── */
+
+.share__end {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(40px, 8vw, 96px) 0;
+}
+
+.share__end-card {
+  max-width: 460px;
+  text-align: center;
+}
+
+.share__end-icon {
+  display: inline-grid;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 18px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--chrome);
+  color: var(--fg-secondary);
+}
+
+.share__end-title {
+  margin: 0;
+  color: var(--fg-hi);
+  font-size: clamp(22px, 3vw, 28px);
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  outline: none;
+}
+
+.share__end-text {
+  margin: 12px 0 0;
+  color: var(--fg-secondary);
+  font-size: 15.5px;
+  line-height: 1.55;
+}
+
+.share__end-actions {
+  margin: 22px 0 0;
+}
+
+.share__end-more {
+  margin: 28px 0 0;
+  font-size: 14px;
+}
+
+.share__end-more a {
+  color: var(--accent-hi);
+  text-decoration: none;
+}
+
+.share__end-more a:hover {
+  text-decoration: underline;
+}
+
+/* ── the footer ─────────────────────────────────────────────── */
+
+.share-foot__in {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 20px;
+  max-width: 1600px;
+  min-height: var(--share-foot);
+  margin-inline: auto;
+  padding: 8px var(--gutter) max(12px, env(safe-area-inset-bottom));
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+
+.share-foot__report,
+.share-foot__made {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 8px;
+  margin-inline: -8px;
+  border: 0;
+  border-radius: var(--r);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.share-foot__report:hover,
+.share-foot__made:hover {
+  background: var(--raised);
+  color: var(--fg-hi);
+}
+
+.share-foot__report[hidden] {
+  display: none;
+}
+
+.share-foot__made {
+  margin-left: auto;
+}
+
+.share-foot__try {
+  color: var(--accent-hi);
+}
+
+.share-foot__try > span:first-child {
+  margin-right: 7px;
+  color: var(--fg-muted);
+}
+
+/* ── the report ─────────────────────────────────────────────── */
+
+.share-report {
+  width: min(480px, calc(100vw - 32px));
+}
+
+.share-report__form {
+  margin: 0;
+}
+
+.share-report__reasons {
+  display: grid;
+  gap: 4px;
+  margin: 18px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.share-report__reason {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 9px 11px;
+  border: 1px solid transparent;
+  border-radius: var(--r-lg);
+  cursor: pointer;
+  transition: background-color 140ms var(--ease), border-color 140ms var(--ease);
+}
+
+.share-report__reason:hover {
+  background: var(--raised);
+}
+
+.share-report__reason:has(input:checked) {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: var(--accent-soft);
+}
+
+.share-report__reason input {
+  flex: none;
+  margin: 3px 0 0;
+  accent-color: var(--accent);
+}
+
+.share-report__reason b {
+  display: block;
+  color: var(--fg-hi);
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+.share-report__reason small {
+  display: block;
+  margin-top: 1px;
+  color: var(--fg-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.share-report__details {
+  display: block;
+  margin-top: 14px;
+}
+
+.share-report__label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--fg-secondary);
+  font-size: 13.5px;
+}
+
+.share-report__details textarea {
+  display: block;
+  width: 100%;
+  min-height: 72px;
+  padding: 9px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r);
+  background: var(--bg-sunken);
+  color: var(--fg-hi);
+  font: inherit;
+  font-size: 14.5px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.share-report__details textarea:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.share-report__trouble {
+  margin: 12px 0 0;
+  color: var(--danger);
+  font-size: 14px;
+}
+
+.share-report__thanks {
+  margin: 16px 0 0;
+  color: var(--fg-hi);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.share-report__fine {
+  margin: 16px 0 0;
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+
+.share-report__fine a {
+  color: var(--accent-hi);
+}
+
+[data-step][hidden] {
+  display: none !important;
+}
+
+/* ── a phone ────────────────────────────────────────────────── */
+
+@media (max-width: 599px) {
+  .share {
+    --share-pad: 12px;
+    padding-top: 18px;
+  }
+
+  .share__head {
+    align-items: flex-start;
+    padding-inline: 4px;
+  }
+
+  .share__tools {
+    width: 100%;
+  }
+
+  .share__tools .btn {
+    flex: 1;
+  }
+
+  .share__stage {
+    border-radius: var(--r-lg);
+  }
+
+  .share__stage[data-kind="page"],
+  .share__stage[data-kind="markdown"],
+  .share__stage[data-kind="pdf"] {
+    min-height: 62vh;
+    min-height: 62dvh;
+  }
+
+  .share__stage[data-kind="replay"] {
+    min-height: 74vh;
+    min-height: 74dvh;
+  }
+
+  .share__stage[data-kind="model"] {
+    min-height: 56vh;
+    min-height: 56dvh;
+  }
+
+  .share__image {
+    max-height: 64vh;
+    max-height: 64dvh;
+  }
+
+  .share-foot__in {
+    padding-inline: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .share__shimmer {
+    animation: none;
+  }
+
+  .share__content,
+  .share__hint {
+    transition: none;
+  }
+}

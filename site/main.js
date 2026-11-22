@@ -4,11 +4,11 @@
    Small jobs around a static page; the page reads fine without them.
 
      1. themes: repaint the page, and show the hero in the matching scheme
-     2. the section bar, which marks where you are
+     2. where you are, marked in the header's Product menu
      3. the download for the system you are on
-     4. the delivery, which plays its four stages once (assets/motion.js
-        drives them by the scroll when it runs)
+     4. the film, which plays with sound when asked and loads nothing before
      5. the short lists, folded to their titles on a phone
+     6. the billing period of the offers (here and on pricing/)
    ═══════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
@@ -88,24 +88,27 @@
     });
   })();
 
-  /* ── 2. the section bar ──────────────────────────────────────── */
-
-  var links = {};
-  Array.prototype.forEach.call(document.querySelectorAll('#nav a'), function (a) {
-    links[a.getAttribute('href').slice(1)] = a;
+  /* ── 2. where you are ─────────────────────────────────────────
+     The header's Product menu and the phone's sheet list the page's
+     sections (data-spy); the one on screen is marked in both. */
+  var spied = {};
+  Array.prototype.forEach.call(document.querySelectorAll('[data-spy]'), function (a) {
+    var id = a.getAttribute('data-spy');
+    (spied[id] = spied[id] || []).push(a);
   });
-
-  if ('IntersectionObserver' in window) {
+  if ('IntersectionObserver' in window && document.getElementById('top')) {
     var spy = new IntersectionObserver(function (entries) {
       entries.forEach(function (entry) {
         if (!entry.isIntersecting) return;
-        Object.keys(links).forEach(function (id) {
-          if (id === entry.target.id) links[id].setAttribute('aria-current', 'true');
-          else links[id].removeAttribute('aria-current');
+        Object.keys(spied).forEach(function (id) {
+          spied[id].forEach(function (a) {
+            if (id === entry.target.id) a.setAttribute('aria-current', 'true');
+            else a.removeAttribute('aria-current');
+          });
         });
       });
     }, { rootMargin: '-45% 0px -50% 0px' });
-    Object.keys(links).concat(['top']).forEach(function (id) {
+    Object.keys(spied).concat(['top']).forEach(function (id) {
       var section = document.getElementById(id);
       if (section) spy.observe(section);
     });
@@ -120,6 +123,26 @@
   openTarget();
 
   /* ── 3. the download for this system ─────────────────────────── */
+
+  // A text in both languages, as the page writes its own (data-l):
+  // the one on screen follows the language switch, with no script.
+  function both(el, en, fr) {
+    [['en', en], ['fr', fr]].forEach(function (pair) {
+      var span = document.createElement('span');
+      span.dataset.l = pair[0];
+      pair[1].forEach(function (part) {
+        span.appendChild(typeof part === 'string' ? document.createTextNode(part) : part);
+      });
+      el.appendChild(span);
+    });
+  }
+
+  function link(href, text) {
+    var a = document.createElement('a');
+    a.href = href;
+    a.textContent = text;
+    return a;
+  }
 
   (function platform() {
     var ua = navigator.userAgent;
@@ -138,63 +161,75 @@
     if (title) {
       var you = document.createElement('span');
       you.className = 'plat__you';
-      you.textContent = 'This computer';
+      both(you, ['This computer'], ['Cet ordinateur']);
       title.appendChild(you);
     }
 
+    // The hero's button starts the trial: it downloads the app for this
+    // system, which the row of systems under it marks.
     var file = card.querySelector('.plat__get');
     var get = document.getElementById('get');
-    if (get && file) {
-      get.href = file.href;
-      get.textContent = 'Download for ' + { windows: 'Windows', macos: 'macOS', linux: 'Linux' }[os];
-    }
+    if (get && file) get.href = file.href;
+    var mine = document.querySelector('.hero__os [data-os="' + os + '"]');
+    if (mine) mine.setAttribute('aria-current', 'true');
 
     var note = document.getElementById('getnote');
     if (note && os === 'windows') {
-      note.appendChild(document.createTextNode(' SmartScreen warns on first run because the installer is not signed yet: '));
-      var why = document.createElement('a');
-      why.href = '#faq-smartscreen';
-      why.textContent = 'here is what to do';
-      note.appendChild(why);
-      note.appendChild(document.createTextNode('.'));
-    }
-    // Releases after 2.2.0 are not built for the Mac yet: the button gets its latest disk image.
-    if (note && os === 'macos') {
-      note.appendChild(document.createTextNode(' On a Mac that is 2.2.0, the latest for it for now; new macOS builds are on their way.'));
+      both(note,
+        [' SmartScreen warns on first run because the installer is not signed yet: ', link('#faq-smartscreen', 'here is what to do'), '.'],
+        [' SmartScreen te prévient au premier lancement, car l’installeur n’est pas encore signé\u00a0: ', link('#faq-smartscreen', 'voici quoi faire'), '.']);
     }
   })();
 
-  /* ── 4. the delivery ───────────────────────────────────────────
-     Written in its final state, so nothing moves without script or
-     for anyone who asked for less motion. assets/motion.js drives it
-     by the scroll when it runs (it sets motion-ready on <html>); this
-     plays it on a timer only when it did not. */
+  /* ── 4. the film ───────────────────────────────────────────────
+     One player per language, neither loaded until it plays
+     (preload="none"); over them, the film's first title and a play
+     button. A click plays the film of the page's language with its
+     sound, and the player's own controls take over. The hero's "Watch
+     the film" brings it on screen and starts it in the same click, so
+     the browser lets the sound play. Another language pauses it. */
 
-  (function delivery() {
-    var box = document.getElementById('delivery');
-    if (!box || reduced || !('IntersectionObserver' in window)) return;
-    var steps = box.querySelectorAll('.dstep');
-    Array.prototype.forEach.call(steps, function (s) { s.dataset.state = 'pending'; });
+  (function film() {
+    var box = document.getElementById('film-player');
+    if (!box) return;
+    var cover = box.querySelector('.film__cover');
+    var videos = box.querySelectorAll('.film__video');
 
-    var played = false;
-    var watch = new IntersectionObserver(function (entries) {
-      if (played || !entries.some(function (e) { return e.isIntersecting; })) return;
-      played = true;
-      watch.disconnect();
-      if (root.classList.contains('motion-ready')) return;
-      var i = 0;
-      (function next() {
-        if (i >= steps.length) return;
-        var step = steps[i];
-        step.dataset.state = 'running';
-        setTimeout(function () {
-          step.dataset.state = 'done';
-          i += 1;
-          setTimeout(next, 120);
-        }, i === 1 || i === 2 ? 1100 : 650);
-      })();
-    }, { threshold: 0.6 });
-    watch.observe(box);
+    function current() {
+      var lang = root.dataset.lang === 'fr' ? 'fr' : 'en';
+      return box.querySelector('.film__video[data-l="' + lang + '"]') || videos[0];
+    }
+
+    function play() {
+      var video = current();
+      box.classList.add('is-on');
+      var started = video.play();
+      if (started && started.catch) started.catch(function () { /* the controls are there */ });
+      video.focus({ preventScroll: true });
+    }
+
+    if (cover) cover.addEventListener('click', play);
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-play-film]'), function (link) {
+      link.addEventListener('click', function (e) {
+        if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        var frame = box.querySelector('.film__frame');
+        var rect = frame.getBoundingClientRect();
+        var top = window.scrollY + rect.top - Math.max(16, (window.innerHeight - rect.height) / 2);
+        window.scrollTo({ top: Math.max(0, top), behavior: reduced ? 'auto' : 'smooth' });
+        play();
+      });
+    });
+
+    // assets/lang.js comes after this file; both have run by then.
+    document.addEventListener('DOMContentLoaded', function () {
+      if (!window.HangarLang) return;
+      window.HangarLang.on(function () {
+        Array.prototype.forEach.call(videos, function (v) { v.pause(); });
+        box.classList.remove('is-on');
+      });
+    });
   })();
 
   /* ── 5. the short lists ────────────────────────────────────────
@@ -222,4 +257,21 @@
       }
     }
   })();
+
+  /* ── 6. the billing period ─────────────────────────────────────
+     Pro's monthly and yearly prices are both in the page; the switch
+     shows one (styles.css, .pricing[data-period]). Without script both
+     stay, each with its own button. */
+
+  Array.prototype.forEach.call(document.querySelectorAll('.pricing'), function (box) {
+    var buttons = box.querySelectorAll('[data-set-period]');
+    Array.prototype.forEach.call(buttons, function (button) {
+      button.addEventListener('click', function () {
+        box.dataset.period = button.dataset.setPeriod;
+        Array.prototype.forEach.call(buttons, function (b) {
+          b.setAttribute('aria-pressed', String(b === button));
+        });
+      });
+    });
+  });
 })();

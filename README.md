@@ -48,10 +48,20 @@ tracker. The source code is not public.
 - 🎨 **Images from Codex.** What a Codex session draws shows in the chat, on your phone and
   on Discord; a Claude Code orchestrator can ask Codex for images and use the files.
 - 📱 **Hangar Mobile.** See what waits for you, answer your agents' questions with a tap,
-  allow or deny permissions — from your phone, over your own Tailscale network.
+  allow or deny permissions — from your phone, over your own Tailscale network or, with a paid
+  license, from anywhere through HangarAI's end-to-end encrypted relay.
 - 🧩 **Kits and previews.** Kits add skills, MCP servers and tabs of their own; agents show
   you images, code, Markdown, PDFs, web pages, video and 3D models beside their terminal.
-- 🎙️ **Dictation.** Hold a key and speak; whisper.cpp transcribes locally.
+- ☁️ **Cloud Builds.** A check or a build on a 32-thread machine rented for you alone, then
+  destroyed: from the palette, from a terminal (`hangar-ai cloud run`), or every delivery's
+  check. Paid with your credits at the machine's rate, shown before it starts; Pro runs 3 at
+  once, Max 5, first in the queue.
+- 🖼️ **Image generation.** Claude Code and Codex draw or edit an image for you, from a quick
+  draft to the best quality, paid with your credits; it opens beside the terminal.
+- 🔗 **Share links.** You or an agent publish a page, a PDF, an image or a 3D model at
+  hangarai.dev for 30 days, from its pane, with a code to open it on a phone.
+- 🎙️ **Dictation.** Hold a key and speak. It is hosted, paid with your HangarAI credits: the
+  audio goes to HangarAI's server, then to Groq to be transcribed, and is not stored.
 
 More: [features](docs/guide/features.md) · [orchestration](docs/guide/orchestration.md) ·
 [Codex (beta)](docs/guide/codex.md) · [MCP tools](docs/guide/mcp.md) · [privacy](docs/guide/privacy.md)
@@ -80,7 +90,7 @@ OpenAI publishes for Codex, without a recorded session, and relies on a few thin
 Codex's source shows: that Codex's own terminal draws a turn Hangar started, that it resumes
 a session through Hangar's server, that the first of two answers to an approval wins, and how
 an image is written in its newer session files. On Windows, Codex panes run without Hangar
-attached for now ([what that changes](docs/guide/codex.md#attached-or-the-plain-terminal)).
+attached ([what that changes](docs/guide/codex.md#attached-or-the-plain-terminal)).
 Something wrong in a Codex pane? Use the
 [Codex bug form](https://github.com/hangar-ai/hangar/issues/new?template=codex-bug.yml).
 
@@ -94,7 +104,12 @@ Grab the file for your system from the
 |---|---|
 | Windows (x64) | `Hangar.AI_<version>_x64-setup.exe` — per-user, no admin rights |
 | Linux (x86_64) | `.AppImage` (glibc 2.35+, `chmod +x` it), `.deb` or `.rpm` |
-| macOS | `Hangar.AI_2.2.0_universal.dmg` for now; new macOS builds are on their way |
+| macOS | `Hangar.AI_<version>_universal.dmg` — Apple Silicon and Intel, signed and notarised, macOS 10.15+ |
+
+HangarAI starts with a 14-day free trial, no card asked. Then **HangarAI Pro**, 20 € a month or
+192 € a year, or **HangarAI Max**, 39 € a month or 374 € a year, for more than three times the
+credits of the hosted features; VAT included, see the
+[pricing](https://hangarai.dev/pricing/). Installs of 2.5.1 and earlier keep HangarAI for free.
 
 You also need [Claude Code](https://code.claude.com/docs/en/overview) or
 [Codex](https://developers.openai.com/codex) installed and signed in (HangarAI's first-run
