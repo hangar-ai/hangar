@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title data-fr="Acheter HangarAI">Buy HangarAI</title>
-<meta name="description" content="Buy HangarAI Pro, HangarAI Max or credits, through Polar." data-fr="Acheter HangarAI Pro, HangarAI Max ou des crédits, avec Polar.">
+<meta name="description" content="Buy HangarAI Pro, HangarAI Max or credits, through Stripe." data-fr="Acheter HangarAI Pro, HangarAI Max ou des crédits, avec Stripe.">
 <meta name="robots" content="noindex">
 <link rel="canonical" href="https://hangarai.dev/buy/">
 <meta name="color-scheme" content="dark light">
@@ -18,7 +18,7 @@
 <link rel="preload" href="../fonts/inter-latin-opsz.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../styles.css?v=925761be91">
 <link rel="stylesheet" href="../assets/pages.css?v=2d3d68d3af">
-<link rel="stylesheet" href="buy.css?v=874520999c">
+<link rel="stylesheet" href="buy.css?v=8772027e8f">
 <script>
 (function (r) {
   r.classList.add('js');
@@ -208,31 +208,50 @@
       </noscript>
     </section>
 
-    <!-- On the way to Polar -->
+    <!-- On the way to Stripe -->
     <section class="buy__view buy__card" id="v-going" aria-labelledby="going-title" hidden>
       <span class="spinner buy__spinner" aria-hidden="true"></span>
       <h1 class="buy__title" id="going-title" tabindex="-1"><span data-l="en">Opening the checkout…</span><span data-l="fr">Ouverture du paiement…</span></h1>
       <p class="buy__what" data-slot="product"></p>
       <p class="buy__fine">
-        <span data-l="en">Payment, VAT and invoices by Polar, our merchant of record.</span>
-        <span data-l="fr">Paiement, TVA et factures par Polar, notre revendeur officiel.</span>
+        <span data-l="en">Payment, VAT and invoices by Stripe, our merchant of record.</span>
+        <span data-l="fr">Paiement, TVA et factures par Stripe, notre revendeur officiel.</span>
       </p>
       <p><a class="btn btn--quiet btn--sm" href="../pricing/"><span data-l="en">Cancel</span><span data-l="fr">Annuler</span></a></p>
     </section>
 
-    <!-- Back from Polar -->
+    <!-- Back from Stripe -->
     <section class="buy__view buy__card" id="v-done" aria-labelledby="done-title" hidden>
       <span class="buy__check" aria-hidden="true"></span>
       <h1 class="buy__title" id="done-title" tabindex="-1"><span data-l="en">Thank you!</span><span data-l="fr">Merci&nbsp;!</span></h1>
       <p class="buy__what" data-slot="product"></p>
-      <div data-done="license">
-        <ol class="steps">
-          <li><span data-l="en">Your license key is on its way by email, with your receipt.</span><span data-l="fr">Ta clé de licence arrive par e-mail, avec ton reçu.</span></li>
-          <li><span data-l="en">In HangarAI, open Settings › License and enter it, or sign in with your HangarAI account.</span><span data-l="fr">Dans HangarAI, ouvre Réglages › Licence et saisis-la, ou connecte-toi avec ton compte HangarAI.</span></li>
+      <div class="buy__done" data-done="license">
+        <!-- The key of the license this checkout made (POST /v1/billing/key) -->
+        <div class="key" id="key" aria-live="polite">
+          <p class="key__wait" id="key-wait"><span class="spinner key__spinner" aria-hidden="true"></span><span data-l="en">Getting your license key…</span><span data-l="fr">Récupération de ta clé de licence…</span></p>
+          <div class="key__got" id="key-got" hidden>
+            <p class="key__label" id="key-label"><span data-l="en">Your license key</span><span data-l="fr">Ta clé de licence</span></p>
+            <div class="key__row">
+              <code class="key__value" id="key-value" aria-labelledby="key-label"></code>
+              <button type="button" class="btn btn--sm" id="key-copy"><span data-l="en">Copy</span><span data-l="fr">Copier</span></button>
+            </div>
+            <p class="key__fine"><span data-l="en">Keep it somewhere safe. Signed in to your HangarAI account, you can always make a new one.</span><span data-l="fr">Garde-la en lieu sûr. Connecté à ton compte HangarAI, tu peux toujours en faire une nouvelle.</span></p>
+          </div>
+        </div>
+        <ol class="steps" id="key-steps" hidden>
+          <li><span data-l="en">In HangarAI, open Settings › License and paste the key, or sign in with your HangarAI account.</span><span data-l="fr">Dans HangarAI, ouvre Réglages › Licence et colle la clé, ou connecte-toi avec ton compte HangarAI.</span></li>
+          <li><span data-l="en">Your receipt comes by email from Link, Stripe’s reseller.</span><span data-l="fr">Ton reçu arrive par e-mail de la part de Link, la société de revente de Stripe.</span></li>
         </ol>
+        <!-- No key to give: the payment went on a license that has one, or it is not in yet -->
+        <div id="key-none" hidden>
+          <p class="buy__text"><span data-l="en">Nothing to enter: HangarAI picks up your license by itself, in Settings › License. If it isn’t there in a few minutes, try again here, or open your account: it shows the license and can give it a new key.</span><span data-l="fr">Rien à saisir&nbsp;: HangarAI récupère ta licence tout seul, dans Réglages › Licence. Si elle n’y est pas d’ici quelques minutes, réessaie ici, ou ouvre ton compte&nbsp;: il affiche la licence et peut lui donner une nouvelle clé.</span></p>
+          <p><button type="button" class="btn btn--quiet btn--sm" id="key-retry"><span data-l="en">Try again</span><span data-l="fr">Réessayer</span></button></p>
+          <p class="buy__fine"><span data-l="en">Your receipt comes by email from Link, Stripe’s reseller.</span><span data-l="fr">Ton reçu arrive par e-mail de la part de Link, la société de revente de Stripe.</span></p>
+        </div>
       </div>
       <div data-done="credits" hidden>
         <p class="buy__text"><span data-l="en">The credits are on your license within a minute. HangarAI shows them in Settings › License.</span><span data-l="fr">Les crédits sont sur ta licence d’ici une minute. HangarAI les affiche dans Réglages › Licence.</span></p>
+        <p class="buy__fine"><span data-l="en">Your receipt comes by email from Link, Stripe’s reseller.</span><span data-l="fr">Ton reçu arrive par e-mail de la part de Link, la société de revente de Stripe.</span></p>
       </div>
       <div class="buy__actions">
         <a class="btn btn--primary" href="../account/"><span data-l="en">Open your account</span><span data-l="fr">Ouvrir ton compte</span></a>
@@ -276,7 +295,7 @@
     <section class="buy__view buy__card" id="v-mock" aria-labelledby="mock-title" hidden>
       <h1 class="buy__title" id="mock-title" tabindex="-1"><span data-l="en">Mock mode</span><span data-l="fr">Mode démo</span></h1>
       <p class="buy__what" data-slot="product"></p>
-      <p class="buy__text"><span data-l="en">Here HangarAI would open Polar’s checkout:</span><span data-l="fr">Ici HangarAI ouvrirait le paiement de Polar&nbsp;:</span></p>
+      <p class="buy__text"><span data-l="en">Here HangarAI would open Stripe’s checkout:</span><span data-l="fr">Ici HangarAI ouvrirait le paiement de Stripe&nbsp;:</span></p>
       <p class="buy__url"><code id="mock-url"></code></p>
       <div class="buy__actions">
         <a class="btn" href="../pricing/"><span data-l="en">Back to pricing</span><span data-l="fr">Retour aux tarifs</span></a>
@@ -350,7 +369,7 @@
       </nav>
     </div>
     <div class="foot__base">
-      <p><span>© 2026 HangarAI</span><span><span data-l="en">Payments by</span><span data-l="fr">Paiements par</span> <a href="https://polar.sh">Polar</a></span></p>
+      <p><span>© 2026 HangarAI</span><span><span data-l="en">Payments by</span><span data-l="fr">Paiements par</span> <a href="https://stripe.com">Stripe</a></span></p>
       <div class="foot__end"><div class="lang-seg" role="group" aria-label="Language" data-fr="Langue">
         <button type="button" class="lang-seg__btn" data-set-lang="en" lang="en" aria-label="English" aria-pressed="true">EN</button>
         <button type="button" class="lang-seg__btn" data-set-lang="fr" lang="fr" aria-label="Français" aria-pressed="false">FR</button>
@@ -361,8 +380,8 @@
 <!-- /site footer -->
 
 <script src="../assets/lang.js?v=3f125a4686" defer></script>
-<script src="../assets/api.js?v=7d370c32b8" defer></script>
-<script src="buy.js?v=54d5229abe" defer></script>
+<script src="../assets/api.js?v=26e9592a61" defer></script>
+<script src="buy.js?v=2add1a5650" defer></script>
 <script src="../assets/nav.js?v=a2538a43ce" defer></script>
 </body>
 </html>

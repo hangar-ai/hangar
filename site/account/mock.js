@@ -4,14 +4,17 @@
    The same methods as assets/api.js, answering inside the page as
    docs/native/portal.md says the server will: the sign-in (the trip
    to GitHub skipped), the summary, the history and its pages,
-   deactivating a machine, adding a key, the checkout and the
-   customer portal, and their refusals. Nothing leaves the browser.
+   deactivating a machine, adding a key, a new key, the checkout and
+   the customer portal, the key a checkout made, and their refusals.
+   Nothing leaves the browser.
 
    &as= picks the account (portal.md, "Mock mode"); &ref= its referral
    program (active, new, starting, waiting, top); &slow=1 makes every
    call take a second; &signin=denied comes back from "GitHub" with
-   access_denied. Changes last until the page is reloaded; being
-   signed in lasts the tab.
+   access_denied. On buy/, &session=cs_… is the checkout coming back:
+   its key comes at the third ask (the webhook takes a moment), never
+   for a session ending in _existing (a license that had a key). Changes
+   last until the page is reloaded; being signed in lasts the tab.
    ═══════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
@@ -212,16 +215,16 @@
     rate: 30, hold_days: 30, bonus_credits: 1000, attribution_days: 60,
     payout_minimum: euro(MINIMUM),
     // credits-economics.md, "The referral program at 30 %": 30 % of
-    // 14.91 €, 147.06 €, 29.50 €, 286.90 €.
+    // 15.28 €, 148.81 €, 30.03 €, 290.11 € (Stripe's fees).
     examples: [
-      { product: 'pro_monthly', per: 'month', commission: euro(447) },
-      { product: 'pro_yearly', per: 'year', commission: euro(4412) },
-      { product: 'max_monthly', per: 'month', commission: euro(885) },
-      { product: 'max_yearly', per: 'year', commission: euro(8607) }
+      { product: 'pro_monthly', per: 'month', commission: euro(458) },
+      { product: 'pro_yearly', per: 'year', commission: euro(4464) },
+      { product: 'max_monthly', per: 'month', commission: euro(901) },
+      { product: 'max_yearly', per: 'year', commission: euro(8703) }
     ]
   };
-  var NET = { pro_monthly: 1491, pro_yearly: 14706, max_monthly: 2950, max_yearly: 28690 };
-  var CUT = { pro_monthly: 447, pro_yearly: 4412, max_monthly: 885, max_yearly: 8607 };
+  var NET = { pro_monthly: 1528, pro_yearly: 14881, max_monthly: 3003, max_yearly: 29011 };
+  var CUT = { pro_monthly: 458, pro_yearly: 4464, max_monthly: 901, max_yearly: 8703 };
   var CODE_RULE = /^[a-z0-9](?:[a-z0-9]|-(?!-)){1,18}[a-z0-9]$/;
 
   function utcMonthStart(ms, add) {
@@ -524,8 +527,21 @@
       return null;
     }
 
+    // A key as the server makes them: HANGAR- and five groups of five.
+    function fakeKey() {
+      var abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      var groups = [];
+      for (var g = 0; g < 5; g++) {
+        var part = '';
+        for (var i = 0; i < 5; i++) part += abc[Math.floor(Math.random() * abc.length)];
+        groups.push(part);
+      }
+      return 'HANGAR-' + groups.join('-');
+    }
+    var keyAsks = {};
+
     function fakeUrl(kind, product) {
-      return 'https://sandbox.polar.sh/mock/' + kind + (product ? '/' + product : '');
+      return 'https://' + (kind === 'portal' ? 'billing' : 'checkout') + '.stripe.com/mock/' + kind + (product ? '/' + product : '');
     }
 
     return {
@@ -650,6 +666,21 @@
         if (!signedIn()) return refuse(401, 'unauthorized');
         if (!data.billing.portal) return refuse(404, 'no_customer');
         return wait({ url: fakeUrl('portal') });
+      },
+
+      billingKey: function (session) {
+        if (!/^cs_[A-Za-z0-9_]+$/.test(String(session || ''))) return refuse(400, 'bad_request');
+        if (/_existing$/.test(session)) return refuse(404, 'not_found');
+        keyAsks[session] = (keyAsks[session] || 0) + 1;
+        if (keyAsks[session] < 3) return refuse(404, 'not_found');
+        return wait({ key: fakeKey(), license: 'lic_' + session.slice(-8) });
+      },
+
+      newKey: function (license) {
+        if (!signedIn()) return refuse(401, 'unauthorized');
+        var lic = find(license);
+        if (!lic || (lic.kind !== 'subscription' && lic.kind !== 'lifetime')) return refuse(404, 'not_found');
+        return wait({ key: fakeKey() });
       },
 
       /* the referral program ------------------------------------- */

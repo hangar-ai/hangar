@@ -207,8 +207,8 @@
     </header>
 
     <div class="legal">
-      <p data-l="en" class="legal__date">Last updated: 23 November 2026.</p>
-      <p data-l="fr" class="legal__date">Dernière mise à jour&nbsp;: 23 novembre 2026.</p>
+      <p data-l="en" class="legal__date">Last updated: 26 November 2026.</p>
+      <p data-l="fr" class="legal__date">Dernière mise à jour&nbsp;: 26 novembre 2026.</p>
 
       <div data-l="en" class="legal__short">
         <p><strong>In short.</strong></p>
@@ -219,7 +219,7 @@
           <li>Cloud Builds, when you start one, sends your project's files over SSH, straight from your computer, to a machine rented for you alone, with CPU threads or a GPU, then wipes and destroys it. Our server gets the job's record, never a file or a line of output; the dependency cache is stored encrypted with a key only your computer has, for 14 days.</li>
           <li>Hosted nodes, when you keep a workspace running in the cloud, send the workspaces you move there over SSH, straight from your computer, to a server rented for you alone at Hetzner, in Germany or Finland, which is deleted at the end. Our server gets the session's record, never your code. When your computer is off at the end, the work waits in Cloudflare R2 sealed with a key only your computer has, and is deleted once restored or after 7 days.</li>
           <li>Image generation sends an agent's prompt, and the image to edit, through our server to fal, which is told not to store them; our server keeps neither. A share link stores the files you publish until it ends, and anyone with the link can see them.</li>
-          <li>Hosted services use a few providers, each listed with what it receives and keeps: Polar for payments, Groq for dictation, Vast.ai and Cloudflare R2 for Cloud Builds, Hetzner and R2 for hosted nodes, fal for image generation, and R2 again for share links.</li>
+          <li>Hosted services use a few providers, each listed with what it receives and keeps: Stripe for payments, Groq for dictation, Vast.ai and Cloudflare R2 for Cloud Builds, Hetzner and R2 for hosted nodes, fal for image generation, and R2 again for share links.</li>
           <li>Hangar Mobile from anywhere, when you turn it on, passes your devices' traffic through our server, encrypted end to end: the relay cannot read it, and stores nothing.</li>
           <li>Your computers, on by default with a paid license, shows each of your computers to the others through the same relay: it sees each computer's name and system and when it is connected, passes what one computer says to another encrypted end to end, and keeps none of it. You can turn it off on each computer.</li>
           <li>The Hangar account is optional and off by default. With one, the server stores who signed in, the machines you linked, and, only if you turn the statistics sync on, usage totals per machine, day, model and project name.</li>
@@ -238,7 +238,7 @@
           <li>Cloud Builds, quand vous en lancez un, envoie les fichiers de votre projet par SSH, directement depuis votre ordinateur, vers une machine louée pour vous seul, avec des threads CPU ou un GPU, puis l’efface et la détruit. Notre serveur reçoit l’enregistrement du job, jamais un fichier ni une ligne de sortie&nbsp;; le cache des dépendances est stocké chiffré, avec une clé que seul votre ordinateur possède, pendant 14 jours.</li>
           <li>Les nœuds hébergés, quand vous gardez un workspace en marche dans le cloud, envoient les workspaces que vous y déplacez par SSH, directement depuis votre ordinateur, vers un serveur loué pour vous seul chez Hetzner, en Allemagne ou en Finlande, supprimé à la fin. Notre serveur reçoit l’enregistrement de la session, jamais votre code. Si votre ordinateur est éteint à la fin, le travail attend dans Cloudflare R2, scellé avec une clé que seul votre ordinateur possède, et il est supprimé une fois rapatrié ou au bout de 7 jours.</li>
           <li>La génération d’images envoie le prompt d’un agent, et l’image à retoucher, à fal en passant par notre serveur&nbsp;; fal a pour consigne de ne pas les stocker, et notre serveur ne garde ni l’un ni l’autre. Un lien de partage stocke les fichiers que vous publiez jusqu’à son terme, et toute personne qui a le lien peut les voir.</li>
-          <li>Les services hébergés font appel à quelques prestataires, chacun listé avec ce qu’il reçoit et ce qu’il garde&nbsp;: Polar pour les paiements, Groq pour la dictée, Vast.ai et Cloudflare R2 pour Cloud Builds, Hetzner et R2 pour les nœuds hébergés, fal pour la génération d’images, et R2 encore pour les liens de partage.</li>
+          <li>Les services hébergés font appel à quelques prestataires, chacun listé avec ce qu’il reçoit et ce qu’il garde&nbsp;: Stripe pour les paiements, Groq pour la dictée, Vast.ai et Cloudflare R2 pour Cloud Builds, Hetzner et R2 pour les nœuds hébergés, fal pour la génération d’images, et R2 encore pour les liens de partage.</li>
           <li>Hangar Mobile de partout, quand vous l’activez, fait passer le trafic de vos appareils par notre serveur, chiffré de bout en bout&nbsp;: le relais ne peut pas le lire, et ne stocke rien.</li>
           <li>Tes ordinateurs, activé par défaut avec une licence payante, montre chacun de vos ordinateurs aux autres par le même relais&nbsp;: il voit le nom et le système de chaque ordinateur et quand il est connecté, fait passer ce qu’un ordinateur dit à l’autre chiffré de bout en bout, et n’en garde rien. Vous pouvez le désactiver sur chaque ordinateur.</li>
           <li>Le compte Hangar est facultatif et désactivé par défaut. Avec un compte, le serveur stocke qui s’est connecté, les machines que vous avez liées, et, seulement si vous activez la synchronisation des statistiques, des totaux d’usage par machine, jour, modèle et nom de projet.</li>
@@ -265,14 +265,14 @@
       <p data-l="en">
         It does not cover the coding agents HangarAI runs on your computer under your own accounts,
         Claude Code and Codex: what Claude Code sends to Anthropic, or Codex to OpenAI, is between you
-        and them. Nor does it cover GitHub, which you use to sign in, or Polar, which handles
+        and them. Nor does it cover GitHub, which you use to sign in, or Stripe, which handles
         payments: each has a privacy policy of its own.
       </p>
       <p data-l="fr">
         Elle ne couvre pas les agents de code que HangarAI fait tourner sur votre ordinateur avec vos
         propres comptes, Claude Code et Codex&nbsp;: ce que Claude Code envoie à Anthropic, ou Codex à OpenAI,
         se passe entre eux et vous. Elle ne couvre pas non plus GitHub, que vous utilisez pour vous
-        connecter, ni Polar, qui gère les paiements&nbsp;: chacun a sa propre politique de confidentialité.
+        connecter, ni Stripe, qui gère les paiements&nbsp;: chacun a sa propre politique de confidentialité.
       </p>
 
       <h2 id="controller"><span data-l="en">Who is responsible</span><span data-l="fr">Qui est responsable</span></h2>
@@ -440,16 +440,19 @@
       <p data-l="en">
         To buy, the app asks the server for a checkout (the license's id or the machine's hash, the
         offer, and a referral code when you typed one) and opens it in your browser. The payment is
-        handled by <a href="https://polar.sh">Polar</a>, the merchant of record, which collects your
-        payment details and invoices you under its own privacy policy. Polar tells our server
-        what was bought, so that it can give you your license or your credits; HangarAI never sees
+        handled by <a href="https://stripe.com">Stripe</a> Managed Payments: Stripe’s affiliate Sold
+        through Link, LLC (“Link”) is the merchant of record, and Stripe collects your payment details
+        and invoices you under <a href="https://stripe.com/privacy">its own privacy policy</a>, as an
+        independent controller. Stripe tells our server what was bought, so that it can give you your license or your credits; HangarAI never sees
         your card.
       </p>
       <p data-l="fr">
         Pour acheter, l’app demande un paiement au serveur (l’id de la licence ou le hash de la machine,
         l’offre, et un code de parrainage si vous en avez saisi un) et l’ouvre dans votre navigateur. Le
-        paiement est géré par <a href="https://polar.sh">Polar</a>, le marchand officiel, qui recueille vos
-        informations de paiement et vous facture selon sa propre politique de confidentialité. Polar dit à
+        paiement est géré par <a href="https://stripe.com">Stripe</a> Managed Payments&nbsp;: la société du groupe
+        Stripe Sold through Link, LLC («&nbsp;Link&nbsp;») est le marchand officiel, et Stripe recueille vos
+        informations de paiement et vous facture selon <a href="https://stripe.com/privacy">sa propre politique
+        de confidentialité</a>, en tant que responsable de traitement indépendant. Stripe dit à
         notre serveur ce qui a été acheté, pour qu’il puisse vous donner votre licence ou vos crédits&nbsp;;
         HangarAI ne voit jamais votre carte.
       </p>
@@ -474,14 +477,16 @@
         serveur en garde un hash, à partir duquel il ne peut pas être retrouvé.
       </p>
       <p data-l="en">
-        Your subscription, your card and your invoices are at <a href="https://polar.sh">Polar</a>, the
-        merchant of record: "Manage subscription" opens a session of Polar's customer portal that ends
-        within the hour, which we do not keep.
+        Your subscription, your card and your invoices are at <a href="https://stripe.com">Stripe</a>,
+        through Link, the merchant of record: "Manage subscription" opens a short-lived session of
+        Stripe's customer portal, which we do not keep. Your orders are also in a Link account, at
+        <a href="https://link.com">link.com</a>.
       </p>
       <p data-l="fr">
-        Votre abonnement, votre carte et vos factures sont chez <a href="https://polar.sh">Polar</a>, le
-        marchand officiel&nbsp;: «&nbsp;Gérer l’abonnement&nbsp;» ouvre une session du portail client de Polar qui se
-        termine dans l’heure, et que nous ne conservons pas.
+        Votre abonnement, votre carte et vos factures sont chez <a href="https://stripe.com">Stripe</a>, via
+        Link, le marchand officiel&nbsp;: «&nbsp;Gérer l’abonnement&nbsp;» ouvre une session de courte durée du portail
+        client de Stripe, que nous ne conservons pas. Vos commandes sont aussi dans un compte Link, sur
+        <a href="https://link.com">link.com</a>.
       </p>
 
       <h2 id="referrals"><span data-l="en">Referrals</span><span data-l="fr">Parrainage</span></h2>
@@ -579,8 +584,8 @@
         <tbody>
           <tr>
             <th scope="row">
-              <span class="subp__name"><a href="https://polar.sh">Polar</a></span>
-              <span class="subp__for">Payments, as the merchant of record</span>
+              <span class="subp__name"><a href="https://stripe.com">Stripe</a></span>
+              <span class="subp__for">Payments, as the merchant of record (Stripe Managed Payments, through Link)</span>
               <span class="state state--live">In use</span>
             </th>
             <td>
@@ -592,8 +597,9 @@
             </td>
             <td>
               <span class="subp__k">What it keeps</span>
-              Your customer record, your orders, subscriptions, invoices and payments, as the seller,
-              under its own privacy policy. HangarAI never sees your card.
+              Your customer record, your orders, subscriptions, invoices, payments, refunds and
+              disputes, as the seller and an independent controller, under its own privacy policy, and
+              shares what tax law requires with tax authorities. HangarAI never sees your card.
             </td>
           </tr>
           <tr>
@@ -717,8 +723,8 @@
         <tbody>
           <tr>
             <th scope="row">
-              <span class="subp__name"><a href="https://polar.sh">Polar</a></span>
-              <span class="subp__for">Paiements, comme marchand officiel</span>
+              <span class="subp__name"><a href="https://stripe.com">Stripe</a></span>
+              <span class="subp__for">Paiements, comme marchand officiel (Stripe Managed Payments, via Link)</span>
               <span class="state state--live">Utilisé</span>
             </th>
             <td>
@@ -730,8 +736,10 @@
             </td>
             <td>
               <span class="subp__k">Ce qu’il garde</span>
-              Votre fiche client, vos commandes, abonnements, factures et paiements, en tant que vendeur,
-              selon sa propre politique de confidentialité. HangarAI ne voit jamais votre carte.
+              Votre fiche client, vos commandes, abonnements, factures, paiements, remboursements et
+              litiges, en tant que vendeur et responsable de traitement indépendant, selon sa propre politique de
+              confidentialité, et transmet aux autorités fiscales ce que la loi fiscale exige. HangarAI ne voit
+              jamais votre carte.
             </td>
           </tr>
           <tr>
@@ -1543,7 +1551,7 @@
             <td><span class="subp__k">How long</span>The day’s hashes, until the day is over; the reports, 180 days.</td>
           </tr>
           <tr>
-            <th scope="row"><span class="subp__name">Credits and purchases</span><span class="subp__for">What Polar tells us was bought, what each feature used</span></th>
+            <th scope="row"><span class="subp__name">Credits and purchases</span><span class="subp__for">What Stripe tells us was bought, what each feature used</span></th>
             <td><span class="subp__k">Legal basis</span>The contract.</td>
             <td><span class="subp__k">How long</span>As long as the license exists.</td>
           </tr>
@@ -1615,7 +1623,7 @@
             <td><span class="subp__k">Combien de temps</span>Les hashs du jour, jusqu’à la fin du jour&nbsp;; les rapports, 180 jours.</td>
           </tr>
           <tr>
-            <th scope="row"><span class="subp__name">Crédits et achats</span><span class="subp__for">Ce que Polar nous dit avoir été acheté, ce que chaque fonction a utilisé</span></th>
+            <th scope="row"><span class="subp__name">Crédits et achats</span><span class="subp__for">Ce que Stripe nous dit avoir été acheté, ce que chaque fonction a utilisé</span></th>
             <td><span class="subp__k">Base légale</span>Le contrat.</td>
             <td><span class="subp__k">Combien de temps</span>Tant que la licence existe.</td>
           </tr>
@@ -1670,13 +1678,13 @@
       <h2 id="recipients"><span data-l="en">Who receives it, and transfers outside the EU</span><span data-l="fr">Qui la reçoit, et les transferts hors de l’UE</span></h2>
       <p data-l="en">
         Only the companies below, each for what its line says. Those that work for us (processors)
-        act on our instructions; Polar and GitHub act on their own account, under their own
+        act on our instructions; Stripe and GitHub act on their own account, under their own
         privacy policies. None receives your data to advertise or to sell it. An authority may also
         receive it when the law requires us to hand it over.
       </p>
       <p data-l="fr">
         Seulement les entreprises ci-dessous, chacune pour ce que dit sa ligne. Celles qui travaillent pour nous
-        (sous-traitants) agissent sur nos instructions&nbsp;; Polar et GitHub agissent pour leur propre compte, selon
+        (sous-traitants) agissent sur nos instructions&nbsp;; Stripe et GitHub agissent pour leur propre compte, selon
         leurs propres politiques de confidentialité. Aucune ne reçoit vos données pour faire de la publicité ni pour
         les vendre. Une autorité peut aussi les recevoir quand la loi nous oblige à les lui transmettre.
       </p>
@@ -1701,9 +1709,9 @@
             <td><span class="subp__k">Transfer outside the EU</span>EU-U.S. Data Privacy Framework, to which Cloudflare is certified, with the Commission’s standard contractual clauses as a fallback.</td>
           </tr>
           <tr>
-            <th scope="row"><span class="subp__name">Polar Software, Inc.</span><span class="subp__for">Sells to you, takes the payment, invoices (on its own account, as the merchant of record)</span></th>
-            <td><span class="subp__k">Where</span>United States</td>
-            <td><span class="subp__k">Transfer outside the EU</span>The Commission’s standard contractual clauses, as Polar’s privacy policy says.</td>
+            <th scope="row"><span class="subp__name">Stripe: Sold through Link, LLC and Stripe Technology Company, Limited</span><span class="subp__for">Sells to you, takes the payment, invoices, handles refunds and disputes (on its own account, as the merchant of record, under Stripe Managed Payments)</span></th>
+            <td><span class="subp__k">Where</span>Ireland (Stripe Technology Company, Limited, Stripe’s main establishment in the EU) and the United States</td>
+            <td><span class="subp__k">Transfer outside the EU</span>The Commission’s standard contractual clauses, and the EU-U.S. Data Privacy Framework, to which Stripe, LLC is certified, as Stripe’s privacy policy says.</td>
           </tr>
           <tr>
             <th scope="row"><span class="subp__name">Groq</span><span class="subp__for">Dictation (processor)</span></th>
@@ -1753,9 +1761,9 @@
             <td><span class="subp__k">Transfert hors de l’UE</span>Cadre de protection des données UE–États-Unis (Data Privacy Framework), auquel Cloudflare est certifié, avec les clauses contractuelles types de la Commission en secours.</td>
           </tr>
           <tr>
-            <th scope="row"><span class="subp__name">Polar Software, Inc.</span><span class="subp__for">Vous vend, encaisse le paiement, facture (pour son propre compte, comme marchand officiel)</span></th>
-            <td><span class="subp__k">Où</span>États-Unis</td>
-            <td><span class="subp__k">Transfert hors de l’UE</span>Les clauses contractuelles types de la Commission, comme le dit la politique de confidentialité de Polar.</td>
+            <th scope="row"><span class="subp__name">Stripe&nbsp;: Sold through Link, LLC et Stripe Technology Company, Limited</span><span class="subp__for">Vous vend, encaisse le paiement, facture, traite les remboursements et les litiges (pour son propre compte, comme marchand officiel, dans le cadre de Stripe Managed Payments)</span></th>
+            <td><span class="subp__k">Où</span>Irlande (Stripe Technology Company, Limited, principal établissement de Stripe dans l’UE) et États-Unis</td>
+            <td><span class="subp__k">Transfert hors de l’UE</span>Les clauses contractuelles types de la Commission, et le cadre de protection des données UE–États-Unis (Data Privacy Framework), auquel Stripe, LLC est certifié, comme le dit la politique de confidentialité de Stripe.</td>
           </tr>
           <tr>
             <th scope="row"><span class="subp__name">Groq</span><span class="subp__for">Dictée (sous-traitant)</span></th>
@@ -1881,7 +1889,7 @@
         purchase uses, or by post to Simon Gay EI, 11 rue de Douaumont, 42400 Saint-Chamond, France. We may
         ask you to show the data is yours (by signing in, for example), and we answer within one month;
         if a request is complex, we may take two more months, and tell you why within the first. For your
-        payments and invoices, Polar holds them: ask Polar too.
+        payments and invoices, Stripe holds them: ask Stripe too, as its privacy policy says.
       </p>
       <p data-l="fr">
         Vous pouvez faire une grande partie de cela vous-même dans Hangar (ci-dessus). Pour le reste, écrivez à
@@ -1889,7 +1897,7 @@
         achat, ou par courrier à Simon Gay EI, 11 rue de Douaumont, 42400 Saint-Chamond, France. Nous pouvons vous
         demander de montrer que les données sont les vôtres (en vous connectant, par exemple), et nous répondons
         dans un délai d’un mois&nbsp;; si une demande est complexe, nous pouvons prendre deux mois de plus, en vous
-        disant pourquoi dans le premier. Vos paiements et vos factures sont chez Polar&nbsp;: adressez-vous aussi à Polar.
+        disant pourquoi dans le premier. Vos paiements et vos factures sont chez Stripe&nbsp;: adressez-vous aussi à Stripe, comme le dit sa politique de confidentialité.
       </p>
       <p data-l="en">
         If you think your rights are not respected, you can complain to the French data protection
@@ -2091,6 +2099,20 @@
         rien d’autre ici ne demande de consentement.
       </p>
       <p data-l="en">
+        Stripe’s checkout and customer portal are Stripe’s pages, not this site’s
+        (<code>checkout.stripe.com</code>, <code>billing.stripe.com</code>): Stripe sets its own cookies
+        there, such as <code>__stripe_mid</code> and <code>__stripe_sid</code> to prevent fraud, and its
+        portal’s session, under <a href="https://stripe.com/legal/cookies-policy">its cookie policy</a>.
+        This site loads no script of Stripe’s and sets none of its cookies.
+      </p>
+      <p data-l="fr">
+        La page de paiement et le portail client de Stripe sont des pages de Stripe, pas de ce site
+        (<code>checkout.stripe.com</code>, <code>billing.stripe.com</code>)&nbsp;: Stripe y dépose ses propres
+        cookies, comme <code>__stripe_mid</code> et <code>__stripe_sid</code> pour prévenir la fraude, et la session
+        de son portail, selon <a href="https://stripe.com/legal/cookies-policy">sa politique en matière de
+        cookies</a>. Ce site ne charge aucun script de Stripe et ne dépose aucun de ses cookies.
+      </p>
+      <p data-l="en">
         To remove any of these, clear this site’s data in your browser; signing out removes the session.
         Refusing them only means the site forgets: your language, a referral, or that you were signed in.
       </p>
@@ -2212,7 +2234,7 @@
       </nav>
     </div>
     <div class="foot__base">
-      <p><span>© 2026 HangarAI</span><span><span data-l="en">Payments by</span><span data-l="fr">Paiements par</span> <a href="https://polar.sh">Polar</a></span></p>
+      <p><span>© 2026 HangarAI</span><span><span data-l="en">Payments by</span><span data-l="fr">Paiements par</span> <a href="https://stripe.com">Stripe</a></span></p>
       <div class="foot__end"><div class="lang-seg" role="group" aria-label="Language" data-fr="Langue">
         <button type="button" class="lang-seg__btn" data-set-lang="en" lang="en" aria-label="English" aria-pressed="true">EN</button>
         <button type="button" class="lang-seg__btn" data-set-lang="fr" lang="fr" aria-label="Français" aria-pressed="false">FR</button>

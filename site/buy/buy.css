@@ -284,3 +284,88 @@ html[data-buy="done"] #v-done {
     grid-row: auto;
   }
 }
+
+/* the key of the license a checkout made */
+.buy__done {
+  display: grid;
+  gap: 18px;
+  width: 100%;
+}
+
+.buy__done[hidden],
+.buy__done [hidden] {
+  display: none;
+}
+
+.buy__done .steps {
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+}
+
+.key {
+  display: grid;
+  justify-items: center;
+  width: 100%;
+}
+
+.key__wait {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--fg-secondary);
+  font-size: 15px;
+}
+
+.key__spinner {
+  width: 18px;
+  height: 18px;
+}
+
+.key__got {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+}
+
+.key__got[hidden],
+.key__wait[hidden] {
+  display: none;
+}
+
+.key__label {
+  color: var(--fg-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.key__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bg-sunken);
+}
+
+.key__value {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--fg-hi);
+  font-size: 13.5px;
+  user-select: all;
+}
+
+#key-copy.is-copied {
+  border-color: var(--state-working);
+  color: var(--state-working);
+}
+
+.key__fine {
+  color: var(--fg-muted);
+  font-size: 13px;
+}

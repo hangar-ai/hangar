@@ -2,7 +2,7 @@
    HangarAI account: the page's own layout
 
    On styles.css and assets/pages.css. Signed in, an app: a sidebar
-   (who is signed in, the sections, the invoices at Polar, signing
+   (who is signed in, the sections, the invoices at Stripe, signing
    out) and the tab's page beside it, up to 1400 px wide. The page's
    grids follow the room their column has (container queries on
    .acct-main, and on each panel for what is inside it), not the
@@ -803,6 +803,33 @@
   font-size: 13px;
 }
 
+/* the key: never shown again, a new one on demand, shown until the page is left */
+.lic__key {
+  flex-basis: 100%;
+}
+
+.newkey {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.newkey__kept {
+  color: var(--fg-secondary);
+}
+
+.newkey__value {
+  padding: 5px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  background: var(--bg-sunken);
+  color: var(--fg-hi);
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
 .panel .notice {
   margin-top: 18px;
 }
@@ -958,7 +985,7 @@
   font-size: 12.5px;
 }
 
-/* a Pro subscriber: Max, one step away (Polar's customer portal) */
+/* a Pro subscriber: Max, one step away (Stripe's customer portal) */
 .upgrade {
   display: flex;
   flex-wrap: wrap;

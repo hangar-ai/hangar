@@ -178,6 +178,13 @@
       setPayg: function (license, body) { return call('PUT', '/v1/portal/licenses/' + q(license) + '/payg', body); },
       checkout: function (body) { return call('POST', '/v1/billing/checkout', withReferral(body)); },
       billingPortal: function (body) { return call('POST', '/v1/billing/portal', body || {}); },
+      // The key of the license a checkout made, from its Checkout Session
+      // (`cs_…`, on the way back); 404 until the payment is in, or when it
+      // went on a license that had one already.
+      billingKey: function (session) { return call('POST', '/v1/billing/key', { session: session }, true); },
+      // A new key for a license of the account: the old one stops working,
+      // the computers already active keep it.
+      newKey: function (license) { return call('POST', '/v1/portal/licenses/' + q(license) + '/key'); },
 
       // The referral program (portal.md, "The referral program").
       referral: function () { return call('GET', '/v1/referral'); },
@@ -225,12 +232,17 @@
     });
   }
 
-  // Where a checkout or the customer portal may send the browser:
-  // Polar, over HTTPS, and nowhere else.
-  function isPolarUrl(url) {
+  // Where a checkout or the customer portal may send the browser: Stripe's
+  // Checkout and customer portal (those exact hosts: other subdomains of
+  // stripe.com serve what accounts upload), or Polar for a subscription
+  // bought there before Stripe, over HTTPS, and nowhere else.
+  var STRIPE_HOSTS = ['checkout.stripe.com', 'billing.stripe.com'];
+  function isPaymentUrl(url) {
     try {
       var u = new URL(url);
-      return u.protocol === 'https:' && (u.hostname === 'polar.sh' || /\.polar\.sh$/.test(u.hostname));
+      if (u.protocol !== 'https:' || u.username || u.password || u.port) return false;
+      var host = u.hostname;
+      return STRIPE_HOSTS.indexOf(host) >= 0 || host === 'polar.sh' || /\.polar\.sh$/.test(host);
     } catch (e) {
       return false;
     }
@@ -244,7 +256,7 @@
     pkce: pkce,
     challengeOf: challengeOf,
     random: random,
-    isPolarUrl: isPolarUrl,
+    isPaymentUrl: isPaymentUrl,
     withReferral: withReferral,
     referral: { clean: cleanCode, remembered: remembered, remember: remember, forget: forget, days: REF_DAYS }
   };

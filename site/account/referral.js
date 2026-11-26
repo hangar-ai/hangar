@@ -756,7 +756,7 @@
 
       var main;
       if (first) {
-        var cut = example('pro_monthly') || eur(447);
+        var cut = example('pro_monthly') || eur(458);
         main = h('div.rf-hero__main',
           h('p.rf-hero__label', t('rf_first_label')),
           h('p.rf-hero__fig',
@@ -1061,8 +1061,8 @@
 
     // What one friend on the plan brings each month, by the month: the
     // server's example (credits-economics.md, "The referral program at
-    // 30 %": Pro 4.47 €, Max 8.85 €), these when it has none.
-    var SIM_CUT = { pro: 447, max: 885 };
+    // 30 %": Pro 4.58 €, Max 9.01 €), these when it has none.
+    var SIM_CUT = { pro: 458, max: 901 };
 
     function simPanel() {
       var p = program();
@@ -1269,7 +1269,7 @@
       var shown = R.allPeople ? list : list.slice(0, LIMIT);
       var body;
       if (!list.length) {
-        var cut = example('pro_monthly') || eur(447);
+        var cut = example('pro_monthly') || eur(458);
         body = h('div.rf-empty',
           h('span.rf-empty__art', { 'aria-hidden': 'true' }, h('i'), h('i'), h('i')),
           h('p.rf-empty__title', t('rf_people_empty', { amount: money(cut) })),

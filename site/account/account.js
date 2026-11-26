@@ -4,7 +4,7 @@
    Signs in with the HangarAI account (GitHub, through the account
    server) and shows what it holds: the license, its machines, the
    credits and their history; subscribes to Pro or Max, buys credits,
-   opens Polar's customer portal for the subscription (Pro to Max
+   opens Stripe's customer portal for the subscription (Pro to Max
    and back are changed there) and the invoices; links the downloads.
    Signed in, it is an app: a sidebar (who, the tabs, the invoices,
    signing out) beside the tab's page.
@@ -96,7 +96,7 @@
       per_month: '{price} a month',
       per_year: '{price} a year',
       canceling_text: 'Active until {date}. Changed your mind? Renew it from Manage subscription.',
-      past_due_text: 'The last payment didn’t go through. Polar tries again; update your card to keep HangarAI.',
+      past_due_text: 'The last payment didn’t go through. Stripe tries again; update your card to keep HangarAI.',
       trial_left: '{n} days left · ends on {date}',
       trial_left_one: '1 day left · ends on {date}',
       trial_today: 'Ends today',
@@ -126,9 +126,9 @@
       offer_month: '/ month',
       offer_year: '/ year',
       upgrade_title: 'Need more? Move up to Max',
-      upgrade_lede: '{n} credits a month instead of {m}, and your Cloud Builds first in the queue on {k} machines at once. {month} a month or {year} a year: Polar prorates the change, and the new credits start with your next period.',
+      upgrade_lede: '{n} credits a month instead of {m}, and your Cloud Builds first in the queue on {k} machines at once. {month} a month or {year} a year: Stripe prorates the change, and the new credits start with your next period.',
       upgrade: 'Upgrade to Max',
-      offers_fine: 'Prices include VAT. Payment and invoices by Polar, our merchant of record.',
+      offers_fine: 'Prices include VAT. Payment and invoices by Stripe, our merchant of record.',
       dl_get: 'Download {ext}',
 
       credits: 'Credits',
@@ -162,7 +162,7 @@
       payg_credits: '{n} credits',
       payg_resets: 'The count starts again on {date}.',
       payg_off_note: 'Off: hosted features stop when your credits run out.',
-      payg_checkout_note: 'Turning it on saves your card with Polar, on a free subscription that carries what you use.',
+      payg_checkout_note: 'Turning it on saves your card with Stripe, on a free subscription that carries what you use.',
       payg_r_first_purchase: 'Available after your first purchase.',
       payg_r_invoice_unpaid: 'Paused: an invoice is unpaid. Pay it from Manage subscription to turn it back on.',
       payg_r_ended: 'Comes back with your subscription.',
@@ -215,7 +215,7 @@
       nav_machines: 'Machines',
       nav_billing_short: 'Billing',
       nav_billing: 'Billing & invoices',
-      nav_billing_where: '(at Polar)',
+      nav_billing_where: '(at Stripe)',
       page_license: 'Your license, your credits and their history.',
       page_referral: '30\u00a0% of what each friend pays, for as long as they pay.',
       page_machines: 'The computers your license is active on, and HangarAI for the next one.',
@@ -230,7 +230,16 @@
       key_label: 'License key',
       key_add: 'Add to my account',
       key_added: 'The license is on your account.',
-      err_invalid_license: 'That isn’t a license key. Check it in the email you got after your purchase.',
+      err_invalid_license: 'That isn’t a license key. A key starts with HANGAR-; the page after your purchase showed it.',
+      newkey_row: 'License key',
+      newkey_kept: 'Shown once, when it was made',
+      newkey: 'New key',
+      newkey_title: 'Make a new key?',
+      newkey_text: 'The current key stops working. The computers already using this license keep it; the next one takes the new key.',
+      newkey_confirm: 'Make a new key',
+      newkey_made: 'Here is your new key. Keep it somewhere safe: it is shown once.',
+      newkey_copy: 'Copy',
+      newkey_copied: 'Key copied',
       err_license_held: 'That license is on another HangarAI account.',
 
       feature_dictation: 'Dictation',
@@ -297,7 +306,7 @@
       per_month: '{price} par mois',
       per_year: '{price} par an',
       canceling_text: 'Active jusqu’au {date}. Tu changes d’avis\u00a0? Renouvelle-le depuis Gérer l’abonnement.',
-      past_due_text: 'Le dernier paiement n’est pas passé. Polar réessaie\u00a0; mets ta carte à jour pour garder HangarAI.',
+      past_due_text: 'Le dernier paiement n’est pas passé. Stripe réessaie\u00a0; mets ta carte à jour pour garder HangarAI.',
       trial_left: 'Encore {n} jours · se termine le {date}',
       trial_left_one: 'Encore 1 jour · se termine le {date}',
       trial_today: 'Se termine aujourd’hui',
@@ -327,9 +336,9 @@
       offer_month: '/ mois',
       offer_year: '/ an',
       upgrade_title: 'Besoin de plus\u00a0? Passe à Max',
-      upgrade_lede: '{n} crédits par mois au lieu de {m}, et tes Cloud Builds en tête de file sur {k} machines à la fois. {month} par mois ou {year} par an\u00a0: Polar calcule le changement au prorata, et les nouveaux crédits arrivent avec ta période suivante.',
+      upgrade_lede: '{n} crédits par mois au lieu de {m}, et tes Cloud Builds en tête de file sur {k} machines à la fois. {month} par mois ou {year} par an\u00a0: Stripe calcule le changement au prorata, et les nouveaux crédits arrivent avec ta période suivante.',
       upgrade: 'Passer à Max',
-      offers_fine: 'Prix TTC. Paiement et factures par Polar, notre revendeur officiel.',
+      offers_fine: 'Prix TTC. Paiement et factures par Stripe, notre revendeur officiel.',
       dl_get: 'Télécharger {ext}',
 
       credits: 'Crédits',
@@ -361,7 +370,7 @@
       payg_credits: '{n} crédits',
       payg_resets: 'Le compteur repart le {date}.',
       payg_off_note: 'Désactivé\u00a0: les fonctions hébergées s’arrêtent quand tes crédits sont épuisés.',
-      payg_checkout_note: 'L’activer enregistre ta carte chez Polar, sur un abonnement gratuit qui porte ce que tu utilises.',
+      payg_checkout_note: 'L’activer enregistre ta carte chez Stripe, sur un abonnement gratuit qui porte ce que tu utilises.',
       payg_r_first_purchase: 'Disponible après ton premier achat.',
       payg_r_invoice_unpaid: 'En pause\u00a0: une facture est impayée. Règle-la depuis Gérer l’abonnement pour le réactiver.',
       payg_r_ended: 'Revient avec ton abonnement.',
@@ -414,7 +423,7 @@
       nav_machines: 'Machines',
       nav_billing_short: 'Factures',
       nav_billing: 'Factures et paiement',
-      nav_billing_where: '(chez Polar)',
+      nav_billing_where: '(chez Stripe)',
       page_license: 'Ta licence, tes crédits et leur historique.',
       page_referral: '30 % de ce que paie chaque filleul, tant qu’il paie.',
       page_machines: 'Les ordinateurs où ta licence est active, et HangarAI pour le suivant.',
@@ -429,7 +438,16 @@
       key_label: 'Clé de licence',
       key_add: 'Ajouter à mon compte',
       key_added: 'La licence est sur ton compte.',
-      err_invalid_license: 'Ce n’est pas une clé de licence. Vérifie-la dans l’e-mail reçu après ton achat.',
+      err_invalid_license: 'Ce n’est pas une clé de licence. Une clé commence par HANGAR-\u00a0; la page qui a suivi ton achat l’affichait.',
+      newkey_row: 'Clé de licence',
+      newkey_kept: 'Affichée une fois, quand elle a été faite',
+      newkey: 'Nouvelle clé',
+      newkey_title: 'Faire une nouvelle clé\u00a0?',
+      newkey_text: 'La clé actuelle cesse de fonctionner. Les ordinateurs qui utilisent déjà cette licence la gardent\u00a0; le suivant prend la nouvelle clé.',
+      newkey_confirm: 'Faire une nouvelle clé',
+      newkey_made: 'Voici ta nouvelle clé. Garde-la en lieu sûr\u00a0: elle n’est affichée qu’une fois.',
+      newkey_copy: 'Copier',
+      newkey_copied: 'Clé copiée',
       err_license_held: 'Cette licence est sur un autre compte HangarAI.',
 
       feature_dictation: 'Dictée',
@@ -568,8 +586,9 @@
     current: null,        // the license on screen
     history: {},          // license id → { entries, next, loading, error }
     downloads: null,      // { version, plats, all } once read from the home page
-    busy: {},             // what is under way: 'buy:<product>', 'portal', 'seat:<id>', 'key', 'signin'
+    busy: {},             // what is under way: 'buy:<product>', 'portal', 'seat:<id>', 'key', 'newkey:<id>', 'signin'
     keyError: null,
+    keys: {},             // license id → the new key made for it, shown until the page is left
     flash: null           // an error shown in the license panel
   };
   var after = null;       // a selector to focus once drawn
@@ -717,13 +736,13 @@
     });
   }
 
-  // Where a checkout or the portal sends the browser: Polar's own
+  // Where a checkout or the portal sends the browser: Stripe's own
   // pages, and in mock mode a dialog that says so instead.
   function go(url) {
     if (api.mock) {
       return dialog({ title: t('mock_label'), text: t('mock_go', { url: url }), confirm: t('ok'), cancel: null });
     }
-    if (!A.isPolarUrl(url)) {
+    if (!A.isPaymentUrl(url)) {
       state.flash = 'err_billing_unavailable';
       return render();
     }
@@ -784,7 +803,7 @@
     var presets = (p.limits && p.limits.presets) || [];
     var limit = p.limit || { amount: presets[1] || presets[0] || 1000, currency: 'EUR' };
     // Without a subscription to carry it, the first time goes through
-    // Polar to save a card; the webhook turns it on with this limit.
+    // Stripe to save a card; the webhook turns it on with this limit.
     if (p.setup === 'checkout') return buy('payg', lic, { payg_limit: limit });
     setPayg(lic, { enabled: true, limit: limit }, 'payg_on_toast');
   }
@@ -883,6 +902,51 @@
       after = '#key-input';
       render();
     });
+  }
+
+  // A new key for a license of the account (POST …/licenses/{id}/key):
+  // shown on the license's panel until the page is left, never kept.
+  function newKey(lic) {
+    dialog({
+      title: t('newkey_title'),
+      text: t('newkey_text'),
+      confirm: t('newkey_confirm'),
+      cancel: t('cancel')
+    }).then(function (yes) {
+      if (!yes) return;
+      var key = 'newkey:' + lic.id;
+      state.busy[key] = true;
+      render();
+      api.newKey(lic.id).then(function (res) {
+        delete state.busy[key];
+        state.keys[lic.id] = res.key;
+        after = '#newkey-copy';
+        toast(t('newkey_made'));
+        render();
+      }, function (err) {
+        delete state.busy[key];
+        if (err.status === 401) return load();
+        toast(t(errorKey(err)));
+        render();
+      });
+    });
+  }
+
+  function copyKey(text) {
+    function select() {
+      var code = document.getElementById('newkey-value');
+      if (!code) return;
+      var range = document.createRange();
+      range.selectNodeContents(code);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { toast(t('newkey_copied')); }, select);
+    } else {
+      select();
+    }
   }
 
   function signOut() {
@@ -1177,7 +1241,7 @@
             h('span.acct-nav__rate', { 'aria-hidden': 'true' }, '30 %')) : null,
           navTab('machines', ICON.computer, 'machines', 'nav_machines',
             lic ? h('span.acct-nav__count', { 'aria-hidden': 'true' }, num(lic.machines.length) + '/' + num(lic.seats)) : null),
-          // Invoices and the subscription live at Polar, the merchant of
+          // Invoices and the subscription live at Stripe, the merchant of
           // record: this one leaves the page, and says so.
           s.billing && s.billing.portal ? [
             h('span.acct-nav__sep', { 'aria-hidden': 'true' }),
@@ -1329,8 +1393,26 @@
         h('div', h('dt', t('license_id')), h('dd', h('code', l.id))),
         h('div', h('dt', t('machines')), h('dd', h('a', { href: '#machines', onclick: function (ev) { goTab(ev, 'machines'); } },
           t('machines_used', { n: num(l.machines.length), seats: num(l.seats) })))),
-        h('div', h('dt', t('since_label')), h('dd', date(l.created_at)))
+        h('div', h('dt', t('since_label')), h('dd', date(l.created_at))),
+        keyFact(l)
       )
+    );
+  }
+
+  // The key of a bought license: never shown again, a new one on demand.
+  function keyFact(l) {
+    if ((l.kind !== 'subscription' && l.kind !== 'lifetime') || l.status === 'revoked') return null;
+    var made = state.keys[l.id];
+    var busy = state.busy['newkey:' + l.id];
+    return h('div.lic__key',
+      h('dt', t('newkey_row')),
+      made
+        ? h('dd.newkey',
+          h('code.newkey__value#newkey-value', made),
+          button(t('newkey_copy'), { small: true, id: 'newkey-copy', onclick: function () { copyKey(made); } }))
+        : h('dd.newkey',
+          h('span.newkey__kept', t('newkey_kept')),
+          button(t('newkey'), { small: true, quiet: true, busy: busy, onclick: function () { newKey(l); } }))
     );
   }
 
@@ -1391,7 +1473,7 @@
     );
   }
 
-  // A Pro subscriber: Max, one step away. The plan is changed in Polar's
+  // A Pro subscriber: Max, one step away. The plan is changed in Stripe's
   // customer portal (the same subscription, prorated), never by a second
   // checkout, which the server refuses (already_subscribed).
   function upgradeBlock(l, s) {
@@ -1898,7 +1980,9 @@
       return finishSignIn(code, params.get('state'), error);
     }
     if (params.get('checkout') === 'done') {
-      cleanUrl(['checkout']);
+      // (The session the checkout came back with is buy/'s business: a
+      // purchase from here lands on this account's license.)
+      cleanUrl(['checkout', 'session']);
       toast(t('thanks'));
       load().then(function () { setTimeout(function () { if (state.view === 'ready') load({ fresh: true }); }, 4000); });
       return;

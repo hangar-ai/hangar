@@ -48,7 +48,7 @@ HangarAI itself only goes online in these cases:
   License reads the balance from the account server with the license's token. To buy, the
   app asks the server for a checkout (the license's id or the machine's hash, the offer,
   and a referral code if you typed one), then opens it in your browser. The payment is
-  handled by [Polar](https://polar.sh), the merchant of record, under its own privacy
+  handled by [Stripe](https://stripe.com), the merchant of record, under its own privacy
   policy. The server counts how many credits each hosted request used, never what it
   processed.
 - **Dictation.** The audio you record is sent to HangarAI's account server, which has

@@ -38,7 +38,7 @@ HangarAI starts with a **14-day free trial**. Its first screen asks you to sign 
 HangarAI account (**Continue with GitHub**, in your browser); no card is asked, and an account
 has one trial. The trial includes 150 HangarAI credits for the hosted features.
 
-Then it takes a plan, VAT included, paid through Polar
+Then it takes a plan, VAT included, paid through Stripe
 ([pricing](https://hangarai.dev/pricing/)):
 
 | | HangarAI Pro | HangarAI Max |
@@ -56,7 +56,7 @@ There is no Lifetime license.
   a license bought with your HangarAI account. The page shows your plan, its renewal, its
   computers and what each hosted feature costs; **Upgrade to Max** and **Manage
   subscription** (change or cancel the plan, the card, the invoices) open your subscription at
-  Polar, and a change between Pro and Max is prorated.
+  Stripe, and a change between Pro and Max is prorated.
 - **Credits.** The monthly credits do not roll over. Packs of 1,000 (3 €) and 5,000 (10 €)
   never expire, and **pay as you go**, off until you turn it on in Settings → License, keeps
   hosted features running past your credits up to a monthly limit you set. Every cost shows
@@ -86,8 +86,8 @@ hangar-ai license status
 hangar-ai license deactivate
 ```
 
-- **activate** asks for your license key, `HANGAR-…`, which is in the email of your purchase
-  and at [hangarai.dev/account](https://hangarai.dev/account). It reads the key from the
+- **activate** asks for your license key, `HANGAR-…`, which the page after your purchase
+  shows; [hangarai.dev/account](https://hangarai.dev/account) makes a new one when you need it. It reads the key from the
   standard input, so the key stays out of your shell's history: type it at the prompt, or
   pipe it in (`hangar-ai license activate < key.txt`). `hangar-ai license activate <key>`
   works too. The license is kept where the app keeps it, `license.bin` in its data folder

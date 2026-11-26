@@ -1,11 +1,13 @@
 /* ═══════════════════════════════════════════════════════════════
    HangarAI buy: hangarai.dev/buy/?product=<name>
 
-   Asks the account server for the product's Polar checkout and
+   Asks the account server for the product's Stripe checkout and
    replaces itself with it (docs/native/portal.md, "hangarai.dev/buy").
    Takes the license (?license=) or the machine (?machine=) the app
    passes, and the session cookie of a signed-in visitor. Without a
-   product it lists them; ?done=<product> is Polar's way back.
+   product it lists them; ?done=<product>&session=cs_… is Stripe's way
+   back, where a plan shows the key of the license it made (POST
+   /v1/billing/key, asked again for a while until the webhook is in).
    ?mock=1 asks account/mock.js instead, and shows where it would go.
    ═══════════════════════════════════════════════════════════════ */
 (function () {
@@ -31,6 +33,7 @@
   if (done !== null && A.PRODUCTS.indexOf(done) < 0) done = '';
   // Passed on as they are, or not at all.
   var license = /^[A-Za-z0-9_-]{1,100}$/.test(params.get('license') || '') ? params.get('license') : null;
+  var session = /^cs_[A-Za-z0-9_]{1,250}$/.test(params.get('session') || '') ? params.get('session') : null;
   var machine = /^[0-9a-fA-F]{64}$/.test(params.get('machine') || '') ? params.get('machine').toLowerCase() : null;
   if (license) machine = null;
 
@@ -100,11 +103,72 @@
         $('mock-url').textContent = res.url;
         return show('v-mock', true);
       }
-      if (!res || !A.isPolarUrl(res.url)) return fail({ code: 'billing_unavailable' });
-      // Replaced, not pushed: back from Polar returns where the person
+      if (!res || !A.isPaymentUrl(res.url)) return fail({ code: 'billing_unavailable' });
+      // Replaced, not pushed: back from Stripe returns where the person
       // came from, not to a page that sends them on again.
       location.replace(res.url);
     }, fail);
+  }
+
+  // The key of the license the checkout made. The webhook may come a
+  // little after the browser: asked every 1.5 s for 20 s, then the page
+  // says HangarAI picks the license up by itself, with a way to ask again.
+  // A purchase for a license that has a key already never has one here.
+  var KEY_EVERY = 1500;
+  var KEY_FOR = 20000;
+
+  function showKey(phase, key) {
+    $('key-wait').hidden = phase !== 'wait';
+    $('key-got').hidden = phase !== 'got';
+    $('key-steps').hidden = phase !== 'got';
+    $('key-none').hidden = phase !== 'none';
+    $('key-retry').hidden = !session;
+    if (key) $('key-value').textContent = key;
+  }
+
+  function fetchKey() {
+    if (!session) return showKey('none');
+    showKey('wait');
+    var until = Date.now() + KEY_FOR;
+    (function ask() {
+      api.billingKey(session).then(function (res) {
+        if (res && res.key) return showKey('got', res.key);
+        showKey('none');
+      }, function (err) {
+        var later = err && (err.status === 404 || err.status === 0 || err.status === 429 || err.status >= 500);
+        if (later && Date.now() + KEY_EVERY < until) return setTimeout(ask, KEY_EVERY);
+        showKey('none');
+      });
+    })();
+  }
+
+  function copyKey() {
+    var code = $('key-value');
+    var text = code.textContent;
+    var button = $('key-copy');
+    function copied() {
+      var words = button.innerHTML;
+      button.classList.add('is-copied');
+      button.innerHTML = '<span data-l="en">Copied</span><span data-l="fr">Copié</span>';
+      setTimeout(function () {
+        button.classList.remove('is-copied');
+        button.innerHTML = words;
+      }, 1600);
+      var live = $('live');
+      if (live) live.textContent = root.lang === 'fr' ? 'Clé copiée' : 'Key copied';
+    }
+    function select() {
+      var range = document.createRange();
+      range.selectNodeContents(code);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(copied, select);
+    } else {
+      select();
+    }
   }
 
   function start() {
@@ -117,13 +181,17 @@
       });
     }
     $('retry').addEventListener('click', go);
+    $('key-copy').addEventListener('click', copyKey);
+    $('key-retry').addEventListener('click', fetchKey);
 
     if (done !== null) {
       fillProduct(done);
       var credits = /^credits_/.test(done);
       document.querySelector('[data-done="license"]').hidden = credits;
       document.querySelector('[data-done="credits"]').hidden = !credits;
-      return show('v-done', true);
+      show('v-done', true);
+      if (!credits) fetchKey();
+      return;
     }
     if (!product) return show('v-choose', false);
     go();

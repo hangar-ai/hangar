@@ -373,8 +373,8 @@ too.
 
 | Page | What it is | Its facts come from |
 |---|---|---|
-| `legal/notice.html` | The *mentions légales* the LCEN requires: publisher, director of publication, contact, hosts, the seller, intellectual property, credits | The publisher's own details (below), each host's and Polar's own legal pages |
-| `legal/terms-app.html` | The app's terms: the license and its seats, the trial, the free license of 2.x installs, Pro and Max (prices, renewal, cancelling, plan changes), the right of withdrawal, acceptable use, ending, guarantees and liability, law and disputes. Polar's buyer terms call it the "Supplier Agreement" | `pricing/` and `CHANGELOG.md` for what the plans include; Polar's buyer terms for the sale |
+| `legal/notice.html` | The *mentions légales* the LCEN requires: publisher, director of publication, contact, hosts, the seller, intellectual property, credits | The publisher's own details (below), each host's own legal pages, and Stripe's for the seller |
+| `legal/terms-app.html` | The app's terms: the license and its seats, the trial, the free license of 2.x installs, Pro and Max (prices, renewal, cancelling, plan changes), the right of withdrawal, acceptable use, ending, guarantees and liability, law and disputes. These are the product's terms that Link's buyer terms ask the buyer to read | `pricing/` and `CHANGELOG.md` for what the plans include; Link's *Sold through Link terms* (link.com/terms#sold-through-link-terms) for the sale |
 | `terms/` | HangarAI Cloud: credits, refunds, each service's rules, takedowns | `crates/hangar-app/src/cloud/service.rs`, the server |
 | `legal/affiliate-terms.html` | The referral program | `docs/native/referral.md` |
 | `privacy.html` | What leaves the computer and what is kept, then the GDPR's parts: *Who is responsible* (`#controller`), *Why, and on what legal basis* (`#bases`), *Who receives it, and transfers outside the EU* (`#recipients`), *Your rights*, *Automated decisions*, *Security*, *Cookies and browser storage* (`#cookies`) | The server's code and `docs/native/*.md`; each provider's own privacy policy for its country and transfer mechanism |
@@ -403,10 +403,17 @@ SASU (MercuryCloud), 200 rue de la Croix Nivert, 75015 Paris, RCS Paris 989
 address is in Vyme's AS199297); Cloudflare, Inc., 101 Townsend St, San
 Francisco, CA 94107, +1 650 319 8930, certified to the EU-U.S. Data Privacy
 Framework (its privacy policy); GitHub, Inc., 88 Colin P. Kelly Jr. Street,
-San Francisco, CA 94107, certified to the DPF; Polar Software, Inc., 3500
-South DuPont Highway, Dover, DE 19901, standard contractual clauses (its
-privacy policy), buyer terms of 25 March 2026, quoted in the app terms'
-section 6; Groq, fal, Vast.ai: contractual clauses, as their policies say;
+San Francisco, CA 94107, certified to the DPF; Stripe Managed Payments (checked on 2026-11-26 from
+Stripe's own pages): the merchant of record is Sold through Link, LLC, a US
+affiliate of Stripe whose address Stripe does not publish, under the *Sold
+through Link terms* (link.com/terms, in force on 2026-11-20, quoted in the app
+terms' section 6); Stripe Technology Company, Limited, One Wilton Park,
+Wilton Place, Dublin 2, D02 FX04, Ireland, provides the buyer services
+outside the Americas and is Stripe's main establishment in the EU; Stripe is
+an independent controller of the buyer's payment data (stripe.com/privacy,
+2026-11-20: standard contractual clauses, Stripe, LLC certified to the DPF);
+the checkout is on checkout.stripe.com, the customer portal on
+billing.stripe.com (no custom domain with Managed Payments); Groq, fal, Vast.ai: contractual clauses, as their policies say;
 Hetzner Online GmbH, in the EU. A new provider goes in `privacy.html`'s
 providers table, in `#recipients` with its country and transfer mechanism,
 and, if it hosts the site, in the legal notice.
@@ -418,6 +425,10 @@ after the visitor's yes on `/r/`, `assets/api.js`), and `hangar.lang`, `hangar.a
 `hangar.account.seen`, `hangar.signin` (`assets/lang.js`, `assets/nav.js`,
 `account/account.js`). The live site sets no other cookie (checked with its
 responses on 2026-11-22; Cloudflare could add `cf_clearance` on a challenge).
+Stripe's checkout and customer portal are on Stripe's own domains and set
+Stripe's cookies there (`__stripe_mid`, `__stripe_sid`, the portal's session;
+stripe.com/cookie-settings, 2026-11-26): `#cookies` says so; the site loads no
+Stripe script.
 A script that stores something new in the browser needs its line there
 before it ships. There is no consent banner. The referral cookie and `hangar.ref` are
 the ones the CNIL does not count as strictly necessary (its cookie FAQ: the
@@ -445,9 +456,10 @@ that is not strictly necessary may be added without consent.
 note once a reviewed version replaces the text. Choices that are the
 person's, written so that they are easy to change: French law; for
 professionals the courts of Saint-Étienne, consumers keeping their own
-(`legal/terms-app.html#disputes`); the sale is Polar's as merchant of record,
-which collects the request for immediate supply and the acknowledgment of
-losing the right of withdrawal (`#withdrawal`); refunds as `terms/#credits`
+(`legal/terms-app.html#disputes`); the sale is Link's as merchant of record
+under Stripe Managed Payments, whose checkout collects no request for immediate
+supply nor any acknowledgment of losing the right of withdrawal, so the 14 days
+apply as Link's terms write them, refunded in full (`#withdrawal`); refunds as `terms/#credits`
 says; the free license of 2.x installs, held by the HangarAI account, on up
 to 3 computers like Pro and Max (`#license`, `#licenses`, `pricing/`'s
 questions, `privacy.html#license`); an account from 16, buying from 18 or with a parent's permission
