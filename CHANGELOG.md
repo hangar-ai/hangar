@@ -10,6 +10,12 @@ Every release, with its installers, is on the
 
 ## [Unreleased]
 
+## [3.0.1] - 2026-11-26
+
+### Added
+
+- **Required updates.** HangarAI downloads required updates in the background and waits for you to restart. Older apps that cannot open Stripe checkout are asked to update before buying.
+
 ### Changed
 
 - **HangarAI is sold through Stripe.** Pro, Max, credit packs and pay as you go are paid at Stripe's checkout, and Stripe is now our merchant of record: it sells HangarAI, takes the payment, applies the VAT of your country and sends your receipts and invoices. **Manage subscription** and **Upgrade to Max** open Stripe's customer portal. Your license key is no longer emailed: the page you come back to after paying shows it, with a *Copy* button, and **New key** in your account at hangarai.dev/account makes a new one when you need it (the old one stops working; the computers already using the license keep it); Link emails the receipt. Settings › License, the site, the pricing questions, the referral program's examples and the legal pages (sale, refunds, right of withdrawal, privacy and cookies) say so.

@@ -475,7 +475,7 @@ so it is always the latest release's:
 
 ```
 Hangar.AI_x64-setup.exe
-Hangar.AI_universal.dmg
+Hangar.AI_aarch64.dmg
 Hangar.AI_amd64.AppImage
 Hangar.AI_amd64.deb
 Hangar.AI_x86_64.rpm

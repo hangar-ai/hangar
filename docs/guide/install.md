@@ -10,7 +10,7 @@ installs it in one click. An install of 2.x or 1.x offers 3.0 the same way.
 | System | File | Notes |
 |---|---|---|
 | Windows (x64) | `Hangar.AI_<version>_x64-setup.exe` | Installs for your user only, without administrator rights. Its release notes say whether it is code-signed, and by whom. HTML kit tabs and PDFs use WebView2, which ships with Windows 11; on Windows 10 the installer adds it if it is missing. |
-| macOS (Apple Silicon and Intel) | `Hangar.AI_<version>_universal.dmg` | One universal build for both, signed and notarised, macOS 10.15 or later. |
+| macOS (Apple Silicon) | `Hangar.AI_<version>_aarch64.dmg` | Signed and notarised, macOS 11 or later. Version 3.0.0 was the last release for Intel Macs. |
 | Linux (x86_64) | `.AppImage`, `.deb` or `.rpm` | The AppImage runs without installing (`chmod +x` it first) on distributions with glibc 2.35 or later (2022 on). HTML kit tabs and PDFs need WebKitGTK 4.1: apt and dnf install it with the `.deb` and `.rpm`; with the AppImage, install `libwebkit2gtk-4.1-0` (Debian, Ubuntu) or `webkit2gtk4.1` (Fedora) if your system lacks it. |
 
 > [!NOTE]
