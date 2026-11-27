@@ -355,6 +355,12 @@
   text-align: center;
 }
 
+/* Its `display: flex` would show it in spite of `hidden` (an author rule
+   beats the browser's own): the buy page's banner, shown only with ?mock=1. */
+.mock[hidden] {
+  display: none;
+}
+
 .mock b {
   color: var(--state-waiting);
 }
